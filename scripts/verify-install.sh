@@ -1,7 +1,7 @@
 #!/bin/bash
 # Claude HUD Installation Verification Script
 
-set -e
+set -uo pipefail
 
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'

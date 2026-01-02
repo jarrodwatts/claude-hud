@@ -1,6 +1,19 @@
 #!/bin/bash
+set -uo pipefail
+
+command -v jq &>/dev/null || exit 0
+
 INPUT=$(cat)
-SESSION_ID=$(echo "$INPUT" | jq -r '.session_id')
+
+if ! echo "$INPUT" | jq empty 2>/dev/null; then
+  exit 0
+fi
+
+SESSION_ID=$(echo "$INPUT" | jq -r '.session_id // empty')
+if [[ -z "$SESSION_ID" || ! "$SESSION_ID" =~ ^[a-zA-Z0-9_-]+$ ]]; then
+  exit 0
+fi
+
 HUD_DIR="$HOME/.claude/hud"
 EVENT_FIFO="$HUD_DIR/events/$SESSION_ID.fifo"
 PID_FILE="$HUD_DIR/pids/$SESSION_ID.pid"

@@ -1,8 +1,18 @@
 #!/bin/bash
-set -e
+set -uo pipefail
+
+command -v jq &>/dev/null || { echo "jq required" >&2; exit 1; }
 
 INPUT=$(cat)
-SESSION_ID=$(echo "$INPUT" | jq -r '.session_id')
+
+if ! echo "$INPUT" | jq empty 2>/dev/null; then
+  exit 1
+fi
+
+SESSION_ID=$(echo "$INPUT" | jq -r '.session_id // empty')
+if [[ -z "$SESSION_ID" || ! "$SESSION_ID" =~ ^[a-zA-Z0-9_-]+$ ]]; then
+  exit 1
+fi
 PLUGIN_ROOT="${CLAUDE_PLUGIN_ROOT:-$(dirname "$0")/..}"
 HUD_DIR="$HOME/.claude/hud"
 EVENT_FIFO="$HUD_DIR/events/$SESSION_ID.fifo"

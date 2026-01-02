@@ -4,19 +4,24 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-Claude HUD is a Claude Code plugin that displays a real-time terminal HUD (Heads-Up Display) in a split pane. It shows context usage, tool activity, MCP status, todos, and modified files.
+Claude HUD is a Claude Code plugin that displays a real-time terminal HUD (Heads-Up Display) in a split pane. It shows context usage, tool activity, agent status, todos, git status, and cost estimation.
 
 ## Build Commands
 
 ```bash
-# Install dependencies and build
-cd tui && bun install && bun run build
+# All commands run from tui/ directory
+cd tui
 
-# Development with watch mode
-cd tui && bun run dev
+bun install          # Install dependencies
+bun run build        # Build TypeScript
+bun run dev          # Watch mode for development
+bun test             # Run all tests
+bun test <pattern>   # Run specific test (e.g., bun test sparkline)
 
-# Run the TUI manually (for testing)
-cd tui && bun run start -- --session test --fifo /tmp/test.fifo
+# Manual testing with a FIFO
+mkfifo /tmp/test.fifo
+bun run start -- --session test --fifo /tmp/test.fifo
+# Then in another terminal, send test events to the FIFO
 ```
 
 ## Architecture
@@ -24,37 +29,57 @@ cd tui && bun run start -- --session test --fifo /tmp/test.fifo
 ### Data Flow
 
 ```
-Claude Code Hooks → FIFO (named pipe) → EventReader → React/Ink TUI
+Claude Code Hooks → capture-event.sh → FIFO → EventReader → React State → Ink Components
 ```
 
-1. **Hooks** (`hooks/hooks.json`) register shell scripts for Claude Code lifecycle events
-2. **Scripts** (`scripts/*.sh`) capture events and write JSON to a session-specific FIFO
-3. **EventReader** (`tui/src/lib/event-reader.ts`) reads the FIFO and emits parsed events
-4. **App** (`tui/src/index.tsx`) processes events and updates React state
+1. **hooks/hooks.json** - Registers shell scripts for Claude Code lifecycle events
+2. **scripts/capture-event.sh** - Transforms hook JSON into HudEvent format, writes to session FIFO
+3. **scripts/session-start.sh** - Creates FIFO, builds TUI if needed, spawns HUD in terminal split
+4. **tui/src/lib/event-reader.ts** - Reads FIFO line-by-line, parses JSON, emits events with auto-reconnect
+5. **tui/src/index.tsx** - Main App component, processes events and manages all state
 
-### Hook Events Captured
+### Hook Events
 
-- `SessionStart`: Spawns the HUD TUI in a terminal split pane
-- `PostToolUse`: Captures all tool calls (TodoWrite, Edit, Write, Task, etc.)
-- `SubagentStop`: Tracks agent completion
-- `SessionEnd`: Cleanup (kills process, removes FIFO)
+| Event | Script | Purpose |
+|-------|--------|---------|
+| SessionStart | session-start.sh | Spawns HUD in split pane |
+| PreToolUse | capture-event.sh | Shows tool as "running" |
+| PostToolUse | capture-event.sh | Updates tool completion, tracks context/cost |
+| UserPromptSubmit | capture-event.sh | Tracks user prompts, clears idle state |
+| Stop | capture-event.sh | Sets idle state |
+| PreCompact | capture-event.sh | Increments compaction count |
+| SubagentStop | capture-event.sh | Marks agent complete |
+| SessionEnd | cleanup.sh | Kills process, removes FIFO |
 
-### TUI Structure
+### Library Structure (tui/src/lib/)
 
-- `tui/src/index.tsx` - Main app, processes HudEvent and manages all state
-- `tui/src/lib/types.ts` - Type definitions (HudEvent, ToolEntry, TodoItem, etc.)
-- `tui/src/lib/event-reader.ts` - FIFO reader with auto-reconnect
-- `tui/src/components/` - React/Ink components for each HUD section
+- **types.ts** - All TypeScript interfaces (HudEvent, ToolEntry, TodoItem, ContextHealth, etc.)
+- **event-reader.ts** - FIFO reader with connection status and exponential backoff reconnect
+- **context-tracker.ts** - Estimates token usage, burn rate, compaction warnings
+- **cost-tracker.ts** - Calculates API costs based on model pricing
+
+### Component Structure (tui/src/components/)
+
+- **ContextMeter** - Token usage bar, sparkline history, burn rate
+- **ToolStream** - Live tool calls with status, duration, path truncation
+- **AgentList** - Running/completed subagents with elapsed time
+- **SessionStats** - Tool counts, lines changed, session duration
+- **GitStatus** - Branch, staged/modified/untracked counts
+- **TodoList** - Current task list from TodoWrite events
+- **ModifiedFiles** - Files changed via Edit/Write
+- **McpStatus** - Connected MCP servers
+- **Sparkline** - Unicode sparkline chart (▁▂▃▄▅▆▇█)
 
 ### Session Files
 
-Runtime files are stored in `~/.claude/hud/`:
+Runtime files stored in `~/.claude/hud/`:
 - `events/<session_id>.fifo` - Named pipe for event streaming
 - `pids/<session_id>.pid` - Process ID for cleanup
-- `logs/<session_id>.log` - Fallback output when no split pane available
+- `logs/<session_id>.log` - Fallback output when split pane unavailable
 
 ## Dependencies
 
 - **Runtime**: Node.js 18+ or Bun, jq (JSON parsing in hooks)
-- **TUI Framework**: React + Ink (terminal UI)
-- **Build**: TypeScript targeting ES2022 with NodeNext modules
+- **TUI Framework**: React 18 + Ink 5 (terminal UI via Yoga layout)
+- **Build**: TypeScript 5, ES2022 target, NodeNext modules
+- **Testing**: Vitest + @testing-library/react + ink-testing-library

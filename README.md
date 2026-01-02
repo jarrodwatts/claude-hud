@@ -15,7 +15,11 @@ That's it. The HUD appears automatically when you start Claude Code.
 ### Verify Installation
 
 ```bash
-~/.claude/plugins/claude-hud/scripts/verify-install.sh
+# Validate plugin structure
+claude plugin validate claude-hud
+
+# Or if installed from source
+./scripts/verify-install.sh
 ```
 
 ## Features
@@ -119,14 +123,14 @@ See [TROUBLESHOOTING.md](TROUBLESHOOTING.md) for common issues and solutions.
 
 Quick checks:
 ```bash
-# Verify installation
-~/.claude/plugins/claude-hud/scripts/verify-install.sh
-
 # Check plugin is valid
-claude plugin validate ~/.claude/plugins/claude-hud
+claude plugin validate claude-hud
 
 # View debug output
 claude --debug hooks
+
+# If installed from source, run verification script
+./scripts/verify-install.sh
 ```
 
 ## Development
