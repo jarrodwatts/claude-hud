@@ -62,6 +62,19 @@ describe('SessionStats', () => {
     expect(lastFrame()).toContain('2m');
   });
 
+  it('should show elapsed time in hours', () => {
+    const { lastFrame } = render(
+      <SessionStats
+        tools={[]}
+        modifiedFiles={new Map()}
+        agents={[]}
+        sessionStart={Date.now() - 3720000} // 62 minutes
+      />,
+    );
+    expect(lastFrame()).toContain('1h');
+    expect(lastFrame()).toContain('2m');
+  });
+
   it('should show top tool counts', () => {
     const tools = [
       createTool('Read'),

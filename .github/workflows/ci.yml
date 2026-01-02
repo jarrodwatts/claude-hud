@@ -1,0 +1,80 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  lint-and-test:
+    name: Lint, Typecheck & Test
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Install dependencies
+        run: |
+          cd tui
+          bun install --frozen-lockfile
+
+      - name: Run ESLint
+        run: |
+          cd tui
+          bun run lint
+
+      - name: Run TypeScript check
+        run: |
+          cd tui
+          bun run typecheck
+
+      - name: Run tests
+        run: |
+          cd tui
+          bun test
+
+      - name: Build
+        run: |
+          cd tui
+          bun run build
+
+  # Validate plugin structure
+  validate-plugin:
+    name: Validate Plugin Structure
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Check required files exist
+        run: |
+          test -f .claude-plugin/plugin.json || (echo "Missing plugin.json" && exit 1)
+          test -f hooks/hooks.json || (echo "Missing hooks.json" && exit 1)
+          test -f scripts/session-start.sh || (echo "Missing session-start.sh" && exit 1)
+          test -f scripts/capture-event.sh || (echo "Missing capture-event.sh" && exit 1)
+          echo "All required plugin files present"
+
+      - name: Validate plugin.json syntax
+        run: |
+          cat .claude-plugin/plugin.json | python3 -m json.tool > /dev/null
+          echo "plugin.json is valid JSON"
+
+      - name: Validate hooks.json syntax
+        run: |
+          cat hooks/hooks.json | python3 -m json.tool > /dev/null
+          echo "hooks.json is valid JSON"
+
+      - name: Check shell scripts are executable
+        run: |
+          test -x scripts/session-start.sh || chmod +x scripts/session-start.sh
+          test -x scripts/capture-event.sh || chmod +x scripts/capture-event.sh
+          test -x scripts/cleanup.sh || chmod +x scripts/cleanup.sh
+          echo "Shell scripts are executable"
