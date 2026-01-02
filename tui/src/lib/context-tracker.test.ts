@@ -107,6 +107,52 @@ describe('ContextTracker', () => {
     });
   });
 
+  describe('addMessageTokens', () => {
+    it('should add tokens to messages breakdown', () => {
+      tracker.addMessageTokens(100);
+      const health = tracker.getHealth();
+
+      expect(health.breakdown.messages).toBe(100);
+      expect(health.tokens).toBe(100);
+    });
+
+    it('should accumulate message tokens', () => {
+      tracker.addMessageTokens(50);
+      tracker.addMessageTokens(75);
+      const health = tracker.getHealth();
+
+      expect(health.breakdown.messages).toBe(125);
+      expect(health.tokens).toBe(125);
+    });
+  });
+
+  describe('getContextState', () => {
+    it('should return a subset of health data', () => {
+      const state = tracker.getContextState();
+
+      expect(state).toHaveProperty('tokens');
+      expect(state).toHaveProperty('percent');
+      expect(state).toHaveProperty('remaining');
+      expect(state).toHaveProperty('maxTokens');
+      expect(Object.keys(state)).toHaveLength(4);
+    });
+
+    it('should reflect current token count', () => {
+      tracker.processEvent({
+        event: 'PostToolUse',
+        tool: 'Read',
+        input: null,
+        response: { content: 'x'.repeat(400) },
+        session: 'test',
+        ts: Date.now() / 1000,
+      });
+
+      const state = tracker.getContextState();
+      expect(state.tokens).toBeGreaterThan(0);
+      expect(state.remaining).toBeLessThan(state.maxTokens);
+    });
+  });
+
   describe('reset', () => {
     it('should reset all counters', () => {
       tracker.processEvent({
