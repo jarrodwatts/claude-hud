@@ -40,6 +40,12 @@ which jq || echo "jq not found - install with: brew install jq"
 which node || which bun || echo "Node.js or Bun required"
 ```
 
+### 4b. Check Bootstrap Log
+If the HUD fails to launch, a bootstrap log is written with actionable fixes:
+```bash
+cat ~/.claude/hud/logs/hud-bootstrap.log
+```
+
 ### 5. Manual Testing
 Test the HUD manually:
 ```bash

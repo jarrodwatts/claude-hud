@@ -41,4 +41,10 @@ describe('logger', () => {
     expect(() => logger.debug('Context', 'Message', { nested: { value: 1 } })).not.toThrow();
     expect(() => logger.debug('Context', 'Message', [1, 2, 3])).not.toThrow();
   });
+
+  it('should not throw with circular data', () => {
+    const circular: Record<string, unknown> = {};
+    circular.self = circular;
+    expect(() => logger.error('Context', 'Message', circular)).not.toThrow();
+  });
 });

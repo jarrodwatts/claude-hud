@@ -2,7 +2,13 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
-import { readSettings, readSettingsWithStatus, SettingsReader } from './settings-reader.js';
+import {
+  readSettings,
+  readSettingsWithStatus,
+  readSettingsAsync,
+  readSettingsWithStatusAsync,
+  SettingsReader,
+} from './settings-reader.js';
 
 describe('readSettings', () => {
   let tmpDir: string;
@@ -84,6 +90,41 @@ describe('readSettings', () => {
   });
 });
 
+describe('readSettingsAsync', () => {
+  let tmpDir: string;
+  let settingsPath: string;
+
+  beforeEach(() => {
+    tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'claude-hud-'));
+    settingsPath = path.join(tmpDir, '.claude', 'settings.json');
+    fs.mkdirSync(path.dirname(settingsPath), { recursive: true });
+  });
+
+  afterEach(() => {
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  });
+
+  it('reads settings asynchronously', async () => {
+    fs.writeFileSync(settingsPath, JSON.stringify({ model: 'claude-opus-4' }), 'utf-8');
+
+    const data = await readSettingsAsync(settingsPath);
+    expect(data?.model).toBe('claude-opus-4');
+  });
+
+  it('returns null for missing file', async () => {
+    const data = await readSettingsAsync('/nonexistent/path/settings.json');
+    expect(data).toBeNull();
+  });
+
+  it('returns error for invalid JSON', async () => {
+    fs.writeFileSync(settingsPath, '{invalid}', 'utf-8');
+
+    const result = await readSettingsWithStatusAsync(settingsPath);
+    expect(result.data).toBeNull();
+    expect(result.error).toBeDefined();
+  });
+});
+
 describe('SettingsReader', () => {
   let tmpDir: string;
   let settingsPath: string;
@@ -113,5 +154,58 @@ describe('SettingsReader', () => {
 
     const refreshed = reader.forceRefresh();
     expect(refreshed?.model).toBe('beta');
+  });
+
+  it('readWithStatus returns cached data and error', () => {
+    fs.writeFileSync(settingsPath, JSON.stringify({ model: 'gamma' }), 'utf-8');
+
+    const reader = new SettingsReader(settingsPath);
+
+    const result = reader.readWithStatus();
+    expect(result.data?.model).toBe('gamma');
+    expect(result.error).toBeUndefined();
+
+    // #when cached, returns same result
+    const cached = reader.readWithStatus();
+    expect(cached.data?.model).toBe('gamma');
+  });
+
+  it('readWithStatusAsync returns cached data', async () => {
+    fs.writeFileSync(settingsPath, JSON.stringify({ model: 'delta' }), 'utf-8');
+
+    const reader = new SettingsReader(settingsPath);
+
+    const result = await reader.readWithStatusAsync();
+    expect(result.data?.model).toBe('delta');
+
+    // #when cached, returns same result
+    const cached = await reader.readWithStatusAsync();
+    expect(cached.data?.model).toBe('delta');
+  });
+
+  it('forceRefreshAsync updates cached data', async () => {
+    fs.writeFileSync(settingsPath, JSON.stringify({ model: 'initial' }), 'utf-8');
+
+    const reader = new SettingsReader(settingsPath);
+    reader.read();
+
+    fs.writeFileSync(settingsPath, JSON.stringify({ model: 'updated' }), 'utf-8');
+
+    const refreshed = await reader.forceRefreshAsync();
+    expect(refreshed?.model).toBe('updated');
+  });
+
+  it('tracks error state', () => {
+    fs.writeFileSync(settingsPath, '{invalid json}', 'utf-8');
+
+    const reader = new SettingsReader(settingsPath);
+    const result = reader.readWithStatus();
+
+    expect(result.data).toBeNull();
+    expect(result.error).toBeDefined();
+
+    // #when cached error, returns same error
+    const cached = reader.readWithStatus();
+    expect(cached.error).toBeDefined();
   });
 });

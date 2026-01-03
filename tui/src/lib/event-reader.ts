@@ -17,7 +17,7 @@ export class EventReader extends EventEmitter {
   private rl: ReturnType<typeof createInterface> | null = null;
   private closed = false;
   private reconnectAttempts = 0;
-  private maxReconnectAttempts = 50;
+  private maxReconnectAttempts = Number.POSITIVE_INFINITY;
   private status: ConnectionStatus = 'connecting';
   private lastEventTime: number = 0;
   private lastParseErrorAt = 0;
@@ -107,7 +107,7 @@ export class EventReader extends EventEmitter {
       return;
     }
 
-    this.reconnectAttempts++;
+    this.reconnectAttempts = Math.min(this.reconnectAttempts + 1, 1_000_000);
     const delay = Math.min(
       INITIAL_RECONNECT_DELAY_MS * Math.pow(RECONNECT_BACKOFF_FACTOR, this.reconnectAttempts),
       MAX_RECONNECT_DELAY_MS,

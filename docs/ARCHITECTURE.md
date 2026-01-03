@@ -33,9 +33,23 @@ claude-hud/
 
 The HUD writes runtime artifacts under `~/.claude/hud/`:
 
-- `events/<session_id>.fifo` for the event stream
-- `pids/<session_id>.pid` for the HUD process
-- `logs/<session_id>.log` for fallback output
+- `events/<session_id>.fifo` - Event stream (session-scoped)
+- `pids/<terminal_id>.pid` - HUD process ID (terminal-scoped)
+- `refresh-<terminal_id>.json` - Current session state (terminal-scoped)
+- `logs/<session_id>.log` - Fallback output
+
+### Terminal vs Session Scoping
+
+Each terminal window gets ONE HUD instance, tracked by a terminal ID derived from:
+- tmux: `#{window_id}` (e.g., `tmux-@0`)
+- iTerm2: `ITERM_SESSION_ID`
+- Kitty: `KITTY_WINDOW_ID`
+- WezTerm: `WEZTERM_PANE`
+- Fallback: TTY device or parent PID
+
+This ensures:
+- Multiple Claude instances in different windows → separate HUDs
+- `/new` within same window → HUD switches sessions (not duplicated)
 
 ## Key Components
 

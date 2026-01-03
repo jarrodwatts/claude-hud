@@ -77,9 +77,18 @@ All events sent to the FIFO include `schemaVersion: 1` (see `docs/API.md`).
 ### Session Files
 
 Runtime files stored in `~/.claude/hud/`:
-- `events/<session_id>.fifo` - Named pipe for event streaming
-- `pids/<session_id>.pid` - Process ID for cleanup
+- `events/<session_id>.fifo` - Named pipe for event streaming (session-scoped)
+- `pids/<terminal_id>.pid` - Process ID for cleanup (terminal-scoped)
+- `refresh-<terminal_id>.json` - Session state for HUD switching (terminal-scoped)
 - `logs/<session_id>.log` - Fallback output when split pane unavailable
+
+**Terminal vs Session Scoping:**
+- Each terminal window gets ONE HUD instance (tracked by terminal ID)
+- Each Claude session has its own FIFO (for event isolation)
+- `/new` within same terminal reuses existing HUD (signals it to switch sessions)
+- Different terminal windows get separate HUDs
+
+Terminal IDs are derived from: tmux window ID, iTerm session ID, Kitty window ID, etc.
 
 ## HUD Configuration
 

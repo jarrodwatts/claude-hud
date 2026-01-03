@@ -143,4 +143,136 @@ describe('parseHudEvent', () => {
       expect(result.error.message).toContain('response');
     }
   });
+
+  it('rejects non-object payload (array)', () => {
+    const line = JSON.stringify(['not', 'an', 'object']);
+    const result = parseHudEventResult(line);
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.error.code).toBe('event_parse_failed');
+      expect(result.error.message).toContain('not an object');
+    }
+  });
+
+  it('rejects non-object payload (string)', () => {
+    const line = JSON.stringify('just a string');
+    const result = parseHudEventResult(line);
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.error.code).toBe('event_parse_failed');
+      expect(result.error.message).toContain('not an object');
+    }
+  });
+
+  it('rejects non-object payload (number)', () => {
+    const line = '42';
+    const result = parseHudEventResult(line);
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.error.code).toBe('event_parse_failed');
+      expect(result.error.message).toContain('not an object');
+    }
+  });
+
+  it('rejects non-object payload (null)', () => {
+    const line = 'null';
+    const result = parseHudEventResult(line);
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.error.code).toBe('event_parse_failed');
+      expect(result.error.message).toContain('not an object');
+    }
+  });
+
+  it('rejects schema version 0 as missing', () => {
+    const line = JSON.stringify({
+      schemaVersion: 0,
+      event: 'Stop',
+      tool: null,
+      input: null,
+      response: null,
+      session: 's1',
+      ts: 1,
+    });
+    const result = parseHudEventResult(line);
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.error.code).toBe('event_parse_failed');
+    }
+  });
+
+  it('accepts and warns for schema version newer than supported', () => {
+    const line = JSON.stringify({
+      schemaVersion: 99,
+      event: 'Stop',
+      tool: null,
+      input: null,
+      response: null,
+      session: 's1',
+      ts: 1,
+    });
+    const result = parseHudEventResult(line);
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.event.event).toBe('Stop');
+      expect(result.warning).toBeDefined();
+      expect(result.warning?.code).toBe('schema_version_mismatch');
+      expect(result.warning?.message).toContain('newer than supported');
+    }
+  });
+
+  it('truncates long lines in error context', () => {
+    const longLine = 'x'.repeat(250);
+    const result = parseHudEventResult(longLine);
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.error.context?.linePreview).toBeDefined();
+      const preview = result.error.context?.linePreview as string;
+      expect(preview.length).toBeLessThan(longLine.length);
+    }
+  });
+
+  it('parses optional fields like cwd, prompt, permissionMode', () => {
+    const line = JSON.stringify({
+      schemaVersion: 1,
+      event: 'UserPromptSubmit',
+      tool: null,
+      input: null,
+      response: null,
+      session: 's1',
+      ts: 123,
+      cwd: '/home/user/project',
+      prompt: 'Hello world',
+      permissionMode: 'default',
+      transcriptPath: '/tmp/transcript.json',
+    });
+    const result = parseHudEventResult(line);
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.event.cwd).toBe('/home/user/project');
+      expect(result.event.prompt).toBe('Hello world');
+      expect(result.event.permissionMode).toBe('default');
+      expect(result.event.transcriptPath).toBe('/tmp/transcript.json');
+    }
+  });
+
+  it('ignores non-string optional fields', () => {
+    const line = JSON.stringify({
+      schemaVersion: 1,
+      event: 'Stop',
+      tool: null,
+      input: null,
+      response: null,
+      session: 's1',
+      ts: 123,
+      cwd: 123,
+      prompt: { not: 'a string' },
+    });
+    const result = parseHudEventResult(line);
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.event.cwd).toBeUndefined();
+      expect(result.event.prompt).toBeUndefined();
+    }
+  });
 });

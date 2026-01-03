@@ -152,4 +152,68 @@ describe('EventReader', () => {
     reader.close();
     fs.rmSync(tmpDir, { recursive: true, force: true });
   });
+
+  it('returns initial status as connecting', () => {
+    const reader = new EventReader('/tmp/nonexistent-fifo-path-12345');
+    expect(reader.getStatus()).toBe('connecting');
+    reader.close();
+  });
+
+  it('transitions through status states', async () => {
+    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'claude-hud-'));
+    const filePath = path.join(tmpDir, 'events.log');
+    fs.writeFileSync(filePath, '', 'utf-8');
+
+    const reader = new EventReader(filePath);
+    const statuses: string[] = [];
+    reader.on('status', (status) => statuses.push(status));
+
+    await wait(100);
+    reader.close();
+
+    expect(statuses).toContain('connected');
+    expect(reader.getStatus()).toBe('disconnected');
+
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  });
+
+  it('waits for file to exist before connecting', async () => {
+    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'claude-hud-'));
+    const filePath = path.join(tmpDir, 'delayed.log');
+
+    const reader = new EventReader(filePath);
+    const statuses: string[] = [];
+    reader.on('status', (status) => statuses.push(status));
+
+    expect(reader.getStatus()).toBe('connecting');
+
+    await wait(100);
+    fs.writeFileSync(filePath, '', 'utf-8');
+    await wait(600);
+
+    expect(statuses).toContain('connected');
+
+    reader.close();
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  });
+
+  it('throttles duplicate parse errors', async () => {
+    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'claude-hud-'));
+    const filePath = path.join(tmpDir, 'events.log');
+
+    const invalidLines = Array(10).fill('invalid json').join('\n') + '\n';
+    fs.writeFileSync(filePath, invalidLines, 'utf-8');
+
+    const reader = new EventReader(filePath);
+    const errors: Array<{ code: string; message: string }> = [];
+    reader.on('parseError', (error) => errors.push(error));
+
+    await wait(50);
+    reader.close();
+
+    expect(errors.length).toBeLessThan(10);
+    expect(errors.length).toBeGreaterThan(0);
+
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  });
 });

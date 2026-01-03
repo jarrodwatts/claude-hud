@@ -13,18 +13,32 @@ SESSION_ID=$(echo "$INPUT" | jq -r '.session_id // empty')
 if [[ -z "$SESSION_ID" || ! "$SESSION_ID" =~ ^[a-zA-Z0-9_-]+$ ]]; then
   exit 1
 fi
+
 PLUGIN_ROOT="${CLAUDE_PLUGIN_ROOT:-$(dirname "$0")/..}"
 HUD_DIR="$HOME/.claude/hud"
+
+# Source terminal ID helper
+source "$PLUGIN_ROOT/scripts/lib/terminal-id.sh"
+# Source preflight helper
+source "$PLUGIN_ROOT/scripts/lib/preflight.sh"
+TERMINAL_ID=$(get_terminal_id)
+
+# Terminal-scoped files (one HUD per terminal window)
+PID_FILE="$HUD_DIR/pids/$TERMINAL_ID.pid"
+REFRESH_FILE="$HUD_DIR/refresh-$TERMINAL_ID.json"
+
+# Session-scoped FIFO (each session has its own event stream)
 EVENT_FIFO="$HUD_DIR/events/$SESSION_ID.fifo"
-PID_FILE="$HUD_DIR/pids/$SESSION_ID.pid"
 LOG_FILE="$HUD_DIR/logs/$SESSION_ID.log"
 
 mkdir -p "$HUD_DIR/events" "$HUD_DIR/logs" "$HUD_DIR/pids"
 
-REFRESH_FILE="$HUD_DIR/refresh.json"
-
 rm -f "$EVENT_FIFO"
 mkfifo "$EVENT_FIFO"
+
+if ! hud_preflight "$SESSION_ID" "$TERMINAL_ID" "$PLUGIN_ROOT" "stderr"; then
+  exit 0
+fi
 
 if [ ! -f "$PLUGIN_ROOT/tui/dist/index.js" ]; then
   echo "claude-hud build missing. Run 'bun install' and 'bun run build' in $PLUGIN_ROOT/tui." >&2
@@ -32,66 +46,50 @@ if [ ! -f "$PLUGIN_ROOT/tui/dist/index.js" ]; then
 fi
 
 if command -v bun &> /dev/null; then
-  HUD_CMD="bun $PLUGIN_ROOT/tui/dist/index.js --session $SESSION_ID --fifo $EVENT_FIFO"
+  HUD_CMD="bun $PLUGIN_ROOT/tui/dist/index.js --session $SESSION_ID --fifo $EVENT_FIFO --terminal-id $TERMINAL_ID"
 else
-  HUD_CMD="node $PLUGIN_ROOT/tui/dist/index.js --session $SESSION_ID --fifo $EVENT_FIFO"
+  HUD_CMD="node $PLUGIN_ROOT/tui/dist/index.js --session $SESSION_ID --fifo $EVENT_FIFO --terminal-id $TERMINAL_ID"
 fi
 
 find_existing_hud() {
-  # Find existing HUD process PID that's actually visible
-  for pid_file in "$HUD_DIR/pids"/*.pid; do
-    [ -f "$pid_file" ] || continue
+  # Check if there's already a HUD for THIS terminal window
+  if [ -f "$PID_FILE" ]; then
     local pid
-    pid=$(cat "$pid_file" 2>/dev/null)
+    pid=$(cat "$PID_FILE" 2>/dev/null)
     if [ -n "$pid" ] && kill -0 "$pid" 2>/dev/null; then
-      # Verify the process is in a visible tmux pane (if in tmux)
+      # Verify the process is still in a visible pane (tmux only)
       if [ -n "${TMUX:-}" ]; then
-        if tmux list-panes -a -F '#{pane_pid}' 2>/dev/null | grep -q "^${pid}$"; then
+        # Check current window's panes only (not -a which is global)
+        if tmux list-panes -F '#{pane_pid}' 2>/dev/null | grep -q "^${pid}$"; then
           echo "$pid"
           return 0
-        else
-          # Process exists but pane is gone - kill stale process
-          kill "$pid" 2>/dev/null
-          rm -f "$pid_file"
-          continue
         fi
-      else
-        echo "$pid"
-        return 0
+        # Process exists but not in current window - stale PID file
+        rm -f "$PID_FILE"
+        return 1
       fi
-    fi
-    rm -f "$pid_file"
-  done
-  # Try pgrep as fallback - but only if pane is visible
-  # Use stricter pattern to avoid matching wrong sessions
-  local fallback_pid
-  fallback_pid=$(pgrep -f "tui/dist/index\.js.*--session[[:space:]]" 2>/dev/null | head -1)
-  if [ -n "$fallback_pid" ] && [ -n "${TMUX:-}" ]; then
-    if tmux list-panes -a -F '#{pane_pid}' 2>/dev/null | grep -q "^${fallback_pid}$"; then
-      echo "$fallback_pid"
+      # Non-tmux: trust the PID file if process is alive
+      echo "$pid"
       return 0
-    else
-      kill "$fallback_pid" 2>/dev/null
     fi
-  elif [ -n "$fallback_pid" ]; then
-    echo "$fallback_pid"
+    # PID file exists but process is dead - clean up
+    rm -f "$PID_FILE"
   fi
+  return 1
 }
 
 signal_existing_hud() {
   local pid="$1"
-  # Write refresh file with new session info
+  # Write refresh file with new session info for THIS terminal
   cat > "$REFRESH_FILE" << EOF
-{"sessionId":"$SESSION_ID","fifoPath":"$EVENT_FIFO"}
+{"sessionId":"$SESSION_ID","fifoPath":"$EVENT_FIFO","terminalId":"$TERMINAL_ID"}
 EOF
   # Send SIGUSR1 to trigger refresh
   kill -USR1 "$pid" 2>/dev/null
-  # Save new PID file for this session
-  echo "$pid" > "$PID_FILE"
 }
 
 launch_split_pane() {
-  # Check for existing HUD - signal it instead of spawning new one
+  # Check for existing HUD in THIS terminal window - signal it to switch sessions
   local existing_pid
   existing_pid=$(find_existing_hud)
   if [ -n "$existing_pid" ]; then
@@ -99,9 +97,21 @@ launch_split_pane() {
     return 0
   fi
 
+  # Write initial refresh file
+  cat > "$REFRESH_FILE" << EOF
+{"sessionId":"$SESSION_ID","fifoPath":"$EVENT_FIFO","terminalId":"$TERMINAL_ID"}
+EOF
+
   # tmux - most reliable split pane support
   if [ -n "${TMUX:-}" ]; then
-    tmux split-window -d -h -l 48 "$HUD_CMD" 2>/dev/null && return 0
+    tmux split-window -d -h -l 48 "$HUD_CMD" 2>/dev/null && {
+      # Get PID of the new pane's process
+      sleep 0.1
+      local new_pid
+      new_pid=$(tmux list-panes -F '#{pane_pid}' | tail -1)
+      [ -n "$new_pid" ] && echo "$new_pid" > "$PID_FILE"
+      return 0
+    }
   fi
 
   # iTerm2 on macOS
@@ -153,6 +163,7 @@ launch_split_pane() {
   fi
 
   # Fallback: run in background with logging
+  hud_bootstrap_log "split not available; running HUD in background (session=$SESSION_ID terminal=$TERMINAL_ID) log=$LOG_FILE"
   nohup $HUD_CMD > "$LOG_FILE" 2>&1 &
   echo $! > "$PID_FILE"
   return 0

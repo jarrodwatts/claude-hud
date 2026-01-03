@@ -58,6 +58,7 @@ const mockState: HudState = {
   safeMode: false,
   safeModeReason: null,
   errors: [],
+  parseErrorCount: 0,
   config: null,
   now: 1700000006000,
   settings: {

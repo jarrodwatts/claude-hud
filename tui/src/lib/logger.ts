@@ -48,13 +48,47 @@ function rotateLogIfNeeded(): void {
   }
 }
 
+function safeStringify(value: unknown): string {
+  const seen = new WeakSet<object>();
+  try {
+    return JSON.stringify(value, (_key, val) => {
+      if (val instanceof Error) {
+        return {
+          name: val.name,
+          message: val.message,
+          stack: val.stack,
+        };
+      }
+      if (typeof val === 'object' && val !== null) {
+        if (seen.has(val)) {
+          return '[Circular]';
+        }
+        seen.add(val);
+      }
+      return val;
+    });
+  } catch {
+    try {
+      return JSON.stringify(String(value));
+    } catch {
+      return '"[Unserializable]"';
+    }
+  }
+}
+
 function getLogStream(): fs.WriteStream | null {
   if (logFileHandle) return logFileHandle;
   if (!ensureLogDir()) return null;
   rotateLogIfNeeded();
   try {
-    logFileHandle = fs.createWriteStream(LOG_FILE, { flags: 'a' });
-    return logFileHandle;
+    const stream = fs.createWriteStream(LOG_FILE, { flags: 'a' });
+    stream.on('error', () => {
+      if (logFileHandle === stream) {
+        logFileHandle = null;
+      }
+    });
+    logFileHandle = stream;
+    return stream;
   } catch {
     return null;
   }
@@ -64,7 +98,7 @@ function writeToFile(level: string, context: string, message: string, data?: unk
   const stream = getLogStream();
   if (!stream) return;
   const timestamp = new Date().toISOString();
-  const dataStr = data !== undefined ? ` ${JSON.stringify(data)}` : '';
+  const dataStr = data !== undefined ? ` ${safeStringify(data)}` : '';
   stream.write(`${timestamp} [${level}] [${context}] ${message}${dataStr}\n`);
 }
 

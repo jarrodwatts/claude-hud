@@ -9,30 +9,37 @@ import { App } from './app.js';
 import { logger } from './lib/logger.js';
 
 const HUD_DIR = path.join(os.homedir(), '.claude', 'hud');
-const REFRESH_FILE = path.join(HUD_DIR, 'refresh.json');
 
 interface SessionConfig {
   sessionId: string;
   fifoPath: string;
+  terminalId: string;
   transcriptPath?: string;
+}
+
+function getRefreshFilePath(terminalId: string): string {
+  return path.join(HUD_DIR, `refresh-${terminalId}.json`);
 }
 
 function Root({ initialSession }: { initialSession: SessionConfig }) {
   const [session, setSession] = useState(initialSession);
+  const refreshFile = getRefreshFilePath(session.terminalId);
 
   const readRefreshFile = useCallback(async (): Promise<SessionConfig | null> => {
-    if (!existsSync(REFRESH_FILE)) return null;
+    if (!existsSync(refreshFile)) return null;
     try {
-      const data = await readFile(REFRESH_FILE, 'utf-8');
+      const data = await readFile(refreshFile, 'utf-8');
       const parsed = JSON.parse(data) as {
         sessionId?: string;
         fifoPath?: string;
+        terminalId?: string;
         transcriptPath?: string;
       };
       if (parsed.sessionId && parsed.fifoPath) {
         return {
           sessionId: parsed.sessionId,
           fifoPath: parsed.fifoPath,
+          terminalId: parsed.terminalId || session.terminalId,
           transcriptPath: parsed.transcriptPath,
         };
       }
@@ -40,7 +47,7 @@ function Root({ initialSession }: { initialSession: SessionConfig }) {
       logger.warn('Root', 'Failed to parse refresh file', { err });
     }
     return null;
-  }, []);
+  }, [refreshFile, session.terminalId]);
 
   const handleRefresh = useCallback(() => {
     void readRefreshFile().then((next) => {
@@ -69,7 +76,8 @@ function Root({ initialSession }: { initialSession: SessionConfig }) {
     let watcher: ReturnType<typeof watch> | null = null;
     try {
       watcher = watch(HUD_DIR, { persistent: false }, (_event, filename) => {
-        if (filename === 'refresh.json' || filename?.toString() === 'refresh.json') {
+        const expectedFilename = `refresh-${session.terminalId}.json`;
+        if (filename === expectedFilename || filename?.toString() === expectedFilename) {
           handleRefresh();
         }
       });
@@ -89,7 +97,7 @@ function Root({ initialSession }: { initialSession: SessionConfig }) {
       clearInterval(pollInterval);
       watcher?.close();
     };
-  }, [handleRefresh, readRefreshFile, session.sessionId]);
+  }, [handleRefresh, readRefreshFile, session.sessionId, session.terminalId]);
 
   // Key forces full remount on session change, resetting all state
   return (
@@ -105,10 +113,11 @@ function Root({ initialSession }: { initialSession: SessionConfig }) {
 const args = minimist(process.argv.slice(2));
 const sessionId = args.session || 'unknown';
 const fifoPath = args.fifo || '';
+const terminalId = args['terminal-id'] || 'unknown';
 
 if (!fifoPath) {
-  console.error('Usage: node index.js --session <id> --fifo <path>');
+  console.error('Usage: node index.js --session <id> --fifo <path> --terminal-id <id>');
   process.exit(1);
 }
 
-render(<Root initialSession={{ sessionId, fifoPath }} />);
+render(<Root initialSession={{ sessionId, fifoPath, terminalId }} />);

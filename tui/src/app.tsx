@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Box, Text, useInput, useApp, useStdout } from 'ink';
 import { useHudState } from './hooks/useHudState.js';
 import { useElapsedTime } from './hooks/useElapsedTime.js';
@@ -18,6 +18,8 @@ interface AppProps {
   sessionId: string;
   fifoPath: string;
   initialTranscriptPath?: string;
+  schemaBannerVisibleMs?: number;
+  schemaBannerSuppressMs?: number;
 }
 
 const STATUS_COLORS: Record<ConnectionStatus, string> = {
@@ -34,11 +36,24 @@ const STATUS_ICONS: Record<ConnectionStatus, string> = {
   error: '✗',
 };
 
-export function App({ sessionId, fifoPath, initialTranscriptPath }: AppProps) {
+const DEFAULT_SCHEMA_BANNER_VISIBLE_MS = 10000;
+const DEFAULT_SCHEMA_BANNER_SUPPRESS_MS = 5 * 60 * 1000;
+
+export function App({
+  sessionId,
+  fifoPath,
+  initialTranscriptPath,
+  schemaBannerVisibleMs,
+  schemaBannerSuppressMs,
+}: AppProps) {
   const { exit } = useApp();
   const { stdout } = useStdout();
   const [termRows, setTermRows] = useState(stdout?.rows || 24);
   const [visible, setVisible] = useState(true);
+  const [showSchemaBanner, setShowSchemaBanner] = useState(false);
+  const schemaHideTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const schemaSuppressUntilRef = useRef(0);
+  const lastSchemaErrorTsRef = useRef<number | null>(null);
 
   const state = useHudState({ fifoPath, sessionId, initialTranscriptPath });
   const sessionStart = state.context.sessionStart || state.now;
@@ -62,6 +77,47 @@ export function App({ sessionId, fifoPath, initialTranscriptPath }: AppProps) {
     };
   }, [stdout]);
 
+  useEffect(() => {
+    return () => {
+      if (schemaHideTimeoutRef.current) {
+        clearTimeout(schemaHideTimeoutRef.current);
+        schemaHideTimeoutRef.current = null;
+      }
+    };
+  }, []);
+
+  const schemaError = [...state.errors]
+    .reverse()
+    .find((error) => error.code === 'schema_version_mismatch');
+
+  const bannerVisibleMs = schemaBannerVisibleMs ?? DEFAULT_SCHEMA_BANNER_VISIBLE_MS;
+  const bannerSuppressMs = schemaBannerSuppressMs ?? DEFAULT_SCHEMA_BANNER_SUPPRESS_MS;
+
+  useEffect(() => {
+    if (!schemaError) {
+      setShowSchemaBanner(false);
+      return;
+    }
+    if (lastSchemaErrorTsRef.current === schemaError.ts) {
+      return;
+    }
+    lastSchemaErrorTsRef.current = schemaError.ts;
+
+    const now = Date.now();
+    if (now < schemaSuppressUntilRef.current) {
+      return;
+    }
+
+    setShowSchemaBanner(true);
+    if (schemaHideTimeoutRef.current) {
+      clearTimeout(schemaHideTimeoutRef.current);
+    }
+    schemaHideTimeoutRef.current = setTimeout(() => {
+      setShowSchemaBanner(false);
+      schemaSuppressUntilRef.current = Date.now() + bannerSuppressMs;
+    }, bannerVisibleMs);
+  }, [schemaError?.ts, bannerSuppressMs, bannerVisibleMs]);
+
   if (!visible) {
     return (
       <Box>
@@ -75,6 +131,15 @@ export function App({ sessionId, fifoPath, initialTranscriptPath }: AppProps) {
   const panelWidth = state.config?.width || 48;
   const lastError = state.errors[state.errors.length - 1];
   const errorSuffix = state.errors.length > 1 ? ` (+${state.errors.length - 1} more)` : '';
+  const schemaContext = schemaError?.context as
+    | { schemaVersion?: number; expected?: number }
+    | undefined;
+  const schemaDetail =
+    schemaContext?.schemaVersion && schemaContext?.expected
+      ? `v${schemaContext.schemaVersion} (expected v${schemaContext.expected})`
+      : schemaError?.message;
+  const showGenericError =
+    lastError && lastError.code !== 'schema_version_mismatch' && !showSchemaBanner;
 
   const panels: Record<PanelId, React.ReactNode> = {
     status: (
@@ -150,7 +215,15 @@ export function App({ sessionId, fifoPath, initialTranscriptPath }: AppProps) {
         </Box>
       )}
 
-      {lastError && (
+      {showSchemaBanner && schemaError && (
+        <Box marginBottom={1} flexDirection="column">
+          <Text color="yellow">Schema mismatch</Text>
+          <Text dimColor>{schemaDetail || 'Event schema mismatch detected.'}</Text>
+          <Text dimColor>Update claude-hud to restore compatibility.</Text>
+        </Box>
+      )}
+
+      {showGenericError && lastError && (
         <Box marginBottom={1}>
           <Text color="red">Event error: </Text>
           <Text dimColor>
