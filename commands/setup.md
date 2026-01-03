@@ -2,7 +2,11 @@
 description: Configure claude-hud as your statusline
 ---
 
-Add this exact statusLine configuration to ~/.claude/settings.json:
+Add statusLine configuration to ~/.claude/settings.json.
+
+The command value must be exactly: `node $` + `{CLAUDE_PLUGIN_ROOT}` + `/dist/index.js`
+
+This creates the literal string `node ${CLAUDE_PLUGIN_ROOT}/dist/index.js` - Claude Code resolves this variable at runtime.
 
 ```json
 {
@@ -13,7 +17,7 @@ Add this exact statusLine configuration to ~/.claude/settings.json:
 }
 ```
 
-IMPORTANT: Use the literal string `${CLAUDE_PLUGIN_ROOT}` exactly as shown - do NOT resolve or expand it. Claude Code will resolve this variable at runtime to the correct plugin path.
+DO NOT resolve the variable to an absolute path. Write it exactly as shown with the dollar sign and braces.
 
 Merge with existing settings. Do not overwrite other fields.
 
