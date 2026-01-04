@@ -1,4 +1,4 @@
-[Opus] █████░░░░░ 45%
+📁 my-project | [Opus] █████░░░░░ 45%
 ◐ Edit: .../authentication.ts | ✓ Read ×1
 ✓ explore [haiku]: Finding auth code (<1s)
 ▸ Add tests (1/2)

@@ -5,6 +5,11 @@ export function renderSessionLine(ctx) {
     const percent = getContextPercent(ctx.stdin);
     const bar = coloredBar(percent);
     const parts = [];
+    // Add project folder name for context
+    if (ctx.stdin.cwd) {
+        const projectName = ctx.stdin.cwd.split('/').pop() || ctx.stdin.cwd;
+        parts.push(cyan(`📁 ${projectName}`));
+    }
     parts.push(`${cyan(`[${model}]`)} ${bar} ${getContextColor(percent)}${percent}%${RESET}`);
     if (ctx.claudeMdCount > 0) {
         parts.push(dim(`${ctx.claudeMdCount} CLAUDE.md`));
