@@ -9,12 +9,14 @@ Add this statusLine configuration to `~/.claude/settings.json`:
 {
   "statusLine": {
     "type": "command",
-    "command": "bash -c 'node \"$(ls -td ~/.claude/plugins/cache/claude-hud/claude-hud/*/ 2>/dev/null | head -1)dist/index.js\"'"
+    "command": "bash -c 'P=$(ls -td ~/.claude/plugins/cache/claude-hud/claude-hud/*/ 2>/dev/null | head -1); if command -v bun >/dev/null; then bun \"${P}src/index.ts\"; else node \"${P}dist/index.js\"; fi'"
   }
 }
 ```
 
-This command automatically finds and runs the latest installed version.
+This command automatically:
+- Uses **bun + TypeScript** if available (4x faster startup), otherwise falls back to **node + JS**
+- Finds and runs the latest installed version
 
 Merge with existing settings. Do not overwrite other fields.
 
