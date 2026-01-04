@@ -1,7 +1,8 @@
 # Dependencies
 node_modules/
 
-# Build artifacts (dist/ is committed for plugin distribution)
+# Build artifacts (built by CI after merge)
+dist/
 *.tsbuildinfo
 
 # Logs
