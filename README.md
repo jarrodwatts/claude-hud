@@ -28,6 +28,19 @@ Inside a Claude Code instance, run the following commands:
 
 Done! The HUD appears immediately — no restart needed.
 
+### Windows Setup
+If you are using Windows, `bash` is not available by default. Use the following configuration instead:
+
+```json
+{
+  "statusLine": {
+    "type": "command",
+    "command": "node C:\\Users\\<username>\\.claude\\plugins\\cache\\claude-hud\\claude-hud\\0.0.1\\dist\\index.js"
+  }
+}```
+
+Note: Replace <username> with your actual Windows username.
+
 ---
 
 ## What is Claude HUD?
