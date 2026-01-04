@@ -19,7 +19,7 @@
     "node": ">=18.0.0"
   },
   "devDependencies": {
-    "@types/node": "^20.0.0",
+    "@types/node": "^25.0.3",
     "c8": "^10.1.3",
     "typescript": "^5.0.0"
   }
