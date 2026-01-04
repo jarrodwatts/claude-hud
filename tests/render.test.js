@@ -11,9 +11,9 @@ function baseContext() {
     stdin: {
       model: { display_name: 'Opus' },
       context_window: {
-        context_window_size: 100,
+        context_window_size: 200000,
         current_usage: {
-          input_tokens: 10,
+          input_tokens: 10000,
           cache_creation_input_tokens: 0,
           cache_read_input_tokens: 0,
         },
@@ -30,7 +30,8 @@ function baseContext() {
 
 test('renderSessionLine adds token breakdown when context is high', () => {
   const ctx = baseContext();
-  ctx.stdin.context_window.current_usage.input_tokens = 90;
+  // For 90%: (tokens + 45000) / 200000 = 0.9 → tokens = 135000
+  ctx.stdin.context_window.current_usage.input_tokens = 135000;
   const line = renderSessionLine(ctx);
   assert.ok(line.includes('in:'), 'expected token breakdown');
   assert.ok(line.includes('cache:'), 'expected cache breakdown');
@@ -38,7 +39,8 @@ test('renderSessionLine adds token breakdown when context is high', () => {
 
 test('renderSessionLine shows compact warning at critical threshold', () => {
   const ctx = baseContext();
-  ctx.stdin.context_window.current_usage.input_tokens = 96;
+  // For 96%: (tokens + 45000) / 200000 = 0.96 → tokens = 147000
+  ctx.stdin.context_window.current_usage.input_tokens = 147000;
   const line = renderSessionLine(ctx);
   assert.ok(line.includes('COMPACT'));
 });
@@ -46,20 +48,23 @@ test('renderSessionLine shows compact warning at critical threshold', () => {
 test('renderSessionLine includes duration and formats large tokens', () => {
   const ctx = baseContext();
   ctx.sessionDuration = '1m';
-  ctx.stdin.context_window.context_window_size = 1100000;
-  ctx.stdin.context_window.current_usage.input_tokens = 1000000;
+  // Use 1M context, need 85%+ to show breakdown
+  // For 85%: (tokens + 45000) / 1000000 = 0.85 → tokens = 805000
+  ctx.stdin.context_window.context_window_size = 1000000;
+  ctx.stdin.context_window.current_usage.input_tokens = 805000;
   ctx.stdin.context_window.current_usage.cache_read_input_tokens = 1500;
   const line = renderSessionLine(ctx);
   assert.ok(line.includes('⏱️'));
-  assert.ok(line.includes('1.0M'));
-  assert.ok(line.includes('2k'));
+  assert.ok(line.includes('805k') || line.includes('805.0k'), 'expected large input token display');
+  assert.ok(line.includes('2k'), 'expected cache token display');
 });
 
 test('renderSessionLine handles missing input tokens and cache creation usage', () => {
   const ctx = baseContext();
-  ctx.stdin.context_window.context_window_size = 100;
+  // For 90%: (tokens + 45000) / 200000 = 0.9 → tokens = 135000 (all from cache)
+  ctx.stdin.context_window.context_window_size = 200000;
   ctx.stdin.context_window.current_usage = {
-    cache_creation_input_tokens: 90,
+    cache_creation_input_tokens: 135000,
   };
   const line = renderSessionLine(ctx);
   assert.ok(line.includes('90%'));
@@ -68,9 +73,10 @@ test('renderSessionLine handles missing input tokens and cache creation usage', 
 
 test('renderSessionLine handles missing cache token fields', () => {
   const ctx = baseContext();
-  ctx.stdin.context_window.context_window_size = 100;
+  // For 90%: (tokens + 45000) / 200000 = 0.9 → tokens = 135000
+  ctx.stdin.context_window.context_window_size = 200000;
   ctx.stdin.context_window.current_usage = {
-    input_tokens: 90,
+    input_tokens: 135000,
   };
   const line = renderSessionLine(ctx);
   assert.ok(line.includes('cache: 0'));

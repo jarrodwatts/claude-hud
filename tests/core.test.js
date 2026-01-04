@@ -14,14 +14,15 @@ test('getContextPercent returns 0 when data is missing', () => {
   assert.equal(getContextPercent({ context_window: { context_window_size: 0 } }), 0);
 });
 
-test('getContextPercent includes cache tokens', () => {
+test('getContextPercent includes cache tokens and autocompact buffer', () => {
+  // For 50%: (tokens + 45000) / 200000 = 0.5 → tokens = 55000
   const percent = getContextPercent({
     context_window: {
-      context_window_size: 200,
+      context_window_size: 200000,
       current_usage: {
-        input_tokens: 50,
-        cache_creation_input_tokens: 25,
-        cache_read_input_tokens: 25,
+        input_tokens: 30000,
+        cache_creation_input_tokens: 12500,
+        cache_read_input_tokens: 12500,
       },
     },
   });
@@ -30,12 +31,13 @@ test('getContextPercent includes cache tokens', () => {
 });
 
 test('getContextPercent handles missing input tokens', () => {
+  // For 25%: (tokens + 45000) / 200000 = 0.25 → tokens = 5000
   const percent = getContextPercent({
     context_window: {
-      context_window_size: 200,
+      context_window_size: 200000,
       current_usage: {
-        cache_creation_input_tokens: 40,
-        cache_read_input_tokens: 10,
+        cache_creation_input_tokens: 3000,
+        cache_read_input_tokens: 2000,
       },
     },
   });
