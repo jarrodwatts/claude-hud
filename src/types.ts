@@ -1,3 +1,5 @@
+import type { HudConfig } from './config.js';
+
 export interface StdinData {
   transcript_path?: string;
   cwd?: string;
@@ -55,4 +57,5 @@ export interface RenderContext {
   hooksCount: number;
   sessionDuration: string;
   gitBranch: string | null;
+  config: HudConfig;
 }

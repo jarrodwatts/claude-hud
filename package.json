@@ -4,6 +4,9 @@
   "description": "Real-time statusline HUD for Claude Code",
   "type": "module",
   "main": "dist/index.js",
+  "bin": {
+    "claude-hud-configure": "dist/bin/configure.js"
+  },
   "scripts": {
     "build": "tsc",
     "dev": "tsc --watch",

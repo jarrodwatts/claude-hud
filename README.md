@@ -36,7 +36,7 @@ Claude HUD gives you better insights into what's happening in your Claude Code s
 
 | What You See | Why It Matters |
 |--------------|----------------|
-| **Project path** | Know which project you're in with 3 directory segments for context |
+| **Project path** | Know which project you're in (configurable 1-3 directory levels) |
 | **Context health** | Know exactly how full your context window is before it's too late |
 | **Tool activity** | Watch Claude read, edit, and search files as it happens |
 | **Agent tracking** | See which subagents are running and what they're doing |
@@ -46,9 +46,10 @@ Claude HUD gives you better insights into what's happening in your Claude Code s
 
 ### Session Info
 ```
-dev/apps/my-project git:(main) | [Opus 4.5] ████░░░░░░ 19% | 2 CLAUDE.md | 8 rules | 6 MCPs | 6 hooks | ⏱️ 1m
+my-project git:(main) | [Opus 4.5] ████░░░░░░ 19% | 2 CLAUDE.md | 8 rules | 6 MCPs | 6 hooks | ⏱️ 1m
 ```
-- **Project path** — Last 3 segments of the working directory (shown first for quick identification)
+- **Project path** — Configurable 1-3 directory levels (default: 1, shown first)
+- **Git branch** — Current branch name (configurable on/off)
 - **Model** — Current model in use
 - **Context bar** — Visual meter with color coding (green → yellow → red as it fills)
 - **Config counts** — Rules, MCPs, and hooks loaded
@@ -91,6 +92,42 @@ Claude Code → stdin JSON → claude-hud → stdout → displayed in your termi
 - Native token data from Claude Code (not estimated)
 - Parses the transcript for tool/agent activity
 - Updates every ~300ms
+
+---
+
+## Configuration
+
+Claude HUD can be configured via `~/.claude/plugins/claude-hud/config.json` or by running the interactive CLI:
+
+```bash
+npx claude-hud-configure
+```
+
+### Options
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `pathLevels` | 1-3 | 1 | Directory levels to show in project path |
+| `gitStatus.enabled` | boolean | true | Show git branch in HUD |
+
+### Example Configuration
+
+```json
+{
+  "pathLevels": 2,
+  "gitStatus": {
+    "enabled": true
+  }
+}
+```
+
+### Display Examples
+
+**1 level (default):** `my-project git:(main) | [Opus] ...`
+
+**2 levels:** `apps/my-project git:(main) | [Opus] ...`
+
+**3 levels:** `dev/apps/my-project git:(main) | [Opus] ...`
 
 ---
 

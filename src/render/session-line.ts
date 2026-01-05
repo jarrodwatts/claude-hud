@@ -10,11 +10,13 @@ export function renderSessionLine(ctx: RenderContext): string {
 
   const parts: string[] = [];
 
-  // Show project path first (last 3 segments for better context)
+  // Show project path first (configurable path levels, default 1)
   if (ctx.stdin.cwd) {
     const segments = ctx.stdin.cwd.split(path.sep).filter(Boolean);
-    const projectPath = segments.slice(-3).join('/');
-    const branchPart = ctx.gitBranch ? ` ${magenta('git:(')}${cyan(ctx.gitBranch)}${magenta(')')}` : '';
+    const pathLevels = ctx.config?.pathLevels ?? 1;
+    const projectPath = segments.slice(-pathLevels).join('/');
+    const showGit = ctx.config?.gitStatus?.enabled ?? true;
+    const branchPart = showGit && ctx.gitBranch ? ` ${magenta('git:(')}${cyan(ctx.gitBranch)}${magenta(')')}` : '';
     parts.push(`${yellow(projectPath)}${branchPart}`);
   }
 

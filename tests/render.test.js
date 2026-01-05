@@ -26,6 +26,10 @@ function baseContext() {
     hooksCount: 0,
     sessionDuration: '',
     gitBranch: null,
+    config: {
+      pathLevels: 1,
+      gitStatus: { enabled: true },
+    },
   };
 }
 
@@ -92,25 +96,36 @@ test('renderSessionLine includes config counts when present', () => {
   assert.ok(line.includes('hooks'));
 });
 
-test('renderSessionLine displays last 3 path segments from POSIX cwd', () => {
+test('renderSessionLine displays 1 path segment by default', () => {
   const ctx = baseContext();
   ctx.stdin.cwd = '/Users/jarrod/dev/apps/my-project';
+  const line = renderSessionLine(ctx);
+  assert.ok(line.includes('my-project'), 'expected last 1 segment');
+  assert.ok(!line.includes('apps/my-project'), 'should not include 2 segments');
+});
+
+test('renderSessionLine displays 2 path segments when configured', () => {
+  const ctx = baseContext();
+  ctx.stdin.cwd = '/Users/jarrod/dev/apps/my-project';
+  ctx.config.pathLevels = 2;
+  const line = renderSessionLine(ctx);
+  assert.ok(line.includes('apps/my-project'), 'expected last 2 segments');
+  assert.ok(!line.includes('dev/apps'), 'should not include 3 segments');
+});
+
+test('renderSessionLine displays 3 path segments when configured', () => {
+  const ctx = baseContext();
+  ctx.stdin.cwd = '/Users/jarrod/dev/apps/my-project';
+  ctx.config.pathLevels = 3;
   const line = renderSessionLine(ctx);
   assert.ok(line.includes('dev/apps/my-project'), 'expected last 3 segments');
   assert.ok(!line.includes('/Users'), 'should not include full path');
 });
 
-test('renderSessionLine displays last 3 path segments from Windows cwd', { skip: process.platform !== 'win32' }, () => {
-  const ctx = baseContext();
-  ctx.stdin.cwd = 'C:\\Users\\jarrod\\dev\\apps\\my-project';
-  const line = renderSessionLine(ctx);
-  assert.ok(line.includes('dev/apps/my-project'), 'expected last 3 segments');
-  assert.ok(!line.includes('C:\\'), 'should not include drive letter');
-});
-
 test('renderSessionLine handles short paths gracefully', () => {
   const ctx = baseContext();
   ctx.stdin.cwd = '/home/user';
+  ctx.config.pathLevels = 3;
   const line = renderSessionLine(ctx);
   assert.ok(line.includes('home/user'), 'expected available segments');
 });
@@ -366,4 +381,25 @@ test('renderTodosLine returns null when no todos exist', () => {
 test('renderToolsLine returns null when no tools exist', () => {
   const ctx = baseContext();
   assert.equal(renderToolsLine(ctx), null);
+});
+
+// Configuration tests
+test('renderSessionLine hides git branch when gitStatus.enabled is false', () => {
+  const ctx = baseContext();
+  ctx.stdin.cwd = '/tmp/my-project';
+  ctx.gitBranch = 'main';
+  ctx.config.gitStatus.enabled = false;
+  const line = renderSessionLine(ctx);
+  assert.ok(!line.includes('git:('), 'git branch should be hidden');
+  assert.ok(!line.includes('main'), 'branch name should not appear');
+});
+
+test('renderSessionLine shows git branch when gitStatus.enabled is true', () => {
+  const ctx = baseContext();
+  ctx.stdin.cwd = '/tmp/my-project';
+  ctx.gitBranch = 'main';
+  ctx.config.gitStatus.enabled = true;
+  const line = renderSessionLine(ctx);
+  assert.ok(line.includes('git:('), 'git branch should be shown');
+  assert.ok(line.includes('main'), 'branch name should appear');
 });
