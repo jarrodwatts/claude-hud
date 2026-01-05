@@ -1,8 +1,54 @@
-import path from 'node:path';
 import type { RenderContext } from '../types.js';
 import { getContextPercent, getModelName } from '../stdin.js';
-import { coloredBar, cyan, dim, magenta, red, yellow, getContextColor, RESET } from './colors.js';
+import { coloredBar, cyan, dim, magenta, yellow, getContextColor, RESET } from './colors.js';
 
+/**
+ * Renders the minimal session line (model + context bar + duration).
+ * Used for condensed and separators layouts.
+ */
+export function renderSessionLineMinimal(ctx: RenderContext): string {
+  const model = getModelName(ctx.stdin);
+  const percent = getContextPercent(ctx.stdin);
+  const bar = coloredBar(percent);
+
+  const parts: string[] = [];
+  const display = ctx.config?.display;
+
+  // Model and context bar
+  if (display?.showModel !== false && display?.showContextBar !== false) {
+    parts.push(`${cyan(`[${model}]`)} ${bar} ${getContextColor(percent)}${percent}%${RESET}`);
+  } else if (display?.showModel !== false) {
+    parts.push(`${cyan(`[${model}]`)} ${getContextColor(percent)}${percent}%${RESET}`);
+  } else if (display?.showContextBar !== false) {
+    parts.push(`${bar} ${getContextColor(percent)}${percent}%${RESET}`);
+  } else {
+    parts.push(`${getContextColor(percent)}${percent}%${RESET}`);
+  }
+
+  // Session duration
+  if (display?.showDuration !== false && ctx.sessionDuration) {
+    parts.push(dim(`⏱️  ${ctx.sessionDuration}`));
+  }
+
+  let line = parts.join(' | ');
+
+  // Token breakdown at high context
+  if (display?.showTokenBreakdown !== false && percent >= 85) {
+    const usage = ctx.stdin.context_window?.current_usage;
+    if (usage) {
+      const input = formatTokens(usage.input_tokens ?? 0);
+      const cache = formatTokens((usage.cache_creation_input_tokens ?? 0) + (usage.cache_read_input_tokens ?? 0));
+      line += dim(` (in: ${input}, cache: ${cache})`);
+    }
+  }
+
+  return line;
+}
+
+/**
+ * Renders the full session line (project path + git + model + context bar + counts + duration).
+ * Used for the default layout.
+ */
 export function renderSessionLine(ctx: RenderContext): string {
   const model = getModelName(ctx.stdin);
   const percent = getContextPercent(ctx.stdin);

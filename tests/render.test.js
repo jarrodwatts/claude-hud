@@ -27,6 +27,7 @@ function baseContext() {
     sessionDuration: '',
     gitStatus: null,
     config: {
+      layout: 'default',
       pathLevels: 1,
       gitStatus: { enabled: true, showDirty: true, showAheadBehind: false },
       display: {
