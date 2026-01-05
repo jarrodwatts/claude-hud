@@ -29,6 +29,16 @@ function baseContext() {
     config: {
       pathLevels: 1,
       gitStatus: { enabled: true, showDirty: true, showAheadBehind: false },
+      display: {
+        showModel: true,
+        showContextBar: true,
+        showConfigCounts: true,
+        showDuration: true,
+        showTokenBreakdown: true,
+        showTools: true,
+        showAgents: true,
+        showTodos: true,
+      },
     },
   };
 }
@@ -525,4 +535,50 @@ test('renderSessionLine shows git branch when gitStatus.enabled is true', () => 
   const line = renderSessionLine(ctx);
   assert.ok(line.includes('git:('), 'git branch should be shown');
   assert.ok(line.includes('main'), 'branch name should appear');
+});
+
+// Display configuration tests
+test('renderSessionLine hides model when showModel is false', () => {
+  const ctx = baseContext();
+  ctx.stdin.cwd = '/tmp/my-project';
+  ctx.config.display.showModel = false;
+  const line = renderSessionLine(ctx);
+  assert.ok(!line.includes('[Opus]'), 'model should be hidden');
+});
+
+test('renderSessionLine hides context bar when showContextBar is false', () => {
+  const ctx = baseContext();
+  ctx.stdin.cwd = '/tmp/my-project';
+  ctx.config.display.showContextBar = false;
+  const line = renderSessionLine(ctx);
+  assert.ok(!line.includes('░'), 'context bar should be hidden');
+});
+
+test('renderSessionLine hides config counts when showConfigCounts is false', () => {
+  const ctx = baseContext();
+  ctx.stdin.cwd = '/tmp/my-project';
+  ctx.rulesCount = 5;
+  ctx.claudeMdCount = 2;
+  ctx.config.display.showConfigCounts = false;
+  const line = renderSessionLine(ctx);
+  assert.ok(!line.includes('rules'), 'rules count should be hidden');
+  assert.ok(!line.includes('CLAUDE.md'), 'CLAUDE.md count should be hidden');
+});
+
+test('renderSessionLine hides duration when showDuration is false', () => {
+  const ctx = baseContext();
+  ctx.stdin.cwd = '/tmp/my-project';
+  ctx.sessionDuration = '5m';
+  ctx.config.display.showDuration = false;
+  const line = renderSessionLine(ctx);
+  assert.ok(!line.includes('5m'), 'duration should be hidden');
+});
+
+test('renderSessionLine hides token breakdown when showTokenBreakdown is false', () => {
+  const ctx = baseContext();
+  ctx.stdin.cwd = '/tmp/my-project';
+  ctx.stdin.context_window.current_usage.input_tokens = 135000;
+  ctx.config.display.showTokenBreakdown = false;
+  const line = renderSessionLine(ctx);
+  assert.ok(!line.includes('in:'), 'token breakdown should be hidden');
 });
