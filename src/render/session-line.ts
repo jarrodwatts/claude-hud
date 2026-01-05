@@ -1,7 +1,7 @@
 import path from 'node:path';
 import type { RenderContext } from '../types.js';
 import { getContextPercent, getModelName } from '../stdin.js';
-import { coloredBar, cyan, dim, red, getContextColor, RESET } from './colors.js';
+import { coloredBar, cyan, dim, magenta, red, yellow, getContextColor, RESET } from './colors.js';
 
 export function renderSessionLine(ctx: RenderContext): string {
   const model = getModelName(ctx.stdin);
@@ -14,8 +14,8 @@ export function renderSessionLine(ctx: RenderContext): string {
 
   if (ctx.stdin.cwd) {
     const projectName = path.basename(ctx.stdin.cwd) || ctx.stdin.cwd;
-    const branchPart = ctx.gitBranch ? ` ${cyan(`git:(${ctx.gitBranch})`)}` : '';
-    parts.push(`${red(projectName)}${branchPart}`);
+    const branchPart = ctx.gitBranch ? ` ${magenta('git:(')}${cyan(ctx.gitBranch)}${magenta(')')}` : '';
+    parts.push(`${yellow(projectName)}${branchPart}`);
   }
 
   if (ctx.claudeMdCount > 0) {

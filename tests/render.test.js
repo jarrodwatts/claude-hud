@@ -135,7 +135,8 @@ test('renderSessionLine displays git branch when present', () => {
   ctx.stdin.cwd = '/tmp/my-project';
   ctx.gitBranch = 'main';
   const line = renderSessionLine(ctx);
-  assert.ok(line.includes('git:(main)'));
+  assert.ok(line.includes('git:('));
+  assert.ok(line.includes('main'));
 });
 
 test('renderSessionLine omits git branch when null', () => {
@@ -151,7 +152,8 @@ test('renderSessionLine displays branch with slashes', () => {
   ctx.stdin.cwd = '/tmp/my-project';
   ctx.gitBranch = 'feature/add-auth';
   const line = renderSessionLine(ctx);
-  assert.ok(line.includes('git:(feature/add-auth)'));
+  assert.ok(line.includes('git:('));
+  assert.ok(line.includes('feature/add-auth'));
 });
 
 test('renderToolsLine renders running and completed tools', () => {

@@ -1,17 +1,17 @@
 import path from 'node:path';
 import { getContextPercent, getModelName } from '../stdin.js';
-import { coloredBar, cyan, dim, red, getContextColor, RESET } from './colors.js';
+import { coloredBar, cyan, dim, magenta, red, yellow, getContextColor, RESET } from './colors.js';
 export function renderSessionLine(ctx) {
     const model = getModelName(ctx.stdin);
     const percent = getContextPercent(ctx.stdin);
     const bar = coloredBar(percent);
     const parts = [];
-    // Add project folder name for context
+    parts.push(`${cyan(`[${model}]`)} ${bar} ${getContextColor(percent)}${percent}%${RESET}`);
     if (ctx.stdin.cwd) {
         const projectName = path.basename(ctx.stdin.cwd) || ctx.stdin.cwd;
-        parts.push(cyan(`📁 ${projectName}`));
+        const branchPart = ctx.gitBranch ? ` ${magenta('git:(')}${cyan(ctx.gitBranch)}${magenta(')')}` : '';
+        parts.push(`${yellow(projectName)}${branchPart}`);
     }
-    parts.push(`${cyan(`[${model}]`)} ${bar} ${getContextColor(percent)}${percent}%${RESET}`);
     if (ctx.claudeMdCount > 0) {
         parts.push(dim(`${ctx.claudeMdCount} CLAUDE.md`));
     }
