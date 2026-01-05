@@ -17,3 +17,18 @@ export async function getGitBranch(cwd?: string): Promise<string | null> {
     return null;
   }
 }
+
+export async function getGitDirty(cwd?: string): Promise<boolean> {
+  if (!cwd) return false;
+
+  try {
+    const { stdout } = await execFileAsync(
+      'git',
+      ['status', '--porcelain', '--untracked-files=no'],
+      { cwd, timeout: 1000, encoding: 'utf8' }
+    );
+    return stdout.trim().length > 0;
+  } catch {
+    return false;
+  }
+}

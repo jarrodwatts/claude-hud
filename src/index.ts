@@ -2,7 +2,7 @@ import { readStdin } from './stdin.js';
 import { parseTranscript } from './transcript.js';
 import { render } from './render/index.js';
 import { countConfigs } from './config-reader.js';
-import { getGitBranch } from './git.js';
+import { getGitBranch, getGitDirty } from './git.js';
 import type { RenderContext } from './types.js';
 import { fileURLToPath } from 'node:url';
 
@@ -11,6 +11,7 @@ export type MainDeps = {
   parseTranscript: typeof parseTranscript;
   countConfigs: typeof countConfigs;
   getGitBranch: typeof getGitBranch;
+  getGitDirty: typeof getGitDirty;
   render: typeof render;
   now: () => number;
   log: (...args: unknown[]) => void;
@@ -22,6 +23,7 @@ export async function main(overrides: Partial<MainDeps> = {}): Promise<void> {
     parseTranscript,
     countConfigs,
     getGitBranch,
+    getGitDirty,
     render,
     now: () => Date.now(),
     log: console.log,
@@ -41,7 +43,10 @@ export async function main(overrides: Partial<MainDeps> = {}): Promise<void> {
 
     const { claudeMdCount, rulesCount, mcpCount, hooksCount } = await deps.countConfigs(stdin.cwd);
 
-    const gitBranch = await deps.getGitBranch(stdin.cwd);
+    const [gitBranch, gitDirty] = await Promise.all([
+      deps.getGitBranch(stdin.cwd),
+      deps.getGitDirty(stdin.cwd),
+    ]);
 
     const sessionDuration = formatSessionDuration(transcript.sessionStart, deps.now);
 
@@ -54,6 +59,7 @@ export async function main(overrides: Partial<MainDeps> = {}): Promise<void> {
       hooksCount,
       sessionDuration,
       gitBranch,
+      gitDirty,
     };
 
     deps.render(ctx);

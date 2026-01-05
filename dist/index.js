@@ -2,7 +2,7 @@ import { readStdin } from './stdin.js';
 import { parseTranscript } from './transcript.js';
 import { render } from './render/index.js';
 import { countConfigs } from './config-reader.js';
-import { getGitBranch } from './git.js';
+import { getGitBranch, getGitDirty } from './git.js';
 import { fileURLToPath } from 'node:url';
 export async function main(overrides = {}) {
     const deps = {
@@ -10,6 +10,7 @@ export async function main(overrides = {}) {
         parseTranscript,
         countConfigs,
         getGitBranch,
+        getGitDirty,
         render,
         now: () => Date.now(),
         log: console.log,
@@ -24,7 +25,10 @@ export async function main(overrides = {}) {
         const transcriptPath = stdin.transcript_path ?? '';
         const transcript = await deps.parseTranscript(transcriptPath);
         const { claudeMdCount, rulesCount, mcpCount, hooksCount } = await deps.countConfigs(stdin.cwd);
-        const gitBranch = await deps.getGitBranch(stdin.cwd);
+        const [gitBranch, gitDirty] = await Promise.all([
+            deps.getGitBranch(stdin.cwd),
+            deps.getGitDirty(stdin.cwd),
+        ]);
         const sessionDuration = formatSessionDuration(transcript.sessionStart, deps.now);
         const ctx = {
             stdin,
@@ -35,6 +39,7 @@ export async function main(overrides = {}) {
             hooksCount,
             sessionDuration,
             gitBranch,
+            gitDirty,
         };
         deps.render(ctx);
     }

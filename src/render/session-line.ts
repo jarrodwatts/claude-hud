@@ -14,7 +14,8 @@ export function renderSessionLine(ctx: RenderContext): string {
 
   if (ctx.stdin.cwd) {
     const projectName = path.basename(ctx.stdin.cwd) || ctx.stdin.cwd;
-    const branchPart = ctx.gitBranch ? ` ${magenta('git:(')}${cyan(ctx.gitBranch)}${magenta(')')}` : '';
+    const dirtyIndicator = ctx.gitDirty ? ` ${red('✗')}` : '';
+    const branchPart = ctx.gitBranch ? ` ${magenta('git:(')}${cyan(ctx.gitBranch)}${magenta(')')}${dirtyIndicator}` : '';
     parts.push(`${yellow(projectName)}${branchPart}`);
   }
 

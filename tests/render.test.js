@@ -26,6 +26,7 @@ function baseContext() {
     hooksCount: 0,
     sessionDuration: '',
     gitBranch: null,
+    gitDirty: false,
   };
 }
 
@@ -146,6 +147,33 @@ test('renderSessionLine displays branch with slashes', () => {
   const line = renderSessionLine(ctx);
   assert.ok(line.includes('git:('));
   assert.ok(line.includes('feature/add-auth'));
+});
+
+test('renderSessionLine displays dirty indicator when repo has changes', () => {
+  const ctx = baseContext();
+  ctx.stdin.cwd = '/tmp/my-project';
+  ctx.gitBranch = 'main';
+  ctx.gitDirty = true;
+  const line = renderSessionLine(ctx);
+  assert.ok(line.includes('✗'), 'expected dirty indicator');
+});
+
+test('renderSessionLine omits dirty indicator when repo is clean', () => {
+  const ctx = baseContext();
+  ctx.stdin.cwd = '/tmp/my-project';
+  ctx.gitBranch = 'main';
+  ctx.gitDirty = false;
+  const line = renderSessionLine(ctx);
+  assert.ok(!line.includes('✗'), 'should not show dirty indicator');
+});
+
+test('renderSessionLine omits dirty indicator when no git branch', () => {
+  const ctx = baseContext();
+  ctx.stdin.cwd = '/tmp/my-project';
+  ctx.gitBranch = null;
+  ctx.gitDirty = true;
+  const line = renderSessionLine(ctx);
+  assert.ok(!line.includes('✗'), 'should not show dirty indicator without branch');
 });
 
 test('renderToolsLine renders running and completed tools', () => {

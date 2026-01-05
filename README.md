@@ -37,6 +37,7 @@ Claude HUD gives you better insights into what's happening in your Claude Code s
 | What You See | Why It Matters |
 |--------------|----------------|
 | **Project name** | Always know which project you're working in |
+| **Git branch & status** | See current branch and uncommitted changes at a glance |
 | **Context health** | Know exactly how full your context window is before it's too late |
 | **Tool activity** | Watch Claude read, edit, and search files as it happens |
 | **Agent tracking** | See which subagents are running and what they're doing |
@@ -46,11 +47,12 @@ Claude HUD gives you better insights into what's happening in your Claude Code s
 
 ### Session Info
 ```
-📁 my-project | [Opus 4.5] ████░░░░░░ 19% | 2 CLAUDE.md | 8 rules | 6 MCPs | 6 hooks | ⏱️ 1m
+[Opus 4.5] ████░░░░░░ 19% | my-project git:(main) ✗ | 2 CLAUDE.md | 8 rules | 6 MCPs | 6 hooks | ⏱️ 1m
 ```
-- **Project** — Current working directory folder name
 - **Model** — Current model in use
 - **Context bar** — Visual meter with color coding (green → yellow → red as it fills)
+- **Project** — Current working directory folder name
+- **Git info** — Current branch with dirty indicator (✗) when there are uncommitted changes
 - **Config counts** — Rules, MCPs, and hooks loaded
 - **Duration** — How long the session has been running
 
