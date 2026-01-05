@@ -2,7 +2,7 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import * as os from 'node:os';
-import * as readline from 'node:readline';
+import { select, confirm } from '@inquirer/prompts';
 
 interface HudConfig {
   pathLevels: 1 | 2 | 3;
@@ -28,7 +28,12 @@ function loadExistingConfig(): HudConfig {
   try {
     if (fs.existsSync(configPath)) {
       const content = fs.readFileSync(configPath, 'utf-8');
-      return { ...DEFAULT_CONFIG, ...JSON.parse(content) };
+      const parsed = JSON.parse(content);
+      return {
+        ...DEFAULT_CONFIG,
+        ...parsed,
+        gitStatus: { ...DEFAULT_CONFIG.gitStatus, ...parsed.gitStatus },
+      };
     }
   } catch {
     // Ignore errors, use defaults
@@ -47,98 +52,56 @@ function saveConfig(config: HudConfig): void {
   fs.writeFileSync(configPath, JSON.stringify(config, null, 2) + '\n');
 }
 
-async function question(rl: readline.Interface, prompt: string): Promise<string> {
-  return new Promise((resolve) => {
-    rl.question(prompt, resolve);
-  });
-}
-
-async function confirm(rl: readline.Interface, prompt: string, defaultValue: boolean): Promise<boolean> {
-  const defaultHint = defaultValue ? '[Y/n]' : '[y/N]';
-  const answer = await question(rl, `${prompt} ${defaultHint}: `);
-
-  if (answer.trim() === '') {
-    return defaultValue;
-  }
-
-  return answer.toLowerCase().startsWith('y');
-}
-
-async function selectNumber(rl: readline.Interface, prompt: string, options: number[], defaultValue: number): Promise<number> {
-  const optionsStr = options.map(n => n === defaultValue ? `[${n}]` : n.toString()).join('/');
-  const answer = await question(rl, `${prompt} (${optionsStr}): `);
-
-  if (answer.trim() === '') {
-    return defaultValue;
-  }
-
-  const num = parseInt(answer, 10);
-  if (options.includes(num)) {
-    return num;
-  }
-
-  console.log(`Invalid option. Using default: ${defaultValue}`);
-  return defaultValue;
-}
-
 async function main(): Promise<void> {
-  const rl = readline.createInterface({
-    input: process.stdin,
-    output: process.stdout,
-  });
-
   console.log('\n\x1b[36m=== Claude HUD Configuration ===\x1b[0m\n');
-  console.log('Configure your HUD display settings.\n');
 
   const existing = loadExistingConfig();
   const configPath = getConfigPath();
   const configExists = fs.existsSync(configPath);
 
   if (configExists) {
-    console.log('\x1b[32mExisting configuration found:\x1b[0m');
+    console.log('\x1b[32m✓ Existing configuration found\x1b[0m');
     console.log(`  Path levels: ${existing.pathLevels}`);
-    console.log(`  Git status: ${existing.gitStatus.enabled ? 'enabled' : 'disabled'}`);
-    console.log('');
-    console.log('Press Enter to keep current values, or enter new ones.\n');
+    console.log(`  Git status: ${existing.gitStatus.enabled ? 'enabled' : 'disabled'}\n`);
   }
 
-  try {
-    // Path Levels
-    console.log('\x1b[33m--- Project Path Display ---\x1b[0m');
-    console.log('How many directory levels to show in the project path?');
-    console.log('  1: my-project');
-    console.log('  2: algo/my-project');
-    console.log('  3: Users/tsopic/my-project');
-    const pathLevels = await selectNumber(rl, 'Path levels', [1, 2, 3], existing.pathLevels) as 1 | 2 | 3;
+  // Path Levels
+  const pathLevels = await select({
+    message: 'How many directory levels to show?',
+    choices: [
+      { name: '1 level  →  my-project', value: 1 as const },
+      { name: '2 levels →  apps/my-project', value: 2 as const },
+      { name: '3 levels →  dev/apps/my-project', value: 3 as const },
+    ],
+    default: existing.pathLevels,
+  });
 
-    console.log('');
+  // Git Status
+  const gitEnabled = await confirm({
+    message: 'Show git branch in HUD?',
+    default: existing.gitStatus.enabled,
+  });
 
-    // Git Status
-    console.log('\x1b[33m--- Git Status Display ---\x1b[0m');
-    const gitEnabled = await confirm(rl, 'Show git branch in HUD?', existing.gitStatus.enabled);
+  const config: HudConfig = {
+    pathLevels,
+    gitStatus: {
+      enabled: gitEnabled,
+    },
+  };
 
-    const config: HudConfig = {
-      pathLevels,
-      gitStatus: {
-        enabled: gitEnabled,
-      },
-    };
+  console.log('\n\x1b[33mPreview:\x1b[0m');
+  console.log(JSON.stringify(config, null, 2));
 
-    console.log('\n\x1b[33m--- Preview ---\x1b[0m');
-    console.log(JSON.stringify(config, null, 2));
+  const shouldSave = await confirm({
+    message: 'Save this configuration?',
+    default: true,
+  });
 
-    console.log('');
-    const shouldSave = await confirm(rl, 'Save this configuration?', true);
-
-    if (shouldSave) {
-      saveConfig(config);
-      console.log(`\n\x1b[32mConfiguration saved to:\x1b[0m ${getConfigPath()}`);
-    } else {
-      console.log('\n\x1b[33mConfiguration not saved.\x1b[0m');
-    }
-
-  } finally {
-    rl.close();
+  if (shouldSave) {
+    saveConfig(config);
+    console.log(`\n\x1b[32m✓ Configuration saved to:\x1b[0m ${configPath}`);
+  } else {
+    console.log('\n\x1b[33m✗ Configuration not saved.\x1b[0m');
   }
 }
 
