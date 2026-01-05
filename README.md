@@ -109,6 +109,8 @@ npx claude-hud-configure
 |--------|------|---------|-------------|
 | `pathLevels` | 1-3 | 1 | Directory levels to show in project path |
 | `gitStatus.enabled` | boolean | true | Show git branch in HUD |
+| `gitStatus.showDirty` | boolean | true | Show `*` for uncommitted changes |
+| `gitStatus.showAheadBehind` | boolean | false | Show `↑N ↓N` for ahead/behind remote |
 
 ### Example Configuration
 
@@ -116,7 +118,9 @@ npx claude-hud-configure
 {
   "pathLevels": 2,
   "gitStatus": {
-    "enabled": true
+    "enabled": true,
+    "showDirty": true,
+    "showAheadBehind": true
   }
 }
 ```
@@ -128,6 +132,10 @@ npx claude-hud-configure
 **2 levels:** `apps/my-project git:(main) | [Opus] ...`
 
 **3 levels:** `dev/apps/my-project git:(main) | [Opus] ...`
+
+**With dirty indicator:** `my-project git:(main*) | [Opus] ...`
+
+**With ahead/behind:** `my-project git:(main ↑2 ↓1) | [Opus] ...`
 
 ---
 

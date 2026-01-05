@@ -25,10 +25,10 @@ function baseContext() {
     mcpCount: 0,
     hooksCount: 0,
     sessionDuration: '',
-    gitBranch: null,
+    gitStatus: null,
     config: {
       pathLevels: 1,
-      gitStatus: { enabled: true },
+      gitStatus: { enabled: true, showDirty: true, showAheadBehind: false },
     },
   };
 }
@@ -198,7 +198,7 @@ test('renderSessionLine omits project name when cwd is undefined', () => {
 test('renderSessionLine displays git branch when present', () => {
   const ctx = baseContext();
   ctx.stdin.cwd = '/tmp/my-project';
-  ctx.gitBranch = 'main';
+  ctx.gitStatus = { branch: 'main', isDirty: false, ahead: 0, behind: 0 };
   const line = renderSessionLine(ctx);
   assert.ok(line.includes('git:('));
   assert.ok(line.includes('main'));
@@ -207,7 +207,7 @@ test('renderSessionLine displays git branch when present', () => {
 test('renderSessionLine omits git branch when null', () => {
   const ctx = baseContext();
   ctx.stdin.cwd = '/tmp/my-project';
-  ctx.gitBranch = null;
+  ctx.gitStatus = null;
   const line = renderSessionLine(ctx);
   assert.ok(!line.includes('git:('));
 });
@@ -215,10 +215,48 @@ test('renderSessionLine omits git branch when null', () => {
 test('renderSessionLine displays branch with slashes', () => {
   const ctx = baseContext();
   ctx.stdin.cwd = '/tmp/my-project';
-  ctx.gitBranch = 'feature/add-auth';
+  ctx.gitStatus = { branch: 'feature/add-auth', isDirty: false, ahead: 0, behind: 0 };
   const line = renderSessionLine(ctx);
   assert.ok(line.includes('git:('));
   assert.ok(line.includes('feature/add-auth'));
+});
+
+test('renderSessionLine shows dirty indicator when enabled', () => {
+  const ctx = baseContext();
+  ctx.stdin.cwd = '/tmp/my-project';
+  ctx.gitStatus = { branch: 'main', isDirty: true, ahead: 0, behind: 0 };
+  ctx.config.gitStatus.showDirty = true;
+  const line = renderSessionLine(ctx);
+  assert.ok(line.includes('main*'), 'should show dirty indicator');
+});
+
+test('renderSessionLine hides dirty indicator when disabled', () => {
+  const ctx = baseContext();
+  ctx.stdin.cwd = '/tmp/my-project';
+  ctx.gitStatus = { branch: 'main', isDirty: true, ahead: 0, behind: 0 };
+  ctx.config.gitStatus.showDirty = false;
+  const line = renderSessionLine(ctx);
+  assert.ok(!line.includes('*'), 'should not show dirty indicator');
+});
+
+test('renderSessionLine shows ahead/behind when enabled', () => {
+  const ctx = baseContext();
+  ctx.stdin.cwd = '/tmp/my-project';
+  ctx.gitStatus = { branch: 'main', isDirty: false, ahead: 2, behind: 1 };
+  ctx.config.gitStatus.showAheadBehind = true;
+  const line = renderSessionLine(ctx);
+  assert.ok(line.includes('↑2'), 'should show ahead count');
+  assert.ok(line.includes('↓1'), 'should show behind count');
+});
+
+test('renderSessionLine hides ahead/behind when disabled', () => {
+  const ctx = baseContext();
+  ctx.stdin.cwd = '/tmp/my-project';
+  ctx.gitStatus = { branch: 'main', isDirty: false, ahead: 2, behind: 1 };
+  ctx.config.gitStatus.showAheadBehind = false;
+  const line = renderSessionLine(ctx);
+  assert.ok(!line.includes('↑'), 'should not show ahead');
+  assert.ok(!line.includes('↓'), 'should not show behind');
 });
 
 test('renderToolsLine renders running and completed tools', () => {
@@ -472,7 +510,7 @@ test('renderToolsLine returns null when no tools exist', () => {
 test('renderSessionLine hides git branch when gitStatus.enabled is false', () => {
   const ctx = baseContext();
   ctx.stdin.cwd = '/tmp/my-project';
-  ctx.gitBranch = 'main';
+  ctx.gitStatus = { branch: 'main', isDirty: false, ahead: 0, behind: 0 };
   ctx.config.gitStatus.enabled = false;
   const line = renderSessionLine(ctx);
   assert.ok(!line.includes('git:('), 'git branch should be hidden');
@@ -482,7 +520,7 @@ test('renderSessionLine hides git branch when gitStatus.enabled is false', () =>
 test('renderSessionLine shows git branch when gitStatus.enabled is true', () => {
   const ctx = baseContext();
   ctx.stdin.cwd = '/tmp/my-project';
-  ctx.gitBranch = 'main';
+  ctx.gitStatus = { branch: 'main', isDirty: false, ahead: 0, behind: 0 };
   ctx.config.gitStatus.enabled = true;
   const line = renderSessionLine(ctx);
   assert.ok(line.includes('git:('), 'git branch should be shown');

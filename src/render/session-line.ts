@@ -17,9 +17,34 @@ export function renderSessionLine(ctx: RenderContext): string {
     const pathLevels = ctx.config?.pathLevels ?? 1;
     // Always join with forward slash for consistent display
     const projectPath = segments.slice(-pathLevels).join('/');
-    const showGit = ctx.config?.gitStatus?.enabled ?? true;
-    const branchPart = showGit && ctx.gitBranch ? ` ${magenta('git:(')}${cyan(ctx.gitBranch)}${magenta(')')}` : '';
-    parts.push(`${yellow(projectPath)}${branchPart}`);
+
+    // Build git status string
+    let gitPart = '';
+    const gitConfig = ctx.config?.gitStatus;
+    const showGit = gitConfig?.enabled ?? true;
+
+    if (showGit && ctx.gitStatus) {
+      const gitParts: string[] = [ctx.gitStatus.branch];
+
+      // Show dirty indicator
+      if ((gitConfig?.showDirty ?? true) && ctx.gitStatus.isDirty) {
+        gitParts.push('*');
+      }
+
+      // Show ahead/behind
+      if (gitConfig?.showAheadBehind) {
+        if (ctx.gitStatus.ahead > 0) {
+          gitParts.push(`↑${ctx.gitStatus.ahead}`);
+        }
+        if (ctx.gitStatus.behind > 0) {
+          gitParts.push(`↓${ctx.gitStatus.behind}`);
+        }
+      }
+
+      gitPart = ` ${magenta('git:(')}${cyan(gitParts.join(''))}${magenta(')')}`;
+    }
+
+    parts.push(`${yellow(projectPath)}${gitPart}`);
   }
 
   parts.push(`${cyan(`[${model}]`)} ${bar} ${getContextColor(percent)}${percent}%${RESET}`);

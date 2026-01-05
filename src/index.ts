@@ -2,7 +2,7 @@ import { readStdin } from './stdin.js';
 import { parseTranscript } from './transcript.js';
 import { render } from './render/index.js';
 import { countConfigs } from './config-reader.js';
-import { getGitBranch } from './git.js';
+import { getGitStatus } from './git.js';
 import { loadConfig } from './config.js';
 import type { RenderContext } from './types.js';
 import { fileURLToPath } from 'node:url';
@@ -11,7 +11,7 @@ export type MainDeps = {
   readStdin: typeof readStdin;
   parseTranscript: typeof parseTranscript;
   countConfigs: typeof countConfigs;
-  getGitBranch: typeof getGitBranch;
+  getGitStatus: typeof getGitStatus;
   loadConfig: typeof loadConfig;
   render: typeof render;
   now: () => number;
@@ -23,7 +23,7 @@ export async function main(overrides: Partial<MainDeps> = {}): Promise<void> {
     readStdin,
     parseTranscript,
     countConfigs,
-    getGitBranch,
+    getGitStatus,
     loadConfig,
     render,
     now: () => Date.now(),
@@ -45,8 +45,8 @@ export async function main(overrides: Partial<MainDeps> = {}): Promise<void> {
     const { claudeMdCount, rulesCount, mcpCount, hooksCount } = await deps.countConfigs(stdin.cwd);
 
     const config = await deps.loadConfig();
-    const gitBranch = config.gitStatus.enabled
-      ? await deps.getGitBranch(stdin.cwd)
+    const gitStatus = config.gitStatus.enabled
+      ? await deps.getGitStatus(stdin.cwd)
       : null;
 
     const sessionDuration = formatSessionDuration(transcript.sessionStart, deps.now);
@@ -59,7 +59,7 @@ export async function main(overrides: Partial<MainDeps> = {}): Promise<void> {
       mcpCount,
       hooksCount,
       sessionDuration,
-      gitBranch,
+      gitStatus,
       config,
     };
 

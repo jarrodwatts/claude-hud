@@ -8,6 +8,8 @@ interface HudConfig {
   pathLevels: 1 | 2 | 3;
   gitStatus: {
     enabled: boolean;
+    showDirty: boolean;
+    showAheadBehind: boolean;
   };
 }
 
@@ -15,6 +17,8 @@ const DEFAULT_CONFIG: HudConfig = {
   pathLevels: 1,
   gitStatus: {
     enabled: true,
+    showDirty: true,
+    showAheadBehind: false,
   },
 };
 
@@ -62,7 +66,9 @@ async function main(): Promise<void> {
   if (configExists) {
     console.log('\x1b[32m✓ Existing configuration found\x1b[0m');
     console.log(`  Path levels: ${existing.pathLevels}`);
-    console.log(`  Git status: ${existing.gitStatus.enabled ? 'enabled' : 'disabled'}\n`);
+    console.log(`  Git branch: ${existing.gitStatus.enabled ? 'shown' : 'hidden'}`);
+    console.log(`  Dirty indicator: ${existing.gitStatus.showDirty ? 'shown' : 'hidden'}`);
+    console.log(`  Ahead/behind: ${existing.gitStatus.showAheadBehind ? 'shown' : 'hidden'}\n`);
   }
 
   // Path Levels
@@ -76,21 +82,54 @@ async function main(): Promise<void> {
     default: existing.pathLevels,
   });
 
-  // Git Status
+  // Git Status - enabled
   const gitEnabled = await confirm({
     message: 'Show git branch in HUD?',
     default: existing.gitStatus.enabled,
   });
 
+  let showDirty = existing.gitStatus.showDirty;
+  let showAheadBehind = existing.gitStatus.showAheadBehind;
+
+  if (gitEnabled) {
+    // Git Status - dirty indicator
+    showDirty = await confirm({
+      message: 'Show dirty indicator (*) for uncommitted changes?',
+      default: existing.gitStatus.showDirty,
+    });
+
+    // Git Status - ahead/behind
+    showAheadBehind = await confirm({
+      message: 'Show ahead/behind counts (↑2 ↓1)?',
+      default: existing.gitStatus.showAheadBehind,
+    });
+  }
+
   const config: HudConfig = {
     pathLevels,
     gitStatus: {
       enabled: gitEnabled,
+      showDirty,
+      showAheadBehind,
     },
   };
 
   console.log('\n\x1b[33mPreview:\x1b[0m');
   console.log(JSON.stringify(config, null, 2));
+
+  // Show example output
+  console.log('\n\x1b[33mExample display:\x1b[0m');
+  let example = 'my-project';
+  if (pathLevels >= 2) example = 'apps/' + example;
+  if (pathLevels >= 3) example = 'dev/' + example;
+  if (gitEnabled) {
+    let gitPart = 'main';
+    if (showDirty) gitPart += '*';
+    if (showAheadBehind) gitPart += ' ↑2';
+    example += ` git:(${gitPart})`;
+  }
+  example += ' | [Opus] ████░░░░░░ 42%';
+  console.log(`  ${example}`);
 
   const shouldSave = await confirm({
     message: 'Save this configuration?',

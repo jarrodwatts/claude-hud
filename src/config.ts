@@ -6,6 +6,8 @@ export interface HudConfig {
   pathLevels: 1 | 2 | 3;
   gitStatus: {
     enabled: boolean;
+    showDirty: boolean;
+    showAheadBehind: boolean;
   };
 }
 
@@ -13,6 +15,8 @@ export const DEFAULT_CONFIG: HudConfig = {
   pathLevels: 1,
   gitStatus: {
     enabled: true,
+    showDirty: true,
+    showAheadBehind: false,
   },
 };
 
@@ -34,6 +38,12 @@ function mergeConfig(userConfig: Partial<HudConfig>): HudConfig {
     enabled: typeof userConfig.gitStatus?.enabled === 'boolean'
       ? userConfig.gitStatus.enabled
       : DEFAULT_CONFIG.gitStatus.enabled,
+    showDirty: typeof userConfig.gitStatus?.showDirty === 'boolean'
+      ? userConfig.gitStatus.showDirty
+      : DEFAULT_CONFIG.gitStatus.showDirty,
+    showAheadBehind: typeof userConfig.gitStatus?.showAheadBehind === 'boolean'
+      ? userConfig.gitStatus.showAheadBehind
+      : DEFAULT_CONFIG.gitStatus.showAheadBehind,
   };
 
   return { pathLevels, gitStatus };
