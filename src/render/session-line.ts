@@ -90,7 +90,7 @@ export function renderSessionLine(ctx: RenderContext): string {
       gitPart = ` ${magenta('git:(')}${cyan(gitParts.join(''))}${magenta(')')}`;
     }
 
-    parts.push(`${yellow(projectPath)}${gitPart}`);
+    parts.push(`📁 ${yellow(projectPath)}${gitPart}`);
   }
 
   const display = ctx.config?.display;

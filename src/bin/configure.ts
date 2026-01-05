@@ -3,6 +3,7 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import * as os from 'node:os';
 import { select, confirm } from '@inquirer/prompts';
+import { showStaticPreview, resetPreviewState } from './preview.js';
 
 type LayoutType = 'default' | 'condensed' | 'separators';
 
@@ -89,6 +90,8 @@ function saveConfig(config: HudConfig): void {
 async function main(): Promise<void> {
   console.log('\n\x1b[36m=== Claude HUD Configuration ===\x1b[0m\n');
 
+  resetPreviewState();
+
   const existing = loadExistingConfig();
   const configPath = getConfigPath();
   const configExists = fs.existsSync(configPath);
@@ -97,8 +100,11 @@ async function main(): Promise<void> {
     console.log('\x1b[32m✓ Existing configuration found\x1b[0m\n');
   }
 
+  // Show initial preview with existing/default config
+  showStaticPreview(existing);
+
   // Layout
-  console.log('\x1b[33m── Layout ──\x1b[0m');
+  console.log('\n\x1b[33m── Layout ──\x1b[0m');
   const layout = await select({
     message: 'Choose HUD layout',
     choices: [
@@ -108,6 +114,9 @@ async function main(): Promise<void> {
     ],
     default: existing.layout,
   });
+
+  // Update preview after layout change
+  showStaticPreview({ ...existing, layout });
 
   // Path Levels
   console.log('\n\x1b[33m── Path Display ──\x1b[0m');
@@ -120,6 +129,9 @@ async function main(): Promise<void> {
     ],
     default: existing.pathLevels,
   });
+
+  // Update preview after path levels change
+  showStaticPreview({ ...existing, layout, pathLevels });
 
   // Git Status
   console.log('\n\x1b[33m── Git Status ──\x1b[0m');
@@ -142,6 +154,10 @@ async function main(): Promise<void> {
       default: existing.gitStatus.showAheadBehind,
     });
   }
+
+  // Update preview after git status changes
+  const currentGitStatus = { enabled: gitEnabled, showDirty, showAheadBehind };
+  showStaticPreview({ ...existing, layout, pathLevels, gitStatus: currentGitStatus });
 
   // Display Options
   console.log('\n\x1b[33m── Session Line ──\x1b[0m');
@@ -207,82 +223,8 @@ async function main(): Promise<void> {
     },
   };
 
-  // Color codes for preview
-  const RESET = '\x1b[0m';
-  const YELLOW = '\x1b[33m';
-  const CYAN = '\x1b[36m';
-  const MAGENTA = '\x1b[35m';
-  const GREEN = '\x1b[32m';
-  const DIM = '\x1b[2m';
-
-  // Build reusable parts
-  let pathPart = 'my-project';
-  if (pathLevels >= 2) pathPart = 'apps/' + pathPart;
-  if (pathLevels >= 3) pathPart = 'dev/' + pathPart;
-
-  let gitPart = '';
-  if (gitEnabled) {
-    let gitContent = 'main';
-    if (showDirty) gitContent += '*';
-    if (showAheadBehind) gitContent += ' ↑2';
-    gitPart = ` ${MAGENTA}git:(${RESET}${CYAN}${gitContent}${RESET}${MAGENTA})${RESET}`;
-  }
-
-  const contextBar = `${GREEN}████${RESET}░░░░░░`;
-  let modelContextPart = '';
-  if (showModel && showContextBar) {
-    modelContextPart = `${CYAN}[Opus]${RESET} ${contextBar} ${GREEN}42%${RESET}`;
-  } else if (showModel) {
-    modelContextPart = `${CYAN}[Opus]${RESET} ${GREEN}42%${RESET}`;
-  } else if (showContextBar) {
-    modelContextPart = `${contextBar} ${GREEN}42%${RESET}`;
-  } else {
-    modelContextPart = `${GREEN}42%${RESET}`;
-  }
-
-  const toolsLine = showTools ? `  ${CYAN}◐${RESET} Edit: ${DIM}.../file.ts${RESET} | ${GREEN}✓${RESET} Read ×3` : null;
-  const agentsLine = showAgents ? `  ${GREEN}✓${RESET} explore: Finding auth code ${DIM}(2s)${RESET}` : null;
-  const todosLine = showTodos ? `  ${CYAN}▸${RESET} Add tests ${DIM}(1/3)${RESET}` : null;
-
-  // Show example output with colors
-  console.log(`\n${YELLOW}── HUD Preview (${layout}) ──${RESET}`);
-
-  if (layout === 'default') {
-    // Default: all info on first line
-    const sessionParts: string[] = [`${YELLOW}${pathPart}${RESET}${gitPart}`, modelContextPart];
-    if (showConfigCounts) sessionParts.push(`${DIM}2 rules${RESET}`);
-    if (showDuration) sessionParts.push(`${DIM}⏱️ 5m${RESET}`);
-    console.log(`  ${sessionParts.join(' | ')}`);
-    if (toolsLine) console.log(toolsLine);
-    if (agentsLine) console.log(agentsLine);
-    if (todosLine) console.log(todosLine);
-  } else {
-    // Condensed/Separators: model+context on top, project on bottom
-    const topParts: string[] = [modelContextPart];
-    if (showDuration) topParts.push(`${DIM}⏱️ 5m${RESET}`);
-    console.log(`  ${topParts.join(' | ')}`);
-
-    if (layout === 'separators') {
-      console.log(`  ${DIM}${'─'.repeat(50)}${RESET}`);
-    }
-
-    if (toolsLine) console.log(toolsLine);
-    if (agentsLine) console.log(agentsLine);
-    if (todosLine) console.log(todosLine);
-
-    if (layout === 'separators') {
-      console.log(`  ${DIM}${'─'.repeat(50)}${RESET}`);
-    }
-
-    // Project line at bottom
-    const projectParts: string[] = [`${YELLOW}${pathPart}${RESET}${gitPart}`];
-    if (showConfigCounts) projectParts.push(`${DIM}2 rules${RESET}`);
-    console.log(`  ${projectParts.join(' | ')}`);
-  }
-
-  // Show config JSON
-  console.log(`\n${YELLOW}── Configuration ──${RESET}`);
-  console.log(JSON.stringify(config, null, 2));
+  // Show final preview
+  showStaticPreview(config);
 
   const shouldSave = await confirm({
     message: 'Save this configuration?',
