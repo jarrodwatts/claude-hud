@@ -47,6 +47,13 @@ const DEFAULT_CONFIG: HudConfig = {
   },
 };
 
+// ANSI color codes
+const RESET = '\x1b[0m';
+const CYAN = '\x1b[36m';
+const YELLOW = '\x1b[33m';
+const GREEN = '\x1b[32m';
+const DIM = '\x1b[2m';
+
 function getConfigPath(): string {
   const homeDir = os.homedir();
   return path.join(homeDir, '.claude', 'plugins', 'claude-hud', 'config.json');
@@ -87,155 +94,194 @@ function saveConfig(config: HudConfig): void {
   fs.writeFileSync(configPath, JSON.stringify(config, null, 2) + '\n');
 }
 
-async function main(): Promise<void> {
-  console.log('\n\x1b[36m=== Claude HUD Configuration ===\x1b[0m\n');
-
-  resetPreviewState();
-
-  const existing = loadExistingConfig();
-  const configPath = getConfigPath();
-  const configExists = fs.existsSync(configPath);
-
-  if (configExists) {
-    console.log('\x1b[32m✓ Existing configuration found\x1b[0m\n');
+function formatLayoutName(layout: LayoutType): string {
+  switch (layout) {
+    case 'default': return 'Default';
+    case 'condensed': return 'Condensed';
+    case 'separators': return 'Separators';
   }
+}
 
-  // Show initial preview with existing/default config
-  showStaticPreview(existing);
-
-  // Layout
-  console.log('\n\x1b[33m── Layout ──\x1b[0m');
-  const layout = await select({
+// Section editors
+async function editLayout(config: HudConfig): Promise<void> {
+  console.log(`\n${YELLOW}── Layout ──${RESET}`);
+  config.layout = await select({
     message: 'Choose HUD layout',
     choices: [
       { name: 'Default   →  All info on first line', value: 'default' as const },
       { name: 'Condensed →  Model/context top, project bottom', value: 'condensed' as const },
       { name: 'Separators → Condensed with separator lines', value: 'separators' as const },
     ],
-    default: existing.layout,
+    default: config.layout,
   });
+}
 
-  // Update preview after layout change
-  showStaticPreview({ ...existing, layout });
-
-  // Path Levels
-  console.log('\n\x1b[33m── Path Display ──\x1b[0m');
-  const pathLevels = await select({
+async function editPathDisplay(config: HudConfig): Promise<void> {
+  console.log(`\n${YELLOW}── Path Display ──${RESET}`);
+  config.pathLevels = await select({
     message: 'Directory levels to show',
     choices: [
       { name: '1 level  →  my-project', value: 1 as const },
       { name: '2 levels →  apps/my-project', value: 2 as const },
       { name: '3 levels →  dev/apps/my-project', value: 3 as const },
     ],
-    default: existing.pathLevels,
+    default: config.pathLevels,
   });
+}
 
-  // Update preview after path levels change
-  showStaticPreview({ ...existing, layout, pathLevels });
-
-  // Git Status
-  console.log('\n\x1b[33m── Git Status ──\x1b[0m');
-  const gitEnabled = await confirm({
+async function editGitStatus(config: HudConfig): Promise<void> {
+  console.log(`\n${YELLOW}── Git Status ──${RESET}`);
+  config.gitStatus.enabled = await confirm({
     message: 'Show git branch',
-    default: existing.gitStatus.enabled,
+    default: config.gitStatus.enabled,
   });
 
-  let showDirty = existing.gitStatus.showDirty;
-  let showAheadBehind = existing.gitStatus.showAheadBehind;
-
-  if (gitEnabled) {
-    showDirty = await confirm({
+  if (config.gitStatus.enabled) {
+    config.gitStatus.showDirty = await confirm({
       message: 'Show dirty indicator (*)',
-      default: existing.gitStatus.showDirty,
+      default: config.gitStatus.showDirty,
     });
 
-    showAheadBehind = await confirm({
+    config.gitStatus.showAheadBehind = await confirm({
       message: 'Show ahead/behind (↑N ↓N)',
-      default: existing.gitStatus.showAheadBehind,
+      default: config.gitStatus.showAheadBehind,
     });
   }
+}
 
-  // Update preview after git status changes
-  const currentGitStatus = { enabled: gitEnabled, showDirty, showAheadBehind };
-  showStaticPreview({ ...existing, layout, pathLevels, gitStatus: currentGitStatus });
-
-  // Display Options
-  console.log('\n\x1b[33m── Session Line ──\x1b[0m');
-  const showModel = await confirm({
+async function editSessionLine(config: HudConfig): Promise<void> {
+  console.log(`\n${YELLOW}── Session Line ──${RESET}`);
+  config.display.showModel = await confirm({
     message: 'Show model name [Opus]',
-    default: existing.display.showModel,
+    default: config.display.showModel,
   });
 
-  const showContextBar = await confirm({
+  config.display.showContextBar = await confirm({
     message: 'Show context bar ████░░░░░░',
-    default: existing.display.showContextBar,
+    default: config.display.showContextBar,
   });
 
-  const showConfigCounts = await confirm({
+  config.display.showConfigCounts = await confirm({
     message: 'Show config counts (CLAUDE.md, rules, MCPs, hooks)',
-    default: existing.display.showConfigCounts,
+    default: config.display.showConfigCounts,
   });
 
-  const showDuration = await confirm({
+  config.display.showDuration = await confirm({
     message: 'Show session duration ⏱️',
-    default: existing.display.showDuration,
+    default: config.display.showDuration,
   });
 
-  const showTokenBreakdown = await confirm({
+  config.display.showTokenBreakdown = await confirm({
     message: 'Show token breakdown at high context',
-    default: existing.display.showTokenBreakdown,
+    default: config.display.showTokenBreakdown,
   });
+}
 
-  // Additional Lines
-  console.log('\n\x1b[33m── Additional Lines ──\x1b[0m');
-  const showTools = await confirm({
+async function editAdditionalLines(config: HudConfig): Promise<void> {
+  console.log(`\n${YELLOW}── Additional Lines ──${RESET}`);
+  config.display.showTools = await confirm({
     message: 'Show tools line',
-    default: existing.display.showTools,
+    default: config.display.showTools,
   });
 
-  const showAgents = await confirm({
+  config.display.showAgents = await confirm({
     message: 'Show agents line',
-    default: existing.display.showAgents,
+    default: config.display.showAgents,
   });
 
-  const showTodos = await confirm({
+  config.display.showTodos = await confirm({
     message: 'Show todos line',
-    default: existing.display.showTodos,
+    default: config.display.showTodos,
   });
+}
 
-  const config: HudConfig = {
-    layout,
-    pathLevels,
-    gitStatus: {
-      enabled: gitEnabled,
-      showDirty,
-      showAheadBehind,
-    },
-    display: {
-      showModel,
-      showContextBar,
-      showConfigCounts,
-      showDuration,
-      showTokenBreakdown,
-      showTools,
-      showAgents,
-      showTodos,
-    },
-  };
+type MenuAction = 'layout' | 'path' | 'git' | 'session' | 'lines' | 'save' | 'exit';
 
-  // Show final preview
+async function showMainMenu(config: HudConfig): Promise<MenuAction> {
+  // Show current preview
   showStaticPreview(config);
 
-  const shouldSave = await confirm({
-    message: 'Save this configuration?',
-    default: true,
-  });
+  // Build menu with current values shown
+  const gitSummary = config.gitStatus.enabled
+    ? `on${config.gitStatus.showDirty ? ', dirty' : ''}${config.gitStatus.showAheadBehind ? ', ahead/behind' : ''}`
+    : 'off';
 
-  if (shouldSave) {
-    saveConfig(config);
-    console.log(`\n\x1b[32m✓ Configuration saved to:\x1b[0m ${configPath}`);
-  } else {
-    console.log('\n\x1b[33m✗ Configuration not saved.\x1b[0m');
+  const sessionCount = [
+    config.display.showModel,
+    config.display.showContextBar,
+    config.display.showConfigCounts,
+    config.display.showDuration,
+    config.display.showTokenBreakdown,
+  ].filter(Boolean).length;
+
+  const linesCount = [
+    config.display.showTools,
+    config.display.showAgents,
+    config.display.showTodos,
+  ].filter(Boolean).length;
+
+  console.log(`\n${CYAN}─── Main Menu ───${RESET}`);
+
+  return select({
+    message: 'What would you like to configure?',
+    choices: [
+      { name: `Layout          ${DIM}(${formatLayoutName(config.layout)})${RESET}`, value: 'layout' as const },
+      { name: `Path Display    ${DIM}(${config.pathLevels} level${config.pathLevels > 1 ? 's' : ''})${RESET}`, value: 'path' as const },
+      { name: `Git Status      ${DIM}(${gitSummary})${RESET}`, value: 'git' as const },
+      { name: `Session Line    ${DIM}(${sessionCount}/5 options)${RESET}`, value: 'session' as const },
+      { name: `Additional Lines ${DIM}(${linesCount}/3 lines)${RESET}`, value: 'lines' as const },
+      { name: `${GREEN}✓ Save & Exit${RESET}`, value: 'save' as const },
+      { name: `${DIM}✗ Exit without saving${RESET}`, value: 'exit' as const },
+    ],
+  });
+}
+
+async function main(): Promise<void> {
+  console.log(`\n${CYAN}=== Claude HUD Configuration ===${RESET}\n`);
+
+  resetPreviewState();
+
+  const configPath = getConfigPath();
+  const configExists = fs.existsSync(configPath);
+
+  if (configExists) {
+    console.log(`${GREEN}✓ Existing configuration found${RESET}`);
+  }
+
+  // Load config (mutable copy)
+  const config = loadExistingConfig();
+
+  // Main menu loop
+  let running = true;
+  while (running) {
+    const action = await showMainMenu(config);
+
+    switch (action) {
+      case 'layout':
+        await editLayout(config);
+        break;
+      case 'path':
+        await editPathDisplay(config);
+        break;
+      case 'git':
+        await editGitStatus(config);
+        break;
+      case 'session':
+        await editSessionLine(config);
+        break;
+      case 'lines':
+        await editAdditionalLines(config);
+        break;
+      case 'save':
+        saveConfig(config);
+        console.log(`\n${GREEN}✓ Configuration saved to:${RESET} ${configPath}`);
+        running = false;
+        break;
+      case 'exit':
+        console.log(`\n${YELLOW}✗ Configuration not saved.${RESET}`);
+        running = false;
+        break;
+    }
   }
 }
 
