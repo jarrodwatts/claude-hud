@@ -20,9 +20,9 @@ test('CLI renders expected output for a basic transcript', async () => {
   const expected = readFileSync(expectedPath, 'utf8').trimEnd();
 
   const homeDir = await mkdtemp(path.join(tmpdir(), 'claude-hud-home-'));
-  // Use a fixed project name for deterministic test output
-  const projectDir = path.join(homeDir, 'my-project');
-  await import('node:fs/promises').then(fs => fs.mkdir(projectDir));
+  // Use a fixed 3-level path for deterministic test output
+  const projectDir = path.join(homeDir, 'dev', 'apps', 'my-project');
+  await import('node:fs/promises').then(fs => fs.mkdir(projectDir, { recursive: true }));
   try {
     const stdin = JSON.stringify({
       model: { display_name: 'Opus' },

@@ -6,12 +6,14 @@ export function renderSessionLine(ctx) {
     const percent = getContextPercent(ctx.stdin);
     const bar = coloredBar(percent);
     const parts = [];
-    parts.push(`${cyan(`[${model}]`)} ${bar} ${getContextColor(percent)}${percent}%${RESET}`);
+    // Show project path first (last 3 segments for better context)
     if (ctx.stdin.cwd) {
-        const projectName = path.basename(ctx.stdin.cwd) || ctx.stdin.cwd;
+        const segments = ctx.stdin.cwd.split(path.sep).filter(Boolean);
+        const projectPath = segments.slice(-3).join('/');
         const branchPart = ctx.gitBranch ? ` ${magenta('git:(')}${cyan(ctx.gitBranch)}${magenta(')')}` : '';
-        parts.push(`${yellow(projectName)}${branchPart}`);
+        parts.push(`${yellow(projectPath)}${branchPart}`);
     }
+    parts.push(`${cyan(`[${model}]`)} ${bar} ${getContextColor(percent)}${percent}%${RESET}`);
     if (ctx.claudeMdCount > 0) {
         parts.push(dim(`${ctx.claudeMdCount} CLAUDE.md`));
     }
