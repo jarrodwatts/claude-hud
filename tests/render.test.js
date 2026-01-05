@@ -92,20 +92,27 @@ test('renderSessionLine includes config counts when present', () => {
   assert.ok(line.includes('hooks'));
 });
 
-test('renderSessionLine displays project name from POSIX cwd', () => {
+test('renderSessionLine displays last 3 path segments from POSIX cwd', () => {
   const ctx = baseContext();
-  ctx.stdin.cwd = '/Users/jarrod/my-project';
+  ctx.stdin.cwd = '/Users/jarrod/dev/apps/my-project';
   const line = renderSessionLine(ctx);
-  assert.ok(line.includes('my-project'));
-  assert.ok(!line.includes('/Users/jarrod'));
+  assert.ok(line.includes('dev/apps/my-project'), 'expected last 3 segments');
+  assert.ok(!line.includes('/Users'), 'should not include full path');
 });
 
-test('renderSessionLine displays project name from Windows cwd', { skip: process.platform !== 'win32' }, () => {
+test('renderSessionLine displays last 3 path segments from Windows cwd', { skip: process.platform !== 'win32' }, () => {
   const ctx = baseContext();
-  ctx.stdin.cwd = 'C:\\Users\\jarrod\\my-project';
+  ctx.stdin.cwd = 'C:\\Users\\jarrod\\dev\\apps\\my-project';
   const line = renderSessionLine(ctx);
-  assert.ok(line.includes('my-project'));
-  assert.ok(!line.includes('C:\\'));
+  assert.ok(line.includes('dev/apps/my-project'), 'expected last 3 segments');
+  assert.ok(!line.includes('C:\\'), 'should not include drive letter');
+});
+
+test('renderSessionLine handles short paths gracefully', () => {
+  const ctx = baseContext();
+  ctx.stdin.cwd = '/home/user';
+  const line = renderSessionLine(ctx);
+  assert.ok(line.includes('home/user'), 'expected available segments');
 });
 
 test('renderSessionLine handles root path gracefully', () => {
