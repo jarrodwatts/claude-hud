@@ -11,6 +11,16 @@ interface HudConfig {
     showDirty: boolean;
     showAheadBehind: boolean;
   };
+  display: {
+    showModel: boolean;
+    showContextBar: boolean;
+    showConfigCounts: boolean;
+    showDuration: boolean;
+    showTokenBreakdown: boolean;
+    showTools: boolean;
+    showAgents: boolean;
+    showTodos: boolean;
+  };
 }
 
 const DEFAULT_CONFIG: HudConfig = {
@@ -19,6 +29,16 @@ const DEFAULT_CONFIG: HudConfig = {
     enabled: true,
     showDirty: true,
     showAheadBehind: false,
+  },
+  display: {
+    showModel: true,
+    showContextBar: true,
+    showConfigCounts: true,
+    showDuration: true,
+    showTokenBreakdown: true,
+    showTools: true,
+    showAgents: true,
+    showTodos: true,
   },
 };
 
@@ -37,6 +57,7 @@ function loadExistingConfig(): HudConfig {
         ...DEFAULT_CONFIG,
         ...parsed,
         gitStatus: { ...DEFAULT_CONFIG.gitStatus, ...parsed.gitStatus },
+        display: { ...DEFAULT_CONFIG.display, ...parsed.display },
       };
     }
   } catch {
@@ -64,16 +85,13 @@ async function main(): Promise<void> {
   const configExists = fs.existsSync(configPath);
 
   if (configExists) {
-    console.log('\x1b[32m✓ Existing configuration found\x1b[0m');
-    console.log(`  Path levels: ${existing.pathLevels}`);
-    console.log(`  Git branch: ${existing.gitStatus.enabled ? 'shown' : 'hidden'}`);
-    console.log(`  Dirty indicator: ${existing.gitStatus.showDirty ? 'shown' : 'hidden'}`);
-    console.log(`  Ahead/behind: ${existing.gitStatus.showAheadBehind ? 'shown' : 'hidden'}\n`);
+    console.log('\x1b[32m✓ Existing configuration found\x1b[0m\n');
   }
 
   // Path Levels
+  console.log('\x1b[33m── Path Display ──\x1b[0m');
   const pathLevels = await select({
-    message: 'How many directory levels to show?',
+    message: 'Directory levels to show',
     choices: [
       { name: '1 level  →  my-project', value: 1 as const },
       { name: '2 levels →  apps/my-project', value: 2 as const },
@@ -82,9 +100,10 @@ async function main(): Promise<void> {
     default: existing.pathLevels,
   });
 
-  // Git Status - enabled
+  // Git Status
+  console.log('\n\x1b[33m── Git Status ──\x1b[0m');
   const gitEnabled = await confirm({
-    message: 'Show git branch in HUD?',
+    message: 'Show git branch',
     default: existing.gitStatus.enabled,
   });
 
@@ -92,18 +111,60 @@ async function main(): Promise<void> {
   let showAheadBehind = existing.gitStatus.showAheadBehind;
 
   if (gitEnabled) {
-    // Git Status - dirty indicator
     showDirty = await confirm({
-      message: 'Show dirty indicator (*) for uncommitted changes?',
+      message: 'Show dirty indicator (*)',
       default: existing.gitStatus.showDirty,
     });
 
-    // Git Status - ahead/behind
     showAheadBehind = await confirm({
-      message: 'Show ahead/behind counts (↑2 ↓1)?',
+      message: 'Show ahead/behind (↑N ↓N)',
       default: existing.gitStatus.showAheadBehind,
     });
   }
+
+  // Display Options
+  console.log('\n\x1b[33m── Session Line ──\x1b[0m');
+  const showModel = await confirm({
+    message: 'Show model name [Opus]',
+    default: existing.display.showModel,
+  });
+
+  const showContextBar = await confirm({
+    message: 'Show context bar ████░░░░░░',
+    default: existing.display.showContextBar,
+  });
+
+  const showConfigCounts = await confirm({
+    message: 'Show config counts (CLAUDE.md, rules, MCPs, hooks)',
+    default: existing.display.showConfigCounts,
+  });
+
+  const showDuration = await confirm({
+    message: 'Show session duration ⏱️',
+    default: existing.display.showDuration,
+  });
+
+  const showTokenBreakdown = await confirm({
+    message: 'Show token breakdown at high context',
+    default: existing.display.showTokenBreakdown,
+  });
+
+  // Additional Lines
+  console.log('\n\x1b[33m── Additional Lines ──\x1b[0m');
+  const showTools = await confirm({
+    message: 'Show tools line',
+    default: existing.display.showTools,
+  });
+
+  const showAgents = await confirm({
+    message: 'Show agents line',
+    default: existing.display.showAgents,
+  });
+
+  const showTodos = await confirm({
+    message: 'Show todos line',
+    default: existing.display.showTodos,
+  });
 
   const config: HudConfig = {
     pathLevels,
@@ -112,24 +173,67 @@ async function main(): Promise<void> {
       showDirty,
       showAheadBehind,
     },
+    display: {
+      showModel,
+      showContextBar,
+      showConfigCounts,
+      showDuration,
+      showTokenBreakdown,
+      showTools,
+      showAgents,
+      showTodos,
+    },
   };
 
-  console.log('\n\x1b[33mPreview:\x1b[0m');
-  console.log(JSON.stringify(config, null, 2));
+  // Color codes for preview
+  const RESET = '\x1b[0m';
+  const YELLOW = '\x1b[33m';
+  const CYAN = '\x1b[36m';
+  const MAGENTA = '\x1b[35m';
+  const GREEN = '\x1b[32m';
+  const DIM = '\x1b[2m';
 
-  // Show example output
-  console.log('\n\x1b[33mExample display:\x1b[0m');
-  let example = 'my-project';
-  if (pathLevels >= 2) example = 'apps/' + example;
-  if (pathLevels >= 3) example = 'dev/' + example;
+  // Show example output with colors
+  console.log(`\n${YELLOW}── HUD Preview ──${RESET}`);
+  let sessionParts: string[] = [];
+
+  // Path + git
+  let pathPart = 'my-project';
+  if (pathLevels >= 2) pathPart = 'apps/' + pathPart;
+  if (pathLevels >= 3) pathPart = 'dev/' + pathPart;
+
+  let gitPart = '';
   if (gitEnabled) {
-    let gitPart = 'main';
-    if (showDirty) gitPart += '*';
-    if (showAheadBehind) gitPart += ' ↑2';
-    example += ` git:(${gitPart})`;
+    let gitContent = 'main';
+    if (showDirty) gitContent += '*';
+    if (showAheadBehind) gitContent += ' ↑2';
+    gitPart = ` ${MAGENTA}git:(${RESET}${CYAN}${gitContent}${RESET}${MAGENTA})${RESET}`;
   }
-  example += ' | [Opus] ████░░░░░░ 42%';
-  console.log(`  ${example}`);
+  sessionParts.push(`${YELLOW}${pathPart}${RESET}${gitPart}`);
+
+  // Model + context
+  const contextBar = `${GREEN}████${RESET}░░░░░░`;
+  if (showModel && showContextBar) {
+    sessionParts.push(`${CYAN}[Opus]${RESET} ${contextBar} ${GREEN}42%${RESET}`);
+  } else if (showModel) {
+    sessionParts.push(`${CYAN}[Opus]${RESET} ${GREEN}42%${RESET}`);
+  } else if (showContextBar) {
+    sessionParts.push(`${contextBar} ${GREEN}42%${RESET}`);
+  } else {
+    sessionParts.push(`${GREEN}42%${RESET}`);
+  }
+
+  if (showConfigCounts) sessionParts.push(`${DIM}2 rules${RESET}`);
+  if (showDuration) sessionParts.push(`${DIM}⏱️ 5m${RESET}`);
+
+  console.log(`  ${sessionParts.join(' | ')}`);
+  if (showTools) console.log(`  ${CYAN}◐${RESET} Edit: ${DIM}.../file.ts${RESET} | ${GREEN}✓${RESET} Read ×3`);
+  if (showAgents) console.log(`  ${GREEN}✓${RESET} explore: Finding auth code ${DIM}(2s)${RESET}`);
+  if (showTodos) console.log(`  ${CYAN}▸${RESET} Add tests ${DIM}(1/3)${RESET}`);
+
+  // Show config JSON
+  console.log(`\n${YELLOW}── Configuration ──${RESET}`);
+  console.log(JSON.stringify(config, null, 2));
 
   const shouldSave = await confirm({
     message: 'Save this configuration?',

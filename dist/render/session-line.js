@@ -35,24 +35,42 @@ export function renderSessionLine(ctx) {
         }
         parts.push(`${yellow(projectPath)}${gitPart}`);
     }
-    parts.push(`${cyan(`[${model}]`)} ${bar} ${getContextColor(percent)}${percent}%${RESET}`);
-    if (ctx.claudeMdCount > 0) {
-        parts.push(dim(`${ctx.claudeMdCount} CLAUDE.md`));
+    const display = ctx.config?.display;
+    // Model and context bar
+    if (display?.showModel !== false && display?.showContextBar !== false) {
+        parts.push(`${cyan(`[${model}]`)} ${bar} ${getContextColor(percent)}${percent}%${RESET}`);
     }
-    if (ctx.rulesCount > 0) {
-        parts.push(dim(`${ctx.rulesCount} rules`));
+    else if (display?.showModel !== false) {
+        parts.push(`${cyan(`[${model}]`)} ${getContextColor(percent)}${percent}%${RESET}`);
     }
-    if (ctx.mcpCount > 0) {
-        parts.push(dim(`${ctx.mcpCount} MCPs`));
+    else if (display?.showContextBar !== false) {
+        parts.push(`${bar} ${getContextColor(percent)}${percent}%${RESET}`);
     }
-    if (ctx.hooksCount > 0) {
-        parts.push(dim(`${ctx.hooksCount} hooks`));
+    else {
+        parts.push(`${getContextColor(percent)}${percent}%${RESET}`);
     }
-    if (ctx.sessionDuration) {
+    // Config counts
+    if (display?.showConfigCounts !== false) {
+        if (ctx.claudeMdCount > 0) {
+            parts.push(dim(`${ctx.claudeMdCount} CLAUDE.md`));
+        }
+        if (ctx.rulesCount > 0) {
+            parts.push(dim(`${ctx.rulesCount} rules`));
+        }
+        if (ctx.mcpCount > 0) {
+            parts.push(dim(`${ctx.mcpCount} MCPs`));
+        }
+        if (ctx.hooksCount > 0) {
+            parts.push(dim(`${ctx.hooksCount} hooks`));
+        }
+    }
+    // Session duration
+    if (display?.showDuration !== false && ctx.sessionDuration) {
         parts.push(dim(`⏱️  ${ctx.sessionDuration}`));
     }
     let line = parts.join(' | ');
-    if (percent >= 85) {
+    // Token breakdown at high context
+    if (display?.showTokenBreakdown !== false && percent >= 85) {
         const usage = ctx.stdin.context_window?.current_usage;
         if (usage) {
             const input = formatTokens(usage.input_tokens ?? 0);

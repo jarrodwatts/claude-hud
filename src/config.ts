@@ -9,6 +9,16 @@ export interface HudConfig {
     showDirty: boolean;
     showAheadBehind: boolean;
   };
+  display: {
+    showModel: boolean;
+    showContextBar: boolean;
+    showConfigCounts: boolean;
+    showDuration: boolean;
+    showTokenBreakdown: boolean;
+    showTools: boolean;
+    showAgents: boolean;
+    showTodos: boolean;
+  };
 }
 
 export const DEFAULT_CONFIG: HudConfig = {
@@ -17,6 +27,16 @@ export const DEFAULT_CONFIG: HudConfig = {
     enabled: true,
     showDirty: true,
     showAheadBehind: false,
+  },
+  display: {
+    showModel: true,
+    showContextBar: true,
+    showConfigCounts: true,
+    showDuration: true,
+    showTokenBreakdown: true,
+    showTools: true,
+    showAgents: true,
+    showTodos: true,
   },
 };
 
@@ -46,7 +66,34 @@ function mergeConfig(userConfig: Partial<HudConfig>): HudConfig {
       : DEFAULT_CONFIG.gitStatus.showAheadBehind,
   };
 
-  return { pathLevels, gitStatus };
+  const display = {
+    showModel: typeof userConfig.display?.showModel === 'boolean'
+      ? userConfig.display.showModel
+      : DEFAULT_CONFIG.display.showModel,
+    showContextBar: typeof userConfig.display?.showContextBar === 'boolean'
+      ? userConfig.display.showContextBar
+      : DEFAULT_CONFIG.display.showContextBar,
+    showConfigCounts: typeof userConfig.display?.showConfigCounts === 'boolean'
+      ? userConfig.display.showConfigCounts
+      : DEFAULT_CONFIG.display.showConfigCounts,
+    showDuration: typeof userConfig.display?.showDuration === 'boolean'
+      ? userConfig.display.showDuration
+      : DEFAULT_CONFIG.display.showDuration,
+    showTokenBreakdown: typeof userConfig.display?.showTokenBreakdown === 'boolean'
+      ? userConfig.display.showTokenBreakdown
+      : DEFAULT_CONFIG.display.showTokenBreakdown,
+    showTools: typeof userConfig.display?.showTools === 'boolean'
+      ? userConfig.display.showTools
+      : DEFAULT_CONFIG.display.showTools,
+    showAgents: typeof userConfig.display?.showAgents === 'boolean'
+      ? userConfig.display.showAgents
+      : DEFAULT_CONFIG.display.showAgents,
+    showTodos: typeof userConfig.display?.showTodos === 'boolean'
+      ? userConfig.display.showTodos
+      : DEFAULT_CONFIG.display.showTodos,
+  };
+
+  return { pathLevels, gitStatus, display };
 }
 
 export async function loadConfig(): Promise<HudConfig> {

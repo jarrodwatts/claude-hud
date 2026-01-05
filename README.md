@@ -111,6 +111,14 @@ npx claude-hud-configure
 | `gitStatus.enabled` | boolean | true | Show git branch in HUD |
 | `gitStatus.showDirty` | boolean | true | Show `*` for uncommitted changes |
 | `gitStatus.showAheadBehind` | boolean | false | Show `↑N ↓N` for ahead/behind remote |
+| `display.showModel` | boolean | true | Show model name `[Opus]` |
+| `display.showContextBar` | boolean | true | Show visual context bar `████░░░░░░` |
+| `display.showConfigCounts` | boolean | true | Show CLAUDE.md, rules, MCPs, hooks counts |
+| `display.showDuration` | boolean | true | Show session duration `⏱️ 5m` |
+| `display.showTokenBreakdown` | boolean | true | Show token details at high context (85%+) |
+| `display.showTools` | boolean | true | Show tools activity line |
+| `display.showAgents` | boolean | true | Show agents activity line |
+| `display.showTodos` | boolean | true | Show todos progress line |
 
 ### Example Configuration
 
@@ -121,6 +129,16 @@ npx claude-hud-configure
     "enabled": true,
     "showDirty": true,
     "showAheadBehind": true
+  },
+  "display": {
+    "showModel": true,
+    "showContextBar": true,
+    "showConfigCounts": true,
+    "showDuration": true,
+    "showTokenBreakdown": true,
+    "showTools": true,
+    "showAgents": true,
+    "showTodos": true
   }
 }
 ```
@@ -136,6 +154,8 @@ npx claude-hud-configure
 **With dirty indicator:** `my-project git:(main*) | [Opus] ...`
 
 **With ahead/behind:** `my-project git:(main ↑2 ↓1) | [Opus] ...`
+
+**Minimal display (only context %):** Configure `showModel`, `showContextBar`, `showConfigCounts`, `showDuration` to `false`
 
 ---
 
