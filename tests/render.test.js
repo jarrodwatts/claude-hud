@@ -99,6 +99,37 @@ test('renderSessionLine includes config counts when present', () => {
   assert.ok(line.includes('hooks'));
 });
 
+test('renderSessionLine displays project name from POSIX cwd', () => {
+  const ctx = baseContext();
+  ctx.stdin.cwd = '/Users/jarrod/my-project';
+  const line = renderSessionLine(ctx);
+  assert.ok(line.includes('my-project'));
+  assert.ok(!line.includes('/Users/jarrod'));
+});
+
+test('renderSessionLine displays project name from Windows cwd', { skip: process.platform !== 'win32' }, () => {
+  const ctx = baseContext();
+  ctx.stdin.cwd = 'C:\\Users\\jarrod\\my-project';
+  const line = renderSessionLine(ctx);
+  assert.ok(line.includes('my-project'));
+  assert.ok(!line.includes('C:\\'));
+});
+
+test('renderSessionLine handles root path gracefully', () => {
+  const ctx = baseContext();
+  ctx.stdin.cwd = '/';
+  const line = renderSessionLine(ctx);
+  assert.ok(line.includes('[Opus]'));
+});
+
+test('renderSessionLine omits project name when cwd is undefined', () => {
+  const ctx = baseContext();
+  ctx.stdin.cwd = undefined;
+  const line = renderSessionLine(ctx);
+  assert.ok(line.includes('[Opus]'));
+  assert.ok(!line.includes('📁'));
+});
+
 test('renderToolsLine renders running and completed tools', () => {
   const ctx = baseContext();
   ctx.transcript.tools = [
