@@ -6,11 +6,10 @@ export function renderSessionLine(ctx) {
     const percent = getContextPercent(ctx.stdin);
     const bar = coloredBar(percent);
     const parts = [];
-    // Add project folder name and git branch (styled like terminal prompt)
+    // Add project folder name for context
     if (ctx.stdin.cwd) {
         const projectName = path.basename(ctx.stdin.cwd) || ctx.stdin.cwd;
-        const branchPart = ctx.gitBranch ? ` ${cyan(`git:(${ctx.gitBranch})`)}` : '';
-        parts.push(`${red(projectName)}${branchPart}`);
+        parts.push(cyan(`📁 ${projectName}`));
     }
     parts.push(`${cyan(`[${model}]`)} ${bar} ${getContextColor(percent)}${percent}%${RESET}`);
     if (ctx.claudeMdCount > 0) {
