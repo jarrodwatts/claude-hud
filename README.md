@@ -46,9 +46,9 @@ Claude HUD gives you better insights into what's happening in your Claude Code s
 
 ### Session Info
 ```
-my-project git:(main) | [Opus 4.5] ████░░░░░░ 19% | 2 CLAUDE.md | 8 rules | 6 MCPs | 6 hooks | ⏱️ 1m
+📁 my-project git:(main) | [Opus 4.5] ████░░░░░░ 19% | 2 CLAUDE.md | 8 rules | 6 MCPs | 6 hooks | ⏱️ 1m
 ```
-- **Project path** — Configurable 1-3 directory levels (default: 1, shown first)
+- **Project path** — Folder icon with configurable 1-3 directory levels (default: 1, shown first)
 - **Git branch** — Current branch name (configurable on/off)
 - **Model** — Current model in use
 - **Context bar** — Visual meter with color coding (green → yellow → red as it fills)
@@ -103,6 +103,8 @@ Claude HUD can be configured via `~/.claude/plugins/claude-hud/config.json` or b
 npx claude-hud-configure
 ```
 
+The interactive CLI shows a **live preview** that updates as you make selections, so you can see exactly how your HUD will look before saving.
+
 ### Options
 
 | Option | Type | Default | Description |
@@ -125,7 +127,7 @@ npx claude-hud-configure
 
 **Default layout** — Everything on first line:
 ```
-my-project git:(main) | [Opus] ████░░░░░░ 42% | 2 rules | ⏱️ 5m
+📁 my-project git:(main) | [Opus] ████░░░░░░ 42% | 2 rules | ⏱️ 5m
 ✓ Read ×3 | ✓ Edit ×1
 ```
 
@@ -133,7 +135,7 @@ my-project git:(main) | [Opus] ████░░░░░░ 42% | 2 rules | �
 ```
 [Opus] ████░░░░░░ 42% | ⏱️ 5m
 ✓ Read ×3 | ✓ Edit ×1
-my-project git:(main) | 2 rules
+📁 my-project git:(main) | 2 rules
 ```
 
 **Separators layout** — Condensed with visual separators:
@@ -142,7 +144,7 @@ my-project git:(main) | 2 rules
 ──────────────────────────────────────────────────
 ✓ Read ×3 | ✓ Edit ×1
 ──────────────────────────────────────────────────
-my-project git:(main) | 2 rules
+📁 my-project git:(main) | 2 rules
 ```
 
 ### Example Configuration
@@ -171,15 +173,15 @@ my-project git:(main) | 2 rules
 
 ### Display Examples
 
-**1 level (default):** `my-project git:(main) | [Opus] ...`
+**1 level (default):** `📁 my-project git:(main) | [Opus] ...`
 
-**2 levels:** `apps/my-project git:(main) | [Opus] ...`
+**2 levels:** `📁 apps/my-project git:(main) | [Opus] ...`
 
-**3 levels:** `dev/apps/my-project git:(main) | [Opus] ...`
+**3 levels:** `📁 dev/apps/my-project git:(main) | [Opus] ...`
 
-**With dirty indicator:** `my-project git:(main*) | [Opus] ...`
+**With dirty indicator:** `📁 my-project git:(main*) | [Opus] ...`
 
-**With ahead/behind:** `my-project git:(main ↑2 ↓1) | [Opus] ...`
+**With ahead/behind:** `📁 my-project git:(main ↑2 ↓1) | [Opus] ...`
 
 **Minimal display (only context %):** Configure `showModel`, `showContextBar`, `showConfigCounts`, `showDuration` to `false`
 
