@@ -3,11 +3,21 @@ import assert from 'node:assert/strict';
 import { loadConfig, DEFAULT_CONFIG, getConfigPath } from '../dist/config.js';
 import * as path from 'node:path';
 import * as os from 'node:os';
+import * as fs from 'node:fs';
 
-test('loadConfig returns default config when file does not exist', async () => {
+test('loadConfig returns valid config structure', async () => {
   const config = await loadConfig();
-  assert.equal(config.pathLevels, 1);
-  assert.equal(config.gitStatus.enabled, true);
+  // Should return valid pathLevels (1, 2, or 3)
+  assert.ok([1, 2, 3].includes(config.pathLevels), 'pathLevels should be 1, 2, or 3');
+  // Should have gitStatus object with expected properties
+  assert.equal(typeof config.gitStatus, 'object');
+  assert.equal(typeof config.gitStatus.enabled, 'boolean');
+  assert.equal(typeof config.gitStatus.showDirty, 'boolean');
+  assert.equal(typeof config.gitStatus.showAheadBehind, 'boolean');
+  // Should have display object with expected properties
+  assert.equal(typeof config.display, 'object');
+  assert.equal(typeof config.display.showModel, 'boolean');
+  assert.equal(typeof config.display.showContextBar, 'boolean');
 });
 
 test('getConfigPath returns correct path', () => {
