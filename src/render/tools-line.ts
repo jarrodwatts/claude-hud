@@ -42,7 +42,8 @@ export function renderToolsLine(ctx: RenderContext): string | null {
 function truncatePath(path: string, maxLen: number = 20): string {
   if (path.length <= maxLen) return path;
 
-  const parts = path.split('/');
+  // Split by both Unix (/) and Windows (\) separators for cross-platform support
+  const parts = path.split(/[/\\]/);
   const filename = parts.pop() || path;
 
   if (filename.length >= maxLen) {

@@ -137,6 +137,57 @@ test('renderSessionLine handles root path gracefully', () => {
   assert.ok(line.includes('[Opus]'));
 });
 
+// Cross-platform path tests
+test('renderSessionLine handles Windows paths with backslashes', () => {
+  const ctx = baseContext();
+  ctx.stdin.cwd = 'C:\\Users\\jarrod\\dev\\my-project';
+  ctx.config.pathLevels = 1;
+  const line = renderSessionLine(ctx);
+  assert.ok(line.includes('my-project'), 'expected last segment from Windows path');
+  assert.ok(!line.includes('\\'), 'should not contain backslashes in output');
+});
+
+test('renderSessionLine handles Windows paths with 2 levels', () => {
+  const ctx = baseContext();
+  ctx.stdin.cwd = 'C:\\Users\\jarrod\\dev\\my-project';
+  ctx.config.pathLevels = 2;
+  const line = renderSessionLine(ctx);
+  assert.ok(line.includes('dev/my-project'), 'expected 2 segments with forward slash');
+});
+
+test('renderSessionLine handles Windows paths with 3 levels', () => {
+  const ctx = baseContext();
+  ctx.stdin.cwd = 'C:\\Users\\jarrod\\dev\\my-project';
+  ctx.config.pathLevels = 3;
+  const line = renderSessionLine(ctx);
+  assert.ok(line.includes('jarrod/dev/my-project'), 'expected 3 segments with forward slashes');
+});
+
+test('renderSessionLine handles mixed path separators', () => {
+  const ctx = baseContext();
+  ctx.stdin.cwd = 'C:\\Users/jarrod\\dev/my-project';
+  ctx.config.pathLevels = 2;
+  const line = renderSessionLine(ctx);
+  assert.ok(line.includes('dev/my-project'), 'expected correct parsing of mixed separators');
+});
+
+test('renderSessionLine handles UNC paths', () => {
+  const ctx = baseContext();
+  ctx.stdin.cwd = '\\\\server\\share\\folder\\project';
+  ctx.config.pathLevels = 2;
+  const line = renderSessionLine(ctx);
+  assert.ok(line.includes('folder/project'), 'expected 2 segments from UNC path');
+});
+
+test('renderSessionLine output always uses forward slashes', () => {
+  const ctx = baseContext();
+  ctx.stdin.cwd = 'D:\\Projects\\client\\webapp';
+  ctx.config.pathLevels = 3;
+  const line = renderSessionLine(ctx);
+  assert.ok(line.includes('Projects/client/webapp'), 'expected forward slashes in output');
+  assert.ok(!line.includes('\\'), 'output should never contain backslashes');
+});
+
 test('renderSessionLine omits project name when cwd is undefined', () => {
   const ctx = baseContext();
   ctx.stdin.cwd = undefined;
@@ -227,6 +278,40 @@ test('renderToolsLine handles trailing slash paths', () => {
 
   const line = renderToolsLine(ctx);
   assert.ok(line?.includes('...'));
+});
+
+// Cross-platform tool path tests
+test('renderToolsLine handles Windows paths with backslashes', () => {
+  const ctx = baseContext();
+  ctx.transcript.tools = [
+    {
+      id: 'tool-1',
+      name: 'Edit',
+      target: 'C:\\Users\\jarrod\\dev\\my-project\\auth.ts',
+      status: 'running',
+      startTime: new Date(0),
+    },
+  ];
+
+  const line = renderToolsLine(ctx);
+  assert.ok(line?.includes('auth.ts'), 'expected filename from Windows path');
+  assert.ok(!line?.includes('\\'), 'should not contain backslashes');
+});
+
+test('renderToolsLine truncates long Windows paths correctly', () => {
+  const ctx = baseContext();
+  ctx.transcript.tools = [
+    {
+      id: 'tool-1',
+      name: 'Read',
+      target: 'C:\\Users\\jarrod\\very\\long\\path\\to\\file.ts',
+      status: 'running',
+      startTime: new Date(0),
+    },
+  ];
+
+  const line = renderToolsLine(ctx);
+  assert.ok(line?.includes('.../file.ts'), 'expected truncated Windows path');
 });
 
 test('renderToolsLine preserves short targets and handles missing targets', () => {
