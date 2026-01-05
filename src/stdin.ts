@@ -23,12 +23,34 @@ export async function readStdin(): Promise<StdinData | null> {
   }
 }
 
+/**
+ * Returns raw context percentage (matches /context output).
+ */
 export function getContextPercent(stdin: StdinData): number {
   const usage = stdin.context_window?.current_usage;
   const size = stdin.context_window?.context_window_size;
 
-  // Guard against missing data or invalid context window size
-  if (!usage || !size || size <= AUTOCOMPACT_BUFFER) {
+  if (!usage || !size || size <= 0) {
+    return 0;
+  }
+
+  const totalTokens =
+    (usage.input_tokens ?? 0) +
+    (usage.cache_creation_input_tokens ?? 0) +
+    (usage.cache_read_input_tokens ?? 0);
+
+  return Math.min(100, Math.round((totalTokens / size) * 100));
+}
+
+/**
+ * Returns context percentage with autocompact buffer factored in.
+ * Use this for warning thresholds - it represents "compact risk".
+ */
+export function getBufferedPercent(stdin: StdinData): number {
+  const usage = stdin.context_window?.current_usage;
+  const size = stdin.context_window?.context_window_size;
+
+  if (!usage || !size || size <= 0) {
     return 0;
   }
 

@@ -1,16 +1,18 @@
 import path from 'node:path';
 import type { RenderContext } from '../types.js';
-import { getContextPercent, getModelName } from '../stdin.js';
+import { getContextPercent, getBufferedPercent, getModelName } from '../stdin.js';
 import { coloredBar, cyan, dim, magenta, red, yellow, getContextColor, RESET } from './colors.js';
 
 export function renderSessionLine(ctx: RenderContext): string {
   const model = getModelName(ctx.stdin);
   const percent = getContextPercent(ctx.stdin);
+  const bufferedPercent = getBufferedPercent(ctx.stdin);
   const bar = coloredBar(percent);
 
   const parts: string[] = [];
 
-  parts.push(`${cyan(`[${model}]`)} ${bar} ${getContextColor(percent)}${percent}%${RESET}`);
+  // Show raw percent (matches /context), but color based on buffered percent (compact risk)
+  parts.push(`${cyan(`[${model}]`)} ${bar} ${getContextColor(bufferedPercent)}${percent}%${RESET}`);
 
   if (ctx.stdin.cwd) {
     const projectName = path.basename(ctx.stdin.cwd) || ctx.stdin.cwd;
@@ -40,13 +42,24 @@ export function renderSessionLine(ctx: RenderContext): string {
 
   let line = parts.join(' | ');
 
-  if (percent >= 85) {
+  // Show token breakdown when approaching compact risk (based on buffered percent)
+  if (bufferedPercent >= 85) {
     const usage = ctx.stdin.context_window?.current_usage;
     if (usage) {
       const input = formatTokens(usage.input_tokens ?? 0);
       const cache = formatTokens((usage.cache_creation_input_tokens ?? 0) + (usage.cache_read_input_tokens ?? 0));
       line += dim(` (in: ${input}, cache: ${cache})`);
+      // Show remaining headroom until autocompact triggers
+      if (bufferedPercent > percent && bufferedPercent < 100) {
+        const remaining = 100 - bufferedPercent;
+        line += dim(` (${yellow(`${remaining}%`)}${dim(' until auto-compact if enabled)')}`);
+      }
     }
+  }
+
+  // COMPACT warning based on buffered percent (compact risk)
+  if (bufferedPercent >= 95) {
+    line += ` ${red('⚠️ COMPACT')}`;
   }
 
   return line;

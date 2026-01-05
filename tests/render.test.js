@@ -31,33 +31,41 @@ function baseContext() {
 
 test('renderSessionLine adds token breakdown when context is high', () => {
   const ctx = baseContext();
-  // For 90%: (tokens + 45000) / 200000 = 0.9 → tokens = 135000
-  ctx.stdin.context_window.current_usage.input_tokens = 135000;
+  // For 90% raw: 180000 / 200000 = 0.9
+  ctx.stdin.context_window.current_usage.input_tokens = 180000;
   const line = renderSessionLine(ctx);
   assert.ok(line.includes('in:'), 'expected token breakdown');
   assert.ok(line.includes('cache:'), 'expected cache breakdown');
+});
+
+test('renderSessionLine shows compact warning at critical threshold', () => {
+  const ctx = baseContext();
+  // For 96% raw: 192000 / 200000 = 0.96
+  ctx.stdin.context_window.current_usage.input_tokens = 192000;
+  const line = renderSessionLine(ctx);
+  assert.ok(line.includes('COMPACT'));
 });
 
 test('renderSessionLine includes duration and formats large tokens', () => {
   const ctx = baseContext();
   ctx.sessionDuration = '1m';
   // Use 1M context, need 85%+ to show breakdown
-  // For 85%: (tokens + 45000) / 1000000 = 0.85 → tokens = 805000
+  // For 85% raw: 850000 / 1000000 = 0.85
   ctx.stdin.context_window.context_window_size = 1000000;
-  ctx.stdin.context_window.current_usage.input_tokens = 805000;
+  ctx.stdin.context_window.current_usage.input_tokens = 850000;
   ctx.stdin.context_window.current_usage.cache_read_input_tokens = 1500;
   const line = renderSessionLine(ctx);
   assert.ok(line.includes('⏱️'));
-  assert.ok(line.includes('805k') || line.includes('805.0k'), 'expected large input token display');
+  assert.ok(line.includes('850k') || line.includes('850.0k'), 'expected large input token display');
   assert.ok(line.includes('2k'), 'expected cache token display');
 });
 
 test('renderSessionLine handles missing input tokens and cache creation usage', () => {
   const ctx = baseContext();
-  // For 90%: (tokens + 45000) / 200000 = 0.9 → tokens = 135000 (all from cache)
+  // For 90% raw: 180000 / 200000 = 0.9 (all from cache)
   ctx.stdin.context_window.context_window_size = 200000;
   ctx.stdin.context_window.current_usage = {
-    cache_creation_input_tokens: 135000,
+    cache_creation_input_tokens: 180000,
   };
   const line = renderSessionLine(ctx);
   assert.ok(line.includes('90%'));
@@ -66,13 +74,32 @@ test('renderSessionLine handles missing input tokens and cache creation usage', 
 
 test('renderSessionLine handles missing cache token fields', () => {
   const ctx = baseContext();
-  // For 90%: (tokens + 45000) / 200000 = 0.9 → tokens = 135000
+  // For 90% raw: 180000 / 200000 = 0.9
   ctx.stdin.context_window.context_window_size = 200000;
   ctx.stdin.context_window.current_usage = {
-    input_tokens: 135000,
+    input_tokens: 180000,
   };
   const line = renderSessionLine(ctx);
   assert.ok(line.includes('cache: 0'));
+});
+
+test('renderSessionLine shows buffer indicator when raw differs from buffered', () => {
+  const ctx = baseContext();
+  // Raw: 80000 / 200000 = 40%
+  // Buffered: (80000 + 45000) / 200000 = 62.5% → 63%
+  // Since buffered < 85%, no breakdown shown
+  ctx.stdin.context_window.current_usage.input_tokens = 80000;
+  const line40 = renderSessionLine(ctx);
+  assert.ok(!line40.includes('until auto-compact'), 'should not show indicator when buffered < 85%');
+
+  // Raw: 130000 / 200000 = 65%
+  // Buffered: (130000 + 45000) / 200000 = 87.5% → 88% (>= 85%, shows breakdown)
+  // Remaining: 100 - 88 = 12%
+  ctx.stdin.context_window.current_usage.input_tokens = 130000;
+  const line65 = renderSessionLine(ctx);
+  assert.ok(line65.includes('65%'), 'should show raw percent');
+  assert.ok(line65.includes('12%'), 'should show remaining percent until autocompact');
+  assert.ok(line65.includes('until auto-compact if enabled'), 'should show autocompact indicator');
 });
 
 test('getContextColor returns yellow for warning threshold', () => {

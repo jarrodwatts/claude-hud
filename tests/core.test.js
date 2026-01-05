@@ -6,7 +6,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { parseTranscript } from '../dist/transcript.js';
 import { countConfigs } from '../dist/config-reader.js';
-import { getContextPercent, getModelName } from '../dist/stdin.js';
+import { getContextPercent, getBufferedPercent, getModelName } from '../dist/stdin.js';
 import * as fs from 'node:fs';
 
 test('getContextPercent returns 0 when data is missing', () => {
@@ -14,8 +14,8 @@ test('getContextPercent returns 0 when data is missing', () => {
   assert.equal(getContextPercent({ context_window: { context_window_size: 0 } }), 0);
 });
 
-test('getContextPercent includes cache tokens and autocompact buffer', () => {
-  // For 50%: (tokens + 45000) / 200000 = 0.5 → tokens = 55000
+test('getContextPercent includes cache tokens (raw percent, no buffer)', () => {
+  // 55000 / 200000 = 27.5% → rounds to 28%
   const percent = getContextPercent({
     context_window: {
       context_window_size: 200000,
@@ -27,11 +27,11 @@ test('getContextPercent includes cache tokens and autocompact buffer', () => {
     },
   });
 
-  assert.equal(percent, 50);
+  assert.equal(percent, 28);
 });
 
 test('getContextPercent handles missing input tokens', () => {
-  // For 25%: (tokens + 45000) / 200000 = 0.25 → tokens = 5000
+  // 5000 / 200000 = 2.5% → rounds to 3%
   const percent = getContextPercent({
     context_window: {
       context_window_size: 200000,
@@ -42,7 +42,45 @@ test('getContextPercent handles missing input tokens', () => {
     },
   });
 
-  assert.equal(percent, 25);
+  assert.equal(percent, 3);
+});
+
+test('getContextPercent matches /context output (regression test)', () => {
+  // Bug report: /context showed 65% but HUD showed 88%
+  // With raw percent: 130000 / 200000 = 65%
+  const percent = getContextPercent({
+    context_window: {
+      context_window_size: 200000,
+      current_usage: {
+        input_tokens: 10,
+        cache_read_input_tokens: 130000,
+      },
+    },
+  });
+
+  assert.equal(percent, 65);
+});
+
+test('getBufferedPercent adds 45k autocompact buffer', () => {
+  // Raw: 130000 / 200000 = 65%
+  // Buffered: (130000 + 45000) / 200000 = 87.5% → 88%
+  const stdin = {
+    context_window: {
+      context_window_size: 200000,
+      current_usage: {
+        input_tokens: 10,
+        cache_read_input_tokens: 130000,
+      },
+    },
+  };
+
+  assert.equal(getContextPercent(stdin), 65);
+  assert.equal(getBufferedPercent(stdin), 88);
+});
+
+test('getBufferedPercent returns 0 when data is missing', () => {
+  assert.equal(getBufferedPercent({}), 0);
+  assert.equal(getBufferedPercent({ context_window: { context_window_size: 0 } }), 0);
 });
 
 test('getModelName prefers display name, then id, then fallback', () => {

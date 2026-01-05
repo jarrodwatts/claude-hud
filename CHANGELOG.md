@@ -2,6 +2,19 @@
 
 All notable changes to Claude HUD will be documented in this file.
 
+## [Unreleased]
+
+### Fixed
+- Context percentage now matches Claude Code's `/context` output exactly (raw token usage)
+- Previously inflated by 23% after compactions due to hardcoded 45k buffer
+
+### Changed
+- Warnings (yellow/red colors, token breakdown, COMPACT indicator) now trigger based on "compact risk" (raw + 45k buffer) while displaying raw percent
+- When approaching compact risk threshold (85%+), shows remaining headroom: `65% (in: 10, cache: 130k) (12% until auto-compact if enabled)`
+- This gives users advance warning of autocompact while showing accurate current usage
+
+---
+
 ## [0.0.2] - 2025-01-04
 
 ### Security
@@ -9,7 +22,7 @@ All notable changes to Claude HUD will be documented in this file.
 - Remove dist/ from git tracking - PRs now contain source only, CI handles compilation
 
 ### Fixed
-- Add 45k token autocompact buffer to context percentage calculation - now matches `/context` output accurately by accounting for Claude Code's reserved autocompact space
+- ~~Add 45k token autocompact buffer to context percentage calculation~~ (reverted in next release)
 - Fix CI caching with package-lock.json
 - Use Opus 4.5 for GitHub Actions code review
 
