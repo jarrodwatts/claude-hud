@@ -2,7 +2,10 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import * as os from 'node:os';
 
+export type LayoutType = 'default' | 'condensed' | 'separators';
+
 export interface HudConfig {
+  layout: LayoutType;
   pathLevels: 1 | 2 | 3;
   gitStatus: {
     enabled: boolean;
@@ -22,6 +25,7 @@ export interface HudConfig {
 }
 
 export const DEFAULT_CONFIG: HudConfig = {
+  layout: 'default',
   pathLevels: 1,
   gitStatus: {
     enabled: true,
@@ -49,7 +53,15 @@ function validatePathLevels(value: unknown): value is 1 | 2 | 3 {
   return value === 1 || value === 2 || value === 3;
 }
 
+function validateLayout(value: unknown): value is LayoutType {
+  return value === 'default' || value === 'condensed' || value === 'separators';
+}
+
 function mergeConfig(userConfig: Partial<HudConfig>): HudConfig {
+  const layout = validateLayout(userConfig.layout)
+    ? userConfig.layout
+    : DEFAULT_CONFIG.layout;
+
   const pathLevels = validatePathLevels(userConfig.pathLevels)
     ? userConfig.pathLevels
     : DEFAULT_CONFIG.pathLevels;
@@ -93,7 +105,7 @@ function mergeConfig(userConfig: Partial<HudConfig>): HudConfig {
       : DEFAULT_CONFIG.display.showTodos,
   };
 
-  return { pathLevels, gitStatus, display };
+  return { layout, pathLevels, gitStatus, display };
 }
 
 export async function loadConfig(): Promise<HudConfig> {

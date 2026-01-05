@@ -107,6 +107,7 @@ npx claude-hud-configure
 
 | Option | Type | Default | Description |
 |--------|------|---------|-------------|
+| `layout` | string | `default` | Layout style: `default`, `condensed`, or `separators` |
 | `pathLevels` | 1-3 | 1 | Directory levels to show in project path |
 | `gitStatus.enabled` | boolean | true | Show git branch in HUD |
 | `gitStatus.showDirty` | boolean | true | Show `*` for uncommitted changes |
@@ -120,10 +121,35 @@ npx claude-hud-configure
 | `display.showAgents` | boolean | true | Show agents activity line |
 | `display.showTodos` | boolean | true | Show todos progress line |
 
+### Layout Options
+
+**Default layout** — Everything on first line:
+```
+my-project git:(main) | [Opus] ████░░░░░░ 42% | 2 rules | ⏱️ 5m
+✓ Read ×3 | ✓ Edit ×1
+```
+
+**Condensed layout** — Model/context on top, project on bottom:
+```
+[Opus] ████░░░░░░ 42% | ⏱️ 5m
+✓ Read ×3 | ✓ Edit ×1
+my-project git:(main) | 2 rules
+```
+
+**Separators layout** — Condensed with visual separators:
+```
+[Opus] ████░░░░░░ 42% | ⏱️ 5m
+──────────────────────────────────────────────────
+✓ Read ×3 | ✓ Edit ×1
+──────────────────────────────────────────────────
+my-project git:(main) | 2 rules
+```
+
 ### Example Configuration
 
 ```json
 {
+  "layout": "default",
   "pathLevels": 2,
   "gitStatus": {
     "enabled": true,
