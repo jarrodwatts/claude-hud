@@ -91,6 +91,16 @@ async function main(): Promise<void> {
   console.log('Configure your HUD display settings.\n');
 
   const existing = loadExistingConfig();
+  const configPath = getConfigPath();
+  const configExists = fs.existsSync(configPath);
+
+  if (configExists) {
+    console.log('\x1b[32mExisting configuration found:\x1b[0m');
+    console.log(`  Path levels: ${existing.pathLevels}`);
+    console.log(`  Git status: ${existing.gitStatus.enabled ? 'enabled' : 'disabled'}`);
+    console.log('');
+    console.log('Press Enter to keep current values, or enter new ones.\n');
+  }
 
   try {
     // Path Levels
