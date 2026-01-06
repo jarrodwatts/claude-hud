@@ -1,113 +1,229 @@
-# Claude HUD Configuration Skill
+---
+description: Configure HUD display options (layout, presets, display elements)
+allowed-tools: Read, Write, AskUserQuestion
+---
 
-Configure the Claude HUD statusline display options interactively.
+# Configure Claude HUD
 
-## Instructions
+**FIRST**: Use the Read tool to load `~/.claude/plugins/claude-hud/config.json` if it exists.
 
-Use the AskUserQuestion tool to gather the user's preferences, then write the configuration file.
+Store current values and note whether config exists (determines which flow to use).
 
-### Step 1: Menu Selection
+## Always On (Core Features)
 
-First, ask what the user wants to configure:
-
-**Question 1 - Menu:**
-- header: "Configure"
-- question: "What would you like to configure?"
-- multiSelect: false
-- options:
-  - "Full Setup (Recommended)" - Configure all HUD options in one flow
-  - "Layout only" - Change between Default, Condensed, or Separators
-  - "Path display only" - Adjust directory levels shown
-  - "Git status only" - Toggle branch, dirty, ahead/behind indicators
-  - "Display elements only" - Choose which elements to show/hide
-
-### Step 2: Based on Selection
-
-**If "Full Setup"** → Ask all questions below (2-5)
-**If individual section** → Ask only that section's question, preserve other settings
+These are always enabled and NOT configurable:
+- Model name `[Opus]`
+- Context bar `████░░░░░░ 45%`
 
 ---
 
-### Full Setup Questions (or individual section questions)
+## Two Flows Based on Config State
 
-**Question 2 - Layout:**
+### Flow A: New User (NO config exists)
+Questions: **Layout → Preset → Turn Off → Turn On**
+
+### Flow B: Returning User (config EXISTS)
+Questions: **Turn Off → Turn On → Git Style → Layout/Reset**
+
+---
+
+## Flow A: New User (4 Questions)
+
+### Q1: Layout
 - header: "Layout"
-- question: "Which HUD layout style do you prefer?"
+- question: "Choose your HUD layout:"
 - multiSelect: false
 - options:
-  - "Default" - All info on first line
-  - "Condensed" - Model/context top, project bottom
-  - "Separators" - Condensed with visual separator lines
+  - "Default" - Single line, all info together
+  - "Separators" - Line below header separates activity
 
-**Question 3 - Path Levels:**
-- header: "Path"
-- question: "How many directory levels to show?"
+### Q2: Preset
+- header: "Preset"
+- question: "Choose a starting configuration:"
 - multiSelect: false
 - options:
-  - "1 level" - Just project name (my-project)
-  - "2 levels" - Parent/project (apps/my-project)
-  - "3 levels" - Grandparent/parent/project (dev/apps/my-project)
+  - "Full" - Everything enabled (Recommended)
+  - "Essential" - Activity + git, minimal info
+  - "Minimal" - Core only (model, context bar)
 
-**Question 4 - Git Status:**
-- header: "Git"
-- question: "Which git status indicators do you want?"
-- multiSelect: false
-- options:
-  - "All indicators (Recommended)" - Branch, dirty (*), and ahead/behind (↑ ↓)
-  - "Branch only" - Just show current branch name
-  - "Branch + dirty" - Branch and uncommitted changes indicator
-  - "Disable git status" - Don't show any git information
+### Q3: Turn Off (based on chosen preset)
+- header: "Turn Off"
+- question: "Disable any of these? (enabled by your preset)"
+- multiSelect: true
+- options: **ONLY items that are ON in the chosen preset** (max 4)
+  - "Tools activity" - ◐ Edit: file.ts | ✓ Read ×3
+  - "Agents status" - ◐ explore [haiku]: Finding code
+  - "Todo progress" - ▸ Fix bug (2/5 tasks)
+  - "Git status" - git:(main*) branch indicator
+  - "Config counts" - 2 CLAUDE.md | 4 rules
+  - "Token breakdown" - (in: 45k, cache: 12k)
+  - "Usage limits" - 5h: 25% | 7d: 10%
+  - "Session duration" - ⏱️ 5m
 
-**Question 5 - Display Elements:**
-- header: "Display"
-- question: "Which display preset do you prefer?"
-- multiSelect: false
-- options:
-  - "All elements (Recommended)" - Show everything
-  - "Essential only" - Model, context bar, tools (hide counts, duration, tokens, usage)
-  - "Hide config counts" - Don't show CLAUDE.md, rules, MCPs, hooks
-  - "Hide duration" - Don't show session timer
-  - "Hide usage limits" - Don't show 5h/7d usage (requires CLAUDE_HUD_SHOW_USAGE=1 to be enabled first)
+### Q4: Turn On (based on chosen preset)
+- header: "Turn On"
+- question: "Enable any of these? (disabled by your preset)"
+- multiSelect: true
+- options: **ONLY items that are OFF in the chosen preset** (max 4)
+  - (same list as above, filtered to OFF items)
+
+**Note:** If preset has all items ON (Full), Q4 shows "Nothing to enable - Full preset has everything!"
+If preset has all items OFF (Minimal), Q3 shows "Nothing to disable - Minimal preset is already minimal!"
 
 ---
 
-## Step 3: Write Configuration
+## Flow B: Returning User (4 Questions)
 
-1. Read existing config from `~/.claude/plugins/claude-hud/config.json` (if exists)
-2. Merge new selections with existing config (for partial updates)
-3. Write the updated config using the Write tool
+### Q1: Turn Off
+- header: "Turn Off"
+- question: "What do you want to DISABLE? (currently enabled)"
+- multiSelect: true
+- options: **ONLY items currently ON** (max 4, prioritize Activity first)
+  - "Tools activity" - ◐ Edit: file.ts | ✓ Read ×3
+  - "Agents status" - ◐ explore [haiku]: Finding code
+  - "Todo progress" - ▸ Fix bug (2/5 tasks)
+  - "Git status" - git:(main*) branch indicator
 
-### Config Mapping
+If more than 4 items ON, show Activity items (Tools, Agents, Todos, Git) first.
+Info items (Counts, Tokens, Usage, Duration) can be turned off via "Reset to Minimal" in Q4.
 
-**Layout:**
-- "Default" → `"layout": "default"`
-- "Condensed" → `"layout": "condensed"`
-- "Separators" → `"layout": "separators"`
+### Q2: Turn On
+- header: "Turn On"
+- question: "What do you want to ENABLE? (currently disabled)"
+- multiSelect: true
+- options: **ONLY items currently OFF** (max 4)
+  - "Config counts" - 2 CLAUDE.md | 4 rules
+  - "Token breakdown" - (in: 45k, cache: 12k)
+  - "Usage limits" - 5h: 25% | 7d: 10%
+  - "Session duration" - ⏱️ 5m
 
-**Path:**
-- "1 level" → `"pathLevels": 1`
-- "2 levels" → `"pathLevels": 2`
-- "3 levels" → `"pathLevels": 3`
+### Q3: Git Style (only if Git is currently enabled)
+- header: "Git Style"
+- question: "How much git info to show?"
+- multiSelect: false
+- options:
+  - "Branch only" - git:(main)
+  - "Branch + dirty" - git:(main*) shows uncommitted changes
+  - "Full details" - git:(main* ↑2 ↓1) includes ahead/behind
 
-**Git Status:**
-- "All indicators" → `gitStatus: { enabled: true, showDirty: true, showAheadBehind: true }`
-- "Branch only" → `gitStatus: { enabled: true, showDirty: false, showAheadBehind: false }`
-- "Branch + dirty" → `gitStatus: { enabled: true, showDirty: true, showAheadBehind: false }`
-- "Disable git status" → `gitStatus: { enabled: false, showDirty: false, showAheadBehind: false }`
+**Skip Q3 if Git is OFF** - show only 3 questions total, or replace with placeholder.
 
-**Display Elements:**
-- "All elements" → all display options true
-- "Essential only" → `showModel: true, showContextBar: true, showTools: true`, others false
-- "Hide config counts" → `showConfigCounts: false`
-- "Hide duration" → `showDuration: false`
-- "Hide usage limits" → `showUsage: false`
-
-**Note:** Usage display requires BOTH:
-1. Environment variable `CLAUDE_HUD_SHOW_USAGE=1` (enables the capability)
-2. Config `showUsage: true` (controls display - default is true)
+### Q4: Layout/Reset
+- header: "Layout/Reset"
+- question: "Change layout or reset to preset?"
+- multiSelect: false
+- options:
+  - "Keep current" - No layout/preset changes (current: Default/Separators)
+  - "Switch to Default" or "Switch to Separators" (whichever isn't current)
+  - "Reset to Full" - Enable everything
+  - "Reset to Essential" - Activity + git only
 
 ---
 
-## Step 4: Confirm
+## Preset Definitions
 
-After writing the config, confirm to the user what was changed. The HUD will automatically pick up the new configuration on next render.
+**Full** (everything ON):
+- Activity: Tools ON, Agents ON, Todos ON
+- Info: Counts ON, Tokens ON, Usage ON, Duration ON
+- Git: ON (with dirty indicator, no ahead/behind)
+
+**Essential** (activity + git):
+- Activity: Tools ON, Agents ON, Todos ON
+- Info: Counts OFF, Tokens OFF, Usage OFF, Duration ON
+- Git: ON (with dirty indicator)
+
+**Minimal** (core only):
+- Activity: Tools OFF, Agents OFF, Todos OFF
+- Info: Counts OFF, Tokens OFF, Usage OFF, Duration OFF
+- Git: OFF
+
+---
+
+## Git Style Mapping
+
+| Option | Config |
+|--------|--------|
+| Branch only | `gitStatus: { enabled: true, showDirty: false, showAheadBehind: false }` |
+| Branch + dirty | `gitStatus: { enabled: true, showDirty: true, showAheadBehind: false }` |
+| Full details | `gitStatus: { enabled: true, showDirty: true, showAheadBehind: true }` |
+
+---
+
+## Element Mapping
+
+| Element | Config Key |
+|---------|------------|
+| Tools activity | `display.showTools` |
+| Agents status | `display.showAgents` |
+| Todo progress | `display.showTodos` |
+| Git status | `gitStatus.enabled` |
+| Config counts | `display.showConfigCounts` |
+| Token breakdown | `display.showTokenBreakdown` |
+| Usage limits | `display.showUsage` |
+| Session duration | `display.showDuration` |
+
+**Always true (not configurable):**
+- `display.showModel: true`
+- `display.showContextBar: true`
+
+---
+
+## Processing Logic
+
+### For New Users (Flow A):
+1. Apply chosen preset as base
+2. Apply Turn Off selections (set those items to OFF)
+3. Apply Turn On selections (set those items to ON)
+4. Apply chosen layout
+
+### For Returning Users (Flow B):
+1. Start from current config
+2. Apply Turn Off selections (set to OFF)
+3. Apply Turn On selections (set to ON)
+4. Apply Git Style selection (if shown)
+5. If "Reset to [preset]" selected, override with preset values
+6. If layout change selected, apply it
+
+---
+
+## Before Writing - Validate & Preview
+
+**GUARDS - Do NOT write config if:**
+- User cancels (Esc) → say "Configuration cancelled."
+- No changes from current config → say "No changes needed - config unchanged."
+
+**Show preview before saving:**
+
+1. **Summary of changes:**
+```
+Layout: Default → Separators
+Git style: Branch + dirty
+Changes:
+  - Usage limits: OFF → ON
+  - Config counts: ON → OFF
+```
+
+2. **Preview of HUD:**
+```
+[Opus] ████░░░░░ 45% | my-project git:(main*) | 5h: 25% | ⏱️ 5m
+──────────────────────────────────────────────────────────────
+◐ Edit: file.ts | ✓ Read ×3
+▸ Fix auth bug (2/5)
+```
+
+3. **Confirm**: "Save these changes?"
+
+---
+
+## Write Configuration
+
+Write to `~/.claude/plugins/claude-hud/config.json`.
+
+Merge with existing config, preserving:
+- `pathLevels` (not in configure flow)
+
+---
+
+## After Writing
+
+Say: "Configuration saved! The HUD will reflect your changes immediately."

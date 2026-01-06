@@ -5,7 +5,7 @@ import * as os from 'node:os';
 import { select, confirm } from '@inquirer/prompts';
 import { showStaticPreview, resetPreviewState } from './preview.js';
 
-type LayoutType = 'default' | 'condensed' | 'separators';
+type LayoutType = 'default' | 'separators';
 
 interface HudConfig {
   layout: LayoutType;
@@ -62,7 +62,7 @@ function getConfigPath(): string {
 }
 
 function isValidLayout(value: unknown): value is LayoutType {
-  return value === 'default' || value === 'condensed' || value === 'separators';
+  return value === 'default' || value === 'separators';
 }
 
 function loadExistingConfig(): HudConfig {
@@ -99,7 +99,6 @@ function saveConfig(config: HudConfig): void {
 function formatLayoutName(layout: LayoutType): string {
   switch (layout) {
     case 'default': return 'Default';
-    case 'condensed': return 'Condensed';
     case 'separators': return 'Separators';
   }
 }
@@ -110,9 +109,8 @@ async function editLayout(config: HudConfig): Promise<void> {
   config.layout = await select({
     message: 'Choose HUD layout',
     choices: [
-      { name: 'Default   →  All info on first line', value: 'default' as const },
-      { name: 'Condensed →  Model/context top, project bottom', value: 'condensed' as const },
-      { name: 'Separators → Condensed with separator lines', value: 'separators' as const },
+      { name: 'Default    →  All info on first line', value: 'default' as const },
+      { name: 'Separators →  With ─── divider below header', value: 'separators' as const },
     ],
     default: config.layout,
   });

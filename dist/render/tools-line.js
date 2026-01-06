@@ -28,11 +28,13 @@ export function renderToolsLine(ctx) {
     return parts.join(' | ');
 }
 function truncatePath(path, maxLen = 20) {
-    if (path.length <= maxLen)
-        return path;
-    // Split by both Unix (/) and Windows (\) separators for cross-platform support
-    const parts = path.split(/[/\\]/);
-    const filename = parts.pop() || path;
+    // Normalize Windows backslashes to forward slashes for consistent display
+    const normalizedPath = path.replace(/\\/g, '/');
+    if (normalizedPath.length <= maxLen)
+        return normalizedPath;
+    // Split by forward slash (already normalized)
+    const parts = normalizedPath.split('/');
+    const filename = parts.pop() || normalizedPath;
     if (filename.length >= maxLen) {
         return filename.slice(0, maxLen - 3) + '...';
     }

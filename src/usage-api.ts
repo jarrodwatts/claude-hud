@@ -58,18 +58,14 @@ const defaultDeps: UsageApiDeps = {
 /**
  * Get OAuth usage data from Anthropic API.
  * Returns null if:
- * - CLAUDE_HUD_SHOW_USAGE env var is not set
  * - User is an API user (no OAuth credentials)
  * - Credentials are expired or invalid
  * - API call fails for any reason
+ *
+ * Note: The caller should check config.display.showUsage before calling this.
  */
 export async function getUsage(overrides: Partial<UsageApiDeps> = {}): Promise<UsageData | null> {
   const deps = { ...defaultDeps, ...overrides };
-
-  // Check opt-in
-  if (!process.env.CLAUDE_HUD_SHOW_USAGE) {
-    return null;
-  }
 
   // Check cache
   const now = deps.now();

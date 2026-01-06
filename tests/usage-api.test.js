@@ -33,18 +33,9 @@ describe('getUsage', () => {
   beforeEach(() => {
     // Clear cache before each test
     clearCache();
-    // Reset env var
-    delete process.env.CLAUDE_HUD_SHOW_USAGE;
-  });
-
-  test('returns null when CLAUDE_HUD_SHOW_USAGE is not set', async () => {
-    const result = await getUsage();
-    assert.equal(result, null);
   });
 
   test('returns null when credentials file does not exist', async () => {
-    process.env.CLAUDE_HUD_SHOW_USAGE = '1';
-
     const result = await getUsage({
       homeDir: () => '/nonexistent',
       fetchApi: async () => null,
@@ -55,9 +46,6 @@ describe('getUsage', () => {
   });
 
   test('returns null when claudeAiOauth is missing', async () => {
-    process.env.CLAUDE_HUD_SHOW_USAGE = '1';
-
-    let readPath = null;
     const result = await getUsage({
       homeDir: () => '/mock',
       fetchApi: async () => mockApiResponse(),
@@ -69,8 +57,6 @@ describe('getUsage', () => {
   });
 
   test('returns null when token is expired', async () => {
-    process.env.CLAUDE_HUD_SHOW_USAGE = '1';
-
     // Create a mock that simulates expired token
     // Since we can't actually write files, we test the flow
     const result = await getUsage({
@@ -83,8 +69,6 @@ describe('getUsage', () => {
   });
 
   test('returns null for API users (no subscriptionType)', async () => {
-    process.env.CLAUDE_HUD_SHOW_USAGE = '1';
-
     // API users have subscriptionType containing 'api' or missing
     const result = await getUsage({
       homeDir: () => '/mock',
@@ -96,8 +80,6 @@ describe('getUsage', () => {
   });
 
   test('correctly parses plan names', async () => {
-    process.env.CLAUDE_HUD_SHOW_USAGE = '1';
-
     // We can't easily mock file reading, but we can test the exported clearCache
     // The plan name parsing is tested via integration tests in render.test.js
     clearCache();
@@ -105,8 +87,6 @@ describe('getUsage', () => {
   });
 
   test('returns fallback with apiUnavailable when API call fails', async () => {
-    process.env.CLAUDE_HUD_SHOW_USAGE = '1';
-
     // This test verifies the behavior described in the code
     // When API fails, it should return apiUnavailable: true
     // We can't fully test without mocking fs, but the logic is:
@@ -115,8 +95,6 @@ describe('getUsage', () => {
   });
 
   test('uses cached result within TTL', async () => {
-    process.env.CLAUDE_HUD_SHOW_USAGE = '1';
-
     // Clear cache first
     clearCache();
 
@@ -135,12 +113,9 @@ describe('getUsage', () => {
 describe('getUsage caching behavior', () => {
   beforeEach(() => {
     clearCache();
-    delete process.env.CLAUDE_HUD_SHOW_USAGE;
   });
 
   test('cache expires after 60 seconds for success', async () => {
-    process.env.CLAUDE_HUD_SHOW_USAGE = '1';
-
     // The CACHE_TTL_MS constant is 60_000 (60 seconds)
     // Verify the constant exists by checking behavior
     clearCache();
@@ -148,8 +123,6 @@ describe('getUsage caching behavior', () => {
   });
 
   test('cache expires after 15 seconds for failures', async () => {
-    process.env.CLAUDE_HUD_SHOW_USAGE = '1';
-
     // The CACHE_FAILURE_TTL_MS constant is 15_000 (15 seconds)
     // This prevents retry storms when API is down
     clearCache();

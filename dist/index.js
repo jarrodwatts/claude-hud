@@ -3,6 +3,7 @@ import { parseTranscript } from './transcript.js';
 import { render } from './render/index.js';
 import { countConfigs } from './config-reader.js';
 import { getGitStatus } from './git.js';
+import { getUsage } from './usage-api.js';
 import { loadConfig } from './config.js';
 import { fileURLToPath } from 'node:url';
 export async function main(overrides = {}) {
@@ -11,6 +12,7 @@ export async function main(overrides = {}) {
         parseTranscript,
         countConfigs,
         getGitStatus,
+        getUsage,
         loadConfig,
         render,
         now: () => Date.now(),
@@ -30,6 +32,10 @@ export async function main(overrides = {}) {
         const gitStatus = config.gitStatus.enabled
             ? await deps.getGitStatus(stdin.cwd)
             : null;
+        // Only fetch usage if enabled in config (replaces env var requirement)
+        const usageData = config.display.showUsage !== false
+            ? await deps.getUsage()
+            : null;
         const sessionDuration = formatSessionDuration(transcript.sessionStart, deps.now);
         const ctx = {
             stdin,
@@ -40,6 +46,7 @@ export async function main(overrides = {}) {
             hooksCount,
             sessionDuration,
             gitStatus,
+            usageData,
             config,
         };
         deps.render(ctx);

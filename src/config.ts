@@ -2,7 +2,7 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import * as os from 'node:os';
 
-export type LayoutType = 'default' | 'condensed' | 'separators';
+export type LayoutType = 'default' | 'separators';
 
 export interface HudConfig {
   layout: LayoutType;
@@ -56,7 +56,7 @@ function validatePathLevels(value: unknown): value is 1 | 2 | 3 {
 }
 
 function validateLayout(value: unknown): value is LayoutType {
-  return value === 'default' || value === 'condensed' || value === 'separators';
+  return value === 'default' || value === 'separators';
 }
 
 function mergeConfig(userConfig: Partial<HudConfig>): HudConfig {

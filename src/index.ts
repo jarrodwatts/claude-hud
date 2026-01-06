@@ -52,7 +52,10 @@ export async function main(overrides: Partial<MainDeps> = {}): Promise<void> {
       ? await deps.getGitStatus(stdin.cwd)
       : null;
 
-    const usageData = await deps.getUsage();
+    // Only fetch usage if enabled in config (replaces env var requirement)
+    const usageData = config.display.showUsage !== false
+      ? await deps.getUsage()
+      : null;
 
     const sessionDuration = formatSessionDuration(transcript.sessionStart, deps.now);
 
