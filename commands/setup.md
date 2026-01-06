@@ -9,6 +9,8 @@ allowed-tools: Bash, Read, Edit, AskUserQuestion
 
 **macOS/Linux** (if `uname -s` returns "Darwin", "Linux", or a MINGW*/MSYS*/CYGWIN* variant):
 
+> **Git Bash/MSYS2/Cygwin users on Windows**: Follow these macOS/Linux instructions, not the Windows section below. Your environment provides bash and Unix-like tools.
+
 1. Get plugin path:
    ```bash
    ls -td ~/.claude/plugins/cache/claude-hud/claude-hud/*/ 2>/dev/null | head -1
@@ -65,7 +67,7 @@ allowed-tools: Bash, Read, Edit, AskUserQuestion
 
 ## Step 2: Test Command
 
-Run the generated command. It should produce output (the HUD lines) within 1 second.
+Run the generated command. It should produce output (the HUD lines) within a few seconds.
 
 - If it errors, do not proceed to Step 3.
 - If it hangs for more than a few seconds, cancel and debug.
@@ -88,7 +90,7 @@ If the file doesn't exist, create it. If it contains invalid JSON, report the er
 }
 ```
 
-**Note**: The generated command dynamically finds and runs the latest installed plugin version. Updates are automatic - no need to re-run setup after plugin updates.
+**Note**: The generated command dynamically finds and runs the latest installed plugin version. Updates are automatic - no need to re-run setup after plugin updates. If the HUD suddenly stops working, re-run `/claude-hud:setup` to verify the plugin is still installed.
 
 ## Step 4: Verify With User
 
@@ -96,7 +98,7 @@ Use AskUserQuestion:
 - Question: "The HUD should now appear below your input field. Is it working?"
 - Options: "Yes, I see it" / "No, something's wrong"
 
-**If yes**: Ask the user if they'd like to ⭐ star the claude-hud repository on GitHub to support the project. If they agree, run: `gh api -X PUT /user/starred/jarrodwatts/claude-hud`. Only run the star command if they explicitly say yes.
+**If yes**: Ask the user if they'd like to ⭐ star the claude-hud repository on GitHub to support the project. If they agree and `gh` CLI is available, run: `gh api -X PUT /user/starred/jarrodwatts/claude-hud`. Only run the star command if they explicitly say yes.
 
 **If no**: Debug systematically:
 
@@ -116,7 +118,7 @@ Use AskUserQuestion:
    - Runtime path might be wrong: `ls -la {RUNTIME_PATH}`
    - On macOS with mise/nvm/asdf: the absolute path may have changed after a runtime update
    - Symlinks may be stale: `command -v node` often returns a symlink that can break after version updates
-   - Solution: re-detect with `command -v bun` or `command -v node`, and verify with `realpath {RUNTIME_PATH}` to get the true absolute path
+   - Solution: re-detect with `command -v bun` or `command -v node`, and verify with `realpath {RUNTIME_PATH}` (or `readlink -f {RUNTIME_PATH}`) to get the true absolute path
 
    **"No such file or directory" for plugin**:
    - Plugin might not be installed: `ls ~/.claude/plugins/cache/claude-hud/`
