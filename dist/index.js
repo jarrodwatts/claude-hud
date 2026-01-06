@@ -3,6 +3,7 @@ import { parseTranscript } from './transcript.js';
 import { render } from './render/index.js';
 import { countConfigs } from './config-reader.js';
 import { getGitBranch } from './git.js';
+import { parseExtraCmdArg, runExtraCmd } from './extra-cmd.js';
 import { fileURLToPath } from 'node:url';
 export async function main(overrides = {}) {
     const deps = {
@@ -10,6 +11,8 @@ export async function main(overrides = {}) {
         parseTranscript,
         countConfigs,
         getGitBranch,
+        parseExtraCmdArg,
+        runExtraCmd,
         render,
         now: () => Date.now(),
         log: console.log,
@@ -24,7 +27,11 @@ export async function main(overrides = {}) {
         const transcriptPath = stdin.transcript_path ?? '';
         const transcript = await deps.parseTranscript(transcriptPath);
         const { claudeMdCount, rulesCount, mcpCount, hooksCount } = await deps.countConfigs(stdin.cwd);
-        const gitBranch = await deps.getGitBranch(stdin.cwd);
+        const extraCmd = deps.parseExtraCmdArg();
+        const [gitBranch, extraLabel] = await Promise.all([
+            deps.getGitBranch(stdin.cwd),
+            extraCmd ? deps.runExtraCmd(extraCmd) : Promise.resolve(null),
+        ]);
         const sessionDuration = formatSessionDuration(transcript.sessionStart, deps.now);
         const ctx = {
             stdin,
@@ -35,6 +42,7 @@ export async function main(overrides = {}) {
             hooksCount,
             sessionDuration,
             gitBranch,
+            extraLabel,
         };
         deps.render(ctx);
     }

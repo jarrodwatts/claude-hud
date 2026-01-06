@@ -50,5 +50,6 @@ export interface RenderContext {
     hooksCount: number;
     sessionDuration: string;
     gitBranch: string | null;
+    extraLabel: string | null;
 }
 //# sourceMappingURL=types.d.ts.map

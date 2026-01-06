@@ -3,6 +3,7 @@ import { parseTranscript } from './transcript.js';
 import { render } from './render/index.js';
 import { countConfigs } from './config-reader.js';
 import { getGitBranch } from './git.js';
+import { parseExtraCmdArg, runExtraCmd } from './extra-cmd.js';
 import type { RenderContext } from './types.js';
 import { fileURLToPath } from 'node:url';
 
@@ -11,6 +12,8 @@ export type MainDeps = {
   parseTranscript: typeof parseTranscript;
   countConfigs: typeof countConfigs;
   getGitBranch: typeof getGitBranch;
+  parseExtraCmdArg: typeof parseExtraCmdArg;
+  runExtraCmd: typeof runExtraCmd;
   render: typeof render;
   now: () => number;
   log: (...args: unknown[]) => void;
@@ -22,6 +25,8 @@ export async function main(overrides: Partial<MainDeps> = {}): Promise<void> {
     parseTranscript,
     countConfigs,
     getGitBranch,
+    parseExtraCmdArg,
+    runExtraCmd,
     render,
     now: () => Date.now(),
     log: console.log,
@@ -41,7 +46,11 @@ export async function main(overrides: Partial<MainDeps> = {}): Promise<void> {
 
     const { claudeMdCount, rulesCount, mcpCount, hooksCount } = await deps.countConfigs(stdin.cwd);
 
-    const gitBranch = await deps.getGitBranch(stdin.cwd);
+    const extraCmd = deps.parseExtraCmdArg();
+    const [gitBranch, extraLabel] = await Promise.all([
+      deps.getGitBranch(stdin.cwd),
+      extraCmd ? deps.runExtraCmd(extraCmd) : Promise.resolve(null),
+    ]);
 
     const sessionDuration = formatSessionDuration(transcript.sessionStart, deps.now);
 
@@ -54,6 +63,7 @@ export async function main(overrides: Partial<MainDeps> = {}): Promise<void> {
       hooksCount,
       sessionDuration,
       gitBranch,
+      extraLabel,
     };
 
     deps.render(ctx);
