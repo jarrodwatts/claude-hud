@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { renderSessionLine, renderSessionLineMinimal } from '../dist/render/session-line.js';
+import { renderSessionLine } from '../dist/render/session-line.js';
 import { renderToolsLine } from '../dist/render/tools-line.js';
 import { renderAgentsLine } from '../dist/render/agents-line.js';
 import { renderTodosLine } from '../dist/render/todos-line.js';
@@ -498,17 +498,3 @@ test('renderSessionLine hides usage when showUsage config is false (hybrid toggl
   assert.ok(!line.includes('Pro'), 'should not show plan name when showUsage is false');
 });
 
-test('renderSessionLineMinimal hides usage when showUsage config is false', () => {
-  const ctx = baseContext();
-  ctx.usageData = {
-    planName: 'Max',
-    fiveHour: 50,
-    sevenDay: 20,
-    fiveHourResetAt: null,
-    sevenDayResetAt: null,
-  };
-  ctx.config.display.showUsage = false;
-  const line = renderSessionLineMinimal(ctx);
-  assert.ok(!line.includes('5h:'), 'should not show usage in minimal when showUsage is false');
-  assert.ok(!line.includes('Max'), 'should not show plan name in minimal when showUsage is false');
-});
