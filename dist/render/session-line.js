@@ -27,6 +27,9 @@ export function renderSessionLine(ctx) {
     if (ctx.sessionDuration) {
         parts.push(dim(`⏱️  ${ctx.sessionDuration}`));
     }
+    if (ctx.extraLabel) {
+        parts.push(dim(ctx.extraLabel));
+    }
     let line = parts.join(' | ');
     if (percent >= 85) {
         const usage = ctx.stdin.context_window?.current_usage;
