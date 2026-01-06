@@ -80,6 +80,7 @@ Read the settings file and merge in the statusLine config, preserving all existi
 - **Windows (native PowerShell)**: `$env:USERPROFILE\.claude\settings.json`
 
 If the file doesn't exist, create it. If it contains invalid JSON, report the error and do not overwrite.
+If a write fails with `File has been unexpectedly modified`, re-read the file and retry the merge once.
 
 ```json
 {
