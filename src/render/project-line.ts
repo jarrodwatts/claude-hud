@@ -10,7 +10,8 @@ export function renderProjectLine(ctx: RenderContext): string | null {
     const segments = ctx.stdin.cwd.split(/[/\\]/).filter(Boolean);
     const pathLevels = ctx.config?.pathLevels ?? 1;
     // Always join with forward slash for consistent display
-    const projectPath = segments.slice(-pathLevels).join('/');
+    // Fallback to '/' for root path (when segments is empty)
+    const projectPath = segments.slice(-pathLevels).join('/') || '/';
 
     // Build git status string
     let gitPart = '';
@@ -25,13 +26,13 @@ export function renderProjectLine(ctx: RenderContext): string | null {
         gitParts.push('*');
       }
 
-      // Show ahead/behind
+      // Show ahead/behind (with space prefix for visual separation)
       if (gitConfig?.showAheadBehind) {
         if (ctx.gitStatus.ahead > 0) {
-          gitParts.push(`↑${ctx.gitStatus.ahead}`);
+          gitParts.push(` ↑${ctx.gitStatus.ahead}`);
         }
         if (ctx.gitStatus.behind > 0) {
-          gitParts.push(`↓${ctx.gitStatus.behind}`);
+          gitParts.push(` ↓${ctx.gitStatus.behind}`);
         }
       }
 

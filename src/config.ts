@@ -49,15 +49,15 @@ export function getConfigPath(): string {
   return path.join(homeDir, '.claude', 'plugins', 'claude-hud', 'config.json');
 }
 
-function validatePathLevels(value: unknown): value is 1 | 2 | 3 {
+export function validatePathLevels(value: unknown): value is 1 | 2 | 3 {
   return value === 1 || value === 2 || value === 3;
 }
 
-function validateLayout(value: unknown): value is LayoutType {
+export function validateLayout(value: unknown): value is LayoutType {
   return value === 'default' || value === 'condensed' || value === 'separators';
 }
 
-function mergeConfig(userConfig: Partial<HudConfig>): HudConfig {
+export function mergeConfig(userConfig: Partial<HudConfig>): HudConfig {
   const layout = validateLayout(userConfig.layout)
     ? userConfig.layout
     : DEFAULT_CONFIG.layout;

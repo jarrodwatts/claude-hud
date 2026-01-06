@@ -1,5 +1,3 @@
-import type { HudConfig } from './config.js';
-import type { GitStatus } from './git.js';
 export interface StdinData {
     transcript_path?: string;
     cwd?: string;
@@ -51,7 +49,6 @@ export interface RenderContext {
     mcpCount: number;
     hooksCount: number;
     sessionDuration: string;
-    gitStatus: GitStatus | null;
-    config: HudConfig;
+    gitBranch: string | null;
 }
 //# sourceMappingURL=types.d.ts.map

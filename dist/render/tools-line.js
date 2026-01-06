@@ -30,8 +30,7 @@ export function renderToolsLine(ctx) {
 function truncatePath(path, maxLen = 20) {
     if (path.length <= maxLen)
         return path;
-    // Split by both Unix (/) and Windows (\) separators for cross-platform support
-    const parts = path.split(/[/\\]/);
+    const parts = path.split('/');
     const filename = parts.pop() || path;
     if (filename.length >= maxLen) {
         return filename.slice(0, maxLen - 3) + '...';

@@ -40,11 +40,14 @@ export function renderToolsLine(ctx: RenderContext): string | null {
 }
 
 function truncatePath(path: string, maxLen: number = 20): string {
-  if (path.length <= maxLen) return path;
+  // Normalize separators first (convert Windows backslashes to forward slashes)
+  const normalized = path.replace(/\\/g, '/');
 
-  // Split by both Unix (/) and Windows (\) separators for cross-platform support
-  const parts = path.split(/[/\\]/);
-  const filename = parts.pop() || path;
+  if (normalized.length <= maxLen) return normalized;
+
+  // Split by forward slash (already normalized)
+  const parts = normalized.split('/');
+  const filename = parts.pop() || normalized;
 
   if (filename.length >= maxLen) {
     return filename.slice(0, maxLen - 3) + '...';

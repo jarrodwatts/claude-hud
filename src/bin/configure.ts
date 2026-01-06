@@ -4,48 +4,7 @@ import * as path from 'node:path';
 import * as os from 'node:os';
 import { select, confirm } from '@inquirer/prompts';
 import { showStaticPreview, resetPreviewState } from './preview.js';
-
-type LayoutType = 'default' | 'condensed' | 'separators';
-
-interface HudConfig {
-  layout: LayoutType;
-  pathLevels: 1 | 2 | 3;
-  gitStatus: {
-    enabled: boolean;
-    showDirty: boolean;
-    showAheadBehind: boolean;
-  };
-  display: {
-    showModel: boolean;
-    showContextBar: boolean;
-    showConfigCounts: boolean;
-    showDuration: boolean;
-    showTokenBreakdown: boolean;
-    showTools: boolean;
-    showAgents: boolean;
-    showTodos: boolean;
-  };
-}
-
-const DEFAULT_CONFIG: HudConfig = {
-  layout: 'default',
-  pathLevels: 1,
-  gitStatus: {
-    enabled: true,
-    showDirty: true,
-    showAheadBehind: false,
-  },
-  display: {
-    showModel: true,
-    showContextBar: true,
-    showConfigCounts: true,
-    showDuration: true,
-    showTokenBreakdown: true,
-    showTools: true,
-    showAgents: true,
-    showTodos: true,
-  },
-};
+import { type HudConfig, type LayoutType, DEFAULT_CONFIG, mergeConfig } from '../config.js';
 
 // ANSI color codes
 const RESET = '\x1b[0m';
@@ -59,23 +18,14 @@ function getConfigPath(): string {
   return path.join(homeDir, '.claude', 'plugins', 'claude-hud', 'config.json');
 }
 
-function isValidLayout(value: unknown): value is LayoutType {
-  return value === 'default' || value === 'condensed' || value === 'separators';
-}
-
 function loadExistingConfig(): HudConfig {
   const configPath = getConfigPath();
   try {
     if (fs.existsSync(configPath)) {
       const content = fs.readFileSync(configPath, 'utf-8');
-      const parsed = JSON.parse(content);
-      return {
-        ...DEFAULT_CONFIG,
-        ...parsed,
-        layout: isValidLayout(parsed.layout) ? parsed.layout : DEFAULT_CONFIG.layout,
-        gitStatus: { ...DEFAULT_CONFIG.gitStatus, ...parsed.gitStatus },
-        display: { ...DEFAULT_CONFIG.display, ...parsed.display },
-      };
+      const parsed = JSON.parse(content) as Partial<HudConfig>;
+      // Use mergeConfig for proper validation of all fields
+      return mergeConfig(parsed);
     }
   } catch {
     // Ignore errors, use defaults
