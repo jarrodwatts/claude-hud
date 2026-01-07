@@ -99,13 +99,31 @@ Claude Code → stdin JSON → claude-hud → stdout → displayed in your termi
 
 ## Configuration
 
-Claude HUD can be configured via `~/.claude/plugins/claude-hud/config.json` or using the interactive skill:
+Customize your HUD anytime:
 
 ```
 /claude-hud:configure
 ```
 
-The configure skill provides a guided menu flow to customize your HUD.
+The guided flow walks you through customization — no manual editing needed:
+
+- **New users**: Choose a preset (Full/Essential/Minimal), then fine-tune individual elements
+- **Returning users**: Toggle items on/off, adjust git display style, switch layouts
+- **Preview before saving**: See exactly how your HUD will look before committing changes
+
+### Presets
+
+| Preset | What's Shown |
+|--------|--------------|
+| **Full** | Everything enabled — tools, agents, todos, git, usage, duration |
+| **Essential** | Activity lines + git status, minimal info clutter |
+| **Minimal** | Core only — just model name and context bar |
+
+After choosing a preset, you can turn individual elements on or off.
+
+### Manual Configuration
+
+You can also edit the config file directly at `~/.claude/plugins/claude-hud/config.json`.
 
 ### Options
 
