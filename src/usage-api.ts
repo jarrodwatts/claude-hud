@@ -61,7 +61,17 @@ function readCache(homeDir: string, now: number): UsageData | null {
     const ttl = cache.data.apiUnavailable ? CACHE_FAILURE_TTL_MS : CACHE_TTL_MS;
     if (now - cache.timestamp >= ttl) return null;
 
-    return cache.data;
+    // JSON.stringify converts Date to ISO string, so we need to reconvert on read.
+    // new Date() handles both Date objects and ISO strings safely.
+    const data = cache.data;
+    if (data.fiveHourResetAt) {
+      data.fiveHourResetAt = new Date(data.fiveHourResetAt);
+    }
+    if (data.sevenDayResetAt) {
+      data.sevenDayResetAt = new Date(data.sevenDayResetAt);
+    }
+
+    return data;
   } catch {
     return null;
   }
