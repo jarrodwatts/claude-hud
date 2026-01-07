@@ -37,7 +37,7 @@ export function getContextPercent(stdin: StdinData): number {
     (usage.cache_creation_input_tokens ?? 0) +
     (usage.cache_read_input_tokens ?? 0);
 
-  return Math.min(100, Math.round(((totalTokens + AUTOCOMPACT_BUFFER) / size) * 100));
+  return Math.min(100, Math.round((totalTokens / size) * 100));
 }
 
 export function getModelName(stdin: StdinData): string {
