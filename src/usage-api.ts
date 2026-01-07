@@ -36,11 +36,52 @@ interface UsageApiResponse {
   };
 }
 
-// In-memory cache
-let cachedUsage: UsageData | null = null;
-let cacheTimestamp = 0;
+// File-based cache (HUD runs as new process each render, so in-memory cache won't persist)
 const CACHE_TTL_MS = 60_000; // 60 seconds
-const CACHE_FAILURE_TTL_MS = 15_000; // 15 seconds for failed requests (prevents retry storms)
+const CACHE_FAILURE_TTL_MS = 15_000; // 15 seconds for failed requests
+
+interface CacheFile {
+  data: UsageData;
+  timestamp: number;
+}
+
+function getCachePath(homeDir: string): string {
+  return path.join(homeDir, '.claude', 'plugins', 'claude-hud', '.usage-cache.json');
+}
+
+function readCache(homeDir: string, now: number): UsageData | null {
+  try {
+    const cachePath = getCachePath(homeDir);
+    if (!fs.existsSync(cachePath)) return null;
+
+    const content = fs.readFileSync(cachePath, 'utf8');
+    const cache: CacheFile = JSON.parse(content);
+
+    // Check TTL - use shorter TTL for failure results
+    const ttl = cache.data.apiUnavailable ? CACHE_FAILURE_TTL_MS : CACHE_TTL_MS;
+    if (now - cache.timestamp >= ttl) return null;
+
+    return cache.data;
+  } catch {
+    return null;
+  }
+}
+
+function writeCache(homeDir: string, data: UsageData, timestamp: number): void {
+  try {
+    const cachePath = getCachePath(homeDir);
+    const cacheDir = path.dirname(cachePath);
+
+    if (!fs.existsSync(cacheDir)) {
+      fs.mkdirSync(cacheDir, { recursive: true });
+    }
+
+    const cache: CacheFile = { data, timestamp };
+    fs.writeFileSync(cachePath, JSON.stringify(cache), 'utf8');
+  } catch {
+    // Ignore cache write failures
+  }
+}
 
 // Dependency injection for testing
 export type UsageApiDeps = {
@@ -57,20 +98,21 @@ const defaultDeps: UsageApiDeps = {
 
 /**
  * Get OAuth usage data from Anthropic API.
- * Returns null if:
- * - User is an API user (no OAuth credentials)
- * - Credentials are expired or invalid
- * - API call fails for any reason
+ * Returns null if user is an API user (no OAuth credentials) or credentials are expired.
+ * Returns { apiUnavailable: true, ... } if API call fails (to show warning in HUD).
  *
- * Note: The caller should check config.display.showUsage before calling this.
+ * Uses file-based cache since HUD runs as a new process each render (~300ms).
+ * Cache TTL: 60s for success, 15s for failures.
  */
 export async function getUsage(overrides: Partial<UsageApiDeps> = {}): Promise<UsageData | null> {
   const deps = { ...defaultDeps, ...overrides };
-
-  // Check cache
   const now = deps.now();
-  if (cachedUsage && now - cacheTimestamp < CACHE_TTL_MS) {
-    return cachedUsage;
+  const homeDir = deps.homeDir();
+
+  // Check file-based cache first
+  const cached = readCache(homeDir, now);
+  if (cached) {
+    return cached;
   }
 
   try {
@@ -100,9 +142,7 @@ export async function getUsage(overrides: Partial<UsageApiDeps> = {}): Promise<U
         sevenDayResetAt: null,
         apiUnavailable: true,
       };
-      // Cache failure with shorter TTL
-      cachedUsage = failureResult;
-      cacheTimestamp = now - (CACHE_TTL_MS - CACHE_FAILURE_TTL_MS); // Expires after CACHE_FAILURE_TTL_MS
+      writeCache(homeDir, failureResult, now);
       return failureResult;
     }
 
@@ -122,9 +162,8 @@ export async function getUsage(overrides: Partial<UsageApiDeps> = {}): Promise<U
       sevenDayResetAt,
     };
 
-    // Update cache
-    cachedUsage = result;
-    cacheTimestamp = now;
+    // Write to file cache
+    writeCache(homeDir, result, now);
 
     return result;
   } catch (error) {
@@ -248,7 +287,15 @@ function fetchUsageApi(accessToken: string): Promise<UsageApiResponse | null> {
 }
 
 // Export for testing
-export function clearCache(): void {
-  cachedUsage = null;
-  cacheTimestamp = 0;
+export function clearCache(homeDir?: string): void {
+  if (homeDir) {
+    try {
+      const cachePath = getCachePath(homeDir);
+      if (fs.existsSync(cachePath)) {
+        fs.unlinkSync(cachePath);
+      }
+    } catch {
+      // Ignore
+    }
+  }
 }
