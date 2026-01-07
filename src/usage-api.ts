@@ -116,7 +116,7 @@ export async function getUsage(overrides: Partial<UsageApiDeps> = {}): Promise<U
   }
 
   try {
-    const credentials = readCredentials(deps.homeDir(), deps.now());
+    const credentials = readCredentials(homeDir, now);
     if (!credentials) {
       return null;
     }
