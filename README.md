@@ -107,8 +107,8 @@ Customize your HUD anytime:
 
 The guided flow walks you through customization — no manual editing needed:
 
-- **New users**: Choose a preset (Full/Essential/Minimal), then fine-tune individual elements
-- **Returning users**: Toggle items on/off, adjust git display style, switch layouts
+- **First time setup**: Choose a preset (Full/Essential/Minimal), then fine-tune individual elements
+- **Customize anytime**: Toggle items on/off, adjust git display style, switch layouts
 - **Preview before saving**: See exactly how your HUD will look before committing changes
 
 ### Presets
