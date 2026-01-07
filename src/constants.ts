@@ -1,5 +1,5 @@
 /**
- * Autocompact buffer: reserved space that /context includes in its calculation.
- * This is fixed at 45k tokens (22.5% of 200k) - must be added to match /context output.
+ * Autocompact buffer: percentage of context window that /context reserves.
+ * Claude Code reserves 22.5% of the context window for autocompaction.
  */
-export const AUTOCOMPACT_BUFFER = 45000;
+export const AUTOCOMPACT_BUFFER_PERCENT = 0.225;

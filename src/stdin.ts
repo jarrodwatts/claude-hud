@@ -1,5 +1,5 @@
 import type { StdinData } from './types.js';
-import { AUTOCOMPACT_BUFFER } from './constants.js';
+import { AUTOCOMPACT_BUFFER_PERCENT } from './constants.js';
 
 export async function readStdin(): Promise<StdinData | null> {
   if (process.stdin.isTTY) {
@@ -28,7 +28,7 @@ export function getContextPercent(stdin: StdinData): number {
   const size = stdin.context_window?.context_window_size;
 
   // Guard against missing data or invalid context window size
-  if (!usage || !size || size <= AUTOCOMPACT_BUFFER) {
+  if (!usage || !size || size <= 0) {
     return 0;
   }
 
@@ -37,7 +37,9 @@ export function getContextPercent(stdin: StdinData): number {
     (usage.cache_creation_input_tokens ?? 0) +
     (usage.cache_read_input_tokens ?? 0);
 
-  return Math.min(100, Math.round(((totalTokens + AUTOCOMPACT_BUFFER) / size) * 100));
+  // Add 22.5% buffer to match /context output (Claude Code reserves this for autocompaction)
+  const autocompactBuffer = size * AUTOCOMPACT_BUFFER_PERCENT;
+  return Math.min(100, Math.round(((totalTokens + autocompactBuffer) / size) * 100));
 }
 
 export function getModelName(stdin: StdinData): string {

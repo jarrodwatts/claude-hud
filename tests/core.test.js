@@ -15,7 +15,7 @@ test('getContextPercent returns 0 when data is missing', () => {
 });
 
 test('getContextPercent includes cache tokens and autocompact buffer', () => {
-  // For 50%: (tokens + 45000) / 200000 = 0.5 → tokens = 55000
+  // For 50%: tokens/size + 22.5% = 50% → tokens/size = 27.5% → tokens = 55000
   const percent = getContextPercent({
     context_window: {
       context_window_size: 200000,
@@ -31,7 +31,7 @@ test('getContextPercent includes cache tokens and autocompact buffer', () => {
 });
 
 test('getContextPercent handles missing input tokens', () => {
-  // For 25%: (tokens + 45000) / 200000 = 0.25 → tokens = 5000
+  // For 25%: tokens/size + 22.5% = 25% → tokens/size = 2.5% → tokens = 5000
   const percent = getContextPercent({
     context_window: {
       context_window_size: 200000,
@@ -43,6 +43,71 @@ test('getContextPercent handles missing input tokens', () => {
   });
 
   assert.equal(percent, 25);
+});
+
+test('getContextPercent matches /context output across different window sizes', () => {
+  // The HUD should match /context by using a dynamic 22.5% buffer based on window size
+  // Formula: percentage = (tokens + size * 0.225) / size * 100 = tokens/size * 100 + 22.5
+
+  // Test case 1: 200k window with 45k tokens → should be 45% (same as before)
+  assert.equal(
+    getContextPercent({
+      context_window: {
+        context_window_size: 200000,
+        current_usage: { input_tokens: 45000 },
+      },
+    }),
+    45,
+    '200k window: 45k tokens should equal 45%'
+  );
+
+  // Test case 2: 1M window with 45k tokens → should be ~27% (was incorrectly 9% with hardcoded buffer)
+  assert.equal(
+    getContextPercent({
+      context_window: {
+        context_window_size: 1000000,
+        current_usage: { input_tokens: 45000 },
+      },
+    }),
+    27,
+    '1M window: 45k tokens should equal 27% (not 9%)'
+  );
+
+  // Test case 3: 500k window with 67.5k tokens → should be ~36% (was incorrectly 23% with hardcoded buffer)
+  assert.equal(
+    getContextPercent({
+      context_window: {
+        context_window_size: 500000,
+        current_usage: { input_tokens: 67500 },
+      },
+    }),
+    36,
+    '500k window: 67.5k tokens should equal 36% (not 23%)'
+  );
+
+  // Test case 4: Verify the 22.5% buffer is always applied regardless of window size
+  // With 0 tokens, percentage should always be 23% (rounded from 22.5%)
+  assert.equal(
+    getContextPercent({
+      context_window: {
+        context_window_size: 200000,
+        current_usage: { input_tokens: 0 },
+      },
+    }),
+    23,
+    '200k window: 0 tokens should equal 23% (buffer only)'
+  );
+
+  assert.equal(
+    getContextPercent({
+      context_window: {
+        context_window_size: 1000000,
+        current_usage: { input_tokens: 0 },
+      },
+    }),
+    23,
+    '1M window: 0 tokens should equal 23% (buffer only)'
+  );
 });
 
 test('getModelName prefers display name, then id, then fallback', () => {

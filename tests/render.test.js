@@ -38,7 +38,7 @@ function baseContext() {
 
 test('renderSessionLine adds token breakdown when context is high', () => {
   const ctx = baseContext();
-  // For 90%: (tokens + 45000) / 200000 = 0.9 → tokens = 135000
+  // For 90%: tokens/size + 22.5% = 90% → tokens/size = 67.5% → tokens = 135000
   ctx.stdin.context_window.current_usage.input_tokens = 135000;
   const line = renderSessionLine(ctx);
   assert.ok(line.includes('in:'), 'expected token breakdown');
@@ -49,19 +49,19 @@ test('renderSessionLine includes duration and formats large tokens', () => {
   const ctx = baseContext();
   ctx.sessionDuration = '1m';
   // Use 1M context, need 85%+ to show breakdown
-  // For 85%: (tokens + 45000) / 1000000 = 0.85 → tokens = 805000
+  // For 85%: tokens/size + 22.5% = 85% → tokens/size = 62.5% → tokens = 625000
   ctx.stdin.context_window.context_window_size = 1000000;
-  ctx.stdin.context_window.current_usage.input_tokens = 805000;
+  ctx.stdin.context_window.current_usage.input_tokens = 625000;
   ctx.stdin.context_window.current_usage.cache_read_input_tokens = 1500;
   const line = renderSessionLine(ctx);
   assert.ok(line.includes('⏱️'));
-  assert.ok(line.includes('805k') || line.includes('805.0k'), 'expected large input token display');
+  assert.ok(line.includes('625k') || line.includes('625.0k'), 'expected large input token display');
   assert.ok(line.includes('2k'), 'expected cache token display');
 });
 
 test('renderSessionLine handles missing input tokens and cache creation usage', () => {
   const ctx = baseContext();
-  // For 90%: (tokens + 45000) / 200000 = 0.9 → tokens = 135000 (all from cache)
+  // For 90%: tokens/size + 22.5% = 90% → tokens/size = 67.5% → tokens = 135000 (all from cache)
   ctx.stdin.context_window.context_window_size = 200000;
   ctx.stdin.context_window.current_usage = {
     cache_creation_input_tokens: 135000,
@@ -73,7 +73,7 @@ test('renderSessionLine handles missing input tokens and cache creation usage', 
 
 test('renderSessionLine handles missing cache token fields', () => {
   const ctx = baseContext();
-  // For 90%: (tokens + 45000) / 200000 = 0.9 → tokens = 135000
+  // For 90%: tokens/size + 22.5% = 90% → tokens/size = 67.5% → tokens = 135000
   ctx.stdin.context_window.context_window_size = 200000;
   ctx.stdin.context_window.current_usage = {
     input_tokens: 135000,
