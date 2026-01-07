@@ -4,9 +4,6 @@
   "description": "Real-time statusline HUD for Claude Code",
   "type": "module",
   "main": "dist/index.js",
-  "bin": {
-    "claude-hud-configure": "dist/bin/configure.js"
-  },
   "scripts": {
     "build": "tsc",
     "dev": "tsc --watch",
@@ -24,9 +21,6 @@
   "license": "MIT",
   "engines": {
     "node": ">=18.0.0"
-  },
-  "dependencies": {
-    "@inquirer/prompts": "^7.5.0"
   },
   "devDependencies": {
     "@types/node": "^25.0.3",
