@@ -64,6 +64,7 @@ describe('getUsage', () => {
         return null;
       },
       now: () => 1000,
+      readKeychain: () => null, // Disable Keychain for tests
     });
 
     assert.equal(result, null);
@@ -80,6 +81,7 @@ describe('getUsage', () => {
         return buildApiResponse();
       },
       now: () => 1000,
+      readKeychain: () => null,
     });
 
     assert.equal(result, null);
@@ -96,6 +98,7 @@ describe('getUsage', () => {
         return buildApiResponse();
       },
       now: () => 1000,
+      readKeychain: () => null,
     });
 
     assert.equal(result, null);
@@ -112,10 +115,28 @@ describe('getUsage', () => {
         return buildApiResponse();
       },
       now: () => 1000,
+      readKeychain: () => null,
     });
 
     assert.equal(result, null);
     assert.equal(fetchCalls, 0);
+  });
+
+  test('falls back to file when keychain credentials are missing subscriptionType', async () => {
+    await writeCredentials(tempHome, buildCredentials({ subscriptionType: 'claude_pro_2024' }));
+    let fetchCalls = 0;
+    const result = await getUsage({
+      homeDir: () => tempHome,
+      fetchApi: async () => {
+        fetchCalls += 1;
+        return buildApiResponse();
+      },
+      now: () => 1000,
+      readKeychain: () => ({ accessToken: 'keychain-token', subscriptionType: '' }),
+    });
+
+    assert.equal(fetchCalls, 1);
+    assert.equal(result?.planName, 'Pro');
   });
 
   test('parses plan name and usage data', async () => {
@@ -128,6 +149,7 @@ describe('getUsage', () => {
         return buildApiResponse();
       },
       now: () => 1000,
+      readKeychain: () => null,
     });
 
     assert.equal(fetchCalls, 1);
@@ -142,6 +164,7 @@ describe('getUsage', () => {
       homeDir: () => tempHome,
       fetchApi: async () => buildApiResponse(),
       now: () => 1000,
+      readKeychain: () => null,
     });
 
     assert.equal(result?.planName, 'Team');
@@ -160,6 +183,7 @@ describe('getUsage', () => {
       homeDir: () => tempHome,
       fetchApi,
       now: () => nowValue,
+      readKeychain: () => null,
     });
     assert.equal(first?.apiUnavailable, true);
     assert.equal(fetchCalls, 1);
@@ -169,6 +193,7 @@ describe('getUsage', () => {
       homeDir: () => tempHome,
       fetchApi,
       now: () => nowValue,
+      readKeychain: () => null,
     });
     assert.equal(cached?.apiUnavailable, true);
     assert.equal(fetchCalls, 1);
@@ -178,6 +203,7 @@ describe('getUsage', () => {
       homeDir: () => tempHome,
       fetchApi,
       now: () => nowValue,
+      readKeychain: () => null,
     });
     assert.equal(second?.apiUnavailable, true);
     assert.equal(fetchCalls, 2);
@@ -206,15 +232,15 @@ describe('getUsage caching behavior', () => {
       return buildApiResponse();
     };
 
-    await getUsage({ homeDir: () => tempHome, fetchApi, now: () => nowValue });
+    await getUsage({ homeDir: () => tempHome, fetchApi, now: () => nowValue, readKeychain: () => null });
     assert.equal(fetchCalls, 1);
 
     nowValue += 30_000;
-    await getUsage({ homeDir: () => tempHome, fetchApi, now: () => nowValue });
+    await getUsage({ homeDir: () => tempHome, fetchApi, now: () => nowValue, readKeychain: () => null });
     assert.equal(fetchCalls, 1);
 
     nowValue += 31_000;
-    await getUsage({ homeDir: () => tempHome, fetchApi, now: () => nowValue });
+    await getUsage({ homeDir: () => tempHome, fetchApi, now: () => nowValue, readKeychain: () => null });
     assert.equal(fetchCalls, 2);
   });
 
@@ -227,15 +253,15 @@ describe('getUsage caching behavior', () => {
       return null;
     };
 
-    await getUsage({ homeDir: () => tempHome, fetchApi, now: () => nowValue });
+    await getUsage({ homeDir: () => tempHome, fetchApi, now: () => nowValue, readKeychain: () => null });
     assert.equal(fetchCalls, 1);
 
     nowValue += 10_000;
-    await getUsage({ homeDir: () => tempHome, fetchApi, now: () => nowValue });
+    await getUsage({ homeDir: () => tempHome, fetchApi, now: () => nowValue, readKeychain: () => null });
     assert.equal(fetchCalls, 1);
 
     nowValue += 6_000;
-    await getUsage({ homeDir: () => tempHome, fetchApi, now: () => nowValue });
+    await getUsage({ homeDir: () => tempHome, fetchApi, now: () => nowValue, readKeychain: () => null });
     assert.equal(fetchCalls, 2);
   });
 
@@ -247,11 +273,11 @@ describe('getUsage caching behavior', () => {
       return buildApiResponse();
     };
 
-    await getUsage({ homeDir: () => tempHome, fetchApi, now: () => 1000 });
+    await getUsage({ homeDir: () => tempHome, fetchApi, now: () => 1000, readKeychain: () => null });
     assert.equal(fetchCalls, 1);
 
     clearCache(tempHome);
-    await getUsage({ homeDir: () => tempHome, fetchApi, now: () => 2000 });
+    await getUsage({ homeDir: () => tempHome, fetchApi, now: () => 2000, readKeychain: () => null });
     assert.equal(fetchCalls, 2);
   });
 });

@@ -2,6 +2,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
 import * as https from 'https';
+import { execSync } from 'child_process';
 import type { UsageData } from './types.js';
 import { createDebug } from './debug.js';
 
@@ -34,6 +35,7 @@ interface UsageApiResponse {
 // File-based cache (HUD runs as new process each render, so in-memory cache won't persist)
 const CACHE_TTL_MS = 60_000; // 60 seconds
 const CACHE_FAILURE_TTL_MS = 15_000; // 15 seconds for failed requests
+const KEYCHAIN_TIMEOUT_MS = 1500;
 
 interface CacheFile {
   data: UsageData;
@@ -93,12 +95,14 @@ export type UsageApiDeps = {
   homeDir: () => string;
   fetchApi: (accessToken: string) => Promise<UsageApiResponse | null>;
   now: () => number;
+  readKeychain: (now: number) => { accessToken: string; subscriptionType: string } | null;
 };
 
 const defaultDeps: UsageApiDeps = {
   homeDir: () => os.homedir(),
   fetchApi: fetchUsageApi,
   now: () => Date.now(),
+  readKeychain: readKeychainCredentials,
 };
 
 /**
@@ -121,7 +125,7 @@ export async function getUsage(overrides: Partial<UsageApiDeps> = {}): Promise<U
   }
 
   try {
-    const credentials = readCredentials(homeDir, now);
+    const credentials = readCredentials(homeDir, now, deps.readKeychain);
     if (!credentials) {
       return null;
     }
@@ -177,7 +181,41 @@ export async function getUsage(overrides: Partial<UsageApiDeps> = {}): Promise<U
   }
 }
 
-function readCredentials(homeDir: string, now: number): { accessToken: string; subscriptionType: string } | null {
+/**
+ * Read credentials from macOS Keychain.
+ * Claude Code 2.x stores OAuth credentials in the macOS Keychain under "Claude Code-credentials".
+ * Returns null if not on macOS or credentials not found.
+ */
+function readKeychainCredentials(now: number): { accessToken: string; subscriptionType: string } | null {
+  // Only available on macOS
+  if (process.platform !== 'darwin') {
+    return null;
+  }
+
+  try {
+    // Read from macOS Keychain using security command
+    const keychainData = execSync(
+      'security find-generic-password -s "Claude Code-credentials" -w 2>/dev/null',
+      { encoding: 'utf8', stdio: ['pipe', 'pipe', 'pipe'], timeout: KEYCHAIN_TIMEOUT_MS }
+    ).trim();
+
+    if (!keychainData) {
+      return null;
+    }
+
+    const data: CredentialsFile = JSON.parse(keychainData);
+    return parseCredentialsData(data, now);
+  } catch (error) {
+    debug('Failed to read from macOS Keychain:', error);
+    return null;
+  }
+}
+
+/**
+ * Read credentials from file (legacy method).
+ * Older versions of Claude Code stored credentials in ~/.claude/.credentials.json
+ */
+function readFileCredentials(homeDir: string, now: number): { accessToken: string; subscriptionType: string } | null {
   const credentialsPath = path.join(homeDir, '.claude', '.credentials.json');
 
   if (!fs.existsSync(credentialsPath)) {
@@ -187,26 +225,63 @@ function readCredentials(homeDir: string, now: number): { accessToken: string; s
   try {
     const content = fs.readFileSync(credentialsPath, 'utf8');
     const data: CredentialsFile = JSON.parse(content);
-
-    const accessToken = data.claudeAiOauth?.accessToken;
-    const subscriptionType = data.claudeAiOauth?.subscriptionType ?? '';
-
-    if (!accessToken) {
-      return null;
-    }
-
-    // Check if token is expired (expiresAt is Unix ms timestamp)
-    // Use != null to handle expiresAt=0 correctly (would be expired)
-    const expiresAt = data.claudeAiOauth?.expiresAt;
-    if (expiresAt != null && expiresAt <= now) {
-      return null;
-    }
-
-    return { accessToken, subscriptionType };
+    return parseCredentialsData(data, now);
   } catch (error) {
-    debug('Failed to read credentials:', error);
+    debug('Failed to read credentials file:', error);
     return null;
   }
+}
+
+/**
+ * Parse and validate credentials data from either Keychain or file.
+ */
+function parseCredentialsData(data: CredentialsFile, now: number): { accessToken: string; subscriptionType: string } | null {
+  const accessToken = data.claudeAiOauth?.accessToken;
+  const subscriptionType = data.claudeAiOauth?.subscriptionType ?? '';
+
+  if (!accessToken) {
+    return null;
+  }
+
+  // Check if token is expired (expiresAt is Unix ms timestamp)
+  // Use != null to handle expiresAt=0 correctly (would be expired)
+  const expiresAt = data.claudeAiOauth?.expiresAt;
+  if (expiresAt != null && expiresAt <= now) {
+    debug('OAuth token expired');
+    return null;
+  }
+
+  return { accessToken, subscriptionType };
+}
+
+/**
+ * Read OAuth credentials, trying macOS Keychain first (Claude Code 2.x),
+ * then falling back to file-based credentials (older versions).
+ */
+function readCredentials(
+  homeDir: string,
+  now: number,
+  readKeychain: (now: number) => { accessToken: string; subscriptionType: string } | null
+): { accessToken: string; subscriptionType: string } | null {
+  // Try macOS Keychain first (Claude Code 2.x)
+  const keychainCreds = readKeychain(now);
+  if (keychainCreds) {
+    if (!keychainCreds.subscriptionType) {
+      debug('Keychain credentials missing subscriptionType, falling back to file');
+    } else {
+      debug('Using credentials from macOS Keychain');
+      return keychainCreds;
+    }
+  }
+
+  // Fall back to file-based credentials (older versions or non-macOS)
+  const fileCreds = readFileCredentials(homeDir, now);
+  if (fileCreds) {
+    debug('Using credentials from file');
+    return fileCreds;
+  }
+
+  return null;
 }
 
 function getPlanName(subscriptionType: string): string | null {
