@@ -40,7 +40,7 @@ interface UsageApiResponse {
 // File-based cache (HUD runs as new process each render, so in-memory cache won't persist)
 const CACHE_TTL_MS = 60_000; // 60 seconds
 const CACHE_FAILURE_TTL_MS = 15_000; // 15 seconds for failed requests
-const KEYCHAIN_TIMEOUT_MS = 1500;
+const KEYCHAIN_TIMEOUT_MS = 5000;
 
 interface CacheFile {
   data: UsageData;
@@ -262,6 +262,9 @@ function parseCredentialsData(data: CredentialsFile, now: number): { accessToken
 /**
  * Read OAuth credentials, trying macOS Keychain first (Claude Code 2.x),
  * then falling back to file-based credentials (older versions).
+ *
+ * Token priority: Keychain token is authoritative (Claude Code 2.x stores current token there).
+ * SubscriptionType: Can be supplemented from file if keychain lacks it (display-only field).
  */
 function readCredentials(
   homeDir: string,
@@ -271,12 +274,22 @@ function readCredentials(
   // Try macOS Keychain first (Claude Code 2.x)
   const keychainCreds = readKeychain(now);
   if (keychainCreds) {
-    if (!keychainCreds.subscriptionType) {
-      debug('Keychain credentials missing subscriptionType, falling back to file');
-    } else {
+    if (keychainCreds.subscriptionType) {
       debug('Using credentials from macOS Keychain');
       return keychainCreds;
     }
+    // Keychain has token but no subscriptionType - try to supplement from file
+    const fileCreds = readFileCredentials(homeDir, now);
+    if (fileCreds?.subscriptionType) {
+      debug('Using keychain token with file subscriptionType');
+      return {
+        accessToken: keychainCreds.accessToken,
+        subscriptionType: fileCreds.subscriptionType,
+      };
+    }
+    // No subscriptionType available - use keychain token anyway
+    debug('Using keychain token without subscriptionType');
+    return keychainCreds;
   }
 
   // Fall back to file-based credentials (older versions or non-macOS)
