@@ -152,6 +152,7 @@ You can also edit the config file directly at `~/.claude/plugins/claude-hud/conf
 | `gitStatus.enabled` | boolean | true | Show git branch in HUD |
 | `gitStatus.showDirty` | boolean | true | Show `*` for uncommitted changes |
 | `gitStatus.showAheadBehind` | boolean | false | Show `↑N ↓N` for ahead/behind remote |
+| `gitStatus.showFileStats` | boolean | false | Show file change counts `!M +A ✘D ?U` |
 | `display.showModel` | boolean | true | Show model name `[Opus]` |
 | `display.showContextBar` | boolean | true | Show visual context bar `████░░░░░░` |
 | `display.showConfigCounts` | boolean | true | Show CLAUDE.md, rules, MCPs, hooks counts |
@@ -207,7 +208,8 @@ To disable usage display, set `display.showUsage` to `false` in your config.
   "gitStatus": {
     "enabled": true,
     "showDirty": true,
-    "showAheadBehind": true
+    "showAheadBehind": true,
+    "showFileStats": true
   },
   "display": {
     "showModel": true,
@@ -234,6 +236,10 @@ To disable usage display, set `display.showUsage` to `false` in your config.
 **With dirty indicator:** `[Opus] 45% | my-project git:(main*) | ...`
 
 **With ahead/behind:** `[Opus] 45% | my-project git:(main ↑2 ↓1) | ...`
+
+**With file stats:** `[Opus] 45% | my-project git:(main* !3 +1 ?2) | ...`
+- `!` = modified files, `+` = added/staged, `✘` = deleted, `?` = untracked
+- Counts of 0 are omitted for cleaner display
 
 **Minimal display (only context %):** Configure `showModel`, `showContextBar`, `showConfigCounts`, `showDuration` to `false`
 
