@@ -6,6 +6,33 @@ All notable changes to Claude HUD will be documented in this file.
 
 ---
 
+## [0.0.6] - 2026-01-14
+
+### Added
+- **Expanded multi-line layout mode** - splits the overloaded session line into semantic lines (#76)
+  - Identity line: model, plan, context bar, duration
+  - Project line: path, git status
+  - Environment line: config counts (CLAUDE.md, rules, MCPs, hooks)
+  - Usage line: rate limits with reset times
+- New config options:
+  - `lineLayout`: `'compact'` | `'expanded'` (default: `'expanded'` for new users)
+  - `showSeparators`: boolean (orthogonal to layout)
+  - `display.usageThreshold`: show usage line only when >= N%
+  - `display.environmentThreshold`: show env line only when counts >= N
+
+### Changed
+- Default layout is now `expanded` for new installations
+- Threshold logic uses `max(5h, 7d)` to ensure high 7-day usage isn't hidden
+
+### Fixed
+- Ghost installation detection and cleanup in setup command (#75)
+
+### Migration
+- Existing configs with `layout: "default"` automatically migrate to `lineLayout: "compact"`
+- Existing configs with `layout: "separators"` migrate to `lineLayout: "compact"` + `showSeparators: true`
+
+---
+
 ## [0.0.5] - 2026-01-14
 
 ### Added
