@@ -105,6 +105,7 @@ Info items (Counts, Tokens, Usage, Duration) can be turned off via "Reset to Min
   - "Branch only" - git:(main)
   - "Branch + dirty" - git:(main*) shows uncommitted changes
   - "Full details" - git:(main* ↑2 ↓1) includes ahead/behind
+  - "File stats" - git:(main* !2 +1 ?3) Starship-compatible format
 
 **Skip Q3 if Git is OFF** - show only 3 questions total, or replace with placeholder.
 
@@ -143,9 +144,10 @@ Info items (Counts, Tokens, Usage, Duration) can be turned off via "Reset to Min
 
 | Option | Config |
 |--------|--------|
-| Branch only | `gitStatus: { enabled: true, showDirty: false, showAheadBehind: false }` |
-| Branch + dirty | `gitStatus: { enabled: true, showDirty: true, showAheadBehind: false }` |
-| Full details | `gitStatus: { enabled: true, showDirty: true, showAheadBehind: true }` |
+| Branch only | `gitStatus: { enabled: true, showDirty: false, showAheadBehind: false, showFileStats: false }` |
+| Branch + dirty | `gitStatus: { enabled: true, showDirty: true, showAheadBehind: false, showFileStats: false }` |
+| Full details | `gitStatus: { enabled: true, showDirty: true, showAheadBehind: true, showFileStats: false }` |
+| File stats | `gitStatus: { enabled: true, showDirty: true, showAheadBehind: false, showFileStats: true }` |
 
 ---
 

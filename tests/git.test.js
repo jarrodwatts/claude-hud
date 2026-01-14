@@ -103,3 +103,104 @@ test('getGitStatus detects dirty state', async () => {
     await rm(dir, { recursive: true, force: true });
   }
 });
+
+// fileStats tests
+test('getGitStatus returns undefined fileStats for clean repo', async () => {
+  const dir = await mkdtemp(path.join(tmpdir(), 'claude-hud-git-'));
+  try {
+    execFileSync('git', ['init'], { cwd: dir, stdio: 'ignore' });
+    execFileSync('git', ['config', 'user.email', 'test@test.com'], { cwd: dir, stdio: 'ignore' });
+    execFileSync('git', ['config', 'user.name', 'Test'], { cwd: dir, stdio: 'ignore' });
+    execFileSync('git', ['commit', '--allow-empty', '-m', 'init'], { cwd: dir, stdio: 'ignore' });
+
+    const result = await getGitStatus(dir);
+    assert.equal(result?.fileStats, undefined);
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
+});
+
+test('getGitStatus counts untracked files', async () => {
+  const dir = await mkdtemp(path.join(tmpdir(), 'claude-hud-git-'));
+  try {
+    execFileSync('git', ['init'], { cwd: dir, stdio: 'ignore' });
+    execFileSync('git', ['config', 'user.email', 'test@test.com'], { cwd: dir, stdio: 'ignore' });
+    execFileSync('git', ['config', 'user.name', 'Test'], { cwd: dir, stdio: 'ignore' });
+    execFileSync('git', ['commit', '--allow-empty', '-m', 'init'], { cwd: dir, stdio: 'ignore' });
+
+    // Create untracked files
+    await writeFile(path.join(dir, 'untracked1.txt'), 'content');
+    await writeFile(path.join(dir, 'untracked2.txt'), 'content');
+
+    const result = await getGitStatus(dir);
+    assert.equal(result?.fileStats?.untracked, 2);
+    assert.equal(result?.fileStats?.modified, 0);
+    assert.equal(result?.fileStats?.added, 0);
+    assert.equal(result?.fileStats?.deleted, 0);
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
+});
+
+test('getGitStatus counts modified files', async () => {
+  const dir = await mkdtemp(path.join(tmpdir(), 'claude-hud-git-'));
+  try {
+    execFileSync('git', ['init'], { cwd: dir, stdio: 'ignore' });
+    execFileSync('git', ['config', 'user.email', 'test@test.com'], { cwd: dir, stdio: 'ignore' });
+    execFileSync('git', ['config', 'user.name', 'Test'], { cwd: dir, stdio: 'ignore' });
+
+    // Create and commit a file
+    await writeFile(path.join(dir, 'file.txt'), 'original');
+    execFileSync('git', ['add', 'file.txt'], { cwd: dir, stdio: 'ignore' });
+    execFileSync('git', ['commit', '-m', 'add file'], { cwd: dir, stdio: 'ignore' });
+
+    // Modify the file
+    await writeFile(path.join(dir, 'file.txt'), 'modified');
+
+    const result = await getGitStatus(dir);
+    assert.equal(result?.fileStats?.modified, 1);
+    assert.equal(result?.fileStats?.untracked, 0);
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
+});
+
+test('getGitStatus counts staged added files', async () => {
+  const dir = await mkdtemp(path.join(tmpdir(), 'claude-hud-git-'));
+  try {
+    execFileSync('git', ['init'], { cwd: dir, stdio: 'ignore' });
+    execFileSync('git', ['config', 'user.email', 'test@test.com'], { cwd: dir, stdio: 'ignore' });
+    execFileSync('git', ['config', 'user.name', 'Test'], { cwd: dir, stdio: 'ignore' });
+    execFileSync('git', ['commit', '--allow-empty', '-m', 'init'], { cwd: dir, stdio: 'ignore' });
+
+    // Create and stage a new file
+    await writeFile(path.join(dir, 'newfile.txt'), 'content');
+    execFileSync('git', ['add', 'newfile.txt'], { cwd: dir, stdio: 'ignore' });
+
+    const result = await getGitStatus(dir);
+    assert.equal(result?.fileStats?.added, 1);
+    assert.equal(result?.fileStats?.untracked, 0);
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
+});
+
+test('getGitStatus counts deleted files', async () => {
+  const dir = await mkdtemp(path.join(tmpdir(), 'claude-hud-git-'));
+  try {
+    execFileSync('git', ['init'], { cwd: dir, stdio: 'ignore' });
+    execFileSync('git', ['config', 'user.email', 'test@test.com'], { cwd: dir, stdio: 'ignore' });
+    execFileSync('git', ['config', 'user.name', 'Test'], { cwd: dir, stdio: 'ignore' });
+
+    // Create, commit, then delete a file
+    await writeFile(path.join(dir, 'todelete.txt'), 'content');
+    execFileSync('git', ['add', 'todelete.txt'], { cwd: dir, stdio: 'ignore' });
+    execFileSync('git', ['commit', '-m', 'add file'], { cwd: dir, stdio: 'ignore' });
+    execFileSync('git', ['rm', 'todelete.txt'], { cwd: dir, stdio: 'ignore' });
+
+    const result = await getGitStatus(dir);
+    assert.equal(result?.fileStats?.deleted, 1);
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
+});

@@ -9,6 +9,10 @@ All notable changes to Claude HUD will be documented in this file.
 ## [0.0.5] - 2026-01-14
 
 ### Added
+- Native context percentage support for Claude Code v2.1.6+
+  - Uses `used_percentage` field from stdin when available (accurate, matches `/context`)
+  - Automatic fallback to manual calculation for older versions
+  - Handles edge cases: NaN, negative values, values >100
 - `display.autocompactBuffer` config option (`'enabled'` | `'disabled'`, default: `'enabled'`)
   - `'enabled'`: Shows buffered % (matches `/context` when autocompact ON) - **default**
   - `'disabled'`: Shows raw % (matches `/context` when autocompact OFF)

@@ -84,6 +84,77 @@ test('getBufferedPercent scales to larger context windows', () => {
   assert.equal(bufferedPercent, 27);
 });
 
+// Native percentage tests (Claude Code v2.1.6+)
+test('getContextPercent prefers native used_percentage when available', () => {
+  const percent = getContextPercent({
+    context_window: {
+      context_window_size: 200000,
+      current_usage: { input_tokens: 55000 }, // would be 28% raw
+      used_percentage: 47, // native value takes precedence
+    },
+  });
+  assert.equal(percent, 47);
+});
+
+test('getBufferedPercent prefers native used_percentage when available', () => {
+  const percent = getBufferedPercent({
+    context_window: {
+      context_window_size: 200000,
+      current_usage: { input_tokens: 55000 }, // would be 50% buffered
+      used_percentage: 47, // native value takes precedence
+    },
+  });
+  assert.equal(percent, 47);
+});
+
+test('getContextPercent falls back when native is null', () => {
+  const percent = getContextPercent({
+    context_window: {
+      context_window_size: 200000,
+      current_usage: { input_tokens: 55000 },
+      used_percentage: null,
+    },
+  });
+  assert.equal(percent, 28); // raw calculation
+});
+
+test('getBufferedPercent falls back when native is null', () => {
+  const percent = getBufferedPercent({
+    context_window: {
+      context_window_size: 200000,
+      current_usage: { input_tokens: 55000 },
+      used_percentage: null,
+    },
+  });
+  assert.equal(percent, 50); // buffered calculation
+});
+
+test('native percentage handles zero correctly', () => {
+  assert.equal(getContextPercent({ context_window: { used_percentage: 0 } }), 0);
+  assert.equal(getBufferedPercent({ context_window: { used_percentage: 0 } }), 0);
+});
+
+test('native percentage clamps negative values to 0', () => {
+  assert.equal(getContextPercent({ context_window: { used_percentage: -5 } }), 0);
+  assert.equal(getBufferedPercent({ context_window: { used_percentage: -10 } }), 0);
+});
+
+test('native percentage clamps values over 100 to 100', () => {
+  assert.equal(getContextPercent({ context_window: { used_percentage: 150 } }), 100);
+  assert.equal(getBufferedPercent({ context_window: { used_percentage: 200 } }), 100);
+});
+
+test('native percentage falls back when NaN', () => {
+  const percent = getContextPercent({
+    context_window: {
+      context_window_size: 200000,
+      current_usage: { input_tokens: 55000 },
+      used_percentage: NaN,
+    },
+  });
+  assert.equal(percent, 28); // falls back to raw calculation
+});
+
 test('getModelName prefers display name, then id, then fallback', () => {
   assert.equal(getModelName({ model: { display_name: 'Opus', id: 'opus-123' } }), 'Opus');
   assert.equal(getModelName({ model: { id: 'sonnet-456' } }), 'sonnet-456');

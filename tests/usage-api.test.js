@@ -64,6 +64,7 @@ describe('getUsage', () => {
         return null;
       },
       now: () => 1000,
+      readKeychain: () => null, // Disable Keychain for tests
     });
 
     assert.equal(result, null);
@@ -80,6 +81,7 @@ describe('getUsage', () => {
         return buildApiResponse();
       },
       now: () => 1000,
+      readKeychain: () => null,
     });
 
     assert.equal(result, null);
@@ -96,6 +98,7 @@ describe('getUsage', () => {
         return buildApiResponse();
       },
       now: () => 1000,
+      readKeychain: () => null,
     });
 
     assert.equal(result, null);
@@ -112,8 +115,66 @@ describe('getUsage', () => {
         return buildApiResponse();
       },
       now: () => 1000,
+      readKeychain: () => null,
     });
 
+    assert.equal(result, null);
+    assert.equal(fetchCalls, 0);
+  });
+
+  test('uses complete keychain credentials without falling back to file', async () => {
+    // No file credentials - keychain should be sufficient
+    let usedToken = null;
+    const result = await getUsage({
+      homeDir: () => tempHome,
+      fetchApi: async (token) => {
+        usedToken = token;
+        return buildApiResponse();
+      },
+      now: () => 1000,
+      readKeychain: () => ({ accessToken: 'keychain-token', subscriptionType: 'claude_max_2024' }),
+    });
+
+    assert.equal(usedToken, 'keychain-token');
+    assert.equal(result?.planName, 'Max');
+  });
+
+  test('uses keychain token with file subscriptionType when keychain lacks subscriptionType', async () => {
+    await writeCredentials(tempHome, buildCredentials({
+      accessToken: 'old-file-token',
+      subscriptionType: 'claude_pro_2024',
+    }));
+    let usedToken = null;
+    const result = await getUsage({
+      homeDir: () => tempHome,
+      fetchApi: async (token) => {
+        usedToken = token;
+        return buildApiResponse();
+      },
+      now: () => 1000,
+      readKeychain: () => ({ accessToken: 'keychain-token', subscriptionType: '' }),
+    });
+
+    // Must use keychain token (authoritative), but can use file's subscriptionType
+    assert.equal(usedToken, 'keychain-token', 'should use keychain token, not file token');
+    assert.equal(result?.planName, 'Pro');
+  });
+
+  test('returns null when keychain has token but no subscriptionType anywhere', async () => {
+    // No file credentials, keychain has no subscriptionType
+    // This user is treated as an API user (no usage limits)
+    let fetchCalls = 0;
+    const result = await getUsage({
+      homeDir: () => tempHome,
+      fetchApi: async () => {
+        fetchCalls += 1;
+        return buildApiResponse();
+      },
+      now: () => 1000,
+      readKeychain: () => ({ accessToken: 'keychain-token', subscriptionType: '' }),
+    });
+
+    // No subscriptionType means API user, returns null without calling API
     assert.equal(result, null);
     assert.equal(fetchCalls, 0);
   });
@@ -128,6 +189,7 @@ describe('getUsage', () => {
         return buildApiResponse();
       },
       now: () => 1000,
+      readKeychain: () => null,
     });
 
     assert.equal(fetchCalls, 1);
@@ -142,6 +204,7 @@ describe('getUsage', () => {
       homeDir: () => tempHome,
       fetchApi: async () => buildApiResponse(),
       now: () => 1000,
+      readKeychain: () => null,
     });
 
     assert.equal(result?.planName, 'Team');
@@ -160,6 +223,7 @@ describe('getUsage', () => {
       homeDir: () => tempHome,
       fetchApi,
       now: () => nowValue,
+      readKeychain: () => null,
     });
     assert.equal(first?.apiUnavailable, true);
     assert.equal(fetchCalls, 1);
@@ -169,6 +233,7 @@ describe('getUsage', () => {
       homeDir: () => tempHome,
       fetchApi,
       now: () => nowValue,
+      readKeychain: () => null,
     });
     assert.equal(cached?.apiUnavailable, true);
     assert.equal(fetchCalls, 1);
@@ -178,6 +243,7 @@ describe('getUsage', () => {
       homeDir: () => tempHome,
       fetchApi,
       now: () => nowValue,
+      readKeychain: () => null,
     });
     assert.equal(second?.apiUnavailable, true);
     assert.equal(fetchCalls, 2);
@@ -206,15 +272,15 @@ describe('getUsage caching behavior', () => {
       return buildApiResponse();
     };
 
-    await getUsage({ homeDir: () => tempHome, fetchApi, now: () => nowValue });
+    await getUsage({ homeDir: () => tempHome, fetchApi, now: () => nowValue, readKeychain: () => null });
     assert.equal(fetchCalls, 1);
 
     nowValue += 30_000;
-    await getUsage({ homeDir: () => tempHome, fetchApi, now: () => nowValue });
+    await getUsage({ homeDir: () => tempHome, fetchApi, now: () => nowValue, readKeychain: () => null });
     assert.equal(fetchCalls, 1);
 
     nowValue += 31_000;
-    await getUsage({ homeDir: () => tempHome, fetchApi, now: () => nowValue });
+    await getUsage({ homeDir: () => tempHome, fetchApi, now: () => nowValue, readKeychain: () => null });
     assert.equal(fetchCalls, 2);
   });
 
@@ -227,15 +293,15 @@ describe('getUsage caching behavior', () => {
       return null;
     };
 
-    await getUsage({ homeDir: () => tempHome, fetchApi, now: () => nowValue });
+    await getUsage({ homeDir: () => tempHome, fetchApi, now: () => nowValue, readKeychain: () => null });
     assert.equal(fetchCalls, 1);
 
     nowValue += 10_000;
-    await getUsage({ homeDir: () => tempHome, fetchApi, now: () => nowValue });
+    await getUsage({ homeDir: () => tempHome, fetchApi, now: () => nowValue, readKeychain: () => null });
     assert.equal(fetchCalls, 1);
 
     nowValue += 6_000;
-    await getUsage({ homeDir: () => tempHome, fetchApi, now: () => nowValue });
+    await getUsage({ homeDir: () => tempHome, fetchApi, now: () => nowValue, readKeychain: () => null });
     assert.equal(fetchCalls, 2);
   });
 
@@ -247,11 +313,11 @@ describe('getUsage caching behavior', () => {
       return buildApiResponse();
     };
 
-    await getUsage({ homeDir: () => tempHome, fetchApi, now: () => 1000 });
+    await getUsage({ homeDir: () => tempHome, fetchApi, now: () => 1000, readKeychain: () => null });
     assert.equal(fetchCalls, 1);
 
     clearCache(tempHome);
-    await getUsage({ homeDir: () => tempHome, fetchApi, now: () => 2000 });
+    await getUsage({ homeDir: () => tempHome, fetchApi, now: () => 2000, readKeychain: () => null });
     assert.equal(fetchCalls, 2);
   });
 });

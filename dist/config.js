@@ -8,6 +8,7 @@ export const DEFAULT_CONFIG = {
         enabled: true,
         showDirty: true,
         showAheadBehind: false,
+        showFileStats: false,
     },
     display: {
         showModel: true,
@@ -52,6 +53,9 @@ function mergeConfig(userConfig) {
         showAheadBehind: typeof userConfig.gitStatus?.showAheadBehind === 'boolean'
             ? userConfig.gitStatus.showAheadBehind
             : DEFAULT_CONFIG.gitStatus.showAheadBehind,
+        showFileStats: typeof userConfig.gitStatus?.showFileStats === 'boolean'
+            ? userConfig.gitStatus.showFileStats
+            : DEFAULT_CONFIG.gitStatus.showFileStats,
     };
     const display = {
         showModel: typeof userConfig.display?.showModel === 'boolean'

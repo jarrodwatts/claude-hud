@@ -556,3 +556,81 @@ test('render omits separator when layout is separators but no activity', () => {
   assert.ok(!logs.some(l => l.includes('─')), 'should not include separator');
 });
 
+// fileStats tests
+test('renderSessionLine displays file stats when showFileStats is true', () => {
+  const ctx = baseContext();
+  ctx.stdin.cwd = '/tmp/my-project';
+  ctx.config.gitStatus.showFileStats = true;
+  ctx.gitStatus = {
+    branch: 'main',
+    isDirty: true,
+    ahead: 0,
+    behind: 0,
+    fileStats: { modified: 2, added: 1, deleted: 0, untracked: 3 },
+  };
+  const line = renderSessionLine(ctx);
+  assert.ok(line.includes('!2'), 'expected modified count');
+  assert.ok(line.includes('+1'), 'expected added count');
+  assert.ok(line.includes('?3'), 'expected untracked count');
+  assert.ok(!line.includes('✘'), 'should not show deleted when 0');
+});
+
+test('renderSessionLine omits file stats when showFileStats is false', () => {
+  const ctx = baseContext();
+  ctx.stdin.cwd = '/tmp/my-project';
+  ctx.config.gitStatus.showFileStats = false;
+  ctx.gitStatus = {
+    branch: 'main',
+    isDirty: true,
+    ahead: 0,
+    behind: 0,
+    fileStats: { modified: 2, added: 1, deleted: 0, untracked: 3 },
+  };
+  const line = renderSessionLine(ctx);
+  assert.ok(!line.includes('!2'), 'should not show modified count');
+  assert.ok(!line.includes('+1'), 'should not show added count');
+});
+
+test('renderSessionLine handles missing showFileStats config (backward compatibility)', () => {
+  const ctx = baseContext();
+  ctx.stdin.cwd = '/tmp/my-project';
+  // Simulate old config without showFileStats
+  delete ctx.config.gitStatus.showFileStats;
+  ctx.gitStatus = {
+    branch: 'main',
+    isDirty: true,
+    ahead: 0,
+    behind: 0,
+    fileStats: { modified: 2, added: 1, deleted: 0, untracked: 3 },
+  };
+  // Should not crash and should not show file stats (default is false)
+  const line = renderSessionLine(ctx);
+  assert.ok(line.includes('git:('), 'should still show git info');
+  assert.ok(!line.includes('!2'), 'should not show file stats when config missing');
+});
+
+test('renderSessionLine combines showFileStats with showDirty and showAheadBehind', () => {
+  const ctx = baseContext();
+  ctx.stdin.cwd = '/tmp/my-project';
+  ctx.config.gitStatus = {
+    enabled: true,
+    showDirty: true,
+    showAheadBehind: true,
+    showFileStats: true,
+  };
+  ctx.gitStatus = {
+    branch: 'feature',
+    isDirty: true,
+    ahead: 2,
+    behind: 1,
+    fileStats: { modified: 3, added: 0, deleted: 1, untracked: 0 },
+  };
+  const line = renderSessionLine(ctx);
+  assert.ok(line.includes('feature'), 'expected branch name');
+  assert.ok(line.includes('*'), 'expected dirty indicator');
+  assert.ok(line.includes('↑2'), 'expected ahead count');
+  assert.ok(line.includes('↓1'), 'expected behind count');
+  assert.ok(line.includes('!3'), 'expected modified count');
+  assert.ok(line.includes('✘1'), 'expected deleted count');
+});
+

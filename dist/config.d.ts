@@ -7,6 +7,7 @@ export interface HudConfig {
         enabled: boolean;
         showDirty: boolean;
         showAheadBehind: boolean;
+        showFileStats: boolean;
     };
     display: {
         showModel: boolean;

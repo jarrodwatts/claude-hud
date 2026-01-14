@@ -14,6 +14,10 @@ export type UsageApiDeps = {
     homeDir: () => string;
     fetchApi: (accessToken: string) => Promise<UsageApiResponse | null>;
     now: () => number;
+    readKeychain: (now: number, homeDir: string) => {
+        accessToken: string;
+        subscriptionType: string;
+    } | null;
 };
 /**
  * Get OAuth usage data from Anthropic API.

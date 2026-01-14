@@ -62,6 +62,22 @@ export function renderSessionLine(ctx) {
                     gitParts.push(` ↓${ctx.gitStatus.behind}`);
                 }
             }
+            // Show file stats in Starship-compatible format (!modified +added ✘deleted ?untracked)
+            if (gitConfig?.showFileStats && ctx.gitStatus.fileStats) {
+                const { modified, added, deleted, untracked } = ctx.gitStatus.fileStats;
+                const statParts = [];
+                if (modified > 0)
+                    statParts.push(`!${modified}`);
+                if (added > 0)
+                    statParts.push(`+${added}`);
+                if (deleted > 0)
+                    statParts.push(`✘${deleted}`);
+                if (untracked > 0)
+                    statParts.push(`?${untracked}`);
+                if (statParts.length > 0) {
+                    gitParts.push(` ${statParts.join(' ')}`);
+                }
+            }
             gitPart = ` ${magenta('git:(')}${cyan(gitParts.join(''))}${magenta(')')}`;
         }
         parts.push(`${yellow(projectPath)}${gitPart}`);

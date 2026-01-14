@@ -21,11 +21,16 @@ export async function getGitStatus(cwd) {
         const branch = branchOut.trim();
         if (!branch)
             return null;
-        // Check for dirty state (uncommitted changes)
+        // Check for dirty state and parse file stats
         let isDirty = false;
+        let fileStats;
         try {
             const { stdout: statusOut } = await execFileAsync('git', ['--no-optional-locks', 'status', '--porcelain'], { cwd, timeout: 1000, encoding: 'utf8' });
-            isDirty = statusOut.trim().length > 0;
+            const trimmed = statusOut.trim();
+            isDirty = trimmed.length > 0;
+            if (isDirty) {
+                fileStats = parseFileStats(trimmed);
+            }
         }
         catch {
             // Ignore errors, assume clean
@@ -44,10 +49,38 @@ export async function getGitStatus(cwd) {
         catch {
             // No upstream or error, keep 0/0
         }
-        return { branch, isDirty, ahead, behind };
+        return { branch, isDirty, ahead, behind, fileStats };
     }
     catch {
         return null;
     }
+}
+/**
+ * Parse git status --porcelain output and count file stats (Starship-compatible format)
+ * Status codes: M=modified, A=added, D=deleted, ??=untracked
+ */
+function parseFileStats(porcelainOutput) {
+    const stats = { modified: 0, added: 0, deleted: 0, untracked: 0 };
+    const lines = porcelainOutput.split('\n').filter(Boolean);
+    for (const line of lines) {
+        if (line.length < 2)
+            continue;
+        const index = line[0]; // staged status
+        const worktree = line[1]; // unstaged status
+        if (line.startsWith('??')) {
+            stats.untracked++;
+        }
+        else if (index === 'A') {
+            stats.added++;
+        }
+        else if (index === 'D' || worktree === 'D') {
+            stats.deleted++;
+        }
+        else if (index === 'M' || worktree === 'M' || index === 'R' || index === 'C') {
+            // M=modified, R=renamed (counts as modified), C=copied (counts as modified)
+            stats.modified++;
+        }
+    }
+    return stats;
 }
 //# sourceMappingURL=git.js.map

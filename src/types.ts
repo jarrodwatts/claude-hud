@@ -14,7 +14,10 @@ export interface StdinData {
       input_tokens?: number;
       cache_creation_input_tokens?: number;
       cache_read_input_tokens?: number;
-    };
+    } | null;
+    // Native percentage fields (Claude Code v2.1.6+)
+    used_percentage?: number | null;
+    remaining_percentage?: number | null;
   };
 }
 
