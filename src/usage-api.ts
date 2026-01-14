@@ -2,7 +2,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
 import * as https from 'https';
-import { execSync } from 'child_process';
+import { execFileSync } from 'child_process';
 import type { UsageData } from './types.js';
 
 export type { UsageData } from './types.js';
@@ -41,6 +41,7 @@ interface UsageApiResponse {
 const CACHE_TTL_MS = 60_000; // 60 seconds
 const CACHE_FAILURE_TTL_MS = 15_000; // 15 seconds for failed requests
 const KEYCHAIN_TIMEOUT_MS = 5000;
+const KEYCHAIN_BACKOFF_MS = 60_000; // Backoff on keychain failures to avoid re-prompting
 
 interface CacheFile {
   data: UsageData;
@@ -100,7 +101,7 @@ export type UsageApiDeps = {
   homeDir: () => string;
   fetchApi: (accessToken: string) => Promise<UsageApiResponse | null>;
   now: () => number;
-  readKeychain: (now: number) => { accessToken: string; subscriptionType: string } | null;
+  readKeychain: (now: number, homeDir: string) => { accessToken: string; subscriptionType: string } | null;
 };
 
 const defaultDeps: UsageApiDeps = {
@@ -187,20 +188,69 @@ export async function getUsage(overrides: Partial<UsageApiDeps> = {}): Promise<U
 }
 
 /**
+ * Get path for keychain failure backoff cache.
+ * Separate from usage cache to track keychain-specific failures.
+ */
+function getKeychainBackoffPath(homeDir: string): string {
+  return path.join(homeDir, '.claude', 'plugins', 'claude-hud', '.keychain-backoff');
+}
+
+/**
+ * Check if we're in keychain backoff period (recent failure/timeout).
+ * Prevents re-prompting user on every render cycle.
+ */
+function isKeychainBackoff(homeDir: string, now: number): boolean {
+  try {
+    const backoffPath = getKeychainBackoffPath(homeDir);
+    if (!fs.existsSync(backoffPath)) return false;
+    const timestamp = parseInt(fs.readFileSync(backoffPath, 'utf8'), 10);
+    return now - timestamp < KEYCHAIN_BACKOFF_MS;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Record keychain failure for backoff.
+ */
+function recordKeychainFailure(homeDir: string, now: number): void {
+  try {
+    const backoffPath = getKeychainBackoffPath(homeDir);
+    const dir = path.dirname(backoffPath);
+    if (!fs.existsSync(dir)) {
+      fs.mkdirSync(dir, { recursive: true });
+    }
+    fs.writeFileSync(backoffPath, String(now), 'utf8');
+  } catch {
+    // Ignore write failures
+  }
+}
+
+/**
  * Read credentials from macOS Keychain.
  * Claude Code 2.x stores OAuth credentials in the macOS Keychain under "Claude Code-credentials".
  * Returns null if not on macOS or credentials not found.
+ *
+ * Security: Uses execFileSync with absolute path to avoid shell injection and PATH hijacking.
  */
-function readKeychainCredentials(now: number): { accessToken: string; subscriptionType: string } | null {
+function readKeychainCredentials(now: number, homeDir: string): { accessToken: string; subscriptionType: string } | null {
   // Only available on macOS
   if (process.platform !== 'darwin') {
     return null;
   }
 
+  // Check backoff to avoid re-prompting on every render after a failure
+  if (isKeychainBackoff(homeDir, now)) {
+    debug('Keychain in backoff period, skipping');
+    return null;
+  }
+
   try {
     // Read from macOS Keychain using security command
-    const keychainData = execSync(
-      'security find-generic-password -s "Claude Code-credentials" -w 2>/dev/null',
+    // Security: Use execFileSync with absolute path and args array (no shell)
+    const keychainData = execFileSync(
+      '/usr/bin/security',
+      ['find-generic-password', '-s', 'Claude Code-credentials', '-w'],
       { encoding: 'utf8', stdio: ['pipe', 'pipe', 'pipe'], timeout: KEYCHAIN_TIMEOUT_MS }
     ).trim();
 
@@ -211,7 +261,11 @@ function readKeychainCredentials(now: number): { accessToken: string; subscripti
     const data: CredentialsFile = JSON.parse(keychainData);
     return parseCredentialsData(data, now);
   } catch (error) {
-    debug('Failed to read from macOS Keychain:', error);
+    // Security: Only log error message, not full error object (may contain stdout/stderr with tokens)
+    const message = error instanceof Error ? error.message : 'unknown error';
+    debug('Failed to read from macOS Keychain:', message);
+    // Record failure for backoff to avoid re-prompting
+    recordKeychainFailure(homeDir, now);
     return null;
   }
 }
@@ -269,10 +323,10 @@ function parseCredentialsData(data: CredentialsFile, now: number): { accessToken
 function readCredentials(
   homeDir: string,
   now: number,
-  readKeychain: (now: number) => { accessToken: string; subscriptionType: string } | null
+  readKeychain: (now: number, homeDir: string) => { accessToken: string; subscriptionType: string } | null
 ): { accessToken: string; subscriptionType: string } | null {
   // Try macOS Keychain first (Claude Code 2.x)
-  const keychainCreds = readKeychain(now);
+  const keychainCreds = readKeychain(now, homeDir);
   if (keychainCreds) {
     if (keychainCreds.subscriptionType) {
       debug('Using credentials from macOS Keychain');
