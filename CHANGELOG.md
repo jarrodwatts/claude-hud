@@ -4,15 +4,32 @@ All notable changes to Claude HUD will be documented in this file.
 
 ## [Unreleased]
 
-### Changed
-- Context percentage now uses percentage-based buffer (22.5%) instead of hardcoded 45k tokens
-  - Scales correctly for enterprise context windows (>200k)
-- Add `display.autocompactBuffer` config option (`'enabled'` | `'disabled'`, default: `'enabled'`)
+---
+
+## [0.0.5] - 2026-01-14
+
+### Added
+- `display.autocompactBuffer` config option (`'enabled'` | `'disabled'`, default: `'enabled'`)
   - `'enabled'`: Shows buffered % (matches `/context` when autocompact ON) - **default**
   - `'disabled'`: Shows raw % (matches `/context` when autocompact OFF)
+- EXDEV cross-device error detection for Linux plugin installation (#53)
+
+### Changed
+- Context percentage now uses percentage-based buffer (22.5%) instead of hardcoded 45k tokens (#55)
+  - Scales correctly for enterprise context windows (>200k)
+- Remove automatic PR review workflow (#67)
+
+### Fixed
+- Git status: move `--no-optional-locks` to correct position as global git option (#65)
+- Prevent stale `index.lock` files during git operations (#63)
+- Exclude disabled MCP servers from count (#47)
+- Reconvert Date objects when reading from usage API cache (#45)
 
 ### Credits
-- Ideas from [#30](https://github.com/jarrodwatts/claude-hud/pull/30) ([@r-firpo](https://github.com/r-firpo)), [#43](https://github.com/jarrodwatts/claude-hud/pull/43) ([@yansircc](https://github.com/yansircc)), [#49](https://github.com/jarrodwatts/claude-hud/pull/49) ([@StephenJoshii](https://github.com/StephenJoshii)) informed the final solution
+- Ideas from [#30](https://github.com/jarrodwatts/claude-hud/pull/30) ([@r-firpo](https://github.com/r-firpo)), [#43](https://github.com/jarrodwatts/claude-hud/pull/43) ([@yansircc](https://github.com/yansircc)), [#49](https://github.com/jarrodwatts/claude-hud/pull/49) ([@StephenJoshii](https://github.com/StephenJoshii)) informed the autocompact solution
+
+### Dependencies
+- Bump @types/node from 25.0.3 to 25.0.6 (#61)
 
 ---
 

@@ -6,7 +6,7 @@
   },
   "metadata": {
     "description": "Real-time statusline HUD for Claude Code - context health, tool activity, agent tracking, and todo progress",
-    "version": "0.0.2"
+    "version": "0.0.5"
   },
   "plugins": [
     {
