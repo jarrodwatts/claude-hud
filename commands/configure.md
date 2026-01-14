@@ -34,8 +34,9 @@ Questions: **Turn Off → Turn On → Git Style → Layout/Reset**
 - question: "Choose your HUD layout:"
 - multiSelect: false
 - options:
-  - "Default" - Single line, all info together
-  - "Separators" - Line below header separates activity
+  - "Expanded (Recommended)" - Split into semantic lines (identity, project, environment, usage)
+  - "Compact" - Everything on one line
+  - "Compact + Separators" - One line with separator before activity
 
 ### Q2: Preset
 - header: "Preset"
@@ -114,8 +115,9 @@ Info items (Counts, Tokens, Usage, Duration) can be turned off via "Reset to Min
 - question: "Change layout or reset to preset?"
 - multiSelect: false
 - options:
-  - "Keep current" - No layout/preset changes (current: Default/Separators)
-  - "Switch to Default" or "Switch to Separators" (whichever isn't current)
+  - "Keep current" - No layout/preset changes (current: Expanded/Compact/Compact + Separators)
+  - "Switch to Expanded" - Split into semantic lines (if not current)
+  - "Switch to Compact" - Everything on one line (if not current)
   - "Reset to Full" - Enable everything
   - "Reset to Essential" - Activity + git only
 
@@ -137,6 +139,16 @@ Info items (Counts, Tokens, Usage, Duration) can be turned off via "Reset to Min
 - Activity: Tools OFF, Agents OFF, Todos OFF
 - Info: Counts OFF, Tokens OFF, Usage OFF, Duration OFF
 - Git: OFF
+
+---
+
+## Layout Mapping
+
+| Option | Config |
+|--------|--------|
+| Expanded | `lineLayout: "expanded", showSeparators: false` |
+| Compact | `lineLayout: "compact", showSeparators: false` |
+| Compact + Separators | `lineLayout: "compact", showSeparators: true` |
 
 ---
 
@@ -198,17 +210,26 @@ Info items (Counts, Tokens, Usage, Duration) can be turned off via "Reset to Min
 
 1. **Summary of changes:**
 ```
-Layout: Default → Separators
+Layout: Compact → Expanded
 Git style: Branch + dirty
 Changes:
   - Usage limits: OFF → ON
   - Config counts: ON → OFF
 ```
 
-2. **Preview of HUD:**
+2. **Preview of HUD (Expanded layout):**
 ```
-[Opus] ████░░░░░ 45% | my-project git:(main*) | 5h: 25% | ⏱️ 5m
-──────────────────────────────────────────────────────────────
+[Opus | Pro] ████░░░░░ 45% | ⏱️ 5m
+my-project git:(main*)
+2 CLAUDE.md | 4 rules | 3 MCPs
+5h: 25% (1h 30m)
+◐ Edit: file.ts | ✓ Read ×3
+▸ Fix auth bug (2/5)
+```
+
+**Preview of HUD (Compact layout):**
+```
+[Opus | Pro] ████░░░░░ 45% | my-project git:(main*) | 2 CLAUDE.md | 5h: 25% | ⏱️ 5m
 ◐ Edit: file.ts | ✓ Read ×3
 ▸ Fix auth bug (2/5)
 ```
@@ -223,6 +244,10 @@ Write to `~/.claude/plugins/claude-hud/config.json`.
 
 Merge with existing config, preserving:
 - `pathLevels` (not in configure flow)
+- `display.usageThreshold` (advanced config)
+- `display.environmentThreshold` (advanced config)
+
+**Migration note**: Old configs with `layout: "default"` or `layout: "separators"` are automatically migrated to the new `lineLayout` + `showSeparators` format on load.
 
 ---
 

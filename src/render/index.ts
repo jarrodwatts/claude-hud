@@ -3,9 +3,14 @@ import { renderSessionLine } from './session-line.js';
 import { renderToolsLine } from './tools-line.js';
 import { renderAgentsLine } from './agents-line.js';
 import { renderTodosLine } from './todos-line.js';
+import {
+  renderIdentityLine,
+  renderProjectLine,
+  renderEnvironmentLine,
+  renderUsageLine,
+} from './lines/index.js';
 import { dim, RESET } from './colors.js';
 
-// Strip ANSI codes to get visual length
 function visualLength(str: string): number {
   // eslint-disable-next-line no-control-regex
   return str.replace(/\x1b\[[0-9;]*m/g, '').length;
@@ -15,13 +20,9 @@ function makeSeparator(length: number): string {
   return dim('─'.repeat(Math.max(length, 20)));
 }
 
-export function render(ctx: RenderContext): void {
-  const layout = ctx.config?.layout ?? 'default';
-  const lines: string[] = [];
-  const display = ctx.config?.display;
-
-  // Collect activity lines (tools, agents, todos)
+function collectActivityLines(ctx: RenderContext): string[] {
   const activityLines: string[] = [];
+  const display = ctx.config?.display;
 
   if (display?.showTools !== false) {
     const toolsLine = renderToolsLine(ctx);
@@ -44,16 +45,61 @@ export function render(ctx: RenderContext): void {
     }
   }
 
-  // Both layouts use the same session line (model + project + counts + etc)
+  return activityLines;
+}
+
+function renderCompact(ctx: RenderContext): string[] {
+  const lines: string[] = [];
+
   const sessionLine = renderSessionLine(ctx);
   if (sessionLine) {
     lines.push(sessionLine);
   }
 
-  // Add separator below header for separators layout (only when activity exists)
-  if (layout === 'separators' && activityLines.length > 0) {
-    const separatorWidth = visualLength(sessionLine ?? '') + 5;
-    lines.push(makeSeparator(separatorWidth));
+  return lines;
+}
+
+function renderExpanded(ctx: RenderContext): string[] {
+  const lines: string[] = [];
+
+  const identityLine = renderIdentityLine(ctx);
+  if (identityLine) {
+    lines.push(identityLine);
+  }
+
+  const projectLine = renderProjectLine(ctx);
+  if (projectLine) {
+    lines.push(projectLine);
+  }
+
+  const environmentLine = renderEnvironmentLine(ctx);
+  if (environmentLine) {
+    lines.push(environmentLine);
+  }
+
+  const usageLine = renderUsageLine(ctx);
+  if (usageLine) {
+    lines.push(usageLine);
+  }
+
+  return lines;
+}
+
+export function render(ctx: RenderContext): void {
+  const lineLayout = ctx.config?.lineLayout ?? 'expanded';
+  const showSeparators = ctx.config?.showSeparators ?? false;
+
+  const headerLines = lineLayout === 'expanded'
+    ? renderExpanded(ctx)
+    : renderCompact(ctx);
+
+  const activityLines = collectActivityLines(ctx);
+
+  const lines: string[] = [...headerLines];
+
+  if (showSeparators && activityLines.length > 0) {
+    const maxWidth = Math.max(...headerLines.map(visualLength), 20);
+    lines.push(makeSeparator(maxWidth));
   }
 
   lines.push(...activityLines);

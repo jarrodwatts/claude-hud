@@ -1,7 +1,8 @@
-export type LayoutType = 'default' | 'separators';
+export type LineLayoutType = 'compact' | 'expanded';
 export type AutocompactBufferMode = 'enabled' | 'disabled';
 export interface HudConfig {
-    layout: LayoutType;
+    lineLayout: LineLayoutType;
+    showSeparators: boolean;
     pathLevels: 1 | 2 | 3;
     gitStatus: {
         enabled: boolean;
@@ -20,6 +21,8 @@ export interface HudConfig {
         showAgents: boolean;
         showTodos: boolean;
         autocompactBuffer: AutocompactBufferMode;
+        usageThreshold: number;
+        environmentThreshold: number;
     };
 }
 export declare const DEFAULT_CONFIG: HudConfig;
