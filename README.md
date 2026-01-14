@@ -17,6 +17,24 @@ Inside a Claude Code instance, run the following commands:
 ```
 
 **Step 2: Install the plugin**
+
+<details>
+<summary><strong>⚠️ Linux users: Click here first</strong></summary>
+
+On Linux, `/tmp` is often a separate filesystem (tmpfs), which causes plugin installation to fail with:
+```
+EXDEV: cross-device link not permitted
+```
+
+**Fix**: Set TMPDIR before installing:
+```bash
+mkdir -p ~/.cache/tmp && TMPDIR=~/.cache/tmp claude
+```
+
+Then run the install command below in that session. This is a [Claude Code platform limitation](https://github.com/anthropics/claude-code/issues/14799).
+
+</details>
+
 ```
 /plugin install claude-hud
 ```

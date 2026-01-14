@@ -5,6 +5,90 @@ allowed-tools: Bash, Read, Edit, AskUserQuestion
 
 **Note**: Placeholders like `{RUNTIME_PATH}`, `{SOURCE}`, and `{GENERATED_COMMAND}` should be substituted with actual detected values.
 
+## Step 0: Detect Ghost Installation (Run First)
+
+Check for inconsistent plugin state that can occur after failed installations:
+
+**macOS/Linux**:
+```bash
+# Check 1: Cache exists?
+CACHE_EXISTS=$(ls -d ~/.claude/plugins/cache/claude-hud 2>/dev/null && echo "YES" || echo "NO")
+
+# Check 2: Registry entry exists?
+REGISTRY_EXISTS=$(grep -q "claude-hud" ~/.claude/plugins/installed_plugins.json 2>/dev/null && echo "YES" || echo "NO")
+
+# Check 3: Temp files left behind?
+TEMP_FILES=$(ls -d ~/.claude/plugins/cache/temp_local_* 2>/dev/null | head -1)
+
+echo "Cache: $CACHE_EXISTS | Registry: $REGISTRY_EXISTS | Temp: ${TEMP_FILES:-none}"
+```
+
+**Windows (PowerShell)**:
+```powershell
+$cache = Test-Path "$env:USERPROFILE\.claude\plugins\cache\claude-hud"
+$registry = (Get-Content "$env:USERPROFILE\.claude\plugins\installed_plugins.json" -ErrorAction SilentlyContinue) -match "claude-hud"
+$temp = Get-ChildItem "$env:USERPROFILE\.claude\plugins\cache\temp_local_*" -ErrorAction SilentlyContinue
+Write-Host "Cache: $cache | Registry: $registry | Temp: $($temp.Count) files"
+```
+
+### Interpreting Results
+
+| Cache | Registry | Meaning | Action |
+|-------|----------|---------|--------|
+| YES | YES | Normal install (may still be broken) | Continue to Step 1 |
+| YES | NO | Ghost install - cache orphaned | Clean up cache |
+| NO | YES | Ghost install - registry stale | Clean up registry |
+| NO | NO | Not installed | Continue to Step 1 |
+
+If **temp files exist**, a previous install was interrupted. Clean them up.
+
+### Cleanup Commands
+
+If ghost installation detected, ask user if they want to reset. If yes:
+
+**macOS/Linux**:
+```bash
+# Remove orphaned cache
+rm -rf ~/.claude/plugins/cache/claude-hud
+
+# Remove temp files from failed installs
+rm -rf ~/.claude/plugins/cache/temp_local_*
+
+# Reset registry (removes ALL plugins - warn user first!)
+# Only run if user confirms they have no other plugins they want to keep:
+echo '{"version": 2, "plugins": {}}' > ~/.claude/plugins/installed_plugins.json
+```
+
+**Windows (PowerShell)**:
+```powershell
+# Remove orphaned cache
+Remove-Item -Recurse -Force "$env:USERPROFILE\.claude\plugins\cache\claude-hud" -ErrorAction SilentlyContinue
+
+# Remove temp files
+Remove-Item -Recurse -Force "$env:USERPROFILE\.claude\plugins\cache\temp_local_*" -ErrorAction SilentlyContinue
+
+# Reset registry (removes ALL plugins - warn user first!)
+'{"version": 2, "plugins": {}}' | Set-Content "$env:USERPROFILE\.claude\plugins\installed_plugins.json"
+```
+
+After cleanup, tell user to **restart Claude Code** and run `/plugin install claude-hud` again.
+
+### Linux: Cross-Device Filesystem Check
+
+**On Linux only**, if install keeps failing, check for EXDEV issue:
+```bash
+[ "$(df --output=source ~ /tmp 2>/dev/null | tail -2 | uniq | wc -l)" = "2" ] && echo "CROSS_DEVICE"
+```
+
+If this outputs `CROSS_DEVICE`, `/tmp` and home are on different filesystems. This causes `EXDEV: cross-device link not permitted` during installation. Workaround:
+```bash
+mkdir -p ~/.cache/tmp && TMPDIR=~/.cache/tmp claude /plugin install claude-hud
+```
+
+This is a [Claude Code platform limitation](https://github.com/anthropics/claude-code/issues/14799).
+
+---
+
 ## Step 1: Detect Platform & Runtime
 
 **macOS/Linux** (if `uname -s` returns "Darwin", "Linux", or a MINGW*/MSYS*/CYGWIN* variant):
@@ -15,15 +99,7 @@ allowed-tools: Bash, Read, Edit, AskUserQuestion
    ```bash
    ls -td ~/.claude/plugins/cache/claude-hud/claude-hud/*/ 2>/dev/null | head -1
    ```
-   If empty, the plugin is not installed. **On Linux only** (if `uname -s` returns "Linux"), check for cross-device filesystem issue:
-   ```bash
-   [ "$(df --output=source ~/.claude /tmp 2>/dev/null | tail -2 | uniq | wc -l)" = "2" ] && echo "CROSS_DEVICE"
-   ```
-   If this outputs `CROSS_DEVICE`, explain that `/tmp` and `~/.claude` are on different filesystems, which causes `EXDEV: cross-device link not permitted` during installation. Provide the fix:
-   ```bash
-   mkdir -p ~/.cache/tmp && TMPDIR=~/.cache/tmp /plugin install claude-hud
-   ```
-   After they run this, re-check the plugin path and continue setup. For non-Linux systems (macOS, etc.), simply tell user to install via marketplace first.
+   If empty, the plugin is not installed. Go back to Step 0 to check for ghost installation or EXDEV issues. If Step 0 was clean, tell user to install via `/plugin install claude-hud` first.
 
 2. Get runtime absolute path (prefer bun for performance, fallback to node):
    ```bash
