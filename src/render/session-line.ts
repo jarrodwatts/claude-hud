@@ -28,13 +28,12 @@ export function renderSessionLine(ctx: RenderContext): string {
 
   // Model and context bar (FIRST)
   // Plan name only shows if showUsage is enabled (respects hybrid toggle)
-  const showPlanName = display?.showUsage !== false && ctx.usageData?.planName;
+  const planName = display?.showUsage !== false ? ctx.usageData?.planName : undefined;
+  const modelDisplay = planName ? `${model} | ${planName}` : model;
 
   if (display?.showModel !== false && display?.showContextBar !== false) {
-    const modelDisplay = showPlanName ? `${model} | ${ctx.usageData!.planName}` : model;
     parts.push(`${cyan(`[${modelDisplay}]`)} ${bar} ${getContextColor(percent)}${percent}%${RESET}`);
   } else if (display?.showModel !== false) {
-    const modelDisplay = showPlanName ? `${model} | ${ctx.usageData!.planName}` : model;
     parts.push(`${cyan(`[${modelDisplay}]`)} ${getContextColor(percent)}${percent}%${RESET}`);
   } else if (display?.showContextBar !== false) {
     parts.push(`${bar} ${getContextColor(percent)}${percent}%${RESET}`);
@@ -93,26 +92,31 @@ export function renderSessionLine(ctx: RenderContext): string {
     parts.push(`${yellow(projectPath)}${gitPart}`);
   }
 
-  // Config counts
+  // Config counts (respects environmentThreshold)
   if (display?.showConfigCounts !== false) {
-    if (ctx.claudeMdCount > 0) {
-      parts.push(dim(`${ctx.claudeMdCount} CLAUDE.md`));
-    }
+    const totalCounts = ctx.claudeMdCount + ctx.rulesCount + ctx.mcpCount + ctx.hooksCount;
+    const envThreshold = display?.environmentThreshold ?? 0;
 
-    if (ctx.rulesCount > 0) {
-      parts.push(dim(`${ctx.rulesCount} rules`));
-    }
+    if (totalCounts > 0 && totalCounts >= envThreshold) {
+      if (ctx.claudeMdCount > 0) {
+        parts.push(dim(`${ctx.claudeMdCount} CLAUDE.md`));
+      }
 
-    if (ctx.mcpCount > 0) {
-      parts.push(dim(`${ctx.mcpCount} MCPs`));
-    }
+      if (ctx.rulesCount > 0) {
+        parts.push(dim(`${ctx.rulesCount} rules`));
+      }
 
-    if (ctx.hooksCount > 0) {
-      parts.push(dim(`${ctx.hooksCount} hooks`));
+      if (ctx.mcpCount > 0) {
+        parts.push(dim(`${ctx.mcpCount} MCPs`));
+      }
+
+      if (ctx.hooksCount > 0) {
+        parts.push(dim(`${ctx.hooksCount} hooks`));
+      }
     }
   }
 
-  // Usage limits display (shown when enabled in config)
+  // Usage limits display (shown when enabled in config, respects usageThreshold)
   if (display?.showUsage !== false && ctx.usageData?.planName) {
     if (ctx.usageData.apiUnavailable) {
       parts.push(yellow(`usage: ⚠`));
@@ -122,18 +126,24 @@ export function renderSessionLine(ctx: RenderContext): string {
         : formatResetTime(ctx.usageData.sevenDayResetAt);
       parts.push(red(`⚠ Limit reached${resetTime ? ` (resets ${resetTime})` : ''}`));
     } else {
-      const fiveHourDisplay = formatUsagePercent(ctx.usageData.fiveHour);
-      const fiveHourReset = formatResetTime(ctx.usageData.fiveHourResetAt);
-      const fiveHourPart = fiveHourReset
-        ? `5h: ${fiveHourDisplay} (${fiveHourReset})`
-        : `5h: ${fiveHourDisplay}`;
-
+      const usageThreshold = display?.usageThreshold ?? 0;
+      const fiveHour = ctx.usageData.fiveHour;
       const sevenDay = ctx.usageData.sevenDay;
-      if (sevenDay !== null && sevenDay >= 80) {
-        const sevenDayDisplay = formatUsagePercent(sevenDay);
-        parts.push(`${fiveHourPart} | 7d: ${sevenDayDisplay}`);
-      } else {
-        parts.push(fiveHourPart);
+      const effectiveUsage = Math.max(fiveHour ?? 0, sevenDay ?? 0);
+
+      if (effectiveUsage >= usageThreshold) {
+        const fiveHourDisplay = formatUsagePercent(fiveHour);
+        const fiveHourReset = formatResetTime(ctx.usageData.fiveHourResetAt);
+        const fiveHourPart = fiveHourReset
+          ? `5h: ${fiveHourDisplay} (${fiveHourReset})`
+          : `5h: ${fiveHourDisplay}`;
+
+        if (sevenDay !== null && sevenDay >= 80) {
+          const sevenDayDisplay = formatUsagePercent(sevenDay);
+          parts.push(`${fiveHourPart} | 7d: ${sevenDayDisplay}`);
+        } else {
+          parts.push(fiveHourPart);
+        }
       }
     }
   }
