@@ -29,10 +29,11 @@ function baseContext() {
     gitStatus: null,
     usageData: null,
     config: {
-      layout: 'default',
+      lineLayout: 'compact',
+      showSeparators: false,
       pathLevels: 1,
-      gitStatus: { enabled: true, showDirty: true, showAheadBehind: false },
-      display: { showModel: true, showContextBar: true, showConfigCounts: true, showDuration: true, showTokenBreakdown: true, showUsage: true, showTools: true, showAgents: true, showTodos: true, autocompactBuffer: 'enabled' },
+      gitStatus: { enabled: true, showDirty: true, showAheadBehind: false, showFileStats: false },
+      display: { showModel: true, showContextBar: true, showConfigCounts: true, showDuration: true, showTokenBreakdown: true, showUsage: true, showTools: true, showAgents: true, showTodos: true, autocompactBuffer: 'enabled', usageThreshold: 0, environmentThreshold: 0 },
     },
   };
 }
@@ -519,9 +520,9 @@ test('renderSessionLine uses raw percent when autocompactBuffer is disabled', ()
   assert.ok(line.includes('5%'), `expected raw percent 5%, got: ${line}`);
 });
 
-test('render adds separator line when layout is separators and activity exists', () => {
+test('render adds separator line when showSeparators is true and activity exists', () => {
   const ctx = baseContext();
-  ctx.config.layout = 'separators';
+  ctx.config.showSeparators = true;
   ctx.transcript.tools = [
     { id: 'tool-1', name: 'Read', status: 'completed', startTime: new Date(0), endTime: new Date(0), duration: 0 },
   ];
@@ -539,9 +540,9 @@ test('render adds separator line when layout is separators and activity exists',
   assert.ok(logs.some(l => l.includes('─')), 'should include separator character');
 });
 
-test('render omits separator when layout is separators but no activity', () => {
+test('render omits separator when showSeparators is true but no activity', () => {
   const ctx = baseContext();
-  ctx.config.layout = 'separators';
+  ctx.config.showSeparators = true;
 
   const logs = [];
   const originalLog = console.log;
