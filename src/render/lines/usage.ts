@@ -13,9 +13,6 @@ export function renderUsageLine(ctx: RenderContext): string | null {
     return null;
   }
 
-  const threshold = display?.usageThreshold ?? 0;
-  const fiveHour = ctx.usageData.fiveHour ?? 0;
-
   if (ctx.usageData.apiUnavailable) {
     return yellow(`usage: ⚠`);
   }
@@ -27,7 +24,12 @@ export function renderUsageLine(ctx: RenderContext): string | null {
     return red(`⚠ Limit reached${resetTime ? ` (resets ${resetTime})` : ''}`);
   }
 
-  if (fiveHour < threshold && !isLimitReached(ctx.usageData)) {
+  const threshold = display?.usageThreshold ?? 0;
+  const fiveHour = ctx.usageData.fiveHour;
+  const sevenDay = ctx.usageData.sevenDay;
+
+  const effectiveUsage = Math.max(fiveHour ?? 0, sevenDay ?? 0);
+  if (effectiveUsage < threshold) {
     return null;
   }
 
@@ -37,7 +39,6 @@ export function renderUsageLine(ctx: RenderContext): string | null {
     ? `5h: ${fiveHourDisplay} (${fiveHourReset})`
     : `5h: ${fiveHourDisplay}`;
 
-  const sevenDay = ctx.usageData.sevenDay;
   if (sevenDay !== null && sevenDay >= 80) {
     const sevenDayDisplay = formatUsagePercent(sevenDay);
     return `${fiveHourPart} | 7d: ${sevenDayDisplay}`;

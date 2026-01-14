@@ -7,7 +7,7 @@ const DEBUG = process.env.DEBUG?.includes('claude-hud') || process.env.DEBUG ===
 
 /**
  * Renders the full session line (model + context bar + project + git + counts + usage + duration).
- * Used for default and separators layouts.
+ * Used for compact layout mode.
  */
 export function renderSessionLine(ctx: RenderContext): string {
   const model = getModelName(ctx.stdin);

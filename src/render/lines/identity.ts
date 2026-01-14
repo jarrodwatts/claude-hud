@@ -20,13 +20,12 @@ export function renderIdentityLine(ctx: RenderContext): string {
   const display = ctx.config?.display;
   const parts: string[] = [];
 
-  const showPlanName = display?.showUsage !== false && ctx.usageData?.planName;
+  const planName = display?.showUsage !== false ? ctx.usageData?.planName : undefined;
+  const modelDisplay = planName ? `${model} | ${planName}` : model;
 
   if (display?.showModel !== false && display?.showContextBar !== false) {
-    const modelDisplay = showPlanName ? `${model} | ${ctx.usageData!.planName}` : model;
     parts.push(`${cyan(`[${modelDisplay}]`)} ${bar} ${getContextColor(percent)}${percent}%${RESET}`);
   } else if (display?.showModel !== false) {
-    const modelDisplay = showPlanName ? `${model} | ${ctx.usageData!.planName}` : model;
     parts.push(`${cyan(`[${modelDisplay}]`)} ${getContextColor(percent)}${percent}%${RESET}`);
   } else if (display?.showContextBar !== false) {
     parts.push(`${bar} ${getContextColor(percent)}${percent}%${RESET}`);
