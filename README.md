@@ -158,6 +158,7 @@ You can also edit the config file directly at `~/.claude/plugins/claude-hud/conf
 | `display.showConfigCounts` | boolean | true | Show CLAUDE.md, rules, MCPs, hooks counts |
 | `display.showDuration` | boolean | true | Show session duration `⏱️ 5m` |
 | `display.showUsage` | boolean | true | Show usage limits (Pro/Max/Team only) |
+| `display.usageBarEnabled` | boolean | true | Display usage as visual bar (`██░░ 25%`) instead of text (`5h: 25%`) |
 | `display.showTokenBreakdown` | boolean | true | Show token details at high context (85%+) |
 | `display.showTools` | boolean | true | Show tools activity line |
 | `display.showAgents` | boolean | true | Show agents activity line |
@@ -217,6 +218,7 @@ To disable usage display, set `display.showUsage` to `false` in your config.
     "showConfigCounts": true,
     "showDuration": true,
     "showUsage": true,
+    "usageBarEnabled": true,
     "showTokenBreakdown": true,
     "showTools": true,
     "showAgents": true,

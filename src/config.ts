@@ -23,6 +23,7 @@ export interface HudConfig {
     showDuration: boolean;
     showTokenBreakdown: boolean;
     showUsage: boolean;
+    usageBarEnabled: boolean;
     showTools: boolean;
     showAgents: boolean;
     showTodos: boolean;
@@ -49,6 +50,7 @@ export const DEFAULT_CONFIG: HudConfig = {
     showDuration: true,
     showTokenBreakdown: true,
     showUsage: true,
+    usageBarEnabled: true,
     showTools: true,
     showAgents: true,
     showTodos: true,
@@ -150,6 +152,9 @@ function mergeConfig(userConfig: Partial<HudConfig>): HudConfig {
     showUsage: typeof migrated.display?.showUsage === 'boolean'
       ? migrated.display.showUsage
       : DEFAULT_CONFIG.display.showUsage,
+    usageBarEnabled: typeof migrated.display?.usageBarEnabled === 'boolean'
+      ? migrated.display.usageBarEnabled
+      : DEFAULT_CONFIG.display.usageBarEnabled,
     showTools: typeof migrated.display?.showTools === 'boolean'
       ? migrated.display.showTools
       : DEFAULT_CONFIG.display.showTools,

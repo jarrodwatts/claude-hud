@@ -1,5 +1,5 @@
 import { isLimitReached } from '../../types.js';
-import { red, yellow, dim, getContextColor, RESET } from '../colors.js';
+import { red, yellow, dim, getContextColor, quotaBar, RESET } from '../colors.js';
 export function renderUsageLine(ctx) {
     const display = ctx.config?.display;
     if (display?.showUsage === false) {
@@ -26,12 +26,23 @@ export function renderUsageLine(ctx) {
     }
     const fiveHourDisplay = formatUsagePercent(ctx.usageData.fiveHour);
     const fiveHourReset = formatResetTime(ctx.usageData.fiveHourResetAt);
-    const fiveHourPart = fiveHourReset
-        ? `5h: ${fiveHourDisplay} (${fiveHourReset})`
-        : `5h: ${fiveHourDisplay}`;
+    const usageBarEnabled = display?.usageBarEnabled ?? true;
+    const fiveHourPart = usageBarEnabled
+        ? (fiveHourReset
+            ? `${quotaBar(fiveHour ?? 0)} ${fiveHourDisplay} (${fiveHourReset} / 5h)`
+            : `${quotaBar(fiveHour ?? 0)} ${fiveHourDisplay}`)
+        : (fiveHourReset
+            ? `5h: ${fiveHourDisplay} (${fiveHourReset})`
+            : `5h: ${fiveHourDisplay}`);
     if (sevenDay !== null && sevenDay >= 80) {
         const sevenDayDisplay = formatUsagePercent(sevenDay);
-        return `${fiveHourPart} | 7d: ${sevenDayDisplay}`;
+        const sevenDayReset = formatResetTime(ctx.usageData.sevenDayResetAt);
+        const sevenDayPart = usageBarEnabled
+            ? (sevenDayReset
+                ? `${quotaBar(sevenDay)} ${sevenDayDisplay} (${sevenDayReset} / 7d)`
+                : `${quotaBar(sevenDay)} ${sevenDayDisplay}`)
+            : `7d: ${sevenDayDisplay}`;
+        return `${fiveHourPart} | ${sevenDayPart}`;
     }
     return fiveHourPart;
 }

@@ -23,7 +23,7 @@ These are always enabled and NOT configurable:
 Questions: **Layout → Preset → Turn Off → Turn On**
 
 ### Flow B: Update Config (config exists)
-Questions: **Turn Off → Turn On → Git Style → Layout/Reset**
+Questions: **Turn Off → Turn On → Git Style → Layout/Reset** (4 questions max)
 
 ---
 
@@ -84,6 +84,7 @@ If preset has all items OFF (Minimal), Q3 shows "Nothing to disable - Minimal pr
   - "Agents status" - ◐ explore [haiku]: Finding code
   - "Todo progress" - ▸ Fix bug (2/5 tasks)
   - "Git status" - git:(main*) branch indicator
+  - "Usage bar style" - ██░░ 25% visual bar (only if usageBarEnabled is true)
 
 If more than 4 items ON, show Activity items (Tools, Agents, Todos, Git) first.
 Info items (Counts, Tokens, Usage, Duration) can be turned off via "Reset to Minimal" in Q4.
@@ -96,6 +97,7 @@ Info items (Counts, Tokens, Usage, Duration) can be turned off via "Reset to Min
   - "Config counts" - 2 CLAUDE.md | 4 rules
   - "Token breakdown" - (in: 45k, cache: 12k)
   - "Usage limits" - 5h: 25% | 7d: 10%
+  - "Usage bar style" - ██░░ 25% visual bar (only if usageBarEnabled is false)
   - "Session duration" - ⏱️ 5m
 
 ### Q3: Git Style (only if Git is currently enabled)
@@ -108,7 +110,7 @@ Info items (Counts, Tokens, Usage, Duration) can be turned off via "Reset to Min
   - "Full details" - git:(main* ↑2 ↓1) includes ahead/behind
   - "File stats" - git:(main* !2 +1 ?3) Starship-compatible format
 
-**Skip Q3 if Git is OFF** - show only 3 questions total, or replace with placeholder.
+**Skip Q3 if Git is OFF** - proceed to Q4.
 
 ### Q4: Layout/Reset
 - header: "Layout/Reset"
@@ -174,11 +176,23 @@ Info items (Counts, Tokens, Usage, Duration) can be turned off via "Reset to Min
 | Config counts | `display.showConfigCounts` |
 | Token breakdown | `display.showTokenBreakdown` |
 | Usage limits | `display.showUsage` |
+| Usage bar style | `display.usageBarEnabled` |
 | Session duration | `display.showDuration` |
 
 **Always true (not configurable):**
 - `display.showModel: true`
 - `display.showContextBar: true`
+
+---
+
+## Usage Style Mapping
+
+| Option | Config |
+|--------|--------|
+| Bar style | `display.usageBarEnabled: true` — Shows `██░░ 25% (1h 30m / 5h)` |
+| Text style | `display.usageBarEnabled: false` — Shows `5h: 25% (1h 30m)` |
+
+**Note**: Usage style only applies when `display.showUsage: true`. When 7d usage >= 80%, it also shows with the same style.
 
 ---
 
@@ -192,8 +206,8 @@ Info items (Counts, Tokens, Usage, Duration) can be turned off via "Reset to Min
 
 ### For Returning Users (Flow B):
 1. Start from current config
-2. Apply Turn Off selections (set to OFF)
-3. Apply Turn On selections (set to ON)
+2. Apply Turn Off selections (set to OFF, including usageBarEnabled if selected)
+3. Apply Turn On selections (set to ON, including usageBarEnabled if selected)
 4. Apply Git Style selection (if shown)
 5. If "Reset to [preset]" selected, override with preset values
 6. If layout change selected, apply it

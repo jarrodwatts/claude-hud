@@ -77,9 +77,14 @@ function renderExpanded(ctx: RenderContext): string[] {
     lines.push(environmentLine);
   }
 
-  const usageLine = renderUsageLine(ctx);
-  if (usageLine) {
-    lines.push(usageLine);
+  // Only show separate usage line when usageBarEnabled is false
+  // When true, usage is rendered inline with identity line
+  const usageBarEnabled = ctx.config?.display?.usageBarEnabled ?? true;
+  if (!usageBarEnabled) {
+    const usageLine = renderUsageLine(ctx);
+    if (usageLine) {
+      lines.push(usageLine);
+    }
   }
 
   return lines;

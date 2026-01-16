@@ -5,6 +5,8 @@ const GREEN = '\x1b[32m';
 const YELLOW = '\x1b[33m';
 const MAGENTA = '\x1b[35m';
 const CYAN = '\x1b[36m';
+const BRIGHT_BLUE = '\x1b[94m';
+const BRIGHT_MAGENTA = '\x1b[95m';
 export function green(text) {
     return `${GREEN}${text}${RESET}`;
 }
@@ -29,6 +31,19 @@ export function getContextColor(percent) {
     if (percent >= 70)
         return YELLOW;
     return GREEN;
+}
+export function getQuotaColor(percent) {
+    if (percent >= 90)
+        return RED;
+    if (percent >= 75)
+        return BRIGHT_MAGENTA;
+    return BRIGHT_BLUE;
+}
+export function quotaBar(percent, width = 10) {
+    const filled = Math.round((percent / 100) * width);
+    const empty = width - filled;
+    const color = getQuotaColor(percent);
+    return `${color}${'█'.repeat(filled)}${DIM}${'░'.repeat(empty)}${RESET}`;
 }
 export function coloredBar(percent, width = 10) {
     const filled = Math.round((percent / 100) * width);
