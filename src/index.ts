@@ -7,6 +7,7 @@ import { getUsage } from './usage-api.js';
 import { loadConfig } from './config.js';
 import type { RenderContext } from './types.js';
 import { fileURLToPath } from 'node:url';
+import { realpathSync } from 'node:fs';
 
 export type MainDeps = {
   readStdin: typeof readStdin;
@@ -94,6 +95,10 @@ export function formatSessionDuration(sessionStart?: Date, now: () => number = (
   return `${hours}h ${remainingMins}m`;
 }
 
-if (process.argv[1] === fileURLToPath(import.meta.url)) {
+// Use realpathSync to resolve symlinks, ensuring paths match even when
+// ~/.claude is a symlink (e.g., to iCloud on macOS)
+const scriptPath = fileURLToPath(import.meta.url);
+const argvPath = process.argv[1];
+if (argvPath && realpathSync(argvPath) === realpathSync(scriptPath)) {
   void main();
 }
