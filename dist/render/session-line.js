@@ -1,6 +1,6 @@
 import { isLimitReached } from '../types.js';
 import { getContextPercent, getBufferedPercent, getModelName } from '../stdin.js';
-import { coloredBar, cyan, dim, magenta, red, yellow, getContextColor, quotaBar, RESET } from './colors.js';
+import { coloredBar, cyan, dim, magenta, red, yellow, getContextColor, RESET } from './colors.js';
 const DEBUG = process.env.DEBUG?.includes('claude-hud') || process.env.DEBUG === '*';
 /**
  * Renders the full session line (model + context bar + project + git + counts + usage + duration).
@@ -119,23 +119,12 @@ export function renderSessionLine(ctx) {
             if (effectiveUsage >= usageThreshold) {
                 const fiveHourDisplay = formatUsagePercent(fiveHour);
                 const fiveHourReset = formatResetTime(ctx.usageData.fiveHourResetAt);
-                const usageBarEnabled = display?.usageBarEnabled ?? true;
-                const fiveHourPart = usageBarEnabled
-                    ? (fiveHourReset
-                        ? `${quotaBar(fiveHour ?? 0)} ${fiveHourDisplay} (${fiveHourReset} / 5h)`
-                        : `${quotaBar(fiveHour ?? 0)} ${fiveHourDisplay}`)
-                    : (fiveHourReset
-                        ? `5h: ${fiveHourDisplay} (${fiveHourReset})`
-                        : `5h: ${fiveHourDisplay}`);
+                const fiveHourPart = fiveHourReset
+                    ? `5h: ${fiveHourDisplay} (${fiveHourReset})`
+                    : `5h: ${fiveHourDisplay}`;
                 if (sevenDay !== null && sevenDay >= 80) {
                     const sevenDayDisplay = formatUsagePercent(sevenDay);
-                    const sevenDayReset = formatResetTime(ctx.usageData.sevenDayResetAt);
-                    const sevenDayPart = usageBarEnabled
-                        ? (sevenDayReset
-                            ? `${quotaBar(sevenDay)} ${sevenDayDisplay} (${sevenDayReset} / 7d)`
-                            : `${quotaBar(sevenDay)} ${sevenDayDisplay}`)
-                        : `7d: ${sevenDayDisplay}`;
-                    parts.push(`${fiveHourPart} | ${sevenDayPart}`);
+                    parts.push(`${fiveHourPart} | 7d: ${sevenDayDisplay}`);
                 }
                 else {
                     parts.push(fiveHourPart);
