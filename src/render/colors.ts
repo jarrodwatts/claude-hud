@@ -46,15 +46,19 @@ export function getQuotaColor(percent: number): string {
 }
 
 export function quotaBar(percent: number, width: number = 10): string {
-  const filled = Math.round((percent / 100) * width);
-  const empty = width - filled;
-  const color = getQuotaColor(percent);
+  const safeWidth = Number.isFinite(width) ? Math.max(0, Math.round(width)) : 0;
+  const safePercent = Number.isFinite(percent) ? Math.min(100, Math.max(0, percent)) : 0;
+  const filled = Math.round((safePercent / 100) * safeWidth);
+  const empty = safeWidth - filled;
+  const color = getQuotaColor(safePercent);
   return `${color}${'█'.repeat(filled)}${DIM}${'░'.repeat(empty)}${RESET}`;
 }
 
 export function coloredBar(percent: number, width: number = 10): string {
-  const filled = Math.round((percent / 100) * width);
-  const empty = width - filled;
-  const color = getContextColor(percent);
+  const safeWidth = Number.isFinite(width) ? Math.max(0, Math.round(width)) : 0;
+  const safePercent = Number.isFinite(percent) ? Math.min(100, Math.max(0, percent)) : 0;
+  const filled = Math.round((safePercent / 100) * safeWidth);
+  const empty = safeWidth - filled;
+  const color = getContextColor(safePercent);
   return `${color}${'█'.repeat(filled)}${DIM}${'░'.repeat(empty)}${RESET}`;
 }
