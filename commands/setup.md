@@ -91,9 +91,17 @@ This is a [Claude Code platform limitation](https://github.com/anthropics/claude
 
 ## Step 1: Detect Platform & Runtime
 
-**macOS/Linux** (if `uname -s` returns "Darwin", "Linux", or a MINGW*/MSYS*/CYGWIN* variant):
+**IMPORTANT**: Determine the platform from your environment context (`Platform:` value), NOT from `uname -s`. The Bash tool may report a different environment than the user's actual platform (e.g., Git Bash on Windows reports MINGW even when the user launched Claude Code from PowerShell).
 
-> **Git Bash/MSYS2/Cygwin users on Windows**: Follow these macOS/Linux instructions, not the Windows section below. Your environment provides bash and Unix-like tools.
+| Platform | Command Format |
+|----------|---------------|
+| `darwin` | bash (macOS) |
+| `linux` | bash (all Linux distros including NixOS, Ubuntu, Arch, etc.) |
+| `win32` | PowerShell (works universally on Windows 10+) |
+
+---
+
+**macOS/Linux** (Platform: `darwin` or `linux`):
 
 1. Get plugin path:
    ```bash
@@ -125,7 +133,7 @@ This is a [Claude Code platform limitation](https://github.com/anthropics/claude
    bash -c '"{RUNTIME_PATH}" "$(ls -td ~/.claude/plugins/cache/claude-hud/claude-hud/*/ 2>/dev/null | head -1){SOURCE}"'
    ```
 
-**Windows** (native PowerShell/cmd.exe - if `uname` command is not available):
+**Windows** (Platform: `win32`):
 
 1. Get plugin path:
    ```powershell
