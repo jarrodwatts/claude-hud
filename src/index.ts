@@ -95,10 +95,15 @@ export function formatSessionDuration(sessionStart?: Date, now: () => number = (
   return `${hours}h ${remainingMins}m`;
 }
 
-// Use realpathSync to resolve symlinks, ensuring paths match even when
-// ~/.claude is a symlink (e.g., to iCloud on macOS)
 const scriptPath = fileURLToPath(import.meta.url);
 const argvPath = process.argv[1];
-if (argvPath && realpathSync(argvPath) === realpathSync(scriptPath)) {
+const isSamePath = (a: string, b: string): boolean => {
+  try {
+    return realpathSync(a) === realpathSync(b);
+  } catch {
+    return a === b;
+  }
+};
+if (argvPath && isSamePath(argvPath, scriptPath)) {
   void main();
 }
