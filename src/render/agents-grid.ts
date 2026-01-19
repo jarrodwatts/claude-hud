@@ -29,6 +29,16 @@ function getModelIcon(model?: string): string {
   return '';
 }
 
+function sanitize(input: string): string {
+  // Strip ANSI escapes, OSC sequences, C0/C1 controls, and bidi controls to prevent terminal injection
+  return input
+    .replace(/\x1B\[[0-?]*[ -/]*[@-~]/g, '')   // CSI sequences
+    .replace(/\x1B\][^\x07\x1B]*(?:\x07|\x1B\\)/g, '') // OSC sequences (title, clipboard, etc.)
+    .replace(/\x1B[@-Z\\-_]/g, '')              // 7-bit C1 / ESC Fe
+    .replace(/[\u0000-\u001F\u007F-\u009F]/g, '') // C0/C1 controls
+    .replace(/[\u061C\u200E\u200F\u202A-\u202E\u2066-\u2069\u206A-\u206F]/g, ''); // bidi
+}
+
 function truncate(str: string, maxLen: number): string {
   // Use string-width for accurate visual truncation
   let result = '';
@@ -88,7 +98,7 @@ function formatMainSession(ctx: RenderContext): GridCell {
   const icon = STATUS_ICONS.main;
   const progress = formatProgress(mainSession.completedTodos, mainSession.totalTodos);
   const ctxPct = formatContextPercent(mainSession.contextPercent);
-  const task = truncate(mainSession.currentTask || 'No active task', 22);
+  const task = truncate(sanitize(mainSession.currentTask || 'No active task'), 22);
 
   return {
     line1: `${icon} MAIN${progress ? ` ${progress}` : ''}${ctxPct}`,
@@ -100,11 +110,11 @@ function formatMainSession(ctx: RenderContext): GridCell {
 function formatAgent(agent: AgentEntry, now: number): GridCell {
   const icon = STATUS_ICONS[agent.status] || STATUS_ICONS.running;
   const modelIcon = getModelIcon(agent.model);
-  const name = truncate(agent.type, 8);
+  const name = truncate(sanitize(agent.type), 8);
   const progress = formatProgress(agent.completedTodos, agent.totalTodos);
   const ctxPct = formatContextPercent(agent.contextPercent);
   const idleIndicator = formatIdleIndicator(agent, now);
-  const task = truncate(agent.currentTask || agent.description || 'Working...', 22);
+  const task = truncate(sanitize(agent.currentTask || agent.description || 'Working...'), 22);
 
   return {
     line1: `${icon} ${name}${modelIcon}${progress ? ` ${progress}` : ''}${ctxPct}${idleIndicator}`,
