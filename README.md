@@ -62,6 +62,8 @@ Claude HUD gives you better insights into what's happening in your Claude Code s
 
 ## What Each Line Shows
 
+The HUD is rendered as a single statusline; the sections below are shown inline, separated by `|`.
+
 ### Session Info
 ```
 [Opus | Pro] █████░░░░░ 45% | my-project git:(main) | 2 CLAUDE.md | 5h: 25% | ⏱️ 5m
@@ -160,6 +162,7 @@ You can also edit the config file directly at `~/.claude/plugins/claude-hud/conf
 | `display.showDuration` | boolean | true | Show session duration `⏱️ 5m` |
 | `display.showUsage` | boolean | true | Show usage limits (Pro/Max/Team only) |
 | `display.usageBarEnabled` | boolean | true | Display usage as visual bar (`██░░ 25%`) instead of text (`5h: 25%`) |
+| `display.sevenDayThreshold` | 0-100 | 80 | Show 7-day usage when >= threshold (0 = always) |
 | `display.showTokenBreakdown` | boolean | true | Show token details at high context (85%+) |
 | `display.showTools` | boolean | true | Show tools activity line |
 | `display.showAgents` | boolean | true | Show agents activity line |
@@ -169,7 +172,7 @@ You can also edit the config file directly at `~/.claude/plugins/claude-hud/conf
 
 Usage display is **enabled by default** for Claude Pro, Max, and Team subscribers. It shows your rate limit consumption directly in the HUD.
 
-When enabled, you'll see your 5-hour usage percentage. The 7-day percentage appears when above 80%:
+When enabled, you'll see your 5-hour usage percentage. The 7-day percentage appears when above the `display.sevenDayThreshold` (default 80%):
 
 ```
 [Opus | Pro] █████░░░░░ 45% | my-project | 5h: 25% | 7d: 85%
@@ -188,17 +191,14 @@ To disable usage display, set `display.showUsage` to `false` in your config.
 
 ### Layout Options
 
-**Default layout** — All info on first line:
+**Default layout** — Single-line HUD:
 ```
-[Opus] ████░░░░░░ 42% | my-project git:(main) | 2 rules | ⏱️ 5m
-✓ Read ×3 | ✓ Edit ×1
+[Opus] ████░░░░░░ 42% | my-project git:(main) | 2 rules | ⏱️ 5m | ✓ Read ×3 | ✓ Edit ×1
 ```
 
-**Separators layout** — Visual separator below header when activity exists:
+**Separators layout** — Inline separator before activity:
 ```
-[Opus] ████░░░░░░ 42% | my-project git:(main) | 2 rules | ⏱️ 5m
-──────────────────────────────────────────────────────────────
-✓ Read ×3 | ✓ Edit ×1
+[Opus] ████░░░░░░ 42% | my-project git:(main) | 2 rules | ⏱️ 5m | --- | ✓ Read ×3 | ✓ Edit ×1
 ```
 
 ### Example Configuration

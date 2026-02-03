@@ -1,5 +1,1 @@
-[Opus] █████░░░░░ 45%
-my-project
-◐ Edit: .../authentication.ts | ✓ Read ×1
-✓ explore [haiku]: Finding auth code (<1s)
-▸ Add tests (1/2)
+[Opus] █████░░░░░ 45% | my-project | ◐ Edit: .../authentication.ts | ✓ Read ×1 | ✓ explore [haiku]: Finding auth code (<1s) | ▸ Add tests (1/2)

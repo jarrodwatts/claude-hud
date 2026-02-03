@@ -33,7 +33,7 @@ function baseContext() {
       showSeparators: false,
       pathLevels: 1,
       gitStatus: { enabled: true, showDirty: true, showAheadBehind: false, showFileStats: false },
-      display: { showModel: true, showContextBar: true, contextValue: 'percent', showConfigCounts: true, showDuration: true, showTokenBreakdown: true, showUsage: true, usageBarEnabled: false, showTools: true, showAgents: true, showTodos: true, autocompactBuffer: 'enabled', usageThreshold: 0, environmentThreshold: 0 },
+      display: { showModel: true, showContextBar: true, contextValue: 'percent', showConfigCounts: true, showDuration: true, showTokenBreakdown: true, showUsage: true, usageBarEnabled: false, showTools: true, showAgents: true, showTodos: true, autocompactBuffer: 'enabled', usageThreshold: 0, sevenDayThreshold: 80, environmentThreshold: 0 },
     },
   };
 }
@@ -397,6 +397,7 @@ test('renderSessionLine displays plan name in model bracket', () => {
 
 test('renderSessionLine displays usage percentages (7d hidden when low)', () => {
   const ctx = baseContext();
+  ctx.config.display.sevenDayThreshold = 80;
   ctx.usageData = {
     planName: 'Pro',
     fiveHour: 6,
@@ -412,6 +413,7 @@ test('renderSessionLine displays usage percentages (7d hidden when low)', () => 
 
 test('renderSessionLine shows 7d when approaching limit (>=80%)', () => {
   const ctx = baseContext();
+  ctx.config.display.sevenDayThreshold = 80;
   ctx.usageData = {
     planName: 'Pro',
     fiveHour: 45,
@@ -423,6 +425,21 @@ test('renderSessionLine shows 7d when approaching limit (>=80%)', () => {
   assert.ok(line.includes('5h:'), 'should include 5h label');
   assert.ok(line.includes('7d:'), 'should include 7d when >= 80%');
   assert.ok(line.includes('85%'), 'should include 7d percentage');
+});
+
+test('renderSessionLine respects sevenDayThreshold override', () => {
+  const ctx = baseContext();
+  ctx.config.display.sevenDayThreshold = 0;
+  ctx.usageData = {
+    planName: 'Pro',
+    fiveHour: 10,
+    sevenDay: 5,
+    fiveHourResetAt: null,
+    sevenDayResetAt: null,
+  };
+
+  const line = renderSessionLine(ctx);
+  assert.ok(line.includes('7d:'), 'should include 7d when threshold is 0');
 });
 
 test('renderSessionLine shows 5hr reset countdown', () => {
@@ -545,8 +562,8 @@ test('render adds separator line when showSeparators is true and activity exists
     console.log = originalLog;
   }
 
-  assert.ok(logs.length >= 2, 'should have at least 2 lines');
-  assert.ok(logs.some(l => l.includes('─')), 'should include separator character');
+  assert.equal(logs.length, 1, 'should render a single line');
+  assert.ok(logs.some(l => l.includes('---')), 'should include separator marker');
 });
 
 test('render omits separator when showSeparators is true but no activity', () => {
@@ -562,8 +579,8 @@ test('render omits separator when showSeparators is true but no activity', () =>
     console.log = originalLog;
   }
 
-  assert.equal(logs.length, 1, 'should only have session line');
-  assert.ok(!logs.some(l => l.includes('─')), 'should not include separator');
+  assert.equal(logs.length, 1, 'should render a single line');
+  assert.ok(!logs.some(l => l.includes('---')), 'should not include separator');
 });
 
 // fileStats tests
