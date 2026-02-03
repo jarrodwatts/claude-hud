@@ -1,6 +1,6 @@
 import type { RenderContext } from '../../types.js';
 import { isLimitReached } from '../../types.js';
-import { getContextPercent, getBufferedPercent, getModelName, getTotalTokens } from '../../stdin.js';
+import { getContextPercent, getBufferedPercent, getModelName, getProviderLabel, getTotalTokens } from '../../stdin.js';
 import { getOutputSpeed } from '../../speed-tracker.js';
 import { coloredBar, cyan, dim, red, yellow, getContextColor, quotaBar, RESET } from '../colors.js';
 
@@ -25,8 +25,10 @@ export function renderIdentityLine(ctx: RenderContext): string {
   const contextValue = formatContextValue(ctx, percent, contextValueMode);
   const contextValueDisplay = `${getContextColor(percent)}${contextValue}${RESET}`;
 
+  const providerLabel = getProviderLabel(ctx.stdin);
   const planName = display?.showUsage !== false ? ctx.usageData?.planName : undefined;
-  const modelDisplay = planName ? `${model} | ${planName}` : model;
+  const planDisplay = providerLabel ?? planName;
+  const modelDisplay = planDisplay ? `${model} | ${planDisplay}` : model;
 
   if (display?.showModel !== false && display?.showContextBar !== false) {
     parts.push(`${cyan(`[${modelDisplay}]`)} ${bar} ${contextValueDisplay}`);
@@ -40,7 +42,7 @@ export function renderIdentityLine(ctx: RenderContext): string {
 
   // Inline usage bar (only when usageBarEnabled is true in expanded mode)
   const usageBarEnabled = display?.usageBarEnabled ?? true;
-  if (usageBarEnabled && display?.showUsage !== false && ctx.usageData?.planName) {
+  if (usageBarEnabled && display?.showUsage !== false && ctx.usageData?.planName && !providerLabel) {
     const usagePart = renderInlineUsage(ctx);
     if (usagePart) {
       parts.push(usagePart);

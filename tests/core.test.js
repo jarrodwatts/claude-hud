@@ -6,7 +6,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { parseTranscript } from '../dist/transcript.js';
 import { countConfigs } from '../dist/config-reader.js';
-import { getContextPercent, getBufferedPercent, getModelName } from '../dist/stdin.js';
+import { getContextPercent, getBufferedPercent, getModelName, getProviderLabel, isBedrockModelId } from '../dist/stdin.js';
 import * as fs from 'node:fs';
 
 test('getContextPercent returns 0 when data is missing', () => {
@@ -159,6 +159,14 @@ test('getModelName prefers display name, then id, then fallback', () => {
   assert.equal(getModelName({ model: { display_name: 'Opus', id: 'opus-123' } }), 'Opus');
   assert.equal(getModelName({ model: { id: 'sonnet-456' } }), 'sonnet-456');
   assert.equal(getModelName({}), 'Unknown');
+});
+
+test('bedrock model detection recognizes bedrock ids', () => {
+  assert.ok(isBedrockModelId('anthropic.claude-3-5-sonnet-20240620-v1:0'));
+  assert.ok(isBedrockModelId('eu.anthropic.claude-opus-4-5-20251101-v1:0'));
+  assert.equal(isBedrockModelId('claude-3-5-sonnet-20241022'), false);
+  assert.equal(getProviderLabel({ model: { id: 'anthropic.claude-3-5-sonnet-20240620-v1:0' } }), 'Bedrock');
+  assert.equal(getProviderLabel({ model: { id: 'claude-3-5-sonnet-20241022' } }), null);
 });
 
 test('parseTranscript aggregates tools, agents, and todos', async () => {

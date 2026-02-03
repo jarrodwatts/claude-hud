@@ -83,3 +83,18 @@ export function getBufferedPercent(stdin: StdinData): number {
 export function getModelName(stdin: StdinData): string {
   return stdin.model?.display_name ?? stdin.model?.id ?? 'Unknown';
 }
+
+export function isBedrockModelId(modelId?: string): boolean {
+  if (!modelId) {
+    return false;
+  }
+  const normalized = modelId.toLowerCase();
+  return normalized.includes('anthropic.claude-');
+}
+
+export function getProviderLabel(stdin: StdinData): string | null {
+  if (isBedrockModelId(stdin.model?.id)) {
+    return 'Bedrock';
+  }
+  return null;
+}

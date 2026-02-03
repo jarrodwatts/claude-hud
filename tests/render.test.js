@@ -395,6 +395,22 @@ test('renderSessionLine displays plan name in model bracket', () => {
   assert.ok(line.includes('Max'), 'should include plan name');
 });
 
+test('renderSessionLine shows Bedrock label and hides usage for bedrock model ids', () => {
+  const ctx = baseContext();
+  ctx.stdin.model = { display_name: 'Sonnet', id: 'anthropic.claude-3-5-sonnet-20240620-v1:0' };
+  ctx.usageData = {
+    planName: 'Max',
+    fiveHour: 23,
+    sevenDay: 45,
+    fiveHourResetAt: null,
+    sevenDayResetAt: null,
+  };
+  const line = renderSessionLine(ctx);
+  assert.ok(line.includes('Sonnet'), 'should include model name');
+  assert.ok(line.includes('Bedrock'), 'should include Bedrock label');
+  assert.ok(!line.includes('5h:'), 'should hide usage display');
+});
+
 test('renderSessionLine displays usage percentages (7d hidden when low)', () => {
   const ctx = baseContext();
   ctx.config.display.sevenDayThreshold = 80;

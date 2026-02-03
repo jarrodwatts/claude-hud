@@ -1,4 +1,5 @@
 import { isLimitReached } from '../../types.js';
+import { getProviderLabel } from '../../stdin.js';
 import { red, yellow, dim, getContextColor, quotaBar, RESET } from '../colors.js';
 export function renderUsageLine(ctx) {
     const display = ctx.config?.display;
@@ -6,6 +7,9 @@ export function renderUsageLine(ctx) {
         return null;
     }
     if (!ctx.usageData?.planName) {
+        return null;
+    }
+    if (getProviderLabel(ctx.stdin)) {
         return null;
     }
     if (ctx.usageData.apiUnavailable) {

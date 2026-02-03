@@ -69,12 +69,12 @@ The HUD is rendered as a single statusline; the sections below are shown inline,
 [Opus | Pro] █████░░░░░ 45% | my-project git:(main) | 2 CLAUDE.md | 5h: 25% | ⏱️ 5m
 ```
 - **Model** — Current model in use (shown first)
-- **Plan name** — Your subscription tier (Pro, Max, Team) when usage enabled
+- **Plan name** — Your subscription tier (Pro, Max, Team) when usage enabled, or `Bedrock` when using AWS Bedrock models
 - **Context bar** — Visual meter with color coding (green → yellow → red as it fills), with percent or tokens based on config
 - **Project path** — Configurable 1-3 directory levels (default: 1)
 - **Git branch** — Current branch name (configurable on/off)
 - **Config counts** — CLAUDE.md files, rules, MCPs, and hooks loaded
-- **Usage limits** — 5-hour rate limit percentage (opt-in, Pro/Max/Team only)
+- **Usage limits** — 5-hour rate limit percentage (opt-in, Pro/Max/Team only; hidden for Bedrock)
 - **Duration** — How long the session has been running
 
 ### Tool Activity
@@ -189,6 +189,7 @@ To disable usage display, set `display.showUsage` to `false` in your config.
 - Ensure you're logged in with a Pro/Max/Team account (not API key)
 - Check `display.showUsage` is not set to `false` in config
 - API users see no usage display (they have pay-per-token, not rate limits)
+- AWS Bedrock models display `Bedrock` and hide usage limits (usage is managed in AWS)
 
 ### Layout Options
 

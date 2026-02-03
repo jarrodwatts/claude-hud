@@ -1,5 +1,5 @@
 import { isLimitReached } from '../types.js';
-import { getContextPercent, getBufferedPercent, getModelName, getTotalTokens } from '../stdin.js';
+import { getContextPercent, getBufferedPercent, getModelName, getProviderLabel, getTotalTokens } from '../stdin.js';
 import { getOutputSpeed } from '../speed-tracker.js';
 import { coloredBar, cyan, dim, magenta, red, yellow, getContextColor, quotaBar, RESET } from './colors.js';
 const DEBUG = process.env.DEBUG?.includes('claude-hud') || process.env.DEBUG === '*';
@@ -24,8 +24,10 @@ export function renderSessionLine(ctx) {
     const contextValueDisplay = `${getContextColor(percent)}${contextValue}${RESET}`;
     // Model and context bar (FIRST)
     // Plan name only shows if showUsage is enabled (respects hybrid toggle)
+    const providerLabel = getProviderLabel(ctx.stdin);
     const planName = display?.showUsage !== false ? ctx.usageData?.planName : undefined;
-    const modelDisplay = planName ? `${model} | ${planName}` : model;
+    const planDisplay = providerLabel ?? planName;
+    const modelDisplay = planDisplay ? `${model} | ${planDisplay}` : model;
     if (display?.showModel !== false && display?.showContextBar !== false) {
         parts.push(`${cyan(`[${modelDisplay}]`)} ${bar} ${contextValueDisplay}`);
     }
@@ -105,7 +107,7 @@ export function renderSessionLine(ctx) {
         }
     }
     // Usage limits display (shown when enabled in config, respects usageThreshold)
-    if (display?.showUsage !== false && ctx.usageData?.planName) {
+    if (display?.showUsage !== false && ctx.usageData?.planName && !providerLabel) {
         if (ctx.usageData.apiUnavailable) {
             const errorHint = formatUsageError(ctx.usageData.apiError);
             parts.push(yellow(`usage: ⚠${errorHint}`));
