@@ -1,5 +1,6 @@
 export type LineLayoutType = 'compact' | 'expanded';
 export type AutocompactBufferMode = 'enabled' | 'disabled';
+export type ContextValueMode = 'percent' | 'tokens';
 export interface HudConfig {
     lineLayout: LineLayoutType;
     showSeparators: boolean;
@@ -13,6 +14,7 @@ export interface HudConfig {
     display: {
         showModel: boolean;
         showContextBar: boolean;
+        contextValue: ContextValueMode;
         showConfigCounts: boolean;
         showDuration: boolean;
         showTokenBreakdown: boolean;

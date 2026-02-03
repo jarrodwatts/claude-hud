@@ -23,7 +23,7 @@ export async function readStdin(): Promise<StdinData | null> {
   }
 }
 
-function getTotalTokens(stdin: StdinData): number {
+export function getTotalTokens(stdin: StdinData): number {
   const usage = stdin.context_window?.current_usage;
   return (
     (usage?.input_tokens ?? 0) +

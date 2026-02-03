@@ -5,6 +5,7 @@ import * as os from 'node:os';
 export type LineLayoutType = 'compact' | 'expanded';
 
 export type AutocompactBufferMode = 'enabled' | 'disabled';
+export type ContextValueMode = 'percent' | 'tokens';
 
 export interface HudConfig {
   lineLayout: LineLayoutType;
@@ -19,6 +20,7 @@ export interface HudConfig {
   display: {
     showModel: boolean;
     showContextBar: boolean;
+    contextValue: ContextValueMode;
     showConfigCounts: boolean;
     showDuration: boolean;
     showTokenBreakdown: boolean;
@@ -46,6 +48,7 @@ export const DEFAULT_CONFIG: HudConfig = {
   display: {
     showModel: true,
     showContextBar: true,
+    contextValue: 'percent',
     showConfigCounts: true,
     showDuration: true,
     showTokenBreakdown: true,
@@ -75,6 +78,10 @@ function validateLineLayout(value: unknown): value is LineLayoutType {
 
 function validateAutocompactBuffer(value: unknown): value is AutocompactBufferMode {
   return value === 'enabled' || value === 'disabled';
+}
+
+function validateContextValue(value: unknown): value is ContextValueMode {
+  return value === 'percent' || value === 'tokens';
 }
 
 interface LegacyConfig {
@@ -140,6 +147,9 @@ function mergeConfig(userConfig: Partial<HudConfig>): HudConfig {
     showContextBar: typeof migrated.display?.showContextBar === 'boolean'
       ? migrated.display.showContextBar
       : DEFAULT_CONFIG.display.showContextBar,
+    contextValue: validateContextValue(migrated.display?.contextValue)
+      ? migrated.display.contextValue
+      : DEFAULT_CONFIG.display.contextValue,
     showConfigCounts: typeof migrated.display?.showConfigCounts === 'boolean'
       ? migrated.display.showConfigCounts
       : DEFAULT_CONFIG.display.showConfigCounts,

@@ -33,7 +33,7 @@ function baseContext() {
       showSeparators: false,
       pathLevels: 1,
       gitStatus: { enabled: true, showDirty: true, showAheadBehind: false, showFileStats: false },
-      display: { showModel: true, showContextBar: true, showConfigCounts: true, showDuration: true, showTokenBreakdown: true, showUsage: true, usageBarEnabled: false, showTools: true, showAgents: true, showTodos: true, autocompactBuffer: 'enabled', usageThreshold: 0, environmentThreshold: 0 },
+      display: { showModel: true, showContextBar: true, contextValue: 'percent', showConfigCounts: true, showDuration: true, showTokenBreakdown: true, showUsage: true, usageBarEnabled: false, showTools: true, showAgents: true, showTodos: true, autocompactBuffer: 'enabled', usageThreshold: 0, environmentThreshold: 0 },
     },
   };
 }
@@ -123,6 +123,15 @@ test('renderSessionLine handles root path gracefully', () => {
   ctx.stdin.cwd = '/';
   const line = renderSessionLine(ctx);
   assert.ok(line.includes('[Opus]'));
+});
+
+test('renderSessionLine supports token-based context display', () => {
+  const ctx = baseContext();
+  ctx.config.display.contextValue = 'tokens';
+  ctx.stdin.context_window.context_window_size = 200000;
+  ctx.stdin.context_window.current_usage.input_tokens = 12345;
+  const line = renderSessionLine(ctx);
+  assert.ok(line.includes('12k/200k'), 'should include token counts');
 });
 
 test('renderSessionLine omits project name when cwd is undefined', () => {
@@ -634,4 +643,3 @@ test('renderSessionLine combines showFileStats with showDirty and showAheadBehin
   assert.ok(line.includes('!3'), 'expected modified count');
   assert.ok(line.includes('✘1'), 'expected deleted count');
 });
-

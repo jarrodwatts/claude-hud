@@ -68,7 +68,7 @@ Claude HUD gives you better insights into what's happening in your Claude Code s
 ```
 - **Model** — Current model in use (shown first)
 - **Plan name** — Your subscription tier (Pro, Max, Team) when usage enabled
-- **Context bar** — Visual meter with color coding (green → yellow → red as it fills)
+- **Context bar** — Visual meter with color coding (green → yellow → red as it fills), with percent or tokens based on config
 - **Project path** — Configurable 1-3 directory levels (default: 1)
 - **Git branch** — Current branch name (configurable on/off)
 - **Config counts** — CLAUDE.md files, rules, MCPs, and hooks loaded
@@ -155,6 +155,7 @@ You can also edit the config file directly at `~/.claude/plugins/claude-hud/conf
 | `gitStatus.showFileStats` | boolean | false | Show file change counts `!M +A ✘D ?U` |
 | `display.showModel` | boolean | true | Show model name `[Opus]` |
 | `display.showContextBar` | boolean | true | Show visual context bar `████░░░░░░` |
+| `display.contextValue` | `percent` \| `tokens` | `percent` | Context usage display format (`45%` or `45k/200k`) |
 | `display.showConfigCounts` | boolean | true | Show CLAUDE.md, rules, MCPs, hooks counts |
 | `display.showDuration` | boolean | true | Show session duration `⏱️ 5m` |
 | `display.showUsage` | boolean | true | Show usage limits (Pro/Max/Team only) |

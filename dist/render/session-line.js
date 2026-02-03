@@ -1,5 +1,5 @@
 import { isLimitReached } from '../types.js';
-import { getContextPercent, getBufferedPercent, getModelName } from '../stdin.js';
+import { getContextPercent, getBufferedPercent, getModelName, getTotalTokens } from '../stdin.js';
 import { coloredBar, cyan, dim, magenta, red, yellow, getContextColor, quotaBar, RESET } from './colors.js';
 const DEBUG = process.env.DEBUG?.includes('claude-hud') || process.env.DEBUG === '*';
 /**
@@ -18,21 +18,24 @@ export function renderSessionLine(ctx) {
     const bar = coloredBar(percent);
     const parts = [];
     const display = ctx.config?.display;
+    const contextValueMode = display?.contextValue ?? 'percent';
+    const contextValue = formatContextValue(ctx, percent, contextValueMode);
+    const contextValueDisplay = `${getContextColor(percent)}${contextValue}${RESET}`;
     // Model and context bar (FIRST)
     // Plan name only shows if showUsage is enabled (respects hybrid toggle)
     const planName = display?.showUsage !== false ? ctx.usageData?.planName : undefined;
     const modelDisplay = planName ? `${model} | ${planName}` : model;
     if (display?.showModel !== false && display?.showContextBar !== false) {
-        parts.push(`${cyan(`[${modelDisplay}]`)} ${bar} ${getContextColor(percent)}${percent}%${RESET}`);
+        parts.push(`${cyan(`[${modelDisplay}]`)} ${bar} ${contextValueDisplay}`);
     }
     else if (display?.showModel !== false) {
-        parts.push(`${cyan(`[${modelDisplay}]`)} ${getContextColor(percent)}${percent}%${RESET}`);
+        parts.push(`${cyan(`[${modelDisplay}]`)} ${contextValueDisplay}`);
     }
     else if (display?.showContextBar !== false) {
-        parts.push(`${bar} ${getContextColor(percent)}${percent}%${RESET}`);
+        parts.push(`${bar} ${contextValueDisplay}`);
     }
     else {
-        parts.push(`${getContextColor(percent)}${percent}%${RESET}`);
+        parts.push(contextValueDisplay);
     }
     // Project path (SECOND)
     if (ctx.stdin.cwd) {
@@ -170,6 +173,17 @@ function formatTokens(n) {
         return `${(n / 1000).toFixed(0)}k`;
     }
     return n.toString();
+}
+function formatContextValue(ctx, percent, mode) {
+    if (mode === 'tokens') {
+        const totalTokens = getTotalTokens(ctx.stdin);
+        const size = ctx.stdin.context_window?.context_window_size ?? 0;
+        if (size > 0) {
+            return `${formatTokens(totalTokens)}/${formatTokens(size)}`;
+        }
+        return formatTokens(totalTokens);
+    }
+    return `${percent}%`;
 }
 function formatUsagePercent(percent) {
     if (percent === null) {

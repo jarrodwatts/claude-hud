@@ -19,7 +19,7 @@ export async function readStdin() {
         return null;
     }
 }
-function getTotalTokens(stdin) {
+export function getTotalTokens(stdin) {
     const usage = stdin.context_window?.current_usage;
     return ((usage?.input_tokens ?? 0) +
         (usage?.cache_creation_input_tokens ?? 0) +

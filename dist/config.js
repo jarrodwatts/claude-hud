@@ -14,6 +14,7 @@ export const DEFAULT_CONFIG = {
     display: {
         showModel: true,
         showContextBar: true,
+        contextValue: 'percent',
         showConfigCounts: true,
         showDuration: true,
         showTokenBreakdown: true,
@@ -39,6 +40,9 @@ function validateLineLayout(value) {
 }
 function validateAutocompactBuffer(value) {
     return value === 'enabled' || value === 'disabled';
+}
+function validateContextValue(value) {
+    return value === 'percent' || value === 'tokens';
 }
 function migrateConfig(userConfig) {
     const migrated = { ...userConfig };
@@ -92,6 +96,9 @@ function mergeConfig(userConfig) {
         showContextBar: typeof migrated.display?.showContextBar === 'boolean'
             ? migrated.display.showContextBar
             : DEFAULT_CONFIG.display.showContextBar,
+        contextValue: validateContextValue(migrated.display?.contextValue)
+            ? migrated.display.contextValue
+            : DEFAULT_CONFIG.display.contextValue,
         showConfigCounts: typeof migrated.display?.showConfigCounts === 'boolean'
             ? migrated.display.showConfigCounts
             : DEFAULT_CONFIG.display.showConfigCounts,

@@ -1,6 +1,6 @@
 import type { RenderContext } from '../../types.js';
 import { isLimitReached } from '../../types.js';
-import { getContextPercent, getBufferedPercent, getModelName } from '../../stdin.js';
+import { getContextPercent, getBufferedPercent, getModelName, getTotalTokens } from '../../stdin.js';
 import { coloredBar, cyan, dim, red, yellow, getContextColor, quotaBar, RESET } from '../colors.js';
 
 const DEBUG = process.env.DEBUG?.includes('claude-hud') || process.env.DEBUG === '*';
@@ -20,18 +20,21 @@ export function renderIdentityLine(ctx: RenderContext): string {
   const bar = coloredBar(percent);
   const display = ctx.config?.display;
   const parts: string[] = [];
+  const contextValueMode = display?.contextValue ?? 'percent';
+  const contextValue = formatContextValue(ctx, percent, contextValueMode);
+  const contextValueDisplay = `${getContextColor(percent)}${contextValue}${RESET}`;
 
   const planName = display?.showUsage !== false ? ctx.usageData?.planName : undefined;
   const modelDisplay = planName ? `${model} | ${planName}` : model;
 
   if (display?.showModel !== false && display?.showContextBar !== false) {
-    parts.push(`${cyan(`[${modelDisplay}]`)} ${bar} ${getContextColor(percent)}${percent}%${RESET}`);
+    parts.push(`${cyan(`[${modelDisplay}]`)} ${bar} ${contextValueDisplay}`);
   } else if (display?.showModel !== false) {
-    parts.push(`${cyan(`[${modelDisplay}]`)} ${getContextColor(percent)}${percent}%${RESET}`);
+    parts.push(`${cyan(`[${modelDisplay}]`)} ${contextValueDisplay}`);
   } else if (display?.showContextBar !== false) {
-    parts.push(`${bar} ${getContextColor(percent)}${percent}%${RESET}`);
+    parts.push(`${bar} ${contextValueDisplay}`);
   } else {
-    parts.push(`${getContextColor(percent)}${percent}%${RESET}`);
+    parts.push(contextValueDisplay);
   }
 
   // Inline usage bar (only when usageBarEnabled is true in expanded mode)
@@ -69,6 +72,19 @@ function formatTokens(n: number): string {
     return `${(n / 1000).toFixed(0)}k`;
   }
   return n.toString();
+}
+
+function formatContextValue(ctx: RenderContext, percent: number, mode: 'percent' | 'tokens'): string {
+  if (mode === 'tokens') {
+    const totalTokens = getTotalTokens(ctx.stdin);
+    const size = ctx.stdin.context_window?.context_window_size ?? 0;
+    if (size > 0) {
+      return `${formatTokens(totalTokens)}/${formatTokens(size)}`;
+    }
+    return formatTokens(totalTokens);
+  }
+
+  return `${percent}%`;
 }
 
 function renderInlineUsage(ctx: RenderContext): string | null {
