@@ -9,7 +9,8 @@ export function renderUsageLine(ctx) {
         return null;
     }
     if (ctx.usageData.apiUnavailable) {
-        return yellow(`usage: ⚠`);
+        const errorHint = formatUsageError(ctx.usageData.apiError);
+        return yellow(`usage: ⚠${errorHint}`);
     }
     if (isLimitReached(ctx.usageData)) {
         const resetTime = ctx.usageData.fiveHour === 100
@@ -53,6 +54,14 @@ function formatUsagePercent(percent) {
     }
     const color = getContextColor(percent);
     return `${color}${percent}%${RESET}`;
+}
+function formatUsageError(error) {
+    if (!error)
+        return '';
+    if (error.startsWith('http-')) {
+        return ` (${error.slice(5)})`;
+    }
+    return ` (${error})`;
 }
 function formatResetTime(resetAt) {
     if (!resetAt)

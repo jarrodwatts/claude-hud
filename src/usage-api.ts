@@ -32,6 +32,11 @@ interface UsageApiResponse {
   };
 }
 
+interface UsageApiResult {
+  data: UsageApiResponse | null;
+  error?: string;
+}
+
 // File-based cache (HUD runs as new process each render, so in-memory cache won't persist)
 const CACHE_TTL_MS = 60_000; // 60 seconds
 const CACHE_FAILURE_TTL_MS = 15_000; // 15 seconds for failed requests
@@ -94,7 +99,7 @@ function writeCache(homeDir: string, data: UsageData, timestamp: number): void {
 // Dependency injection for testing
 export type UsageApiDeps = {
   homeDir: () => string;
-  fetchApi: (accessToken: string) => Promise<UsageApiResponse | null>;
+  fetchApi: (accessToken: string) => Promise<UsageApiResult>;
   now: () => number;
   readKeychain: (now: number, homeDir: string) => { accessToken: string; subscriptionType: string } | null;
 };
@@ -141,8 +146,8 @@ export async function getUsage(overrides: Partial<UsageApiDeps> = {}): Promise<U
     }
 
     // Fetch usage from API
-    const apiResponse = await deps.fetchApi(accessToken);
-    if (!apiResponse) {
+    const apiResult = await deps.fetchApi(accessToken);
+    if (!apiResult.data) {
       // API call failed, cache the failure to prevent retry storms
       const failureResult: UsageData = {
         planName,
@@ -151,6 +156,7 @@ export async function getUsage(overrides: Partial<UsageApiDeps> = {}): Promise<U
         fiveHourResetAt: null,
         sevenDayResetAt: null,
         apiUnavailable: true,
+        apiError: apiResult.error,
       };
       writeCache(homeDir, failureResult, now);
       return failureResult;
@@ -158,11 +164,11 @@ export async function getUsage(overrides: Partial<UsageApiDeps> = {}): Promise<U
 
     // Parse response - API returns 0-100 percentage directly
     // Clamp to 0-100 and handle NaN/Infinity
-    const fiveHour = parseUtilization(apiResponse.five_hour?.utilization);
-    const sevenDay = parseUtilization(apiResponse.seven_day?.utilization);
+    const fiveHour = parseUtilization(apiResult.data.five_hour?.utilization);
+    const sevenDay = parseUtilization(apiResult.data.seven_day?.utilization);
 
-    const fiveHourResetAt = parseDate(apiResponse.five_hour?.resets_at);
-    const sevenDayResetAt = parseDate(apiResponse.seven_day?.resets_at);
+    const fiveHourResetAt = parseDate(apiResult.data.five_hour?.resets_at);
+    const sevenDayResetAt = parseDate(apiResult.data.seven_day?.resets_at);
 
     const result: UsageData = {
       planName,
@@ -381,7 +387,7 @@ function parseDate(dateStr: string | undefined): Date | null {
   return date;
 }
 
-function fetchUsageApi(accessToken: string): Promise<UsageApiResponse | null> {
+function fetchUsageApi(accessToken: string): Promise<UsageApiResult> {
   return new Promise((resolve) => {
     const options = {
       hostname: 'api.anthropic.com',
@@ -405,28 +411,28 @@ function fetchUsageApi(accessToken: string): Promise<UsageApiResponse | null> {
       res.on('end', () => {
         if (res.statusCode !== 200) {
           debug('API returned non-200 status:', res.statusCode);
-          resolve(null);
+          resolve({ data: null, error: res.statusCode ? `http-${res.statusCode}` : 'http-error' });
           return;
         }
 
         try {
           const parsed: UsageApiResponse = JSON.parse(data);
-          resolve(parsed);
+          resolve({ data: parsed });
         } catch (error) {
           debug('Failed to parse API response:', error);
-          resolve(null);
+          resolve({ data: null, error: 'parse' });
         }
       });
     });
 
     req.on('error', (error) => {
       debug('API request error:', error);
-      resolve(null);
+      resolve({ data: null, error: 'network' });
     });
     req.on('timeout', () => {
       debug('API request timeout');
       req.destroy();
-      resolve(null);
+      resolve({ data: null, error: 'timeout' });
     });
 
     req.end();

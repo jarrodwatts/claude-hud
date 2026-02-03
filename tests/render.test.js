@@ -503,10 +503,12 @@ test('renderSessionLine displays warning when API is unavailable', () => {
     fiveHourResetAt: null,
     sevenDayResetAt: null,
     apiUnavailable: true,
+    apiError: 'http-401',
   };
   const line = renderSessionLine(ctx);
   assert.ok(line.includes('usage:'), 'should show usage label');
   assert.ok(line.includes('⚠'), 'should show warning indicator');
+  assert.ok(line.includes('401'), 'should include error code');
   assert.ok(!line.includes('5h:'), 'should not show 5h when API unavailable');
 });
 
