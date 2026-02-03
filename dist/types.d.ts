@@ -51,6 +51,7 @@ export interface UsageData {
     fiveHourResetAt: Date | null;
     sevenDayResetAt: Date | null;
     apiUnavailable?: boolean;
+    apiError?: string;
 }
 /** Check if usage limit is reached (either window at 100%) */
 export declare function isLimitReached(data: UsageData): boolean;

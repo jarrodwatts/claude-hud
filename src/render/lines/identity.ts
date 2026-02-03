@@ -93,7 +93,8 @@ function renderInlineUsage(ctx: RenderContext): string | null {
   }
 
   if (ctx.usageData.apiUnavailable) {
-    return yellow(`⚠`);
+    const errorHint = formatUsageError(ctx.usageData.apiError);
+    return yellow(`⚠${errorHint}`);
   }
 
   if (isLimitReached(ctx.usageData)) {
@@ -138,6 +139,14 @@ function formatUsagePercent(percent: number | null): string {
   }
   const color = getContextColor(percent);
   return `${color}${percent}%${RESET}`;
+}
+
+function formatUsageError(error?: string): string {
+  if (!error) return '';
+  if (error.startsWith('http-')) {
+    return ` (${error.slice(5)})`;
+  }
+  return ` (${error})`;
 }
 
 function formatResetTime(resetAt: Date | null): string {

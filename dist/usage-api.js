@@ -89,8 +89,8 @@ export async function getUsage(overrides = {}) {
             return null;
         }
         // Fetch usage from API
-        const apiResponse = await deps.fetchApi(accessToken);
-        if (!apiResponse) {
+        const apiResult = await deps.fetchApi(accessToken);
+        if (!apiResult.data) {
             // API call failed, cache the failure to prevent retry storms
             const failureResult = {
                 planName,
@@ -99,16 +99,17 @@ export async function getUsage(overrides = {}) {
                 fiveHourResetAt: null,
                 sevenDayResetAt: null,
                 apiUnavailable: true,
+                apiError: apiResult.error,
             };
             writeCache(homeDir, failureResult, now);
             return failureResult;
         }
         // Parse response - API returns 0-100 percentage directly
         // Clamp to 0-100 and handle NaN/Infinity
-        const fiveHour = parseUtilization(apiResponse.five_hour?.utilization);
-        const sevenDay = parseUtilization(apiResponse.seven_day?.utilization);
-        const fiveHourResetAt = parseDate(apiResponse.five_hour?.resets_at);
-        const sevenDayResetAt = parseDate(apiResponse.seven_day?.resets_at);
+        const fiveHour = parseUtilization(apiResult.data.five_hour?.utilization);
+        const sevenDay = parseUtilization(apiResult.data.seven_day?.utilization);
+        const fiveHourResetAt = parseDate(apiResult.data.five_hour?.resets_at);
+        const sevenDayResetAt = parseDate(apiResult.data.seven_day?.resets_at);
         const result = {
             planName,
             fiveHour,
@@ -328,27 +329,27 @@ function fetchUsageApi(accessToken) {
             res.on('end', () => {
                 if (res.statusCode !== 200) {
                     debug('API returned non-200 status:', res.statusCode);
-                    resolve(null);
+                    resolve({ data: null, error: res.statusCode ? `http-${res.statusCode}` : 'http-error' });
                     return;
                 }
                 try {
                     const parsed = JSON.parse(data);
-                    resolve(parsed);
+                    resolve({ data: parsed });
                 }
                 catch (error) {
                     debug('Failed to parse API response:', error);
-                    resolve(null);
+                    resolve({ data: null, error: 'parse' });
                 }
             });
         });
         req.on('error', (error) => {
             debug('API request error:', error);
-            resolve(null);
+            resolve({ data: null, error: 'network' });
         });
         req.on('timeout', () => {
             debug('API request timeout');
             req.destroy();
-            resolve(null);
+            resolve({ data: null, error: 'timeout' });
         });
         req.end();
     });

@@ -122,7 +122,8 @@ export function renderSessionLine(ctx: RenderContext): string {
   // Usage limits display (shown when enabled in config, respects usageThreshold)
   if (display?.showUsage !== false && ctx.usageData?.planName) {
     if (ctx.usageData.apiUnavailable) {
-      parts.push(yellow(`usage: ⚠`));
+      const errorHint = formatUsageError(ctx.usageData.apiError);
+      parts.push(yellow(`usage: ⚠${errorHint}`));
     } else if (isLimitReached(ctx.usageData)) {
       const resetTime = ctx.usageData.fiveHour === 100
         ? formatResetTime(ctx.usageData.fiveHourResetAt)
@@ -217,6 +218,14 @@ function formatUsagePercent(percent: number | null): string {
   }
   const color = getContextColor(percent);
   return `${color}${percent}%${RESET}`;
+}
+
+function formatUsageError(error?: string): string {
+  if (!error) return '';
+  if (error.startsWith('http-')) {
+    return ` (${error.slice(5)})`;
+  }
+  return ` (${error})`;
 }
 
 function formatResetTime(resetAt: Date | null): string {

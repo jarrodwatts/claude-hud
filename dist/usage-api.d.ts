@@ -10,9 +10,13 @@ interface UsageApiResponse {
         resets_at?: string;
     };
 }
+interface UsageApiResult {
+    data: UsageApiResponse | null;
+    error?: string;
+}
 export type UsageApiDeps = {
     homeDir: () => string;
-    fetchApi: (accessToken: string) => Promise<UsageApiResponse | null>;
+    fetchApi: (accessToken: string) => Promise<UsageApiResult>;
     now: () => number;
     readKeychain: (now: number, homeDir: string) => {
         accessToken: string;
