@@ -85,7 +85,8 @@ function renderInlineUsage(ctx) {
     const fiveHourPart = fiveHourReset
         ? `${quotaBar(fiveHour ?? 0)} ${fiveHourDisplay} (${fiveHourReset} / 5h)`
         : `${quotaBar(fiveHour ?? 0)} ${fiveHourDisplay}`;
-    if (sevenDay !== null && sevenDay >= 80) {
+    const sevenDayThreshold = display?.sevenDayThreshold ?? 80;
+    if (sevenDay !== null && sevenDay >= sevenDayThreshold) {
         const sevenDayDisplay = formatUsagePercent(sevenDay);
         const sevenDayReset = formatResetTime(ctx.usageData.sevenDayResetAt);
         const sevenDayPart = sevenDayReset

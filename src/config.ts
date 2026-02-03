@@ -29,6 +29,7 @@ export interface HudConfig {
     showTodos: boolean;
     autocompactBuffer: AutocompactBufferMode;
     usageThreshold: number;
+    sevenDayThreshold: number;
     environmentThreshold: number;
   };
 }
@@ -56,6 +57,7 @@ export const DEFAULT_CONFIG: HudConfig = {
     showTodos: true,
     autocompactBuffer: 'enabled',
     usageThreshold: 0,
+    sevenDayThreshold: 80,
     environmentThreshold: 0,
   },
 };
@@ -168,6 +170,7 @@ function mergeConfig(userConfig: Partial<HudConfig>): HudConfig {
       ? migrated.display.autocompactBuffer
       : DEFAULT_CONFIG.display.autocompactBuffer,
     usageThreshold: validateThreshold(migrated.display?.usageThreshold, 100),
+    sevenDayThreshold: validateThreshold(migrated.display?.sevenDayThreshold, 100),
     environmentThreshold: validateThreshold(migrated.display?.environmentThreshold, 100),
   };
 

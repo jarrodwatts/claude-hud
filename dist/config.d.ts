@@ -23,6 +23,7 @@ export interface HudConfig {
         showTodos: boolean;
         autocompactBuffer: AutocompactBufferMode;
         usageThreshold: number;
+        sevenDayThreshold: number;
         environmentThreshold: number;
     };
 }

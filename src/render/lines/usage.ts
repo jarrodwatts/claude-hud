@@ -45,7 +45,8 @@ export function renderUsageLine(ctx: RenderContext): string | null {
         ? `5h: ${fiveHourDisplay} (${fiveHourReset})`
         : `5h: ${fiveHourDisplay}`);
 
-  if (sevenDay !== null && sevenDay >= 80) {
+  const sevenDayThreshold = display?.sevenDayThreshold ?? 80;
+  if (sevenDay !== null && sevenDay >= sevenDayThreshold) {
     const sevenDayDisplay = formatUsagePercent(sevenDay);
     const sevenDayReset = formatResetTime(ctx.usageData.sevenDayResetAt);
     const sevenDayPart = usageBarEnabled
