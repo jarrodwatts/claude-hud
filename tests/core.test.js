@@ -169,8 +169,12 @@ test('parseTranscript aggregates tools, agents, and todos', async () => {
   assert.equal(result.tools[0].target, '/tmp/example.txt');
   assert.equal(result.agents.length, 1);
   assert.equal(result.agents[0].status, 'completed');
-  assert.equal(result.todos.length, 2);
+  assert.equal(result.todos.length, 4);
+  assert.equal(result.todos[0].status, 'completed');
   assert.equal(result.todos[1].status, 'in_progress');
+  assert.equal(result.todos[2].content, 'Third task');
+  assert.equal(result.todos[2].status, 'completed');
+  assert.equal(result.todos[3].status, 'in_progress');
   assert.equal(result.sessionStart?.toISOString(), '2024-01-01T00:00:00.000Z');
 });
 

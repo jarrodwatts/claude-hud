@@ -12,6 +12,7 @@ export async function parseTranscript(transcriptPath) {
     const toolMap = new Map();
     const agentMap = new Map();
     let latestTodos = [];
+    const taskIdToIndex = new Map();
     try {
         const fileStream = fs.createReadStream(transcriptPath);
         const rl = readline.createInterface({
@@ -23,7 +24,7 @@ export async function parseTranscript(transcriptPath) {
                 continue;
             try {
                 const entry = JSON.parse(line);
-                processEntry(entry, toolMap, agentMap, latestTodos, result);
+                processEntry(entry, toolMap, agentMap, taskIdToIndex, latestTodos, result);
             }
             catch {
                 // Skip malformed lines
@@ -38,7 +39,7 @@ export async function parseTranscript(transcriptPath) {
     result.todos = latestTodos;
     return result;
 }
-function processEntry(entry, toolMap, agentMap, latestTodos, result) {
+function processEntry(entry, toolMap, agentMap, taskIdToIndex, latestTodos, result) {
     const timestamp = entry.timestamp ? new Date(entry.timestamp) : new Date();
     if (!result.sessionStart && entry.timestamp) {
         result.sessionStart = timestamp;
@@ -71,7 +72,39 @@ function processEntry(entry, toolMap, agentMap, latestTodos, result) {
                 const input = block.input;
                 if (input?.todos && Array.isArray(input.todos)) {
                     latestTodos.length = 0;
+                    taskIdToIndex.clear();
                     latestTodos.push(...input.todos);
+                }
+            }
+            else if (block.name === 'TaskCreate') {
+                const input = block.input;
+                const subject = typeof input?.subject === 'string' ? input.subject : '';
+                const description = typeof input?.description === 'string' ? input.description : '';
+                const content = subject || description || 'Untitled task';
+                const status = normalizeTaskStatus(input?.status) ?? 'pending';
+                latestTodos.push({ content, status });
+                const rawTaskId = input?.taskId;
+                const taskId = typeof rawTaskId === 'string' || typeof rawTaskId === 'number'
+                    ? String(rawTaskId)
+                    : block.id;
+                if (taskId) {
+                    taskIdToIndex.set(taskId, latestTodos.length - 1);
+                }
+            }
+            else if (block.name === 'TaskUpdate') {
+                const input = block.input;
+                const index = resolveTaskIndex(input?.taskId, taskIdToIndex, latestTodos);
+                if (index !== null) {
+                    const status = normalizeTaskStatus(input?.status);
+                    if (status) {
+                        latestTodos[index].status = status;
+                    }
+                    const subject = typeof input?.subject === 'string' ? input.subject : '';
+                    const description = typeof input?.description === 'string' ? input.description : '';
+                    const content = subject || description;
+                    if (content) {
+                        latestTodos[index].content = content;
+                    }
                 }
             }
             else {
@@ -109,5 +142,39 @@ function extractTarget(toolName, input) {
             return cmd?.slice(0, 30) + (cmd?.length > 30 ? '...' : '');
     }
     return undefined;
+}
+function resolveTaskIndex(taskId, taskIdToIndex, latestTodos) {
+    if (typeof taskId === 'string' || typeof taskId === 'number') {
+        const key = String(taskId);
+        const mapped = taskIdToIndex.get(key);
+        if (typeof mapped === 'number') {
+            return mapped;
+        }
+        if (/^\d+$/.test(key)) {
+            const numericIndex = Number.parseInt(key, 10) - 1;
+            if (numericIndex >= 0 && numericIndex < latestTodos.length) {
+                return numericIndex;
+            }
+        }
+    }
+    return null;
+}
+function normalizeTaskStatus(status) {
+    if (typeof status !== 'string')
+        return null;
+    switch (status) {
+        case 'pending':
+        case 'not_started':
+            return 'pending';
+        case 'in_progress':
+        case 'running':
+            return 'in_progress';
+        case 'completed':
+        case 'complete':
+        case 'done':
+            return 'completed';
+        default:
+            return null;
+    }
 }
 //# sourceMappingURL=transcript.js.map
