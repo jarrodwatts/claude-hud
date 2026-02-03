@@ -1,5 +1,6 @@
 import { isLimitReached } from '../../types.js';
 import { getContextPercent, getBufferedPercent, getModelName, getTotalTokens } from '../../stdin.js';
+import { getOutputSpeed } from '../../speed-tracker.js';
 import { coloredBar, cyan, dim, red, yellow, getContextColor, quotaBar, RESET } from '../colors.js';
 const DEBUG = process.env.DEBUG?.includes('claude-hud') || process.env.DEBUG === '*';
 export function renderIdentityLine(ctx) {
@@ -37,6 +38,12 @@ export function renderIdentityLine(ctx) {
         const usagePart = renderInlineUsage(ctx);
         if (usagePart) {
             parts.push(usagePart);
+        }
+    }
+    if (display?.showSpeed) {
+        const speed = getOutputSpeed(ctx.stdin);
+        if (speed !== null) {
+            parts.push(dim(`out: ${speed.toFixed(1)} tok/s`));
         }
     }
     if (display?.showDuration !== false && ctx.sessionDuration) {

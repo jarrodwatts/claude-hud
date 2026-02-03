@@ -17,6 +17,7 @@ export interface HudConfig {
         contextValue: ContextValueMode;
         showConfigCounts: boolean;
         showDuration: boolean;
+        showSpeed: boolean;
         showTokenBreakdown: boolean;
         showUsage: boolean;
         usageBarEnabled: boolean;

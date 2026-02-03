@@ -58,6 +58,7 @@ Questions: **Turn Off → Turn On → Git Style → Layout/Reset** (4 questions 
   - "Git status" - git:(main*) branch indicator
   - "Config counts" - 2 CLAUDE.md | 4 rules
   - "Token breakdown" - (in: 45k, cache: 12k)
+  - "Output speed" - out: 42.1 tok/s
   - "Usage limits" - 5h: 25% | 7d: 10%
   - "Session duration" - ⏱️ 5m
 
@@ -87,7 +88,7 @@ If preset has all items OFF (Minimal), Q3 shows "Nothing to disable - Minimal pr
   - "Usage bar style" - ██░░ 25% visual bar (only if usageBarEnabled is true)
 
 If more than 4 items ON, show Activity items (Tools, Agents, Todos, Git) first.
-Info items (Counts, Tokens, Usage, Duration) can be turned off via "Reset to Minimal" in Q4.
+Info items (Counts, Tokens, Usage, Speed, Duration) can be turned off via "Reset to Minimal" in Q4.
 
 ### Q2: Turn On
 - header: "Turn On"
@@ -96,6 +97,7 @@ Info items (Counts, Tokens, Usage, Duration) can be turned off via "Reset to Min
 - options: **ONLY items currently OFF** (max 4)
   - "Config counts" - 2 CLAUDE.md | 4 rules
   - "Token breakdown" - (in: 45k, cache: 12k)
+  - "Output speed" - out: 42.1 tok/s
   - "Usage limits" - 5h: 25% | 7d: 10%
   - "Usage bar style" - ██░░ 25% visual bar (only if usageBarEnabled is false)
   - "Session duration" - ⏱️ 5m
@@ -175,6 +177,7 @@ Info items (Counts, Tokens, Usage, Duration) can be turned off via "Reset to Min
 | Git status | `gitStatus.enabled` |
 | Config counts | `display.showConfigCounts` |
 | Token breakdown | `display.showTokenBreakdown` |
+| Output speed | `display.showSpeed` |
 | Usage limits | `display.showUsage` |
 | Usage bar style | `display.usageBarEnabled` |
 | Session duration | `display.showDuration` |

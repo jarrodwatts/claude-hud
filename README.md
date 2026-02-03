@@ -160,6 +160,7 @@ You can also edit the config file directly at `~/.claude/plugins/claude-hud/conf
 | `display.contextValue` | `percent` \| `tokens` | `percent` | Context usage display format (`45%` or `45k/200k`) |
 | `display.showConfigCounts` | boolean | true | Show CLAUDE.md, rules, MCPs, hooks counts |
 | `display.showDuration` | boolean | true | Show session duration `⏱️ 5m` |
+| `display.showSpeed` | boolean | false | Show output token speed `out: 42.1 tok/s` |
 | `display.showUsage` | boolean | true | Show usage limits (Pro/Max/Team only) |
 | `display.usageBarEnabled` | boolean | true | Display usage as visual bar (`██░░ 25%`) instead of text (`5h: 25%`) |
 | `display.sevenDayThreshold` | 0-100 | 80 | Show 7-day usage when >= threshold (0 = always) |
