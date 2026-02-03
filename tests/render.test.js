@@ -536,8 +536,8 @@ test('render adds separator line when showSeparators is true and activity exists
     console.log = originalLog;
   }
 
-  assert.ok(logs.length >= 2, 'should have at least 2 lines');
-  assert.ok(logs.some(l => l.includes('─')), 'should include separator character');
+  assert.equal(logs.length, 1, 'should render a single line');
+  assert.ok(logs.some(l => l.includes('---')), 'should include separator marker');
 });
 
 test('render omits separator when showSeparators is true but no activity', () => {
@@ -553,8 +553,8 @@ test('render omits separator when showSeparators is true but no activity', () =>
     console.log = originalLog;
   }
 
-  assert.equal(logs.length, 1, 'should only have session line');
-  assert.ok(!logs.some(l => l.includes('─')), 'should not include separator');
+  assert.equal(logs.length, 1, 'should render a single line');
+  assert.ok(!logs.some(l => l.includes('---')), 'should not include separator');
 });
 
 // fileStats tests
@@ -634,4 +634,3 @@ test('renderSessionLine combines showFileStats with showDirty and showAheadBehin
   assert.ok(line.includes('!3'), 'expected modified count');
   assert.ok(line.includes('✘1'), 'expected deleted count');
 });
-

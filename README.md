@@ -62,6 +62,8 @@ Claude HUD gives you better insights into what's happening in your Claude Code s
 
 ## What Each Line Shows
 
+The HUD is rendered as a single statusline; the sections below are shown inline, separated by `|`.
+
 ### Session Info
 ```
 [Opus | Pro] █████░░░░░ 45% | my-project git:(main) | 2 CLAUDE.md | 5h: 25% | ⏱️ 5m
@@ -187,17 +189,14 @@ To disable usage display, set `display.showUsage` to `false` in your config.
 
 ### Layout Options
 
-**Default layout** — All info on first line:
+**Default layout** — Single-line HUD:
 ```
-[Opus] ████░░░░░░ 42% | my-project git:(main) | 2 rules | ⏱️ 5m
-✓ Read ×3 | ✓ Edit ×1
+[Opus] ████░░░░░░ 42% | my-project git:(main) | 2 rules | ⏱️ 5m | ✓ Read ×3 | ✓ Edit ×1
 ```
 
-**Separators layout** — Visual separator below header when activity exists:
+**Separators layout** — Inline separator before activity:
 ```
-[Opus] ████░░░░░░ 42% | my-project git:(main) | 2 rules | ⏱️ 5m
-──────────────────────────────────────────────────────────────
-✓ Read ×3 | ✓ Edit ×1
+[Opus] ████░░░░░░ 42% | my-project git:(main) | 2 rules | ⏱️ 5m | --- | ✓ Read ×3 | ✓ Edit ×1
 ```
 
 ### Example Configuration
