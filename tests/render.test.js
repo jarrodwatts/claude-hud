@@ -4,8 +4,10 @@ import { render } from '../dist/render/index.js';
 import { renderSessionLine } from '../dist/render/session-line.js';
 import { renderToolsLine } from '../dist/render/tools-line.js';
 import { renderAgentsLine } from '../dist/render/agents-line.js';
+
 import { renderTodosLine } from '../dist/render/todos-line.js';
-import { getContextColor } from '../dist/render/colors.js';
+import { getContextColor, setTheme, getTheme, accent, themedBar, quotaBar, RESET } from '../dist/render/colors.js';
+import { renderLastMessageLine } from '../dist/render/last-message-line.js';
 
 function baseContext() {
   return {
@@ -678,3 +680,340 @@ test('renderSessionLine combines showFileStats with showDirty and showAheadBehin
   assert.ok(line.includes('!3'), 'expected modified count');
   assert.ok(line.includes('✘1'), 'expected deleted count');
 });
+
+// ============================================================
+// Color Theme Tests
+// ============================================================
+
+test('setTheme and getTheme work correctly', () => {
+  setTheme('rose');
+  assert.equal(getTheme(), 'rose');
+  setTheme('gold');
+  assert.equal(getTheme(), 'gold');
+  // Reset to default
+  setTheme('blue');
+  assert.equal(getTheme(), 'blue');
+});
+
+test('accent wraps text with theme color', () => {
+  setTheme('orange');
+  const result = accent('hello');
+  assert.ok(result.includes('hello'), 'should contain the text');
+  assert.ok(result.endsWith(RESET), 'should end with RESET');
+  // Orange is 256-color code 173
+  assert.ok(result.includes('38;5;173'), 'should use orange 256-color code');
+  // Reset
+  setTheme('blue');
+});
+
+test('themedBar renders with active theme color', () => {
+  setTheme('teal');
+  const bar = themedBar(50, 10);
+  assert.ok(bar.includes('█'), 'should contain filled blocks');
+  assert.ok(bar.includes('░'), 'should contain empty blocks');
+  // Teal is 256-color code 66
+  assert.ok(bar.includes('38;5;66'), 'should use teal accent color');
+  setTheme('blue');
+});
+
+test('themedBar handles 0% and 100%', () => {
+  const empty = themedBar(0, 5);
+  assert.ok(!empty.includes('█'), 'should have no filled blocks at 0%');
+  assert.ok(empty.includes('░'), 'should have empty blocks at 0%');
+
+  const full = themedBar(100, 5);
+  assert.ok(full.includes('█'), 'should have filled blocks at 100%');
+  assert.ok(!full.includes('░'), 'should have no empty blocks at 100%');
+});
+
+test('quotaBar renders with context-appropriate color', () => {
+  const bar = quotaBar(30, 5);
+  assert.ok(bar.includes('▮'), 'should contain filled quota blocks');
+  assert.ok(bar.includes('▯'), 'should contain empty quota blocks');
+  assert.ok(bar.endsWith(RESET), 'should end with RESET');
+});
+
+test('quotaBar uses red color for high usage', () => {
+  const bar = quotaBar(90, 5);
+  // Red ANSI = \x1b[31m
+  assert.ok(bar.includes('\x1b[31m'), 'should use red for high usage');
+});
+
+// ============================================================
+// Last Message Line Tests
+// ============================================================
+
+test('renderLastMessageLine returns null when no message exists', () => {
+  const ctx = baseContext();
+  assert.equal(renderLastMessageLine(ctx), null);
+});
+
+test('renderLastMessageLine returns null when message is undefined', () => {
+  const ctx = baseContext();
+  ctx.transcript.lastUserMessage = undefined;
+  assert.equal(renderLastMessageLine(ctx), null);
+});
+
+test('renderLastMessageLine renders short messages in full', () => {
+  const ctx = baseContext();
+  ctx.transcript.lastUserMessage = 'Fix the login bug';
+  const line = renderLastMessageLine(ctx);
+  assert.ok(line !== null);
+  assert.ok(line.includes('Fix the login bug'), 'should include full message');
+  assert.ok(line.includes('💬'), 'should include chat bubble emoji');
+});
+
+test('renderLastMessageLine truncates long messages with ellipsis', () => {
+  const ctx = baseContext();
+  ctx.transcript.lastUserMessage = 'A'.repeat(100);
+  const line = renderLastMessageLine(ctx);
+  assert.ok(line !== null);
+  assert.ok(line.includes('...'), 'should include ellipsis');
+  // Original message is 100 chars, should be truncated to 77 chars + ...
+  assert.ok(!line.includes('A'.repeat(100)), 'should not include full message');
+});
+
+test('renderLastMessageLine handles exactly 80-char messages without truncation', () => {
+  const ctx = baseContext();
+  ctx.transcript.lastUserMessage = 'B'.repeat(80);
+  const line = renderLastMessageLine(ctx);
+  assert.ok(line !== null);
+  assert.ok(!line.includes('...'), 'should not truncate at exactly 80 chars');
+});
+
+test('render shows last message line when showLastMessage is enabled', () => {
+  const ctx = baseContext();
+  ctx.config.display.showLastMessage = true;
+  ctx.transcript.lastUserMessage = 'Deploy to staging';
+
+  const logs = [];
+  const originalLog = console.log;
+  console.log = (line) => logs.push(line);
+  try {
+    render(ctx);
+  } finally {
+    console.log = originalLog;
+  }
+
+  assert.ok(logs.some(l => l.replace(/\u00A0/g, ' ').includes('Deploy to staging')), 'should render last message');
+});
+
+test('render hides last message line when showLastMessage is false', () => {
+  const ctx = baseContext();
+  ctx.config.display.showLastMessage = false;
+  ctx.transcript.lastUserMessage = 'Deploy to staging';
+
+  const logs = [];
+  const originalLog = console.log;
+  console.log = (line) => logs.push(line);
+  try {
+    render(ctx);
+  } finally {
+    console.log = originalLog;
+  }
+
+  assert.ok(!logs.some(l => l.includes('Deploy to staging')), 'should not render last message');
+});
+
+// ============================================================
+// Model Quota Display Tests
+// ============================================================
+
+test('renderSessionLine shows model quota when utilization >= 50%', () => {
+  const ctx = baseContext();
+  ctx.usageData = {
+    planName: 'Max',
+    fiveHour: 30,
+    sevenDay: 10,
+    fiveHourResetAt: null,
+    sevenDayResetAt: null,
+    modelQuotas: [{
+      modelId: 'opus_4_5',
+      displayName: 'Claude Opus 4.5',
+      weeklyHoursUsed: 3,
+      weeklyHoursLimit: 5,
+      tokensUsed: null,
+      tokensLimit: null,
+      utilization: 60,
+      resetsAt: null,
+    }],
+  };
+  const line = renderSessionLine(ctx);
+  assert.ok(line.includes('60%'), 'should show model utilization');
+  assert.ok(line.includes('3/5h/wk'), 'should show weekly hours');
+});
+
+test('renderSessionLine hides model quota when utilization < 50%', () => {
+  const ctx = baseContext();
+  ctx.usageData = {
+    planName: 'Max',
+    fiveHour: 30,
+    sevenDay: 10,
+    fiveHourResetAt: null,
+    sevenDayResetAt: null,
+    modelQuotas: [{
+      modelId: 'opus_4_5',
+      displayName: 'Claude Opus 4.5',
+      weeklyHoursUsed: 1,
+      weeklyHoursLimit: 5,
+      tokensUsed: null,
+      tokensLimit: null,
+      utilization: 20,
+      resetsAt: null,
+    }],
+  };
+  const line = renderSessionLine(ctx);
+  assert.ok(!line.includes('20%') || !line.includes('1/5h/wk'), 'should not show low utilization quota');
+});
+
+// ============================================================
+// Max Plan Tier Display Tests
+// ============================================================
+
+test('renderSessionLine shows Max plan tier with tokens', () => {
+  const ctx = baseContext();
+  ctx.usageData = {
+    planName: 'Max',
+    fiveHour: 10,
+    sevenDay: 5,
+    fiveHourResetAt: null,
+    sevenDayResetAt: null,
+    maxPlanInfo: {
+      tier: 'Max20',
+      tokensPerWindow: 220000,
+      isActive: true,
+    },
+  };
+  const line = renderSessionLine(ctx);
+  assert.ok(line.includes('Max20'), 'should show Max20 tier');
+  assert.ok(line.includes('220k'), 'should show token limit');
+  assert.ok(line.includes('/win'), 'should show per-window label');
+});
+
+test('renderSessionLine shows Max5 tier', () => {
+  const ctx = baseContext();
+  ctx.usageData = {
+    planName: 'Max',
+    fiveHour: 10,
+    sevenDay: 5,
+    fiveHourResetAt: null,
+    sevenDayResetAt: null,
+    maxPlanInfo: {
+      tier: 'Max5',
+      tokensPerWindow: 88000,
+      isActive: true,
+    },
+  };
+  const line = renderSessionLine(ctx);
+  assert.ok(line.includes('Max5'), 'should show Max5 tier');
+  assert.ok(line.includes('88k'), 'should show 88k token limit');
+});
+
+test('renderSessionLine hides max plan tier when not present', () => {
+  const ctx = baseContext();
+  ctx.usageData = {
+    planName: 'Pro',
+    fiveHour: 10,
+    sevenDay: 5,
+    fiveHourResetAt: null,
+    sevenDayResetAt: null,
+  };
+  const line = renderSessionLine(ctx);
+  assert.ok(!line.includes('Max5'), 'should not show Max5');
+  assert.ok(!line.includes('Max20'), 'should not show Max20');
+});
+
+// ============================================================
+// Compaction Info Display Tests
+// ============================================================
+
+test('renderSessionLine shows compaction buffer when non-default', () => {
+  const ctx = baseContext();
+  ctx.usageData = {
+    planName: 'Max',
+    fiveHour: 10,
+    sevenDay: 5,
+    fiveHourResetAt: null,
+    sevenDayResetAt: null,
+    compactionInfo: {
+      bufferPercent: 90,
+      isEnabled: true,
+    },
+  };
+  const line = renderSessionLine(ctx);
+  assert.ok(line.includes('compact@90%'), 'should show non-default compaction threshold');
+});
+
+test('renderSessionLine hides compaction buffer when at default (80%)', () => {
+  const ctx = baseContext();
+  ctx.usageData = {
+    planName: 'Max',
+    fiveHour: 10,
+    sevenDay: 5,
+    fiveHourResetAt: null,
+    sevenDayResetAt: null,
+    compactionInfo: {
+      bufferPercent: 80,
+      isEnabled: true,
+    },
+  };
+  const line = renderSessionLine(ctx);
+  assert.ok(!line.includes('compact@'), 'should not show default compaction threshold');
+});
+
+test('renderSessionLine hides compaction when disabled', () => {
+  const ctx = baseContext();
+  ctx.usageData = {
+    planName: 'Max',
+    fiveHour: 10,
+    sevenDay: 5,
+    fiveHourResetAt: null,
+    sevenDayResetAt: null,
+    compactionInfo: {
+      bufferPercent: 90,
+      isEnabled: false,
+    },
+  };
+  const line = renderSessionLine(ctx);
+  assert.ok(!line.includes('compact@'), 'should not show compaction when disabled');
+});
+
+// ============================================================
+// Color Theme Integration in Rendering
+// ============================================================
+
+test('render activates color theme from config', () => {
+  const ctx = baseContext();
+  ctx.config.colorTheme = 'rose';
+
+  const originalLog = console.log;
+  console.log = () => { };
+  try {
+    render(ctx);
+  } finally {
+    console.log = originalLog;
+  }
+
+  assert.equal(getTheme(), 'rose', 'should activate rose theme during render');
+  // Reset
+  setTheme('blue');
+});
+
+// ============================================================
+// Usage with fiveHourResetIn countdown
+// ============================================================
+
+test('renderSessionLine uses fiveHourResetIn countdown when available', () => {
+  const ctx = baseContext();
+  ctx.usageData = {
+    planName: 'Pro',
+    fiveHour: 45,
+    sevenDay: 20,
+    fiveHourResetAt: null,
+    sevenDayResetAt: null,
+    fiveHourResetIn: '1h 30m',
+  };
+  const line = renderSessionLine(ctx);
+  assert.ok(line.includes('1h 30m'), 'should show fiveHourResetIn countdown');
+});
+
