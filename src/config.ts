@@ -5,12 +5,14 @@ import * as os from 'node:os';
 export type LineLayoutType = 'compact' | 'expanded';
 
 export type AutocompactBufferMode = 'enabled' | 'disabled';
+export type ColorTheme = 'gray' | 'orange' | 'blue' | 'teal' | 'green' | 'lavender' | 'rose' | 'gold' | 'slate' | 'cyan';
 export type ContextValueMode = 'percent' | 'tokens';
 
 export interface HudConfig {
   lineLayout: LineLayoutType;
   showSeparators: boolean;
   pathLevels: 1 | 2 | 3;
+  colorTheme: ColorTheme;
   gitStatus: {
     enabled: boolean;
     showDirty: boolean;
@@ -41,6 +43,7 @@ export const DEFAULT_CONFIG: HudConfig = {
   lineLayout: 'expanded',
   showSeparators: false,
   pathLevels: 1,
+  colorTheme: 'blue',
   gitStatus: {
     enabled: true,
     showDirty: true,
@@ -88,6 +91,10 @@ function validateContextValue(value: unknown): value is ContextValueMode {
   return value === 'percent' || value === 'tokens';
 }
 
+function validateColorTheme(value: unknown): value is ColorTheme {
+  return ['gray', 'orange', 'blue', 'teal', 'green', 'lavender', 'rose', 'gold', 'slate', 'cyan'].includes(value as string);
+}
+
 interface LegacyConfig {
   layout?: 'default' | 'separators';
 }
@@ -128,6 +135,10 @@ function mergeConfig(userConfig: Partial<HudConfig>): HudConfig {
   const pathLevels = validatePathLevels(migrated.pathLevels)
     ? migrated.pathLevels
     : DEFAULT_CONFIG.pathLevels;
+
+  const colorTheme = validateColorTheme(migrated.colorTheme)
+    ? migrated.colorTheme
+    : DEFAULT_CONFIG.colorTheme;
 
   const gitStatus = {
     enabled: typeof migrated.gitStatus?.enabled === 'boolean'
@@ -189,7 +200,7 @@ function mergeConfig(userConfig: Partial<HudConfig>): HudConfig {
     environmentThreshold: validateThreshold(migrated.display?.environmentThreshold, 100),
   };
 
-  return { lineLayout, showSeparators, pathLevels, gitStatus, display };
+  return { lineLayout, showSeparators, pathLevels, colorTheme, gitStatus, display };
 }
 
 export async function loadConfig(): Promise<HudConfig> {

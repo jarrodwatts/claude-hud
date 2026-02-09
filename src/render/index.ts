@@ -9,7 +9,7 @@ import {
   renderEnvironmentLine,
   renderUsageLine,
 } from './lines/index.js';
-import { dim, RESET } from './colors.js';
+import { dim, RESET, setTheme } from './colors.js';
 
 function stripAnsi(str: string): string {
   // eslint-disable-next-line no-control-regex
@@ -90,6 +90,11 @@ function renderExpanded(ctx: RenderContext): string[] {
 export function render(ctx: RenderContext): void {
   const lineLayout = ctx.config?.lineLayout ?? 'expanded';
   const showSeparators = ctx.config?.showSeparators ?? false;
+
+  // Activate configured color theme
+  if (ctx.config?.colorTheme) {
+    setTheme(ctx.config.colorTheme);
+  }
 
   const headerLines = lineLayout === 'expanded'
     ? renderExpanded(ctx)
