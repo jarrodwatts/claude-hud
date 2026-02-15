@@ -54,8 +54,15 @@ export async function main(overrides: Partial<MainDeps> = {}): Promise<void> {
     const { claudeMdCount, rulesCount, mcpCount, hooksCount } = await deps.countConfigs(stdin.cwd);
 
     const config = await deps.loadConfig();
+
+    // Extract file paths from this session's tool operations for worktree detection.
+    // This lets the HUD show the correct branch even with parallel sessions.
+    const toolTargets = transcript.tools
+      .map((t) => t.target)
+      .filter((t): t is string => typeof t === 'string');
+
     const gitStatus = config.gitStatus.enabled
-      ? await deps.getGitStatus(stdin.cwd)
+      ? await deps.getGitStatus(stdin.cwd, toolTargets)
       : null;
 
     // Only fetch usage if enabled in config (replaces env var requirement)
