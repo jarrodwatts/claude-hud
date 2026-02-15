@@ -1,5 +1,11 @@
 import * as fs from 'fs';
 import * as readline from 'readline';
+/**
+ * Max bytes to read from end of transcript file.
+ * 100KB covers ~200-400 tool calls, well above the display cap (20 tools, 10 agents).
+ * For files smaller than this, the entire file is read.
+ */
+export const TAIL_BYTES = 100 * 1024;
 export async function parseTranscript(transcriptPath) {
     const result = {
         tools: [],
@@ -14,12 +20,23 @@ export async function parseTranscript(transcriptPath) {
     let latestTodos = [];
     const taskIdToIndex = new Map();
     try {
-        const fileStream = fs.createReadStream(transcriptPath);
+        const stat = fs.statSync(transcriptPath);
+        const startByte = stat.size > TAIL_BYTES ? stat.size - TAIL_BYTES : 0;
+        const fileStream = fs.createReadStream(transcriptPath, {
+            start: startByte,
+            encoding: 'utf8',
+        });
         const rl = readline.createInterface({
             input: fileStream,
             crlfDelay: Infinity,
         });
+        // When seeking mid-file, the first line is likely partial — skip it.
+        let skipFirstLine = startByte > 0;
         for await (const line of rl) {
+            if (skipFirstLine) {
+                skipFirstLine = false;
+                continue;
+            }
             if (!line.trim())
                 continue;
             try {

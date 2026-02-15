@@ -4,7 +4,7 @@ import { mkdtemp, rm, writeFile, mkdir } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { parseTranscript } from '../dist/transcript.js';
+import { parseTranscript, TAIL_BYTES } from '../dist/transcript.js';
 import { countConfigs } from '../dist/config-reader.js';
 import { getContextPercent, getBufferedPercent, getModelName, getProviderLabel, isBedrockModelId } from '../dist/stdin.js';
 import * as fs from 'node:fs';
@@ -326,6 +326,91 @@ test('parseTranscript returns partial results when stream creation fails', async
   try {
     const result = await parseTranscript(transcriptDir);
     assert.equal(result.tools.length, 0);
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
+});
+
+test('parseTranscript tail-reads large files and only parses recent entries', async () => {
+  const dir = await mkdtemp(path.join(tmpdir(), 'claude-hud-'));
+  const filePath = path.join(dir, 'large.jsonl');
+
+  // Build a file larger than TAIL_BYTES.
+  // Each line is a tool_use entry. We'll create enough lines to exceed the limit,
+  // then append a recognizable "recent" entry at the end.
+  const oldEntry = JSON.stringify({
+    timestamp: '2024-01-01T00:00:00.000Z',
+    message: {
+      content: [{ type: 'tool_use', id: 'old-tool', name: 'Read', input: { file_path: '/old/file.txt' } }],
+    },
+  });
+
+  // Pad to exceed TAIL_BYTES. Each line is ~150 bytes, so we need ~700 lines for 100KB.
+  const lineCount = Math.ceil((TAIL_BYTES + 10000) / (oldEntry.length + 1));
+  const lines = [];
+  for (let i = 0; i < lineCount; i++) {
+    lines.push(oldEntry);
+  }
+
+  // Append a recent entry that should be within the tail window
+  const recentEntry = JSON.stringify({
+    timestamp: '2024-06-15T12:00:00.000Z',
+    message: {
+      content: [{ type: 'tool_use', id: 'recent-tool', name: 'Edit', input: { file_path: '/recent/file.ts' } }],
+    },
+  });
+  lines.push(recentEntry);
+
+  await writeFile(filePath, lines.join('\n'), 'utf8');
+
+  try {
+    const stat = fs.statSync(filePath);
+    assert.ok(stat.size > TAIL_BYTES, `File should exceed TAIL_BYTES (${stat.size} > ${TAIL_BYTES})`);
+
+    const result = await parseTranscript(filePath);
+
+    // The recent entry should be found
+    const recentTool = result.tools.find((t) => t.id === 'recent-tool');
+    assert.ok(recentTool, 'Recent tool should be parsed from tail');
+    assert.equal(recentTool.target, '/recent/file.ts');
+
+    // Tools should be capped and not include ALL old entries
+    // (the tail window only covers ~TAIL_BYTES worth of lines)
+    assert.ok(result.tools.length < lineCount, 'Should not have parsed every line in the file');
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
+});
+
+test('parseTranscript reads entire small file without skipping', async () => {
+  const dir = await mkdtemp(path.join(tmpdir(), 'claude-hud-'));
+  const filePath = path.join(dir, 'small.jsonl');
+
+  const lines = [
+    JSON.stringify({
+      timestamp: '2024-01-01T00:00:00.000Z',
+      message: {
+        content: [{ type: 'tool_use', id: 'tool-1', name: 'Read', input: { file_path: '/first.txt' } }],
+      },
+    }),
+    JSON.stringify({
+      message: {
+        content: [{ type: 'tool_result', tool_use_id: 'tool-1' }],
+      },
+    }),
+  ];
+
+  await writeFile(filePath, lines.join('\n'), 'utf8');
+
+  try {
+    const stat = fs.statSync(filePath);
+    assert.ok(stat.size < TAIL_BYTES, 'File should be smaller than TAIL_BYTES');
+
+    const result = await parseTranscript(filePath);
+    assert.equal(result.tools.length, 1);
+    assert.equal(result.tools[0].id, 'tool-1');
+    assert.equal(result.tools[0].status, 'completed');
+    assert.equal(result.sessionStart?.toISOString(), '2024-01-01T00:00:00.000Z');
   } finally {
     await rm(dir, { recursive: true, force: true });
   }
