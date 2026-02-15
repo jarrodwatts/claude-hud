@@ -87,6 +87,50 @@ function renderExpanded(ctx: RenderContext): string[] {
   return lines;
 }
 
+/**
+ * Calculate the maximum number of lines the HUD could output for this config.
+ * Used to pad output so Claude Code always sees a consistent line count,
+ * preventing ghost lines when activity lines appear/disappear.
+ */
+function getMaxLines(ctx: RenderContext): number {
+  const lineLayout = ctx.config?.lineLayout ?? 'expanded';
+  const display = ctx.config?.display;
+  const showSeparators = ctx.config?.showSeparators ?? false;
+
+  // Header lines: expanded = 2 (project + identity), compact = 1
+  let max = lineLayout === 'expanded' ? 2 : 1;
+
+  // Environment line (expanded only, opt-in)
+  if (lineLayout === 'expanded' && display?.showConfigCounts) {
+    max += 1;
+  }
+
+  // Separator (only when activity is possible)
+  const hasActivityConfig = display?.showTools !== false
+    || display?.showAgents !== false
+    || display?.showTodos !== false;
+  if (showSeparators && hasActivityConfig) {
+    max += 1;
+  }
+
+  // Tools line: 1 line max
+  if (display?.showTools !== false) {
+    max += 1;
+  }
+
+  // Agents line: up to 3 agents, each on its own line
+  if (display?.showAgents !== false) {
+    max += 3;
+  }
+
+  // Todos line: 1 line max
+  if (display?.showTodos !== false) {
+    max += 1;
+  }
+
+  return max;
+}
+
 export function render(ctx: RenderContext): void {
   const lineLayout = ctx.config?.lineLayout ?? 'expanded';
   const showSeparators = ctx.config?.showSeparators ?? false;
@@ -105,6 +149,17 @@ export function render(ctx: RenderContext): void {
   }
 
   lines.push(...activityLines);
+
+  // Pad to a fixed line count so Claude Code always sees the same number
+  // of lines, preventing ghost/stale lines when activity disappears.
+  // Count actual rendered lines (some entries contain embedded \n).
+  const maxLines = getMaxLines(ctx);
+  const renderedCount = lines.reduce(
+    (sum, line) => sum + line.split('\n').length, 0
+  );
+  for (let i = renderedCount; i < maxLines; i++) {
+    lines.push('\u00A0'); // non-breaking space — not empty, so Claude Code renders it
+  }
 
   for (const line of lines) {
     const outputLine = `${RESET}${line.replace(/ /g, '\u00A0')}`;
