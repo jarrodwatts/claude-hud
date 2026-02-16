@@ -750,6 +750,107 @@ test('render pads with NBSP for empty lines', () => {
   assert.ok(paddingLines.length > 0, 'Should have NBSP padding lines when activity is empty');
 });
 
+test('render truncates long lines to terminal width', () => {
+  const ctx = baseContext();
+  ctx.config.lineLayout = 'compact';
+  ctx.config.display.showTools = false;
+  ctx.config.display.showAgents = false;
+  ctx.config.display.showTodos = false;
+
+  // Set a narrow terminal width via env
+  const origColumns = process.env.COLUMNS;
+  const origStdoutCols = process.stdout.columns;
+  const origStderrCols = process.stderr.columns;
+  process.env.COLUMNS = '40';
+  // Force undefined so env var is used
+  Object.defineProperty(process.stdout, 'columns', { value: undefined, configurable: true });
+  Object.defineProperty(process.stderr, 'columns', { value: undefined, configurable: true });
+
+  try {
+    const logs = [];
+    const originalLog = console.log;
+    console.log = (line) => logs.push(line);
+    try {
+      render(ctx);
+    } finally {
+      console.log = originalLog;
+    }
+
+    // Every content line should have visual width <= 40
+    for (const line of logs) {
+      const stripped = line.replace(/\x1b\[[0-9;]*m/g, '').replace(/\u00A0/g, ' ');
+      assert.ok(
+        stripped.length <= 41, // +1 for RESET at end
+        `Line visual width ${stripped.length} exceeds terminal width 40: "${stripped}"`
+      );
+    }
+  } finally {
+    if (origColumns !== undefined) {
+      process.env.COLUMNS = origColumns;
+    } else {
+      delete process.env.COLUMNS;
+    }
+    if (origStdoutCols !== undefined) {
+      Object.defineProperty(process.stdout, 'columns', { value: origStdoutCols, configurable: true });
+    }
+    if (origStderrCols !== undefined) {
+      Object.defineProperty(process.stderr, 'columns', { value: origStderrCols, configurable: true });
+    }
+  }
+});
+
+test('render truncates ANSI-colored lines without breaking escape sequences', () => {
+  // Test the truncateToWidth function indirectly via render
+  const ctx = baseContext();
+  ctx.config.lineLayout = 'expanded';
+  ctx.config.display.showTools = false;
+  ctx.config.display.showAgents = false;
+  ctx.config.display.showTodos = false;
+  ctx.config.display.showConfigCounts = false;
+
+  // Force narrow width
+  const origColumns = process.env.COLUMNS;
+  const origStdoutCols = process.stdout.columns;
+  const origStderrCols = process.stderr.columns;
+  process.env.COLUMNS = '30';
+  Object.defineProperty(process.stdout, 'columns', { value: undefined, configurable: true });
+  Object.defineProperty(process.stderr, 'columns', { value: undefined, configurable: true });
+
+  try {
+    const logs = [];
+    const originalLog = console.log;
+    console.log = (line) => logs.push(line);
+    try {
+      render(ctx);
+    } finally {
+      console.log = originalLog;
+    }
+
+    // All ANSI sequences should be properly closed (no orphaned escapes)
+    for (const line of logs) {
+      // Check no truncation mid-escape: every \x1b[ should have a closing 'm'
+      const escapes = line.match(/\x1b\[[0-9;]*/g) || [];
+      for (const esc of escapes) {
+        const idx = line.indexOf(esc);
+        const closeIdx = line.indexOf('m', idx + esc.length);
+        assert.ok(closeIdx !== -1, `Orphaned ANSI escape found: ${JSON.stringify(esc)}`);
+      }
+    }
+  } finally {
+    if (origColumns !== undefined) {
+      process.env.COLUMNS = origColumns;
+    } else {
+      delete process.env.COLUMNS;
+    }
+    if (origStdoutCols !== undefined) {
+      Object.defineProperty(process.stdout, 'columns', { value: origStdoutCols, configurable: true });
+    }
+    if (origStderrCols !== undefined) {
+      Object.defineProperty(process.stderr, 'columns', { value: origStderrCols, configurable: true });
+    }
+  }
+});
+
 test('render handles agents line with embedded newlines in padding count', () => {
   const ctx = baseContext();
   ctx.config.lineLayout = 'expanded';

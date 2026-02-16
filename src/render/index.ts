@@ -11,13 +11,46 @@ import {
 } from './lines/index.js';
 import { dim, RESET } from './colors.js';
 
+// eslint-disable-next-line no-control-regex
+const ANSI_RE = /\x1b\[[0-9;]*m/g;
+
 function stripAnsi(str: string): string {
-  // eslint-disable-next-line no-control-regex
-  return str.replace(/\x1b\[[0-9;]*m/g, '');
+  return str.replace(ANSI_RE, '');
 }
 
 function visualLength(str: string): number {
   return stripAnsi(str).length;
+}
+
+function getTerminalWidth(): number {
+  return process.stdout.columns
+    || process.stderr.columns
+    || parseInt(process.env.COLUMNS || '', 10)
+    || 120;
+}
+
+// Truncate an ANSI-escaped string to fit within maxWidth visual columns
+function truncateToWidth(str: string, maxWidth: number): string {
+  if (visualLength(str) <= maxWidth) return str;
+
+  let visual = 0;
+  let i = 0;
+
+  while (i < str.length) {
+    // Skip ANSI escape sequences (zero visual width)
+    if (str[i] === '\x1b' && str[i + 1] === '[') {
+      const end = str.indexOf('m', i);
+      if (end !== -1) {
+        i = end + 1;
+        continue;
+      }
+    }
+    if (visual >= maxWidth) break;
+    visual++;
+    i++;
+  }
+
+  return str.slice(0, i) + RESET;
 }
 
 function makeSeparator(length: number): string {
@@ -147,8 +180,15 @@ export function render(ctx: RenderContext): void {
     lines.push('\u00A0');
   }
 
+  const termWidth = getTerminalWidth();
+
   for (const line of lines) {
-    const outputLine = `${RESET}${line.replace(/ /g, '\u00A0')}`;
-    console.log(outputLine);
+    // Handle embedded newlines (e.g. multi-agent output)
+    const subLines = line.split('\n');
+    for (const sub of subLines) {
+      const truncated = truncateToWidth(sub, termWidth);
+      const outputLine = `${RESET}${truncated.replace(/ /g, '\u00A0')}`;
+      console.log(outputLine);
+    }
   }
 }
