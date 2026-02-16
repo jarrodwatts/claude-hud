@@ -37,49 +37,43 @@ export async function getGitStatus(cwd?: string): Promise<GitStatus | null> {
   if (!cwd) return null;
 
   try {
-    // Get branch name
-    const { stdout: branchOut } = await execFileAsync(
-      'git',
-      ['rev-parse', '--abbrev-ref', 'HEAD'],
-      { cwd, timeout: 1000, encoding: 'utf8' }
-    );
-    const branch = branchOut.trim();
+    // Parallel execution with independent timeouts
+    const [branchResult, statusResult, revResult] = await Promise.all([
+      execFileAsync(
+        'git', ['rev-parse', '--abbrev-ref', 'HEAD'],
+        { cwd, timeout: 1000, encoding: 'utf8' }
+      ).catch(() => null),
+      execFileAsync(
+        'git', ['--no-optional-locks', 'status', '--porcelain'],
+        { cwd, timeout: 1000, encoding: 'utf8' }
+      ).catch(() => null),
+      execFileAsync(
+        'git', ['rev-list', '--left-right', '--count', '@{upstream}...HEAD'],
+        { cwd, timeout: 1000, encoding: 'utf8' }
+      ).catch(() => null),
+    ]);
+
+    const branch = branchResult?.stdout.trim();
     if (!branch) return null;
 
-    // Check for dirty state and parse file stats
     let isDirty = false;
     let fileStats: FileStats | undefined;
-    try {
-      const { stdout: statusOut } = await execFileAsync(
-        'git',
-        ['--no-optional-locks', 'status', '--porcelain'],
-        { cwd, timeout: 1000, encoding: 'utf8' }
-      );
-      const trimmed = statusOut.trim();
+    if (statusResult) {
+      const trimmed = statusResult.stdout.trim();
       isDirty = trimmed.length > 0;
       if (isDirty) {
         fileStats = parseFileStats(trimmed);
       }
-    } catch {
-      // Ignore errors, assume clean
     }
 
-    // Get ahead/behind counts
     let ahead = 0;
     let behind = 0;
-    try {
-      const { stdout: revOut } = await execFileAsync(
-        'git',
-        ['rev-list', '--left-right', '--count', '@{upstream}...HEAD'],
-        { cwd, timeout: 1000, encoding: 'utf8' }
-      );
-      const parts = revOut.trim().split(/\s+/);
+    if (revResult) {
+      const parts = revResult.stdout.trim().split(/\s+/);
       if (parts.length === 2) {
         behind = parseInt(parts[0], 10) || 0;
         ahead = parseInt(parts[1], 10) || 0;
       }
-    } catch {
-      // No upstream or error, keep 0/0
     }
 
     return { branch, isDirty, ahead, behind, fileStats };
@@ -99,8 +93,8 @@ function parseFileStats(porcelainOutput: string): FileStats {
   for (const line of lines) {
     if (line.length < 2) continue;
 
-    const index = line[0];    // staged status
-    const worktree = line[1]; // unstaged status
+    const index = line[0];
+    const worktree = line[1];
 
     if (line.startsWith('??')) {
       stats.untracked++;
@@ -109,7 +103,7 @@ function parseFileStats(porcelainOutput: string): FileStats {
     } else if (index === 'D' || worktree === 'D') {
       stats.deleted++;
     } else if (index === 'M' || worktree === 'M' || index === 'R' || index === 'C') {
-      // M=modified, R=renamed (counts as modified), C=copied (counts as modified)
+      // R=renamed, C=copied both count as modified
       stats.modified++;
     }
   }

@@ -28,8 +28,7 @@ function readCache(homeDir: string): SpeedCache | null {
   try {
     const cachePath = getCachePath(homeDir);
     if (!fs.existsSync(cachePath)) return null;
-    const content = fs.readFileSync(cachePath, 'utf8');
-    const parsed = JSON.parse(content) as SpeedCache;
+    const parsed = JSON.parse(fs.readFileSync(cachePath, 'utf8')) as SpeedCache;
     if (typeof parsed.outputTokens !== 'number' || typeof parsed.timestamp !== 'number') {
       return null;
     }
@@ -72,6 +71,9 @@ export function getOutputSpeed(stdin: StdinData, overrides: Partial<SpeedTracker
     }
   }
 
-  writeCache(homeDir, { outputTokens, timestamp: now });
+  // Skip disk writes when idle
+  if (!previous || outputTokens !== previous.outputTokens) {
+    writeCache(homeDir, { outputTokens, timestamp: now });
+  }
   return speed;
 }

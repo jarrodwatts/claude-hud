@@ -685,9 +685,16 @@ test('Issue #3: MCP count updates correctly when servers are disabled', async ()
       'utf8'
     );
 
+    // Cache path for countConfigs — must be cleared between scenarios
+    // because the cache uses TTL, not file mtime invalidation.
+    const cachePath = path.join(homeDir, '.claude', 'plugins', 'claude-hud', '.config-counts-cache.json');
+
     // Scenario 1: No servers disabled - should show 6
     let counts = await countConfigs();
     assert.equal(counts.mcpCount, 6, 'Should show all 6 MCPs when none disabled');
+
+    // Clear cache before changing config files
+    try { fs.unlinkSync(cachePath); } catch {}
 
     // Scenario 2: 1 server disabled - should show 5 (this was the initial bug report state)
     await writeFile(
@@ -707,6 +714,9 @@ test('Issue #3: MCP count updates correctly when servers are disabled', async ()
     );
     counts = await countConfigs();
     assert.equal(counts.mcpCount, 5, 'Should show 5 MCPs when 1 is disabled');
+
+    // Clear cache before changing config files
+    try { fs.unlinkSync(cachePath); } catch {}
 
     // Scenario 3: ALL servers disabled - should show 0 (this was the main bug)
     await writeFile(

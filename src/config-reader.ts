@@ -91,7 +91,48 @@ function countRulesInDir(rulesDir: string): number {
   return count;
 }
 
+const CACHE_TTL_MS = 30_000;
+
+interface ConfigCache {
+  data: ConfigCounts;
+  timestamp: number;
+  cwd: string | undefined;
+}
+
+function getConfigCachePath(): string {
+  return path.join(os.homedir(), '.claude', 'plugins', 'claude-hud', '.config-counts-cache.json');
+}
+
+function readConfigCache(cwd: string | undefined): ConfigCounts | null {
+  try {
+    const cachePath = getConfigCachePath();
+    if (!fs.existsSync(cachePath)) return null;
+    const cache: ConfigCache = JSON.parse(fs.readFileSync(cachePath, 'utf8'));
+    const isExpired = Date.now() - cache.timestamp >= CACHE_TTL_MS;
+    if (cache.cwd !== cwd || isExpired) return null;
+    return cache.data;
+  } catch {
+    return null;
+  }
+}
+
+function writeConfigCache(data: ConfigCounts, cwd: string | undefined): void {
+  try {
+    const cachePath = getConfigCachePath();
+    const cacheDir = path.dirname(cachePath);
+    if (!fs.existsSync(cacheDir)) {
+      fs.mkdirSync(cacheDir, { recursive: true });
+    }
+    const cache: ConfigCache = { data, timestamp: Date.now(), cwd };
+    fs.writeFileSync(cachePath, JSON.stringify(cache), 'utf8');
+  } catch {
+    // Ignore cache write failures
+  }
+}
+
 export async function countConfigs(cwd?: string): Promise<ConfigCounts> {
+  const cached = readConfigCache(cwd);
+  if (cached) return cached;
   let claudeMdCount = 0;
   let rulesCount = 0;
   let hooksCount = 0;
@@ -187,11 +228,11 @@ export async function countConfigs(cwd?: string): Promise<ConfigCounts> {
     }
   }
 
-  // Total MCP count = user servers + project servers
-  // Note: Deduplication only occurs within each scope, not across scopes.
-  // A server with the same name in both user and project scope counts as 2 (separate configs).
+  // Deduplication only occurs within each scope, not across scopes
   const mcpCount = userMcpServers.size + projectMcpServers.size;
 
-  return { claudeMdCount, rulesCount, mcpCount, hooksCount };
+  const result = { claudeMdCount, rulesCount, mcpCount, hooksCount };
+  writeConfigCache(result, cwd);
+  return result;
 }
 

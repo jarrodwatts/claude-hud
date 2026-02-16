@@ -192,6 +192,18 @@ function mergeConfig(userConfig: Partial<HudConfig>): HudConfig {
   return { lineLayout, showSeparators, pathLevels, gitStatus, display };
 }
 
+const CACHE_TTL_MS = 30_000;
+
+interface HudConfigCache {
+  data: HudConfig;
+  timestamp: number;
+  mtime: number;
+}
+
+function getCachePath(): string {
+  return path.join(os.homedir(), '.claude', 'plugins', 'claude-hud', '.hud-config-cache.json');
+}
+
 export async function loadConfig(): Promise<HudConfig> {
   const configPath = getConfigPath();
 
@@ -200,9 +212,33 @@ export async function loadConfig(): Promise<HudConfig> {
       return DEFAULT_CONFIG;
     }
 
+    const mtime = fs.statSync(configPath).mtimeMs;
+
+    try {
+      const cachePath = getCachePath();
+      if (fs.existsSync(cachePath)) {
+        const cache: HudConfigCache = JSON.parse(fs.readFileSync(cachePath, 'utf8'));
+        const isExpired = Date.now() - cache.timestamp >= CACHE_TTL_MS;
+        if (cache.mtime === mtime && !isExpired) {
+          return cache.data;
+        }
+      }
+    } catch {
+      // Cache miss
+    }
+
     const content = fs.readFileSync(configPath, 'utf-8');
     const userConfig = JSON.parse(content) as Partial<HudConfig>;
-    return mergeConfig(userConfig);
+    const config = mergeConfig(userConfig);
+
+    try {
+      const cachePath = getCachePath();
+      fs.writeFileSync(cachePath, JSON.stringify({ data: config, timestamp: Date.now(), mtime }), 'utf8');
+    } catch {
+      // Ignore cache write failures
+    }
+
+    return config;
   } catch {
     return DEFAULT_CONFIG;
   }

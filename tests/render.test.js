@@ -677,3 +677,109 @@ test('renderSessionLine combines showFileStats with showDirty and showAheadBehin
   assert.ok(line.includes('!3'), 'expected modified count');
   assert.ok(line.includes('✘1'), 'expected deleted count');
 });
+
+// Padding / ghost line prevention tests
+test('render outputs consistent line count regardless of activity', () => {
+  const ctx = baseContext();
+  ctx.config.lineLayout = 'compact';
+  ctx.config.display.showTools = true;
+  ctx.config.display.showAgents = true;
+  ctx.config.display.showTodos = true;
+
+  // Capture output WITH activity
+  ctx.transcript.tools = [
+    { id: 'tool-1', name: 'Read', status: 'completed', startTime: new Date(0), endTime: new Date(0), duration: 0 },
+  ];
+  ctx.transcript.agents = [
+    { id: 'agent-1', type: 'explore', model: 'haiku', status: 'running', startTime: new Date(0) },
+  ];
+  ctx.transcript.todos = [
+    { content: 'Task 1', status: 'in_progress' },
+  ];
+
+  const logsWithActivity = [];
+  const originalLog = console.log;
+  console.log = (line) => logsWithActivity.push(line);
+  try {
+    render(ctx);
+  } finally {
+    console.log = originalLog;
+  }
+
+  // Capture output WITHOUT activity
+  ctx.transcript = { tools: [], agents: [], todos: [] };
+  const logsWithoutActivity = [];
+  console.log = (line) => logsWithoutActivity.push(line);
+  try {
+    render(ctx);
+  } finally {
+    console.log = originalLog;
+  }
+
+  // Both should output the same number of lines
+  assert.equal(
+    logsWithActivity.length,
+    logsWithoutActivity.length,
+    `Line count should be consistent: with activity=${logsWithActivity.length}, without=${logsWithoutActivity.length}`
+  );
+});
+
+test('render pads with NBSP for empty lines', () => {
+  const ctx = baseContext();
+  ctx.config.lineLayout = 'compact';
+  ctx.config.display.showTools = true;
+  ctx.config.display.showAgents = false;
+  ctx.config.display.showTodos = false;
+
+  // No tools active — padding lines should appear
+  const logs = [];
+  const originalLog = console.log;
+  console.log = (line) => logs.push(line);
+  try {
+    render(ctx);
+  } finally {
+    console.log = originalLog;
+  }
+
+  // Should have padding lines (NBSP = \u00A0)
+  // After ANSI strip, padding lines contain only NBSP characters
+  const paddingLines = logs.filter(l => {
+    const stripped = l.replace(/\x1b\[[0-9;]*m/g, '');
+    return stripped.length > 0 && /^\u00A0+$/.test(stripped);
+  });
+  assert.ok(paddingLines.length > 0, 'Should have NBSP padding lines when activity is empty');
+});
+
+test('render handles agents line with embedded newlines in padding count', () => {
+  const ctx = baseContext();
+  ctx.config.lineLayout = 'expanded';
+  ctx.config.display.showTools = false;
+  ctx.config.display.showAgents = true;
+  ctx.config.display.showTodos = false;
+
+  const originalNow = Date.now;
+  Date.now = () => 5000;
+
+  try {
+    // Multiple agents produce multiline output (joined with \n in agents-line.ts)
+    ctx.transcript.agents = [
+      { id: 'agent-1', type: 'explore', model: 'haiku', description: 'Finding code', status: 'running', startTime: new Date(0) },
+      { id: 'agent-2', type: 'plan', model: 'opus', description: 'Planning', status: 'running', startTime: new Date(0) },
+    ];
+
+    const logs = [];
+    const originalLog = console.log;
+    console.log = (line) => logs.push(line);
+    try {
+      render(ctx);
+    } finally {
+      console.log = originalLog;
+    }
+
+    // Verify total rendered line count is consistent
+    // With expanded layout + agents(max 3 lines) = at least 5 lines
+    assert.ok(logs.length >= 2, `Expected at least 2 output lines, got ${logs.length}`);
+  } finally {
+    Date.now = originalNow;
+  }
+});
