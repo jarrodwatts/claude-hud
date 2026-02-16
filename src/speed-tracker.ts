@@ -26,9 +26,7 @@ function getCachePath(homeDir: string): string {
 
 function readCache(homeDir: string): SpeedCache | null {
   try {
-    const cachePath = getCachePath(homeDir);
-    if (!fs.existsSync(cachePath)) return null;
-    const parsed = JSON.parse(fs.readFileSync(cachePath, 'utf8')) as SpeedCache;
+    const parsed = JSON.parse(fs.readFileSync(getCachePath(homeDir), 'utf8')) as SpeedCache;
     if (typeof parsed.outputTokens !== 'number' || typeof parsed.timestamp !== 'number') {
       return null;
     }
@@ -41,10 +39,7 @@ function readCache(homeDir: string): SpeedCache | null {
 function writeCache(homeDir: string, cache: SpeedCache): void {
   try {
     const cachePath = getCachePath(homeDir);
-    const cacheDir = path.dirname(cachePath);
-    if (!fs.existsSync(cacheDir)) {
-      fs.mkdirSync(cacheDir, { recursive: true });
-    }
+    fs.mkdirSync(path.dirname(cachePath), { recursive: true });
     fs.writeFileSync(cachePath, JSON.stringify(cache), 'utf8');
   } catch {
     // Ignore cache write failures

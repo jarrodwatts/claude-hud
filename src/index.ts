@@ -1,4 +1,4 @@
-import { readStdin } from './stdin.js';
+import { readStdin, isBedrockModelId } from './stdin.js';
 import { parseTranscript } from './transcript.js';
 import { render } from './render/index.js';
 import { countConfigs } from './config-reader.js';
@@ -49,19 +49,22 @@ export async function main(overrides: Partial<MainDeps> = {}): Promise<void> {
     }
 
     const transcriptPath = stdin.transcript_path ?? '';
-    const transcript = await deps.parseTranscript(transcriptPath);
 
-    const { claudeMdCount, rulesCount, mcpCount, hooksCount } = await deps.countConfigs(stdin.cwd);
+    // Phase 1: independent data gathering in parallel
+    const [transcript, configCounts, config] = await Promise.all([
+      deps.parseTranscript(transcriptPath),
+      deps.countConfigs(stdin.cwd),
+      deps.loadConfig(),
+    ]);
+    const { claudeMdCount, rulesCount, mcpCount, hooksCount } = configCounts;
 
-    const config = await deps.loadConfig();
-    const gitStatus = config.gitStatus.enabled
-      ? await deps.getGitStatus(stdin.cwd)
-      : null;
-
-    // Only fetch usage if enabled in config (replaces env var requirement)
-    const usageData = config.display.showUsage !== false
-      ? await deps.getUsage()
-      : null;
+    // Phase 2: config-dependent fetches in parallel
+    const [gitStatus, usageData] = await Promise.all([
+      config.gitStatus.enabled ? deps.getGitStatus(stdin.cwd) : null,
+      config.display.showUsage !== false && !isBedrockModelId(stdin.model?.id)
+        ? deps.getUsage()
+        : null,
+    ]);
 
     const extraCmd = deps.parseExtraCmdArg();
     const extraLabel = extraCmd ? await deps.runExtraCmd(extraCmd) : null;

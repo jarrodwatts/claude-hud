@@ -215,13 +215,9 @@ export async function loadConfig(): Promise<HudConfig> {
     const mtime = fs.statSync(configPath).mtimeMs;
 
     try {
-      const cachePath = getCachePath();
-      if (fs.existsSync(cachePath)) {
-        const cache: HudConfigCache = JSON.parse(fs.readFileSync(cachePath, 'utf8'));
-        const isExpired = Date.now() - cache.timestamp >= CACHE_TTL_MS;
-        if (cache.mtime === mtime && !isExpired) {
-          return cache.data;
-        }
+      const cache: HudConfigCache = JSON.parse(fs.readFileSync(getCachePath(), 'utf8'));
+      if (cache.mtime === mtime && Date.now() - cache.timestamp < CACHE_TTL_MS) {
+        return cache.data;
       }
     } catch {
       // Cache miss

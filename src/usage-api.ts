@@ -54,11 +54,7 @@ function getCachePath(homeDir: string): string {
 
 function readCache(homeDir: string, now: number): UsageData | null {
   try {
-    const cachePath = getCachePath(homeDir);
-    if (!fs.existsSync(cachePath)) return null;
-
-    const content = fs.readFileSync(cachePath, 'utf8');
-    const cache: CacheFile = JSON.parse(content);
+    const cache: CacheFile = JSON.parse(fs.readFileSync(getCachePath(homeDir), 'utf8'));
 
     // Check TTL - use shorter TTL for failure results
     const ttl = cache.data.apiUnavailable ? CACHE_FAILURE_TTL_MS : CACHE_TTL_MS;
@@ -83,14 +79,8 @@ function readCache(homeDir: string, now: number): UsageData | null {
 function writeCache(homeDir: string, data: UsageData, timestamp: number): void {
   try {
     const cachePath = getCachePath(homeDir);
-    const cacheDir = path.dirname(cachePath);
-
-    if (!fs.existsSync(cacheDir)) {
-      fs.mkdirSync(cacheDir, { recursive: true });
-    }
-
-    const cache: CacheFile = { data, timestamp };
-    fs.writeFileSync(cachePath, JSON.stringify(cache), 'utf8');
+    fs.mkdirSync(path.dirname(cachePath), { recursive: true });
+    fs.writeFileSync(cachePath, JSON.stringify({ data, timestamp } satisfies CacheFile), 'utf8');
   } catch {
     // Ignore cache write failures
   }
@@ -202,9 +192,7 @@ function getKeychainBackoffPath(homeDir: string): string {
  */
 function isKeychainBackoff(homeDir: string, now: number): boolean {
   try {
-    const backoffPath = getKeychainBackoffPath(homeDir);
-    if (!fs.existsSync(backoffPath)) return false;
-    const timestamp = parseInt(fs.readFileSync(backoffPath, 'utf8'), 10);
+    const timestamp = parseInt(fs.readFileSync(getKeychainBackoffPath(homeDir), 'utf8'), 10);
     return now - timestamp < KEYCHAIN_BACKOFF_MS;
   } catch {
     return false;
@@ -217,10 +205,7 @@ function isKeychainBackoff(homeDir: string, now: number): boolean {
 function recordKeychainFailure(homeDir: string, now: number): void {
   try {
     const backoffPath = getKeychainBackoffPath(homeDir);
-    const dir = path.dirname(backoffPath);
-    if (!fs.existsSync(dir)) {
-      fs.mkdirSync(dir, { recursive: true });
-    }
+    fs.mkdirSync(path.dirname(backoffPath), { recursive: true });
     fs.writeFileSync(backoffPath, String(now), 'utf8');
   } catch {
     // Ignore write failures
@@ -276,18 +261,12 @@ function readKeychainCredentials(now: number, homeDir: string): { accessToken: s
  * Older versions of Claude Code stored credentials in ~/.claude/.credentials.json
  */
 function readFileCredentials(homeDir: string, now: number): { accessToken: string; subscriptionType: string } | null {
-  const credentialsPath = path.join(homeDir, '.claude', '.credentials.json');
-
-  if (!fs.existsSync(credentialsPath)) {
-    return null;
-  }
-
   try {
-    const content = fs.readFileSync(credentialsPath, 'utf8');
-    const data: CredentialsFile = JSON.parse(content);
+    const data: CredentialsFile = JSON.parse(
+      fs.readFileSync(path.join(homeDir, '.claude', '.credentials.json'), 'utf8')
+    );
     return parseCredentialsData(data, now);
-  } catch (error) {
-    debug('Failed to read credentials file:', error);
+  } catch {
     return null;
   }
 }
@@ -443,12 +422,9 @@ function fetchUsageApi(accessToken: string): Promise<UsageApiResult> {
 export function clearCache(homeDir?: string): void {
   if (homeDir) {
     try {
-      const cachePath = getCachePath(homeDir);
-      if (fs.existsSync(cachePath)) {
-        fs.unlinkSync(cachePath);
-      }
+      fs.unlinkSync(getCachePath(homeDir));
     } catch {
-      // Ignore
+      // Ignore (file may not exist)
     }
   }
 }

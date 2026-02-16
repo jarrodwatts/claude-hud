@@ -105,11 +105,8 @@ function getConfigCachePath(): string {
 
 function readConfigCache(cwd: string | undefined): ConfigCounts | null {
   try {
-    const cachePath = getConfigCachePath();
-    if (!fs.existsSync(cachePath)) return null;
-    const cache: ConfigCache = JSON.parse(fs.readFileSync(cachePath, 'utf8'));
-    const isExpired = Date.now() - cache.timestamp >= CACHE_TTL_MS;
-    if (cache.cwd !== cwd || isExpired) return null;
+    const cache: ConfigCache = JSON.parse(fs.readFileSync(getConfigCachePath(), 'utf8'));
+    if (cache.cwd !== cwd || Date.now() - cache.timestamp >= CACHE_TTL_MS) return null;
     return cache.data;
   } catch {
     return null;
@@ -119,12 +116,8 @@ function readConfigCache(cwd: string | undefined): ConfigCounts | null {
 function writeConfigCache(data: ConfigCounts, cwd: string | undefined): void {
   try {
     const cachePath = getConfigCachePath();
-    const cacheDir = path.dirname(cachePath);
-    if (!fs.existsSync(cacheDir)) {
-      fs.mkdirSync(cacheDir, { recursive: true });
-    }
-    const cache: ConfigCache = { data, timestamp: Date.now(), cwd };
-    fs.writeFileSync(cachePath, JSON.stringify(cache), 'utf8');
+    fs.mkdirSync(path.dirname(cachePath), { recursive: true });
+    fs.writeFileSync(cachePath, JSON.stringify({ data, timestamp: Date.now(), cwd } satisfies ConfigCache), 'utf8');
   } catch {
     // Ignore cache write failures
   }
