@@ -5,6 +5,7 @@ import * as https from 'https';
 import { execFileSync } from 'child_process';
 import type { UsageData } from './types.js';
 import { createDebug } from './debug.js';
+import { getClaudeDir, getKeychainServiceName } from './claude-dir.js';
 
 export type { UsageData } from './types.js';
 
@@ -49,7 +50,7 @@ interface CacheFile {
 }
 
 function getCachePath(homeDir: string): string {
-  return path.join(homeDir, '.claude', 'plugins', 'claude-hud', '.usage-cache.json');
+  return path.join(getClaudeDir(homeDir), 'plugins', 'claude-hud', '.usage-cache.json');
 }
 
 function readCache(homeDir: string, now: number): UsageData | null {
@@ -193,7 +194,7 @@ export async function getUsage(overrides: Partial<UsageApiDeps> = {}): Promise<U
  * Separate from usage cache to track keychain-specific failures.
  */
 function getKeychainBackoffPath(homeDir: string): string {
-  return path.join(homeDir, '.claude', 'plugins', 'claude-hud', '.keychain-backoff');
+  return path.join(getClaudeDir(homeDir), 'plugins', 'claude-hud', '.keychain-backoff');
 }
 
 /**
@@ -251,7 +252,7 @@ function readKeychainCredentials(now: number, homeDir: string): { accessToken: s
     // Security: Use execFileSync with absolute path and args array (no shell)
     const keychainData = execFileSync(
       '/usr/bin/security',
-      ['find-generic-password', '-s', 'Claude Code-credentials', '-w'],
+      ['find-generic-password', '-s', getKeychainServiceName(), '-w'],
       { encoding: 'utf8', stdio: ['pipe', 'pipe', 'pipe'], timeout: KEYCHAIN_TIMEOUT_MS }
     ).trim();
 
@@ -276,7 +277,7 @@ function readKeychainCredentials(now: number, homeDir: string): { accessToken: s
  * Older versions of Claude Code stored credentials in ~/.claude/.credentials.json
  */
 function readFileCredentials(homeDir: string, now: number): { accessToken: string; subscriptionType: string } | null {
-  const credentialsPath = path.join(homeDir, '.claude', '.credentials.json');
+  const credentialsPath = path.join(getClaudeDir(homeDir), '.credentials.json');
 
   if (!fs.existsSync(credentialsPath)) {
     return null;
