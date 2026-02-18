@@ -1,4 +1,6 @@
 export declare const RESET = "\u001B[0m";
+export declare function stripAnsi(str: string): string;
+export declare function visualLength(str: string): number;
 export declare function green(text: string): string;
 export declare function yellow(text: string): string;
 export declare function red(text: string): string;

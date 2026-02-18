@@ -1,13 +1,18 @@
 import { isLimitReached } from '../types.js';
 import { getContextPercent, getBufferedPercent, getModelName, getProviderLabel, getTotalTokens } from '../stdin.js';
 import { getOutputSpeed } from '../speed-tracker.js';
-import { coloredBar, cyan, dim, magenta, red, yellow, getContextColor, quotaBar, RESET } from './colors.js';
+import { coloredBar, cyan, dim, magenta, red, yellow, getContextColor, quotaBar, RESET, visualLength } from './colors.js';
 const DEBUG = process.env.DEBUG?.includes('claude-hud') || process.env.DEBUG === '*';
+/** Separator between parts */
+const SEP = ' | ';
+const SEP_LEN = 3; // visual length of ' | '
 /**
  * Renders the full session line (model + context bar + project + git + counts + usage + duration).
- * Used for compact layout mode.
+ * Used for compact layout mode. Width-aware: progressively drops sections to fit.
+ *
+ * @param maxWidth - Available terminal width. Sections are dropped right-to-left when overflowing.
  */
-export function renderSessionLine(ctx) {
+export function renderSessionLine(ctx, maxWidth = 120) {
     const model = getModelName(ctx.stdin);
     const rawPercent = getContextPercent(ctx.stdin);
     const bufferedPercent = getBufferedPercent(ctx.stdin);
@@ -16,58 +21,57 @@ export function renderSessionLine(ctx) {
     if (DEBUG && autocompactMode === 'disabled') {
         console.error(`[claude-hud:context] autocompactBuffer=disabled, showing raw ${rawPercent}% (buffered would be ${bufferedPercent}%)`);
     }
-    const bar = coloredBar(percent);
-    const parts = [];
     const display = ctx.config?.display;
+    const providerLabel = getProviderLabel(ctx.stdin);
+    // Build all candidate sections in priority order (first = highest priority, dropped last)
+    // Each section is a { key, render } where render returns the string part.
+    // We assemble from high→low priority and drop from the tail when overflowing.
+    const sections = buildSections(ctx, { model, percent, display, providerLabel });
+    // Progressive fit: try all sections, drop lowest-priority ones until it fits
+    return fitSections(sections, maxWidth);
+}
+function buildSections(ctx, sc) {
+    const { model, percent, display, providerLabel } = sc;
+    const sections = [];
+    // --- PRIORITY 1: Model + context (always shown) ---
     const contextValueMode = display?.contextValue ?? 'percent';
     const contextValue = formatContextValue(ctx, percent, contextValueMode);
     const contextValueDisplay = `${getContextColor(percent)}${contextValue}${RESET}`;
-    // Model and context bar (FIRST)
-    // Plan name only shows if showUsage is enabled (respects hybrid toggle)
-    const providerLabel = getProviderLabel(ctx.stdin);
     const planName = display?.showUsage !== false ? ctx.usageData?.planName : undefined;
     const planDisplay = providerLabel ?? planName;
     const modelDisplay = planDisplay ? `${model} | ${planDisplay}` : model;
+    const bar = coloredBar(percent);
     if (display?.showModel !== false && display?.showContextBar !== false) {
-        parts.push(`${cyan(`[${modelDisplay}]`)} ${bar} ${contextValueDisplay}`);
+        sections.push({ key: 'model', content: `${cyan(`[${modelDisplay}]`)} ${bar} ${contextValueDisplay}` });
     }
     else if (display?.showModel !== false) {
-        parts.push(`${cyan(`[${modelDisplay}]`)} ${contextValueDisplay}`);
+        sections.push({ key: 'model', content: `${cyan(`[${modelDisplay}]`)} ${contextValueDisplay}` });
     }
     else if (display?.showContextBar !== false) {
-        parts.push(`${bar} ${contextValueDisplay}`);
+        sections.push({ key: 'model', content: `${bar} ${contextValueDisplay}` });
     }
     else {
-        parts.push(contextValueDisplay);
+        sections.push({ key: 'model', content: contextValueDisplay });
     }
-    // Project path (SECOND)
+    // --- PRIORITY 2: Project + git ---
     if (ctx.stdin.cwd) {
-        // Split by both Unix (/) and Windows (\) separators for cross-platform support
         const segments = ctx.stdin.cwd.split(/[/\\]/).filter(Boolean);
         const pathLevels = ctx.config?.pathLevels ?? 1;
-        // Always join with forward slash for consistent display
-        // Handle root path (/) which results in empty segments
         const projectPath = segments.length > 0 ? segments.slice(-pathLevels).join('/') : '/';
-        // Build git status string
         let gitPart = '';
         const gitConfig = ctx.config?.gitStatus;
         const showGit = gitConfig?.enabled ?? true;
         if (showGit && ctx.gitStatus) {
             const gitParts = [ctx.gitStatus.branch];
-            // Show dirty indicator
             if ((gitConfig?.showDirty ?? true) && ctx.gitStatus.isDirty) {
                 gitParts.push('*');
             }
-            // Show ahead/behind (with space separator for readability)
             if (gitConfig?.showAheadBehind) {
-                if (ctx.gitStatus.ahead > 0) {
+                if (ctx.gitStatus.ahead > 0)
                     gitParts.push(` ↑${ctx.gitStatus.ahead}`);
-                }
-                if (ctx.gitStatus.behind > 0) {
+                if (ctx.gitStatus.behind > 0)
                     gitParts.push(` ↓${ctx.gitStatus.behind}`);
-                }
             }
-            // Show file stats in Starship-compatible format (!modified +added ✘deleted ?untracked)
             if (gitConfig?.showFileStats && ctx.gitStatus.fileStats) {
                 const { modified, added, deleted, untracked } = ctx.gitStatus.fileStats;
                 const statParts = [];
@@ -79,102 +83,130 @@ export function renderSessionLine(ctx) {
                     statParts.push(`✘${deleted}`);
                 if (untracked > 0)
                     statParts.push(`?${untracked}`);
-                if (statParts.length > 0) {
+                if (statParts.length > 0)
                     gitParts.push(` ${statParts.join(' ')}`);
-                }
             }
             gitPart = ` ${magenta('git:(')}${cyan(gitParts.join(''))}${magenta(')')}`;
         }
-        parts.push(`${yellow(projectPath)}${gitPart}`);
+        sections.push({ key: 'project', content: `${yellow(projectPath)}${gitPart}` });
     }
-    // Config counts (respects environmentThreshold)
-    if (display?.showConfigCounts !== false) {
-        const totalCounts = ctx.claudeMdCount + ctx.rulesCount + ctx.mcpCount + ctx.hooksCount;
-        const envThreshold = display?.environmentThreshold ?? 0;
-        if (totalCounts > 0 && totalCounts >= envThreshold) {
-            if (ctx.claudeMdCount > 0) {
-                parts.push(dim(`${ctx.claudeMdCount} CLAUDE.md`));
-            }
-            if (ctx.rulesCount > 0) {
-                parts.push(dim(`${ctx.rulesCount} rules`));
-            }
-            if (ctx.mcpCount > 0) {
-                parts.push(dim(`${ctx.mcpCount} MCPs`));
-            }
-            if (ctx.hooksCount > 0) {
-                parts.push(dim(`${ctx.hooksCount} hooks`));
-            }
-        }
-    }
-    // Usage limits display (shown when enabled in config, respects usageThreshold)
+    // --- PRIORITY 3: Usage (split into 5h and 7d for independent shedding) ---
     if (display?.showUsage !== false && ctx.usageData?.planName && !providerLabel) {
-        if (ctx.usageData.apiUnavailable) {
-            const errorHint = formatUsageError(ctx.usageData.apiError);
-            parts.push(yellow(`usage: ⚠${errorHint}`));
-        }
-        else if (isLimitReached(ctx.usageData)) {
-            const resetTime = ctx.usageData.fiveHour === 100
-                ? formatResetTime(ctx.usageData.fiveHourResetAt)
-                : formatResetTime(ctx.usageData.sevenDayResetAt);
-            parts.push(red(`⚠ Limit reached${resetTime ? ` (resets ${resetTime})` : ''}`));
-        }
-        else {
-            const usageThreshold = display?.usageThreshold ?? 0;
-            const fiveHour = ctx.usageData.fiveHour;
-            const sevenDay = ctx.usageData.sevenDay;
-            const effectiveUsage = Math.max(fiveHour ?? 0, sevenDay ?? 0);
-            if (effectiveUsage >= usageThreshold) {
-                const fiveHourDisplay = formatUsagePercent(fiveHour);
-                const fiveHourReset = formatResetTime(ctx.usageData.fiveHourResetAt);
-                const usageBarEnabled = display?.usageBarEnabled ?? true;
-                const fiveHourPart = usageBarEnabled
-                    ? (fiveHourReset
-                        ? `${quotaBar(fiveHour ?? 0)} ${fiveHourDisplay} (${fiveHourReset} / 5h)`
-                        : `${quotaBar(fiveHour ?? 0)} ${fiveHourDisplay}`)
-                    : (fiveHourReset
-                        ? `5h: ${fiveHourDisplay} (${fiveHourReset})`
-                        : `5h: ${fiveHourDisplay}`);
-                const sevenDayThreshold = display?.sevenDayThreshold ?? 80;
-                if (sevenDay !== null && sevenDay >= sevenDayThreshold) {
-                    const sevenDayDisplay = formatUsagePercent(sevenDay);
-                    const sevenDayReset = formatResetTime(ctx.usageData.sevenDayResetAt);
-                    const sevenDayPart = usageBarEnabled
-                        ? (sevenDayReset
-                            ? `${quotaBar(sevenDay)} ${sevenDayDisplay} (${sevenDayReset} / 7d)`
-                            : `${quotaBar(sevenDay)} ${sevenDayDisplay}`)
-                        : `7d: ${sevenDayDisplay}`;
-                    parts.push(`${fiveHourPart} | ${sevenDayPart}`);
-                }
-                else {
-                    parts.push(fiveHourPart);
-                }
-            }
+        const usageParts = buildUsageSections(ctx, display);
+        for (const part of usageParts) {
+            sections.push(part);
         }
     }
-    // Session duration
+    // --- PRIORITY 4: Config counts (low priority, dropped first) ---
+    if (display?.showConfigCounts !== false) {
+        const countParts = buildConfigCountParts(ctx, display);
+        for (const part of countParts) {
+            sections.push({ key: 'config', content: part });
+        }
+    }
+    // --- PRIORITY 5: Speed (optional) ---
     if (display?.showSpeed) {
         const speed = getOutputSpeed(ctx.stdin);
         if (speed !== null) {
-            parts.push(dim(`out: ${speed.toFixed(1)} tok/s`));
+            sections.push({ key: 'speed', content: dim(`out: ${speed.toFixed(1)} tok/s`) });
         }
     }
+    // --- PRIORITY 6: Duration (optional) ---
     if (display?.showDuration !== false && ctx.sessionDuration) {
-        parts.push(dim(`⏱️  ${ctx.sessionDuration}`));
+        sections.push({ key: 'duration', content: dim(`⏱️  ${ctx.sessionDuration}`) });
     }
+    // --- PRIORITY 7: Extra label (lowest) ---
     if (ctx.extraLabel) {
-        parts.push(dim(ctx.extraLabel));
+        sections.push({ key: 'extra', content: dim(ctx.extraLabel) });
     }
-    let line = parts.join(' | ');
-    // Token breakdown at high context
+    // Append token breakdown suffix to model section at high context
     if (display?.showTokenBreakdown !== false && percent >= 85) {
         const usage = ctx.stdin.context_window?.current_usage;
-        if (usage) {
+        if (usage && sections.length > 0) {
             const input = formatTokens(usage.input_tokens ?? 0);
             const cache = formatTokens((usage.cache_creation_input_tokens ?? 0) + (usage.cache_read_input_tokens ?? 0));
-            line += dim(` (in: ${input}, cache: ${cache})`);
+            sections[0].content += dim(` (in: ${input}, cache: ${cache})`);
         }
     }
-    return line;
+    return sections;
+}
+/**
+ * Build usage as separate sections (5h and 7d) so they can be independently
+ * shed when the terminal is too narrow. 7d drops before 5h.
+ */
+function buildUsageSections(ctx, display) {
+    if (!ctx.usageData)
+        return [];
+    if (ctx.usageData.apiUnavailable) {
+        const errorHint = formatUsageError(ctx.usageData.apiError);
+        return [{ key: 'usage-5h', content: yellow(`usage: ⚠${errorHint}`) }];
+    }
+    if (isLimitReached(ctx.usageData)) {
+        const resetTime = ctx.usageData.fiveHour === 100
+            ? formatResetTime(ctx.usageData.fiveHourResetAt)
+            : formatResetTime(ctx.usageData.sevenDayResetAt);
+        return [{ key: 'usage-5h', content: red(`⚠ Limit reached${resetTime ? ` (resets ${resetTime})` : ''}`) }];
+    }
+    const usageThreshold = display?.usageThreshold ?? 0;
+    const fiveHour = ctx.usageData.fiveHour;
+    const sevenDay = ctx.usageData.sevenDay;
+    const effectiveUsage = Math.max(fiveHour ?? 0, sevenDay ?? 0);
+    if (effectiveUsage < usageThreshold)
+        return [];
+    const fiveHourDisplay = formatUsagePercent(fiveHour);
+    const fiveHourReset = formatResetTime(ctx.usageData.fiveHourResetAt);
+    const usageBarEnabled = display?.usageBarEnabled ?? true;
+    const fiveHourContent = usageBarEnabled
+        ? (fiveHourReset
+            ? `${quotaBar(fiveHour ?? 0)} ${fiveHourDisplay} (${fiveHourReset} / 5h)`
+            : `${quotaBar(fiveHour ?? 0)} ${fiveHourDisplay}`)
+        : (fiveHourReset
+            ? `5h: ${fiveHourDisplay} (${fiveHourReset})`
+            : `5h: ${fiveHourDisplay}`);
+    const result = [{ key: 'usage-5h', content: fiveHourContent }];
+    const sevenDayThreshold = display?.sevenDayThreshold ?? 80;
+    if (sevenDay !== null && sevenDay >= sevenDayThreshold) {
+        const sevenDayDisplay = formatUsagePercent(sevenDay);
+        const sevenDayReset = formatResetTime(ctx.usageData.sevenDayResetAt);
+        const sevenDayContent = usageBarEnabled
+            ? (sevenDayReset
+                ? `${quotaBar(sevenDay)} ${sevenDayDisplay} (${sevenDayReset} / 7d)`
+                : `${quotaBar(sevenDay)} ${sevenDayDisplay}`)
+            : `7d: ${sevenDayDisplay}`;
+        result.push({ key: 'usage-7d', content: sevenDayContent });
+    }
+    return result;
+}
+function buildConfigCountParts(ctx, display) {
+    const totalCounts = ctx.claudeMdCount + ctx.rulesCount + ctx.mcpCount + ctx.hooksCount;
+    const envThreshold = display?.environmentThreshold ?? 0;
+    const parts = [];
+    if (totalCounts > 0 && totalCounts >= envThreshold) {
+        if (ctx.claudeMdCount > 0)
+            parts.push(dim(`${ctx.claudeMdCount} CLAUDE.md`));
+        if (ctx.rulesCount > 0)
+            parts.push(dim(`${ctx.rulesCount} rules`));
+        if (ctx.mcpCount > 0)
+            parts.push(dim(`${ctx.mcpCount} MCPs`));
+        if (ctx.hooksCount > 0)
+            parts.push(dim(`${ctx.hooksCount} hooks`));
+    }
+    return parts;
+}
+/**
+ * Join sections with separators, progressively dropping lowest-priority (last) sections
+ * until the result fits within maxWidth. The first section (model+context) is never dropped.
+ */
+function fitSections(sections, maxWidth) {
+    // Try with all sections, then drop from the end
+    for (let count = sections.length; count >= 1; count--) {
+        const line = sections.slice(0, count).map(s => s.content).join(SEP);
+        if (visualLength(line) <= maxWidth) {
+            return line;
+        }
+    }
+    // Even the first section alone overflows — return it (will be truncated by caller)
+    return sections[0]?.content ?? '';
 }
 function formatTokens(n) {
     if (n >= 1000000) {

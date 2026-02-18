@@ -1,4 +1,12 @@
 export const RESET = '\x1b[0m';
+// eslint-disable-next-line no-control-regex
+const ANSI_RE = /\x1b\[[0-9;]*m/g;
+export function stripAnsi(str) {
+    return str.replace(ANSI_RE, '');
+}
+export function visualLength(str) {
+    return stripAnsi(str).length;
+}
 const DIM = '\x1b[2m';
 const RED = '\x1b[31m';
 const GREEN = '\x1b[32m';
