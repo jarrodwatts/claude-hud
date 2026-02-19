@@ -123,14 +123,17 @@ function writeConfigCache(data: ConfigCounts, cwd: string | undefined): void {
   }
 }
 
-export async function countConfigs(cwd?: string): Promise<ConfigCounts> {
-  const cached = readConfigCache(cwd);
-  if (cached) return cached;
+export async function countConfigs(cwd?: string, overrideHomeDir?: string): Promise<ConfigCounts> {
+  // Skip cache when homeDir is overridden (testing mode) to avoid cross-test interference
+  if (!overrideHomeDir) {
+    const cached = readConfigCache(cwd);
+    if (cached) return cached;
+  }
   let claudeMdCount = 0;
   let rulesCount = 0;
   let hooksCount = 0;
 
-  const homeDir = os.homedir();
+  const homeDir = overrideHomeDir ?? os.homedir();
   const claudeDir = path.join(homeDir, '.claude');
 
   // Collect all MCP servers across scopes, then subtract disabled ones
@@ -225,7 +228,9 @@ export async function countConfigs(cwd?: string): Promise<ConfigCounts> {
   const mcpCount = userMcpServers.size + projectMcpServers.size;
 
   const result = { claudeMdCount, rulesCount, mcpCount, hooksCount };
-  writeConfigCache(result, cwd);
+  if (!overrideHomeDir) {
+    writeConfigCache(result, cwd);
+  }
   return result;
 }
 
