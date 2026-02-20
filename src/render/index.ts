@@ -3,6 +3,7 @@ import { renderSessionLine } from './session-line.js';
 import { renderToolsLine } from './tools-line.js';
 import { renderAgentsLine } from './agents-line.js';
 import { renderTodosLine } from './todos-line.js';
+import { renderSummaryLines } from './summary-line.js';
 import {
   renderIdentityLine,
   renderProjectLine,
@@ -105,6 +106,9 @@ export function render(ctx: RenderContext): void {
   }
 
   lines.push(...activityLines);
+
+  const summaryLines = renderSummaryLines(ctx);
+  lines.push(...summaryLines);
 
   for (const line of lines) {
     const outputLine = `${RESET}${line.replace(/ /g, '\u00A0')}`;

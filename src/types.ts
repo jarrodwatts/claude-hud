@@ -74,6 +74,13 @@ export interface TranscriptData {
   sessionStart?: Date;
 }
 
+export interface SummaryData {
+  turnCount: number;
+  lastTurnCount: number;
+  summary: [string, string] | null;
+  timestamp: number;
+}
+
 export interface RenderContext {
   stdin: StdinData;
   transcript: TranscriptData;
@@ -84,6 +91,7 @@ export interface RenderContext {
   sessionDuration: string;
   gitStatus: GitStatus | null;
   usageData: UsageData | null;
+  summaryData: SummaryData | null;
   config: HudConfig;
   extraLabel: string | null;
 }

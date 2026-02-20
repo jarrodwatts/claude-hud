@@ -201,6 +201,78 @@ function resolveTaskIndex(
   return null;
 }
 
+interface TranscriptLineWithRole {
+  role?: string;
+  message?: {
+    role?: string;
+    content?: ContentBlock[];
+  };
+}
+
+interface TextBlock {
+  type: 'text';
+  text: string;
+}
+
+export interface RecentMessagesResult {
+  turnCount: number;
+  text: string;
+}
+
+export async function extractRecentMessages(transcriptPath: string, maxMessages = 10): Promise<RecentMessagesResult> {
+  const result: RecentMessagesResult = { turnCount: 0, text: '' };
+
+  if (!transcriptPath || !fs.existsSync(transcriptPath)) {
+    return result;
+  }
+
+  const messages: string[] = [];
+  let userTurns = 0;
+
+  try {
+    const fileStream = fs.createReadStream(transcriptPath);
+    const rl = readline.createInterface({ input: fileStream, crlfDelay: Infinity });
+
+    for await (const line of rl) {
+      if (!line.trim()) continue;
+      try {
+        const entry = JSON.parse(line) as TranscriptLineWithRole;
+        const role = entry.role ?? entry.message?.role;
+        const content = entry.message?.content;
+
+        if (role === 'user') {
+          userTurns++;
+        }
+
+        if (!content || !Array.isArray(content)) continue;
+
+        const parts: string[] = [];
+        for (const block of content) {
+          if (block.type === 'text' && (block as unknown as TextBlock).text) {
+            parts.push((block as unknown as TextBlock).text);
+          } else if (block.type === 'tool_use' && block.name) {
+            parts.push(`[tool: ${block.name}]`);
+          }
+        }
+
+        if (parts.length > 0) {
+          const prefix = role === 'user' ? 'User' : role === 'assistant' ? 'Assistant' : 'System';
+          messages.push(`${prefix}: ${parts.join(' ')}`);
+        }
+      } catch {
+        // skip
+      }
+    }
+  } catch {
+    // return partial
+  }
+
+  result.turnCount = userTurns;
+  const recent = messages.slice(-maxMessages);
+  result.text = recent.join('\n').slice(-3000);
+  return result;
+}
+
 function normalizeTaskStatus(status: unknown): TodoItem['status'] | null {
   if (typeof status !== 'string') return null;
 

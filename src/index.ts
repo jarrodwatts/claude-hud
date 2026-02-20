@@ -6,6 +6,7 @@ import { getGitStatus } from './git.js';
 import { getUsage } from './usage-api.js';
 import { loadConfig } from './config.js';
 import { parseExtraCmdArg, runExtraCmd } from './extra-cmd.js';
+import { getSummary } from './summary.js';
 import type { RenderContext } from './types.js';
 import { fileURLToPath } from 'node:url';
 import { realpathSync } from 'node:fs';
@@ -16,6 +17,7 @@ export type MainDeps = {
   countConfigs: typeof countConfigs;
   getGitStatus: typeof getGitStatus;
   getUsage: typeof getUsage;
+  getSummary: typeof getSummary;
   loadConfig: typeof loadConfig;
   parseExtraCmdArg: typeof parseExtraCmdArg;
   runExtraCmd: typeof runExtraCmd;
@@ -31,6 +33,7 @@ export async function main(overrides: Partial<MainDeps> = {}): Promise<void> {
     countConfigs,
     getGitStatus,
     getUsage,
+    getSummary,
     loadConfig,
     parseExtraCmdArg,
     runExtraCmd,
@@ -63,6 +66,10 @@ export async function main(overrides: Partial<MainDeps> = {}): Promise<void> {
       ? await deps.getUsage()
       : null;
 
+    const summaryData = config.display.showSummary
+      ? await deps.getSummary(transcriptPath, config.display.summaryInterval)
+      : null;
+
     const extraCmd = deps.parseExtraCmdArg();
     const extraLabel = extraCmd ? await deps.runExtraCmd(extraCmd) : null;
 
@@ -78,6 +85,7 @@ export async function main(overrides: Partial<MainDeps> = {}): Promise<void> {
       sessionDuration,
       gitStatus,
       usageData,
+      summaryData,
       config,
       extraLabel,
     };
