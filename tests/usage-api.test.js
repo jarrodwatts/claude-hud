@@ -1,6 +1,6 @@
 import { test, describe, beforeEach, afterEach } from 'node:test';
 import assert from 'node:assert/strict';
-import { getUsage, clearCache } from '../dist/usage-api.js';
+import { getUsage, clearCache, isNoProxy, getProxyUrl } from '../dist/usage-api.js';
 import { mkdtemp, rm, mkdir, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
@@ -329,6 +329,146 @@ describe('getUsage caching behavior', () => {
     clearCache(tempHome);
     await getUsage({ homeDir: () => tempHome, fetchApi, now: () => 2000, readKeychain: () => null });
     assert.equal(fetchCalls, 2);
+  });
+});
+
+describe('isNoProxy', () => {
+  const envKeys = ['NO_PROXY', 'no_proxy', 'HTTPS_PROXY', 'https_proxy', 'HTTP_PROXY', 'http_proxy'];
+  let savedEnv;
+
+  beforeEach(() => {
+    savedEnv = {};
+    for (const key of envKeys) {
+      savedEnv[key] = process.env[key];
+      delete process.env[key];
+    }
+  });
+
+  afterEach(() => {
+    for (const key of envKeys) {
+      if (savedEnv[key] !== undefined) {
+        process.env[key] = savedEnv[key];
+      } else {
+        delete process.env[key];
+      }
+    }
+  });
+
+  test('returns false when NO_PROXY is not set', () => {
+    assert.equal(isNoProxy('api.anthropic.com'), false);
+  });
+
+  test('matches exact hostname', () => {
+    process.env.NO_PROXY = 'api.anthropic.com';
+    assert.equal(isNoProxy('api.anthropic.com'), true);
+    assert.equal(isNoProxy('other.com'), false);
+  });
+
+  test('matches domain suffix with leading dot', () => {
+    process.env.NO_PROXY = '.anthropic.com';
+    assert.equal(isNoProxy('api.anthropic.com'), true);
+    assert.equal(isNoProxy('anthropic.com'), false);
+  });
+
+  test('matches domain suffix without leading dot', () => {
+    process.env.NO_PROXY = 'anthropic.com';
+    assert.equal(isNoProxy('api.anthropic.com'), true);
+    assert.equal(isNoProxy('anthropic.com'), true);
+  });
+
+  test('handles wildcard', () => {
+    process.env.NO_PROXY = '*';
+    assert.equal(isNoProxy('api.anthropic.com'), true);
+    assert.equal(isNoProxy('anything.example.org'), true);
+  });
+
+  test('handles comma-separated list', () => {
+    process.env.NO_PROXY = 'localhost, .internal.corp, api.anthropic.com';
+    assert.equal(isNoProxy('api.anthropic.com'), true);
+    assert.equal(isNoProxy('foo.internal.corp'), true);
+    assert.equal(isNoProxy('localhost'), true);
+    assert.equal(isNoProxy('external.com'), false);
+  });
+
+  test('is case-insensitive', () => {
+    process.env.NO_PROXY = 'API.Anthropic.COM';
+    assert.equal(isNoProxy('api.anthropic.com'), true);
+  });
+
+  test('reads no_proxy (lowercase) env var', () => {
+    process.env.no_proxy = 'api.anthropic.com';
+    assert.equal(isNoProxy('api.anthropic.com'), true);
+  });
+
+  test('ignores empty entries', () => {
+    process.env.NO_PROXY = ',, api.anthropic.com,,';
+    assert.equal(isNoProxy('api.anthropic.com'), true);
+    assert.equal(isNoProxy('other.com'), false);
+  });
+});
+
+describe('getProxyUrl', () => {
+  const envKeys = ['HTTPS_PROXY', 'https_proxy', 'HTTP_PROXY', 'http_proxy', 'NO_PROXY', 'no_proxy'];
+  let savedEnv;
+
+  beforeEach(() => {
+    savedEnv = {};
+    for (const key of envKeys) {
+      savedEnv[key] = process.env[key];
+      delete process.env[key];
+    }
+  });
+
+  afterEach(() => {
+    for (const key of envKeys) {
+      if (savedEnv[key] !== undefined) {
+        process.env[key] = savedEnv[key];
+      } else {
+        delete process.env[key];
+      }
+    }
+  });
+
+  test('returns null when no proxy env is set', () => {
+    assert.equal(getProxyUrl('api.anthropic.com'), null);
+  });
+
+  test('returns proxy URL from HTTPS_PROXY', () => {
+    process.env.HTTPS_PROXY = 'https://proxy.example.com:8443';
+    const url = getProxyUrl('api.anthropic.com');
+    assert.equal(url?.hostname, 'proxy.example.com');
+    assert.equal(url?.port, '8443');
+  });
+
+  test('prefers HTTPS_PROXY over HTTP_PROXY', () => {
+    process.env.HTTPS_PROXY = 'https://preferred.example.com:8443';
+    process.env.HTTP_PROXY = 'https://fallback.example.com:8080';
+    const url = getProxyUrl('api.anthropic.com');
+    assert.equal(url?.hostname, 'preferred.example.com');
+  });
+
+  test('falls back to HTTP_PROXY', () => {
+    process.env.HTTP_PROXY = 'https://fallback.example.com:8080';
+    const url = getProxyUrl('api.anthropic.com');
+    assert.equal(url?.hostname, 'fallback.example.com');
+  });
+
+  test('returns null for invalid proxy URL', () => {
+    process.env.HTTPS_PROXY = 'not-a-valid-url';
+    assert.equal(getProxyUrl('api.anthropic.com'), null);
+  });
+
+  test('returns null when hostname is in NO_PROXY', () => {
+    process.env.HTTPS_PROXY = 'https://proxy.example.com:8443';
+    process.env.NO_PROXY = 'api.anthropic.com';
+    assert.equal(getProxyUrl('api.anthropic.com'), null);
+  });
+
+  test('returns proxy URL when hostname is not in NO_PROXY', () => {
+    process.env.HTTPS_PROXY = 'https://proxy.example.com:8443';
+    process.env.NO_PROXY = 'other.com';
+    const url = getProxyUrl('api.anthropic.com');
+    assert.equal(url?.hostname, 'proxy.example.com');
   });
 });
 

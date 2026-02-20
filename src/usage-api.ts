@@ -1,6 +1,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
+import type * as http from 'http';
 import * as https from 'https';
 import { execFileSync } from 'child_process';
 import type { UsageData } from './types.js';
@@ -387,21 +388,50 @@ function parseDate(dateStr: string | undefined): Date | null {
   return date;
 }
 
+// Exported for testing
+export function isNoProxy(hostname: string): boolean {
+  const noProxy = process.env.NO_PROXY || process.env.no_proxy;
+  if (!noProxy) return false;
+
+  return noProxy.split(',').some((entry) => {
+    const pattern = entry.trim().toLowerCase();
+    if (!pattern) return false;
+    if (pattern === '*') return true;
+    const host = hostname.toLowerCase();
+    // Exact match or suffix match with leading dot
+    return host === pattern || host.endsWith(pattern.startsWith('.') ? pattern : `.${pattern}`);
+  });
+}
+
+// Exported for testing
+export function getProxyUrl(hostname: string): URL | null {
+  if (isNoProxy(hostname)) {
+    debug('Proxy bypassed for:', hostname);
+    return null;
+  }
+
+  const proxyEnv = process.env.HTTPS_PROXY || process.env.https_proxy ||
+                   process.env.HTTP_PROXY || process.env.http_proxy;
+  if (!proxyEnv) return null;
+  try {
+    return new URL(proxyEnv);
+  } catch {
+    debug('Invalid proxy URL:', proxyEnv);
+    return null;
+  }
+}
+
 function fetchUsageApi(accessToken: string): Promise<UsageApiResult> {
   return new Promise((resolve) => {
-    const options = {
-      hostname: 'api.anthropic.com',
-      path: '/api/oauth/usage',
-      method: 'GET',
-      headers: {
-        'Authorization': `Bearer ${accessToken}`,
-        'anthropic-beta': 'oauth-2025-04-20',
-        'User-Agent': 'claude-hud/1.0',
-      },
-      timeout: 5000,
+    const headers: Record<string, string> = {
+      'Authorization': `Bearer ${accessToken}`,
+      'anthropic-beta': 'oauth-2025-04-20',
+      'User-Agent': 'claude-hud/1.0',
     };
 
-    const req = https.request(options, (res) => {
+    const targetHost = 'api.anthropic.com';
+
+    function handleResponse(res: http.IncomingMessage): void {
       let data = '';
 
       res.on('data', (chunk: Buffer) => {
@@ -423,7 +453,42 @@ function fetchUsageApi(accessToken: string): Promise<UsageApiResult> {
           resolve({ data: null, error: 'parse' });
         }
       });
-    });
+    }
+
+    const proxyUrl = getProxyUrl(targetHost);
+    let req: http.ClientRequest;
+
+    if (proxyUrl) {
+      debug('Using proxy:', proxyUrl.origin);
+
+      const proxyHeaders: Record<string, string> = {
+        ...headers,
+        'Host': targetHost,
+      };
+
+      if (proxyUrl.username) {
+        proxyHeaders['Proxy-Authorization'] = 'Basic ' + Buffer.from(
+          `${decodeURIComponent(proxyUrl.username)}:${decodeURIComponent(proxyUrl.password || '')}`
+        ).toString('base64');
+      }
+
+      req = https.request({
+        hostname: proxyUrl.hostname,
+        port: parseInt(proxyUrl.port || '443', 10),
+        path: `https://${targetHost}/api/oauth/usage`,
+        method: 'GET',
+        headers: proxyHeaders,
+        timeout: 5000,
+      }, handleResponse);
+    } else {
+      req = https.request({
+        hostname: targetHost,
+        path: '/api/oauth/usage',
+        method: 'GET',
+        headers,
+        timeout: 5000,
+      }, handleResponse);
+    }
 
     req.on('error', (error) => {
       debug('API request error:', error);
