@@ -32,5 +32,7 @@ export type UsageApiDeps = {
  * Cache TTL: 60s for success, 15s for failures.
  */
 export declare function getUsage(overrides?: Partial<UsageApiDeps>): Promise<UsageData | null>;
+export declare function isNoProxy(hostname: string): boolean;
+export declare function getProxyUrl(hostname: string): URL | null;
 export declare function clearCache(homeDir?: string): void;
 //# sourceMappingURL=usage-api.d.ts.map

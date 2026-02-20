@@ -1,7 +1,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
-import type * as http from 'http';
+import * as http from 'http';
 import * as https from 'https';
 import { execFileSync } from 'child_process';
 import type { UsageData } from './types.js';
@@ -472,9 +472,11 @@ function fetchUsageApi(accessToken: string): Promise<UsageApiResult> {
         ).toString('base64');
       }
 
-      req = https.request({
+      const isHttps = proxyUrl.protocol === 'https:';
+      const requestFn = isHttps ? https.request : http.request;
+      req = requestFn({
         hostname: proxyUrl.hostname,
-        port: parseInt(proxyUrl.port || '443', 10),
+        port: parseInt(proxyUrl.port || (isHttps ? '443' : '80'), 10),
         path: `https://${targetHost}/api/oauth/usage`,
         method: 'GET',
         headers: proxyHeaders,
