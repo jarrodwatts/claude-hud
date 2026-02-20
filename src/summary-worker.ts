@@ -20,6 +20,7 @@ Rules:
 - Each line max 60 characters
 - Keep project names, ticket IDs, and technical terms as-is
 - Be specific enough to distinguish this session from others
+- Respond in the same language as the conversation (e.g., if the conversation is in Korean, write the summary in Korean — but keep technical terms, project names, and ticket IDs in their original form)
 - Output exactly 2 lines, nothing else`;
 
 function getPluginDir(): string {
@@ -75,6 +76,7 @@ async function main(): Promise<void> {
         maxTurns: 1,
         permissionMode: 'bypassPermissions',
         allowDangerouslySkipPermissions: true,
+        dangerouslySkipSave: true,
         env: cleanEnv,
       },
     });

@@ -159,6 +159,55 @@ function resolveTaskIndex(taskId, taskIdToIndex, latestTodos) {
     }
     return null;
 }
+export async function extractRecentMessages(transcriptPath, maxMessages = 10) {
+    const result = { turnCount: 0, text: '' };
+    if (!transcriptPath || !fs.existsSync(transcriptPath)) {
+        return result;
+    }
+    const messages = [];
+    let userTurns = 0;
+    try {
+        const fileStream = fs.createReadStream(transcriptPath);
+        const rl = readline.createInterface({ input: fileStream, crlfDelay: Infinity });
+        for await (const line of rl) {
+            if (!line.trim())
+                continue;
+            try {
+                const entry = JSON.parse(line);
+                const role = entry.role ?? entry.message?.role;
+                const content = entry.message?.content;
+                if (role === 'user') {
+                    userTurns++;
+                }
+                if (!content || !Array.isArray(content))
+                    continue;
+                const parts = [];
+                for (const block of content) {
+                    if (block.type === 'text' && block.text) {
+                        parts.push(block.text);
+                    }
+                    else if (block.type === 'tool_use' && block.name) {
+                        parts.push(`[tool: ${block.name}]`);
+                    }
+                }
+                if (parts.length > 0) {
+                    const prefix = role === 'user' ? 'User' : role === 'assistant' ? 'Assistant' : 'System';
+                    messages.push(`${prefix}: ${parts.join(' ')}`);
+                }
+            }
+            catch {
+                // skip
+            }
+        }
+    }
+    catch {
+        // return partial
+    }
+    result.turnCount = userTurns;
+    const recent = messages.slice(-maxMessages);
+    result.text = recent.join('\n').slice(-3000);
+    return result;
+}
 function normalizeTaskStatus(status) {
     if (typeof status !== 'string')
         return null;

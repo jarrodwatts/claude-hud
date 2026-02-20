@@ -6,6 +6,7 @@ import { getGitStatus } from './git.js';
 import { getUsage } from './usage-api.js';
 import { loadConfig } from './config.js';
 import { parseExtraCmdArg, runExtraCmd } from './extra-cmd.js';
+import { getSummary } from './summary.js';
 import { fileURLToPath } from 'node:url';
 import { realpathSync } from 'node:fs';
 export async function main(overrides = {}) {
@@ -15,6 +16,7 @@ export async function main(overrides = {}) {
         countConfigs,
         getGitStatus,
         getUsage,
+        getSummary,
         loadConfig,
         parseExtraCmdArg,
         runExtraCmd,
@@ -40,6 +42,9 @@ export async function main(overrides = {}) {
         const usageData = config.display.showUsage !== false
             ? await deps.getUsage()
             : null;
+        const summaryData = config.display.showSummary
+            ? await deps.getSummary(transcriptPath, config.display.summaryInterval)
+            : null;
         const extraCmd = deps.parseExtraCmdArg();
         const extraLabel = extraCmd ? await deps.runExtraCmd(extraCmd) : null;
         const sessionDuration = formatSessionDuration(transcript.sessionStart, deps.now);
@@ -53,6 +58,7 @@ export async function main(overrides = {}) {
             sessionDuration,
             gitStatus,
             usageData,
+            summaryData,
             config,
             extraLabel,
         };
