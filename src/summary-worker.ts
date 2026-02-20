@@ -2,25 +2,37 @@ import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
 import { createHash } from 'crypto';
+import { spawn } from 'child_process';
 import { extractRecentMessages } from './transcript.js';
 
 const SUMMARY_PROMPT = `Summarize the following Claude Code session in exactly 2 lines so it can be identified at a glance across multiple terminals.
 
-Line 1: "🏷️ " + session topic/purpose (project name, feature, ticket ID — key identifiers)
-Line 2: "📍 " + current status in one line
+Line 1: "🏷️ " + repo/project name + specific task (feature name, bug, ticket ID)
+Line 2: "📍 " + the most recent concrete action — mention actual file names, function names, or commands
 
-Examples:
-🏷️ claude-hud plugin — adding Haiku session summary
-📍 Background worker implemented, testing cache
+CRITICAL: Be concrete. Use actual names from the conversation.
 
-🏷️ MCP server deploy (AI-2076) — Dockerfile optimization
-📍 Addressing PR review feedback
+❌ Bad:
+🏷️ Claude Code — transcript file processing
+📍 File structure analysis done, planning implementation
+
+✅ Good:
+🏷️ claude-hud — session summary bug fix
+📍 Adding tool input extraction to extractRecentMessages()
+
+❌ Bad:
+🏷️ Backend API improvements
+📍 Working on database optimization
+
+✅ Good:
+🏷️ acme-api — /users endpoint N+1 query fix
+📍 Added preload(:posts) to UsersController#index
 
 Rules:
 - Each line max 60 characters
-- Keep project names, ticket IDs, and technical terms as-is
-- Be specific enough to distinguish this session from others
-- Respond in the same language as the conversation (e.g., if the conversation is in Korean, write the summary in Korean — but keep technical terms, project names, and ticket IDs in their original form)
+- Never use vague words like "working on", "improvements", "analysis done", "implementing"
+- Always include actual file names, function names, or specific identifiers from the conversation
+- Respond in the same language as the conversation (keep technical terms as-is)
 - Output exactly 2 lines, nothing else`;
 
 function getPluginDir(): string {
@@ -37,6 +49,32 @@ function writeLock(transcriptPath: string): void {
 
 function removeLock(transcriptPath: string): void {
   try { fs.unlinkSync(path.join(getPluginDir(), `.summary-${sessionHash(transcriptPath)}.lock`)); } catch { /* ignore */ }
+}
+
+function runClaude(prompt: string): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const child = spawn('claude', ['-p', '--no-session-persistence', '--model', 'haiku'], {
+      stdio: ['pipe', 'pipe', 'pipe'],
+      env: { ...process.env, CLAUDECODE: undefined },
+    });
+
+    let stdout = '';
+    let stderr = '';
+    child.stdout.on('data', (data: Buffer) => { stdout += data.toString(); });
+    child.stderr.on('data', (data: Buffer) => { stderr += data.toString(); });
+
+    child.on('close', (code) => {
+      if (code === 0) {
+        resolve(stdout.trim());
+      } else {
+        reject(new Error(`claude exited with code ${code}: ${stderr}`));
+      }
+    });
+
+    child.on('error', reject);
+    child.stdin.write(prompt);
+    child.stdin.end();
+  });
 }
 
 async function main(): Promise<void> {
@@ -58,36 +96,9 @@ async function main(): Promise<void> {
       process.exit(0);
     }
 
-    const { query } = await import('@anthropic-ai/claude-agent-sdk');
-
     const fullPrompt = `${SUMMARY_PROMPT}\n\nConversation:\n${text}`;
 
-    const cleanEnv: Record<string, string> = {};
-    for (const [key, value] of Object.entries(process.env)) {
-      if (key !== 'CLAUDECODE' && value !== undefined) {
-        cleanEnv[key] = value;
-      }
-    }
-
-    const conversation = query({
-      prompt: fullPrompt,
-      options: {
-        model: 'haiku',
-        maxTurns: 1,
-        permissionMode: 'bypassPermissions',
-        allowDangerouslySkipPermissions: true,
-        dangerouslySkipSave: true,
-        env: cleanEnv,
-      },
-    });
-
-    let resultText = '';
-    for await (const message of conversation) {
-      if (message.type === 'result' && message.subtype === 'success') {
-        resultText = message.result;
-        break;
-      }
-    }
+    const resultText = await runClaude(fullPrompt);
 
     if (resultText) {
       const lines = resultText.split('\n').filter((l: string) => l.trim().length > 0);

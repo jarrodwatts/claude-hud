@@ -237,7 +237,7 @@ export async function extractRecentMessages(transcriptPath: string, maxMessages 
       if (!line.trim()) continue;
       try {
         const entry = JSON.parse(line) as TranscriptLineWithRole;
-        const role = entry.role ?? entry.message?.role;
+        const role = entry.role ?? entry.message?.role ?? (entry as Record<string, unknown>).type as string | undefined;
         const content = entry.message?.content;
 
         if (role === 'user') {
@@ -251,7 +251,8 @@ export async function extractRecentMessages(transcriptPath: string, maxMessages 
           if (block.type === 'text' && (block as unknown as TextBlock).text) {
             parts.push((block as unknown as TextBlock).text);
           } else if (block.type === 'tool_use' && block.name) {
-            parts.push(`[tool: ${block.name}]`);
+            const target = extractTarget(block.name, block.input);
+            parts.push(target ? `[tool: ${block.name} → ${target}]` : `[tool: ${block.name}]`);
           }
         }
 

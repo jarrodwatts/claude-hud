@@ -174,7 +174,7 @@ export async function extractRecentMessages(transcriptPath, maxMessages = 10) {
                 continue;
             try {
                 const entry = JSON.parse(line);
-                const role = entry.role ?? entry.message?.role;
+                const role = entry.role ?? entry.message?.role ?? entry.type;
                 const content = entry.message?.content;
                 if (role === 'user') {
                     userTurns++;
@@ -187,7 +187,8 @@ export async function extractRecentMessages(transcriptPath, maxMessages = 10) {
                         parts.push(block.text);
                     }
                     else if (block.type === 'tool_use' && block.name) {
-                        parts.push(`[tool: ${block.name}]`);
+                        const target = extractTarget(block.name, block.input);
+                        parts.push(target ? `[tool: ${block.name} → ${target}]` : `[tool: ${block.name}]`);
                     }
                 }
                 if (parts.length > 0) {
