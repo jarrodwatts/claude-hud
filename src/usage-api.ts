@@ -274,22 +274,34 @@ function readKeychainCredentials(now: number, homeDir: string): { accessToken: s
 /**
  * Read credentials from file (legacy method).
  * Older versions of Claude Code stored credentials in ~/.claude/.credentials.json
+ * Supports CLAUDE_CONFIG_DIR env var for custom config locations (e.g. Windows).
  */
 function readFileCredentials(homeDir: string, now: number): { accessToken: string; subscriptionType: string } | null {
-  const credentialsPath = path.join(homeDir, '.claude', '.credentials.json');
+  // Prefer CLAUDE_CONFIG_DIR if set (e.g. custom config location on Windows)
+  const configDir = process.env.CLAUDE_CONFIG_DIR;
+  const candidates = configDir
+    ? [path.join(configDir, '.credentials.json'), path.join(homeDir, '.claude', '.credentials.json')]
+    : [path.join(homeDir, '.claude', '.credentials.json')];
 
-  if (!fs.existsSync(credentialsPath)) {
-    return null;
+  for (const credentialsPath of candidates) {
+    if (!fs.existsSync(credentialsPath)) {
+      continue;
+    }
+
+    try {
+      const content = fs.readFileSync(credentialsPath, 'utf8');
+      const data: CredentialsFile = JSON.parse(content);
+      const result = parseCredentialsData(data, now);
+      if (result) {
+        debug('Read credentials from:', credentialsPath);
+        return result;
+      }
+    } catch (error) {
+      debug('Failed to read credentials file:', credentialsPath, error);
+    }
   }
 
-  try {
-    const content = fs.readFileSync(credentialsPath, 'utf8');
-    const data: CredentialsFile = JSON.parse(content);
-    return parseCredentialsData(data, now);
-  } catch (error) {
-    debug('Failed to read credentials file:', error);
-    return null;
-  }
+  return null;
 }
 
 /**

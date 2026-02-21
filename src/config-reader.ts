@@ -97,7 +97,11 @@ export async function countConfigs(cwd?: string): Promise<ConfigCounts> {
   let hooksCount = 0;
 
   const homeDir = os.homedir();
-  const claudeDir = path.join(homeDir, '.claude');
+  // Support CLAUDE_CONFIG_DIR env var for custom config locations (e.g. Windows)
+  const configDir = process.env.CLAUDE_CONFIG_DIR;
+  const claudeDir = configDir || path.join(homeDir, '.claude');
+  // If CLAUDE_CONFIG_DIR is set, derive the parent for .claude.json; otherwise use homeDir
+  const claudeJsonParent = configDir ? path.dirname(configDir) : homeDir;
 
   // Collect all MCP servers across scopes, then subtract disabled ones
   const userMcpServers = new Set<string>();
@@ -105,28 +109,28 @@ export async function countConfigs(cwd?: string): Promise<ConfigCounts> {
 
   // === USER SCOPE ===
 
-  // ~/.claude/CLAUDE.md
+  // {claudeDir}/CLAUDE.md
   if (fs.existsSync(path.join(claudeDir, 'CLAUDE.md'))) {
     claudeMdCount++;
   }
 
-  // ~/.claude/rules/*.md
+  // {claudeDir}/rules/*.md
   rulesCount += countRulesInDir(path.join(claudeDir, 'rules'));
 
-  // ~/.claude/settings.json (MCPs and hooks)
+  // {claudeDir}/settings.json (MCPs and hooks)
   const userSettings = path.join(claudeDir, 'settings.json');
   for (const name of getMcpServerNames(userSettings)) {
     userMcpServers.add(name);
   }
   hooksCount += countHooksInFile(userSettings);
 
-  // ~/.claude.json (additional user-scope MCPs)
-  const userClaudeJson = path.join(homeDir, '.claude.json');
+  // {claudeJsonParent}/.claude.json (additional user-scope MCPs)
+  const userClaudeJson = path.join(claudeJsonParent, '.claude.json');
   for (const name of getMcpServerNames(userClaudeJson)) {
     userMcpServers.add(name);
   }
 
-  // Get disabled user-scope MCPs from ~/.claude.json
+  // Get disabled user-scope MCPs from .claude.json
   const disabledUserMcps = getDisabledMcpServers(userClaudeJson, 'disabledMcpServers');
   for (const name of disabledUserMcps) {
     userMcpServers.delete(name);

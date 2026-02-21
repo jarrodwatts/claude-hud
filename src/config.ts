@@ -68,6 +68,10 @@ export const DEFAULT_CONFIG: HudConfig = {
 };
 
 export function getConfigPath(): string {
+  const configDir = process.env.CLAUDE_CONFIG_DIR;
+  if (configDir) {
+    return path.join(configDir, 'plugins', 'claude-hud', 'config.json');
+  }
   const homeDir = os.homedir();
   return path.join(homeDir, '.claude', 'plugins', 'claude-hud', 'config.json');
 }
