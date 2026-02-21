@@ -52,12 +52,24 @@ export interface UsageWindow {
   resetAt: Date | null;
 }
 
+export interface ExtraUsageData {
+  isEnabled: boolean;
+  monthlyLimit?: number;
+  usedCredits?: number;
+  utilization: number | null;  // 0-100 percentage
+}
+
 export interface UsageData {
   planName: string | null;  // 'Max', 'Pro', or null for API users
   fiveHour: number | null;  // 0-100 percentage, null if unavailable
   sevenDay: number | null;  // 0-100 percentage, null if unavailable
   fiveHourResetAt: Date | null;
   sevenDayResetAt: Date | null;
+  sevenDaySonnet?: number | null;  // Sonnet model 7-day usage
+  sevenDaySonnetResetAt?: Date | null;
+  sevenDayOpus?: number | null;  // Opus model 7-day usage
+  sevenDayOpusResetAt?: Date | null;
+  extraUsage?: ExtraUsageData | null;  // Extra usage credits
   apiUnavailable?: boolean; // true if API call failed (user should check DEBUG logs)
   apiError?: string; // short error reason (e.g., 401, timeout)
 }

@@ -134,6 +134,16 @@ export function renderSessionLine(ctx: RenderContext): string {
         ? formatResetTime(ctx.usageData.fiveHourResetAt)
         : formatResetTime(ctx.usageData.sevenDayResetAt);
       parts.push(red(`⚠ Limit reached${resetTime ? ` (resets ${resetTime})` : ''}`));
+      // Show Extra Usage even when limit reached
+      if (ctx.usageData.extraUsage?.isEnabled) {
+        const extra = ctx.usageData.extraUsage;
+        const usageBarEnabled = (display?.usageBarEnabled ?? true);
+        const extraUtil = extra.utilization ?? (extra.monthlyLimit && extra.monthlyLimit > 0 ? Math.round(((extra.usedCredits ?? 0) / extra.monthlyLimit) * 100) : 0);
+        const extraPart = usageBarEnabled
+          ? `${quotaBar(extraUtil)} ${formatUsagePercent(extraUtil)} Extra`
+          : `Extra: ${formatUsagePercent(extraUtil)}`;
+        parts.push(extraPart);
+      }
     } else {
       const usageThreshold = display?.usageThreshold ?? 0;
       const fiveHour = ctx.usageData.fiveHour;
@@ -153,6 +163,7 @@ export function renderSessionLine(ctx: RenderContext): string {
               ? `5h: ${fiveHourDisplay} (${fiveHourReset})`
               : `5h: ${fiveHourDisplay}`);
 
+        const usageParts: string[] = [fiveHourPart];
         const sevenDayThreshold = display?.sevenDayThreshold ?? 80;
         if (sevenDay !== null && sevenDay >= sevenDayThreshold) {
           const sevenDayDisplay = formatUsagePercent(sevenDay);
@@ -162,10 +173,20 @@ export function renderSessionLine(ctx: RenderContext): string {
                 ? `${quotaBar(sevenDay)} ${sevenDayDisplay} (${sevenDayReset} / 7d)`
                 : `${quotaBar(sevenDay)} ${sevenDayDisplay}`)
             : `7d: ${sevenDayDisplay}`;
-          parts.push(`${fiveHourPart} | ${sevenDayPart}`);
-        } else {
-          parts.push(fiveHourPart);
+          usageParts.push(sevenDayPart);
         }
+
+        // Extra Usage
+        if (ctx.usageData.extraUsage?.isEnabled) {
+          const extra = ctx.usageData.extraUsage;
+          const extraUtil = extra.utilization ?? (extra.monthlyLimit && extra.monthlyLimit > 0 ? Math.round(((extra.usedCredits ?? 0) / extra.monthlyLimit) * 100) : 0);
+          const extraPart = usageBarEnabled
+            ? `${quotaBar(extraUtil)} ${formatUsagePercent(extraUtil)} Extra`
+            : `Extra: ${formatUsagePercent(extraUtil)}`;
+          usageParts.push(extraPart);
+        }
+
+        parts.push(usageParts.join(' | '));
       }
     }
   }
@@ -249,7 +270,16 @@ function formatResetTime(resetAt: Date | null): string {
   const diffMins = Math.ceil(diffMs / 60000);
   if (diffMins < 60) return `${diffMins}m`;
 
-  const hours = Math.floor(diffMins / 60);
-  const mins = diffMins % 60;
-  return mins > 0 ? `${hours}h ${mins}m` : `${hours}h`;
+  const totalHours = Math.floor(diffMins / 60);
+  if (totalHours < 24) {
+    const mins = diffMins % 60;
+    return mins > 0 ? `${totalHours}h ${mins}m` : `${totalHours}h`;
+  }
+
+  const days = Math.floor(totalHours / 24);
+  const hours = totalHours % 24;
+  if (hours > 0) {
+    return `${days}d ${hours}h`;
+  }
+  return `${days}d`;
 }

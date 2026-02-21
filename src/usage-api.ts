@@ -2,6 +2,9 @@ import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
 import * as https from 'https';
+import * as http from 'http';
+import * as url from 'url';
+import * as tls from 'tls';
 import { execFileSync } from 'child_process';
 import type { UsageData } from './types.js';
 import { createDebug } from './debug.js';
@@ -29,6 +32,20 @@ interface UsageApiResponse {
   seven_day?: {
     utilization?: number;
     resets_at?: string;
+  };
+  seven_day_sonnet?: {
+    utilization?: number;
+    resets_at?: string;
+  };
+  seven_day_opus?: {
+    utilization?: number;
+    resets_at?: string;
+  };
+  extra_usage?: {
+    is_enabled?: boolean;
+    monthly_limit?: number;
+    used_credits?: number;
+    utilization?: number;
   };
 }
 
@@ -72,6 +89,12 @@ function readCache(homeDir: string, now: number): UsageData | null {
     }
     if (data.sevenDayResetAt) {
       data.sevenDayResetAt = new Date(data.sevenDayResetAt);
+    }
+    if (data.sevenDaySonnetResetAt) {
+      data.sevenDaySonnetResetAt = new Date(data.sevenDaySonnetResetAt);
+    }
+    if (data.sevenDayOpusResetAt) {
+      data.sevenDayOpusResetAt = new Date(data.sevenDayOpusResetAt);
     }
 
     return data;
@@ -170,12 +193,31 @@ export async function getUsage(overrides: Partial<UsageApiDeps> = {}): Promise<U
     const fiveHourResetAt = parseDate(apiResult.data.five_hour?.resets_at);
     const sevenDayResetAt = parseDate(apiResult.data.seven_day?.resets_at);
 
+    // Parse model-specific usage
+    const sevenDaySonnet = parseUtilization(apiResult.data.seven_day_sonnet?.utilization);
+    const sevenDaySonnetResetAt = parseDate(apiResult.data.seven_day_sonnet?.resets_at);
+    const sevenDayOpus = parseUtilization(apiResult.data.seven_day_opus?.utilization);
+    const sevenDayOpusResetAt = parseDate(apiResult.data.seven_day_opus?.resets_at);
+
+    // Parse extra usage
+    const extraUsage = apiResult.data.extra_usage ? {
+      isEnabled: apiResult.data.extra_usage.is_enabled || false,
+      monthlyLimit: apiResult.data.extra_usage.monthly_limit,
+      usedCredits: apiResult.data.extra_usage.used_credits,
+      utilization: parseUtilization(apiResult.data.extra_usage.utilization),
+    } : null;
+
     const result: UsageData = {
       planName,
       fiveHour,
       sevenDay,
       fiveHourResetAt,
       sevenDayResetAt,
+      sevenDaySonnet,
+      sevenDaySonnetResetAt,
+      sevenDayOpus,
+      sevenDayOpusResetAt,
+      extraUsage,
     };
 
     // Write to file cache
@@ -387,55 +429,128 @@ function parseDate(dateStr: string | undefined): Date | null {
   return date;
 }
 
+function getProxyUrl(): string | null {
+  return process.env.https_proxy ||
+    process.env.HTTPS_PROXY ||
+    process.env.http_proxy ||
+    process.env.HTTP_PROXY ||
+    null;
+}
+
+function handleResponse(resolve: (value: UsageApiResult) => void): (res: http.IncomingMessage) => void {
+  return (res) => {
+    let data = '';
+    res.on('data', (chunk: Buffer) => { data += chunk.toString(); });
+    res.on('end', () => {
+      if (res.statusCode !== 200) {
+        debug('API returned non-200 status:', res.statusCode);
+        resolve({ data: null, error: res.statusCode ? `http-${res.statusCode}` : 'http-error' });
+        return;
+      }
+      try {
+        const parsed: UsageApiResponse = JSON.parse(data);
+        resolve({ data: parsed });
+      } catch (error) {
+        debug('Failed to parse API response:', error);
+        resolve({ data: null, error: 'parse' });
+      }
+    });
+  };
+}
+
 function fetchUsageApi(accessToken: string): Promise<UsageApiResult> {
   return new Promise((resolve) => {
-    const options = {
-      hostname: 'api.anthropic.com',
-      path: '/api/oauth/usage',
-      method: 'GET',
-      headers: {
-        'Authorization': `Bearer ${accessToken}`,
-        'anthropic-beta': 'oauth-2025-04-20',
-        'User-Agent': 'claude-hud/1.0',
-      },
-      timeout: 5000,
+    const proxyUrl = getProxyUrl();
+    const targetHost = 'api.anthropic.com';
+    const targetPath = '/api/oauth/usage';
+    const requestHeaders = {
+      'Authorization': `Bearer ${accessToken}`,
+      'anthropic-beta': 'oauth-2025-04-20',
+      'User-Agent': 'claude-hud/1.0',
+      'Host': targetHost,
     };
 
-    const req = https.request(options, (res) => {
-      let data = '';
+    if (proxyUrl) {
+      debug('Using proxy:', proxyUrl);
+      const proxy = new url.URL(proxyUrl);
 
-      res.on('data', (chunk: Buffer) => {
-        data += chunk.toString();
+      const proxyReq = http.request({
+        hostname: proxy.hostname,
+        port: proxy.port || 80,
+        method: 'CONNECT',
+        path: `${targetHost}:443`,
+        timeout: 5000,
       });
 
-      res.on('end', () => {
+      proxyReq.on('connect', (res, socket) => {
         if (res.statusCode !== 200) {
-          debug('API returned non-200 status:', res.statusCode);
-          resolve({ data: null, error: res.statusCode ? `http-${res.statusCode}` : 'http-error' });
+          debug('Proxy CONNECT failed:', res.statusCode);
+          socket.destroy();
+          resolve({ data: null, error: 'proxy' });
           return;
         }
 
-        try {
-          const parsed: UsageApiResponse = JSON.parse(data);
-          resolve({ data: parsed });
-        } catch (error) {
-          debug('Failed to parse API response:', error);
-          resolve({ data: null, error: 'parse' });
-        }
+        const tlsSocket = tls.connect({
+          socket: socket,
+          servername: targetHost,
+        }, () => {
+          const httpsReq = https.request({
+            hostname: targetHost,
+            path: targetPath,
+            method: 'GET',
+            headers: requestHeaders,
+            timeout: 5000,
+            createConnection: () => tlsSocket,
+          }, handleResponse(resolve));
+
+          httpsReq.on('error', (error) => {
+            debug('HTTPS request error:', error);
+            resolve({ data: null, error: 'network' });
+          });
+          httpsReq.on('timeout', () => {
+            debug('HTTPS request timeout');
+            httpsReq.destroy();
+            resolve({ data: null, error: 'timeout' });
+          });
+          httpsReq.end();
+        });
+
+        tlsSocket.on('error', (error) => {
+          debug('TLS socket error:', error);
+          resolve({ data: null, error: 'network' });
+        });
       });
-    });
 
-    req.on('error', (error) => {
-      debug('API request error:', error);
-      resolve({ data: null, error: 'network' });
-    });
-    req.on('timeout', () => {
-      debug('API request timeout');
-      req.destroy();
-      resolve({ data: null, error: 'timeout' });
-    });
+      proxyReq.on('error', (error) => {
+        debug('Proxy request error:', error);
+        resolve({ data: null, error: 'network' });
+      });
+      proxyReq.on('timeout', () => {
+        debug('Proxy request timeout');
+        proxyReq.destroy();
+        resolve({ data: null, error: 'timeout' });
+      });
+      proxyReq.end();
+    } else {
+      const req = https.request({
+        hostname: targetHost,
+        path: targetPath,
+        method: 'GET',
+        headers: requestHeaders,
+        timeout: 5000,
+      }, handleResponse(resolve));
 
-    req.end();
+      req.on('error', (error) => {
+        debug('API request error:', error);
+        resolve({ data: null, error: 'network' });
+      });
+      req.on('timeout', () => {
+        debug('API request timeout');
+        req.destroy();
+        resolve({ data: null, error: 'timeout' });
+      });
+      req.end();
+    }
   });
 }
 
