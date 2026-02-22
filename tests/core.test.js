@@ -352,6 +352,13 @@ test('getModelName prefers display_name over normalized bedrock id', () => {
   );
 });
 
+test('getProviderLabel returns Bedrock for documented prefixed ids', () => {
+  assert.equal(
+    getProviderLabel({ model: { id: 'apac.anthropic.claude-haiku-4-5-20251001-v1:0' } }),
+    'Bedrock'
+  );
+});
+
 test('bedrock model detection recognizes bedrock ids', () => {
   assert.ok(isBedrockModelId('anthropic.claude-3-5-sonnet-20240620-v1:0'));
   assert.ok(isBedrockModelId('eu.anthropic.claude-opus-4-5-20251101-v1:0'));
