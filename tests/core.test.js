@@ -340,6 +340,18 @@ test('getModelName keeps non-bedrock ids unchanged', () => {
   assert.equal(getModelName({ model: { id: raw } }), raw);
 });
 
+test('getModelName prefers display_name over normalized bedrock id', () => {
+  assert.equal(
+    getModelName({
+      model: {
+        display_name: 'Custom Label',
+        id: 'eu.anthropic.claude-opus-4-5-20251101-v1:0',
+      },
+    }),
+    'Custom Label'
+  );
+});
+
 test('bedrock model detection recognizes bedrock ids', () => {
   assert.ok(isBedrockModelId('anthropic.claude-3-5-sonnet-20240620-v1:0'));
   assert.ok(isBedrockModelId('eu.anthropic.claude-opus-4-5-20251101-v1:0'));
