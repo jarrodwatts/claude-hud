@@ -173,6 +173,17 @@ test('getModelName trims display_name before returning it', () => {
   );
 });
 
+test('getModelName trims id fallback and maps blank id to Unknown', () => {
+  assert.equal(
+    getModelName({ model: { display_name: '  ', id: '  sonnet-456  ' } }),
+    'sonnet-456'
+  );
+  assert.equal(
+    getModelName({ model: { display_name: '  ', id: '   ' } }),
+    'Unknown'
+  );
+});
+
 test('bedrock model detection recognizes bedrock ids', () => {
   assert.ok(isBedrockModelId('anthropic.claude-3-5-sonnet-20240620-v1:0'));
   assert.ok(isBedrockModelId('eu.anthropic.claude-opus-4-5-20251101-v1:0'));

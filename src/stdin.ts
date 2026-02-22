@@ -86,7 +86,12 @@ export function getModelName(stdin: StdinData): string {
     return displayName;
   }
 
-  return stdin.model?.id ?? 'Unknown';
+  const modelId = stdin.model?.id?.trim();
+  if (modelId) {
+    return modelId;
+  }
+
+  return 'Unknown';
 }
 
 export function isBedrockModelId(modelId?: string): boolean {
