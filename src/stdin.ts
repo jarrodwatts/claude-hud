@@ -91,6 +91,7 @@ const BEDROCK_MODEL_LABEL_BY_ID: Record<string, string> = {
   'anthropic.claude-opus-4-1-20250805-v1:0': 'Opus 4.1',
   'anthropic.claude-opus-4-20250514-v1:0': 'Opus 4',
   'anthropic.claude-haiku-4-5-20251001-v1:0': 'Haiku 4.5',
+  'anthropic.claude-3-5-haiku-20241022-v1:0': 'Haiku 3.5',
 };
 
 function canonicalizeBedrockId(modelId: string): string | null {
