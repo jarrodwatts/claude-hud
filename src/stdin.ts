@@ -81,12 +81,14 @@ export function getBufferedPercent(stdin: StdinData): number {
 }
 
 export function getModelName(stdin: StdinData): string {
-  const displayName = stdin.model?.display_name?.trim();
+  const rawDisplayName = stdin.model?.display_name;
+  const displayName = typeof rawDisplayName === 'string' ? rawDisplayName.trim() : '';
   if (displayName) {
     return displayName;
   }
 
-  const modelId = stdin.model?.id?.trim();
+  const rawModelId = stdin.model?.id;
+  const modelId = typeof rawModelId === 'string' ? rawModelId.trim() : '';
   if (modelId) {
     return modelId;
   }
