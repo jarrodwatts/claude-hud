@@ -205,6 +205,13 @@ test('getModelName normalizes global-prefixed bedrock id', () => {
   );
 });
 
+test('getModelName normalizes us-prefixed bedrock id', () => {
+  assert.equal(
+    getModelName({ model: { id: 'us.anthropic.claude-opus-4-6-v1' } }),
+    'Opus 4.6'
+  );
+});
+
 test('bedrock model detection recognizes bedrock ids', () => {
   assert.ok(isBedrockModelId('anthropic.claude-3-5-sonnet-20240620-v1:0'));
   assert.ok(isBedrockModelId('eu.anthropic.claude-opus-4-5-20251101-v1:0'));

@@ -84,6 +84,9 @@ function canonicalizeBedrockId(modelId: string): string | null {
   if (modelId.startsWith('global.')) {
     return modelId.slice('global.'.length);
   }
+  if (modelId.startsWith('us.')) {
+    return modelId.slice('us.'.length);
+  }
   if (modelId.startsWith('anthropic.claude-')) {
     return modelId;
   }
