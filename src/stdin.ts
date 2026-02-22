@@ -83,13 +83,14 @@ export function getBufferedPercent(stdin: StdinData): number {
 const ALLOWED_BEDROCK_PREFIXES = ['global.', 'us.', 'eu.', 'jp.', 'apac.', 'us-gov.'];
 
 function canonicalizeBedrockId(modelId: string): string | null {
-  if (modelId.startsWith('anthropic.claude-')) {
-    return modelId;
+  const normalized = modelId.toLowerCase();
+  if (normalized.startsWith('anthropic.claude-')) {
+    return normalized;
   }
 
   for (const prefix of ALLOWED_BEDROCK_PREFIXES) {
-    if (modelId.startsWith(prefix)) {
-      return modelId.slice(prefix.length);
+    if (normalized.startsWith(prefix)) {
+      return normalized.slice(prefix.length);
     }
   }
 
