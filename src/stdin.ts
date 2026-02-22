@@ -81,6 +81,10 @@ export function getBufferedPercent(stdin: StdinData): number {
 }
 
 const ALLOWED_BEDROCK_PREFIXES = ['global.', 'us.', 'eu.', 'jp.', 'apac.', 'us-gov.'];
+const BEDROCK_MODEL_LABEL_BY_ID: Record<string, string> = {
+  'anthropic.claude-opus-4-6-v1': 'Opus 4.6',
+  'anthropic.claude-sonnet-4-6': 'Sonnet 4.6',
+};
 
 function canonicalizeBedrockId(modelId: string): string | null {
   const normalized = modelId.toLowerCase();
@@ -103,10 +107,7 @@ function parseBedrockModelDisplayName(modelId: string): string | null {
     return null;
   }
 
-  if (canonical === 'anthropic.claude-opus-4-6-v1') {
-    return 'Opus 4.6';
-  }
-  return null;
+  return BEDROCK_MODEL_LABEL_BY_ID[canonical] ?? null;
 }
 
 export function getModelName(stdin: StdinData): string {
