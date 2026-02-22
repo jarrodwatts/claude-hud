@@ -80,8 +80,23 @@ export function getBufferedPercent(stdin: StdinData): number {
   return Math.min(100, Math.round(((totalTokens + buffer) / size) * 100));
 }
 
+function canonicalizeBedrockId(modelId: string): string | null {
+  if (modelId.startsWith('global.')) {
+    return modelId.slice('global.'.length);
+  }
+  if (modelId.startsWith('anthropic.claude-')) {
+    return modelId;
+  }
+  return null;
+}
+
 function parseBedrockModelDisplayName(modelId: string): string | null {
-  if (modelId === 'anthropic.claude-opus-4-6-v1') {
+  const canonical = canonicalizeBedrockId(modelId);
+  if (!canonical) {
+    return null;
+  }
+
+  if (canonical === 'anthropic.claude-opus-4-6-v1') {
     return 'Opus 4.6';
   }
   return null;
