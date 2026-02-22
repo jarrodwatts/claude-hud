@@ -80,6 +80,13 @@ export function getBufferedPercent(stdin: StdinData): number {
   return Math.min(100, Math.round(((totalTokens + buffer) / size) * 100));
 }
 
+function parseBedrockModelDisplayName(modelId: string): string | null {
+  if (modelId === 'anthropic.claude-opus-4-6-v1') {
+    return 'Opus 4.6';
+  }
+  return null;
+}
+
 export function getModelName(stdin: StdinData): string {
   const rawDisplayName = stdin.model?.display_name;
   const displayName = typeof rawDisplayName === 'string' ? rawDisplayName.trim() : '';
@@ -90,6 +97,12 @@ export function getModelName(stdin: StdinData): string {
   const rawModelId = stdin.model?.id;
   const modelId = typeof rawModelId === 'string' ? rawModelId.trim() : '';
   if (modelId) {
+    if (isBedrockModelId(modelId)) {
+      const parsed = parseBedrockModelDisplayName(modelId);
+      if (parsed) {
+        return parsed;
+      }
+    }
     return modelId;
   }
 
