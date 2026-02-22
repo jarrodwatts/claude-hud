@@ -83,6 +83,7 @@ export function getBufferedPercent(stdin: StdinData): number {
 const ALLOWED_BEDROCK_PREFIXES = ['global.', 'us.', 'eu.', 'jp.', 'apac.', 'us-gov.'];
 const BEDROCK_MODEL_LABEL_BY_ID: Record<string, string> = {
   'anthropic.claude-opus-4-6-v1': 'Opus 4.6',
+  'anthropic.claude-opus-4-6-v1:0': 'Opus 4.6',
   'anthropic.claude-sonnet-4-6': 'Sonnet 4.6',
   'anthropic.claude-sonnet-4-5-20250929-v1:0': 'Sonnet 4.5',
   'anthropic.claude-sonnet-4-20250514-v1:0': 'Sonnet 4',
