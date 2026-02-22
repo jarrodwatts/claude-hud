@@ -80,16 +80,19 @@ export function getBufferedPercent(stdin: StdinData): number {
   return Math.min(100, Math.round(((totalTokens + buffer) / size) * 100));
 }
 
+const ALLOWED_BEDROCK_PREFIXES = ['global.', 'us.', 'eu.', 'jp.', 'apac.', 'us-gov.'];
+
 function canonicalizeBedrockId(modelId: string): string | null {
-  if (modelId.startsWith('global.')) {
-    return modelId.slice('global.'.length);
-  }
-  if (modelId.startsWith('us.')) {
-    return modelId.slice('us.'.length);
-  }
   if (modelId.startsWith('anthropic.claude-')) {
     return modelId;
   }
+
+  for (const prefix of ALLOWED_BEDROCK_PREFIXES) {
+    if (modelId.startsWith(prefix)) {
+      return modelId.slice(prefix.length);
+    }
+  }
+
   return null;
 }
 
