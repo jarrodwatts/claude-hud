@@ -89,6 +89,7 @@ const BEDROCK_MODEL_LABEL_BY_ID: Record<string, string> = {
   'anthropic.claude-3-7-sonnet-20250219-v1:0': 'Sonnet 3.7',
   'anthropic.claude-opus-4-5-20251101-v1:0': 'Opus 4.5',
   'anthropic.claude-opus-4-1-20250805-v1:0': 'Opus 4.1',
+  'anthropic.claude-opus-4-20250514-v1:0': 'Opus 4',
 };
 
 function canonicalizeBedrockId(modelId: string): string | null {
