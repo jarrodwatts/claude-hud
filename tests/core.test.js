@@ -335,6 +335,11 @@ test('getModelName does not normalize unsupported families', () => {
   assert.equal(getModelName({ model: { id: raw } }), raw);
 });
 
+test('getModelName keeps non-bedrock ids unchanged', () => {
+  const raw = 'claude-3-5-sonnet-20241022';
+  assert.equal(getModelName({ model: { id: raw } }), raw);
+});
+
 test('bedrock model detection recognizes bedrock ids', () => {
   assert.ok(isBedrockModelId('anthropic.claude-3-5-sonnet-20240620-v1:0'));
   assert.ok(isBedrockModelId('eu.anthropic.claude-opus-4-5-20251101-v1:0'));
