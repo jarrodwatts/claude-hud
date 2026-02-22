@@ -81,7 +81,12 @@ export function getBufferedPercent(stdin: StdinData): number {
 }
 
 export function getModelName(stdin: StdinData): string {
-  return stdin.model?.display_name ?? stdin.model?.id ?? 'Unknown';
+  const displayName = stdin.model?.display_name?.trim();
+  if (displayName) {
+    return displayName;
+  }
+
+  return stdin.model?.id ?? 'Unknown';
 }
 
 export function isBedrockModelId(modelId?: string): boolean {

@@ -161,6 +161,18 @@ test('getModelName prefers display name, then id, then fallback', () => {
   assert.equal(getModelName({}), 'Unknown');
 });
 
+test('getModelName trims display_name before returning it', () => {
+  assert.equal(
+    getModelName({
+      model: {
+        display_name: '  Opus  ',
+        id: 'global.anthropic.claude-opus-4-6-v1',
+      },
+    }),
+    'Opus'
+  );
+});
+
 test('bedrock model detection recognizes bedrock ids', () => {
   assert.ok(isBedrockModelId('anthropic.claude-3-5-sonnet-20240620-v1:0'));
   assert.ok(isBedrockModelId('eu.anthropic.claude-opus-4-5-20251101-v1:0'));
