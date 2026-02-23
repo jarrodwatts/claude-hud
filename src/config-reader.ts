@@ -134,6 +134,10 @@ export async function countConfigs(cwd?: string): Promise<ConfigCounts> {
 
   // === PROJECT SCOPE ===
 
+  // When cwd is the home directory, {cwd}/.claude/* paths overlap with user scope paths above,
+  // so skip them to avoid double-counting the same CLAUDE.md files.
+  const isHome = cwd === homeDir;
+
   if (cwd) {
     // {cwd}/CLAUDE.md
     if (fs.existsSync(path.join(cwd, 'CLAUDE.md'))) {
@@ -145,13 +149,13 @@ export async function countConfigs(cwd?: string): Promise<ConfigCounts> {
       claudeMdCount++;
     }
 
-    // {cwd}/.claude/CLAUDE.md (alternative location)
-    if (fs.existsSync(path.join(cwd, '.claude', 'CLAUDE.md'))) {
+    // {cwd}/.claude/CLAUDE.md (alternative location, skip if cwd is home)
+    if (!isHome && fs.existsSync(path.join(cwd, '.claude', 'CLAUDE.md'))) {
       claudeMdCount++;
     }
 
-    // {cwd}/.claude/CLAUDE.local.md
-    if (fs.existsSync(path.join(cwd, '.claude', 'CLAUDE.local.md'))) {
+    // {cwd}/.claude/CLAUDE.local.md (skip if cwd is home)
+    if (!isHome && fs.existsSync(path.join(cwd, '.claude', 'CLAUDE.local.md'))) {
       claudeMdCount++;
     }
 
