@@ -313,6 +313,34 @@ test('getModelName normalizes documented haiku 3 id', () => {
   );
 });
 
+test('getModelName normalizes documented sonnet 3.5 v1 id', () => {
+  assert.equal(
+    getModelName({ model: { id: 'anthropic.claude-3-5-sonnet-20240620-v1:0' } }),
+    'Sonnet 3.5'
+  );
+});
+
+test('getModelName normalizes documented sonnet 3.5 v2 id', () => {
+  assert.equal(
+    getModelName({ model: { id: 'anthropic.claude-3-5-sonnet-20241022-v2:0' } }),
+    'Sonnet 3.5'
+  );
+});
+
+test('getModelName normalizes documented opus 3 id', () => {
+  assert.equal(
+    getModelName({ model: { id: 'anthropic.claude-3-opus-20240229-v1:0' } }),
+    'Opus 3'
+  );
+});
+
+test('getModelName normalizes documented sonnet 3 id', () => {
+  assert.equal(
+    getModelName({ model: { id: 'anthropic.claude-3-sonnet-20240229-v1:0' } }),
+    'Sonnet 3'
+  );
+});
+
 test('getModelName normalizes opus 4.6 compatibility alias', () => {
   assert.equal(
     getModelName({ model: { id: 'anthropic.claude-opus-4-6-v1:0' } }),
