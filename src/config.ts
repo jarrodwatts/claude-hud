@@ -89,19 +89,28 @@ function validateContextValue(value: unknown): value is ContextValueMode {
 }
 
 interface LegacyConfig {
-  layout?: 'default' | 'separators';
+  layout?: 'default' | 'separators' | Record<string, unknown>;
 }
 
 function migrateConfig(userConfig: Partial<HudConfig> & LegacyConfig): Partial<HudConfig> {
   const migrated = { ...userConfig } as Partial<HudConfig> & LegacyConfig;
 
   if ('layout' in userConfig && !('lineLayout' in userConfig)) {
-    if (userConfig.layout === 'separators') {
-      migrated.lineLayout = 'compact';
-      migrated.showSeparators = true;
-    } else {
-      migrated.lineLayout = 'compact';
-      migrated.showSeparators = false;
+    if (typeof userConfig.layout === 'string') {
+      // Legacy string migration (v0.0.x → v0.1.x)
+      if (userConfig.layout === 'separators') {
+        migrated.lineLayout = 'compact';
+        migrated.showSeparators = true;
+      } else {
+        migrated.lineLayout = 'compact';
+        migrated.showSeparators = false;
+      }
+    } else if (typeof userConfig.layout === 'object' && userConfig.layout !== null) {
+      // Object layout written by third-party tools — extract nested fields
+      const obj = userConfig.layout as Record<string, unknown>;
+      if (typeof obj.lineLayout === 'string') migrated.lineLayout = obj.lineLayout as any;
+      if (typeof obj.showSeparators === 'boolean') migrated.showSeparators = obj.showSeparators;
+      if (typeof obj.pathLevels === 'number') migrated.pathLevels = obj.pathLevels as any;
     }
     delete migrated.layout;
   }
@@ -114,7 +123,7 @@ function validateThreshold(value: unknown, max = 100): number {
   return Math.max(0, Math.min(max, value));
 }
 
-function mergeConfig(userConfig: Partial<HudConfig>): HudConfig {
+export function mergeConfig(userConfig: Partial<HudConfig>): HudConfig {
   const migrated = migrateConfig(userConfig);
 
   const lineLayout = validateLineLayout(migrated.lineLayout)
