@@ -1,7 +1,10 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
+import * as http from 'http';
 import * as https from 'https';
+import * as net from 'net';
+import * as tls from 'tls';
 import { execFileSync } from 'child_process';
 import type { UsageData } from './types.js';
 import { createDebug } from './debug.js';
@@ -387,6 +390,85 @@ function parseDate(dateStr: string | undefined): Date | null {
   return date;
 }
 
+/**
+ * Creates an https.Agent that tunnels connections through an HTTP CONNECT proxy.
+ * Reads HTTPS_PROXY, https_proxy, ALL_PROXY, or all_proxy environment variables.
+ * Returns null if no proxy is configured.
+ *
+ * Node.js's built-in https module does not automatically use proxy environment
+ * variables, causing usage API requests to fail for users behind corporate proxies
+ * or in regions where direct connections to api.anthropic.com are restricted.
+ */
+function createProxyAgent(): https.Agent | null {
+  const proxyUrl =
+    process.env.HTTPS_PROXY ??
+    process.env.https_proxy ??
+    process.env.ALL_PROXY ??
+    process.env.all_proxy;
+
+  if (!proxyUrl) return null;
+
+  let proxyHost: string;
+  let proxyPort: number;
+  try {
+    const u = new URL(proxyUrl);
+    proxyHost = u.hostname;
+    proxyPort = Number(u.port) || 80;
+  } catch {
+    debug('Invalid proxy URL:', proxyUrl);
+    return null;
+  }
+
+  debug('Using HTTP CONNECT proxy:', proxyUrl);
+
+  return new class HttpsProxyAgent extends https.Agent {
+    override createConnection(
+      options: https.RequestOptions,
+      callback?: (err: Error | null, socket: net.Socket) => void,
+    ): net.Socket {
+      const host = String(options.host ?? options.hostname ?? 'localhost');
+      const port = Number(options.port) || 443;
+
+      // Open a raw TCP connection to the proxy
+      const socket = net.connect(proxyPort, proxyHost, () => {
+        // Send HTTP CONNECT to establish a tunnel to the target host
+        socket.write(
+          `CONNECT ${host}:${port} HTTP/1.1\r\n` +
+          `Host: ${host}:${port}\r\n` +
+          `\r\n`,
+        );
+
+        // Buffer the proxy response until we have complete headers
+        let buf = '';
+        const onData = (chunk: Buffer): void => {
+          buf += chunk.toString('binary');
+          if (!buf.includes('\r\n\r\n')) return;
+          socket.removeListener('data', onData);
+
+          const statusLine = buf.split('\r\n')[0] ?? '';
+          if (!/^HTTP\/1\.[01] 200/.test(statusLine)) {
+            callback?.(new Error(`Proxy CONNECT rejected: ${statusLine}`), socket);
+            return;
+          }
+
+          // Upgrade the raw socket to TLS for the actual HTTPS connection
+          const tlsOpts: tls.ConnectionOptions = {
+            socket,
+            servername: options.servername ?? host,
+            rejectUnauthorized: options.rejectUnauthorized !== false,
+          };
+          const tlsSocket = tls.connect(tlsOpts, () => callback?.(null, tlsSocket));
+          tlsSocket.on('error', (err) => callback?.(err, tlsSocket));
+        };
+        socket.on('data', onData);
+      });
+
+      socket.on('error', (err) => callback?.(err, socket));
+      return socket;
+    }
+  }();
+}
+
 function fetchUsageApi(accessToken: string): Promise<UsageApiResult> {
   return new Promise((resolve) => {
     const options = {
@@ -399,6 +481,7 @@ function fetchUsageApi(accessToken: string): Promise<UsageApiResult> {
         'User-Agent': 'claude-hud/1.0',
       },
       timeout: 5000,
+      agent: createProxyAgent() ?? undefined,
     };
 
     const req = https.request(options, (res) => {
