@@ -6,6 +6,7 @@ import { tmpdir } from 'node:os';
 import path from 'node:path';
 
 let tempHome = null;
+let savedConfigDir = undefined;
 
 async function createTempHome() {
   return await mkdtemp(path.join(tmpdir(), 'claude-hud-usage-'));
@@ -53,9 +54,16 @@ describe('getUsage', () => {
   beforeEach(async () => {
     tempHome = await createTempHome();
     clearCache(tempHome);
+    // Isolate from real CLAUDE_CONFIG_DIR to prevent test pollution
+    savedConfigDir = process.env.CLAUDE_CONFIG_DIR;
+    delete process.env.CLAUDE_CONFIG_DIR;
   });
 
   afterEach(async () => {
+    // Restore CLAUDE_CONFIG_DIR
+    if (savedConfigDir !== undefined) {
+      process.env.CLAUDE_CONFIG_DIR = savedConfigDir;
+    }
     if (tempHome) {
       await rm(tempHome, { recursive: true, force: true });
       tempHome = null;
@@ -264,9 +272,16 @@ describe('getUsage caching behavior', () => {
   beforeEach(async () => {
     tempHome = await createTempHome();
     clearCache(tempHome);
+    // Isolate from real CLAUDE_CONFIG_DIR to prevent test pollution
+    savedConfigDir = process.env.CLAUDE_CONFIG_DIR;
+    delete process.env.CLAUDE_CONFIG_DIR;
   });
 
   afterEach(async () => {
+    // Restore CLAUDE_CONFIG_DIR
+    if (savedConfigDir !== undefined) {
+      process.env.CLAUDE_CONFIG_DIR = savedConfigDir;
+    }
     if (tempHome) {
       await rm(tempHome, { recursive: true, force: true });
       tempHome = null;

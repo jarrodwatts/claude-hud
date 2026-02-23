@@ -1,7 +1,6 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
-import * as https from 'https';
 import { execFileSync } from 'child_process';
 import { createDebug } from './debug.js';
 const debug = createDebug('usage');
@@ -202,23 +201,36 @@ function readKeychainCredentials(now, homeDir) {
     }
 }
 /**
- * Read credentials from file (legacy method).
- * Older versions of Claude Code stored credentials in ~/.claude/.credentials.json
+ * Read credentials from file.
+ * Checks CLAUDE_CONFIG_DIR first (for multi-account setups with alternate config directories),
+ * then falls back to ~/.claude/.credentials.json (default location).
  */
 function readFileCredentials(homeDir, now) {
-    const credentialsPath = path.join(homeDir, '.claude', '.credentials.json');
-    if (!fs.existsSync(credentialsPath)) {
-        return null;
+    const candidates = [];
+    // Prefer CLAUDE_CONFIG_DIR (supports multi-account setups)
+    const configDir = process.env.CLAUDE_CONFIG_DIR;
+    if (configDir) {
+        candidates.push(path.join(configDir, '.credentials.json'));
     }
-    try {
-        const content = fs.readFileSync(credentialsPath, 'utf8');
-        const data = JSON.parse(content);
-        return parseCredentialsData(data, now);
+    // Default location
+    candidates.push(path.join(homeDir, '.claude', '.credentials.json'));
+    for (const credentialsPath of candidates) {
+        if (!fs.existsSync(credentialsPath))
+            continue;
+        try {
+            const content = fs.readFileSync(credentialsPath, 'utf8');
+            const data = JSON.parse(content);
+            const creds = parseCredentialsData(data, now);
+            if (creds) {
+                debug('Read credentials from:', credentialsPath);
+                return creds;
+            }
+        }
+        catch (error) {
+            debug('Failed to read credentials file:', credentialsPath, error);
+        }
     }
-    catch (error) {
-        debug('Failed to read credentials file:', error);
-        return null;
-    }
+    return null;
 }
 /**
  * Parse and validate credentials data from either Keychain or file.
@@ -308,50 +320,47 @@ function parseDate(dateStr) {
     }
     return date;
 }
+/**
+ * Fetch usage data using curl.
+ *
+ * Node.js https module gets blocked by Cloudflare's TLS fingerprinting (JA3/JA4)
+ * with a 403 "Request not allowed" response. Using curl bypasses this because curl
+ * has a trusted TLS fingerprint. curl also natively respects https_proxy/HTTPS_PROXY
+ * environment variables, so proxy support works automatically.
+ */
 function fetchUsageApi(accessToken) {
     return new Promise((resolve) => {
-        const options = {
-            hostname: 'api.anthropic.com',
-            path: '/api/oauth/usage',
-            method: 'GET',
-            headers: {
-                'Authorization': `Bearer ${accessToken}`,
-                'anthropic-beta': 'oauth-2025-04-20',
-                'User-Agent': 'claude-hud/1.0',
-            },
-            timeout: 5000,
-        };
-        const req = https.request(options, (res) => {
-            let data = '';
-            res.on('data', (chunk) => {
-                data += chunk.toString();
-            });
-            res.on('end', () => {
-                if (res.statusCode !== 200) {
-                    debug('API returned non-200 status:', res.statusCode);
-                    resolve({ data: null, error: res.statusCode ? `http-${res.statusCode}` : 'http-error' });
-                    return;
-                }
-                try {
-                    const parsed = JSON.parse(data);
-                    resolve({ data: parsed });
-                }
-                catch (error) {
-                    debug('Failed to parse API response:', error);
-                    resolve({ data: null, error: 'parse' });
-                }
-            });
-        });
-        req.on('error', (error) => {
-            debug('API request error:', error);
-            resolve({ data: null, error: 'network' });
-        });
-        req.on('timeout', () => {
-            debug('API request timeout');
-            req.destroy();
-            resolve({ data: null, error: 'timeout' });
-        });
-        req.end();
+        try {
+            const result = execFileSync('/usr/bin/curl', [
+                '-s',
+                '-m', '5',
+                '-H', `Authorization: Bearer ${accessToken}`,
+                '-H', 'anthropic-beta: oauth-2025-04-20',
+                'https://api.anthropic.com/api/oauth/usage',
+            ], {
+                encoding: 'utf8',
+                stdio: ['pipe', 'pipe', 'pipe'],
+                timeout: 6000,
+            }).trim();
+            debug('curl response:', result.substring(0, 100));
+            if (!result) {
+                resolve({ data: null, error: 'empty' });
+                return;
+            }
+            const parsed = JSON.parse(result);
+            // Check if API returned an error object
+            if (parsed.error) {
+                debug('API error:', parsed.error.type, parsed.error.message);
+                resolve({ data: null, error: parsed.error.type || 'api-error' });
+                return;
+            }
+            resolve({ data: parsed });
+        }
+        catch (error) {
+            const message = error instanceof Error ? error.message : 'unknown';
+            debug('curl failed:', message);
+            resolve({ data: null, error: 'curl-error' });
+        }
     });
 }
 // Export for testing

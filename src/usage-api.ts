@@ -1,7 +1,6 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
-import * as https from 'https';
 import { execFileSync } from 'child_process';
 import type { UsageData } from './types.js';
 import { createDebug } from './debug.js';
@@ -272,24 +271,39 @@ function readKeychainCredentials(now: number, homeDir: string): { accessToken: s
 }
 
 /**
- * Read credentials from file (legacy method).
- * Older versions of Claude Code stored credentials in ~/.claude/.credentials.json
+ * Read credentials from file.
+ * Checks CLAUDE_CONFIG_DIR first (for multi-account setups with alternate config directories),
+ * then falls back to ~/.claude/.credentials.json (default location).
  */
 function readFileCredentials(homeDir: string, now: number): { accessToken: string; subscriptionType: string } | null {
-  const credentialsPath = path.join(homeDir, '.claude', '.credentials.json');
+  const candidates: string[] = [];
 
-  if (!fs.existsSync(credentialsPath)) {
-    return null;
+  // Prefer CLAUDE_CONFIG_DIR (supports multi-account setups)
+  const configDir = process.env.CLAUDE_CONFIG_DIR;
+  if (configDir) {
+    candidates.push(path.join(configDir, '.credentials.json'));
   }
 
-  try {
-    const content = fs.readFileSync(credentialsPath, 'utf8');
-    const data: CredentialsFile = JSON.parse(content);
-    return parseCredentialsData(data, now);
-  } catch (error) {
-    debug('Failed to read credentials file:', error);
-    return null;
+  // Default location
+  candidates.push(path.join(homeDir, '.claude', '.credentials.json'));
+
+  for (const credentialsPath of candidates) {
+    if (!fs.existsSync(credentialsPath)) continue;
+
+    try {
+      const content = fs.readFileSync(credentialsPath, 'utf8');
+      const data: CredentialsFile = JSON.parse(content);
+      const creds = parseCredentialsData(data, now);
+      if (creds) {
+        debug('Read credentials from:', credentialsPath);
+        return creds;
+      }
+    } catch (error) {
+      debug('Failed to read credentials file:', credentialsPath, error);
+    }
   }
+
+  return null;
 }
 
 /**
@@ -387,55 +401,51 @@ function parseDate(dateStr: string | undefined): Date | null {
   return date;
 }
 
+/**
+ * Fetch usage data using curl.
+ *
+ * Node.js https module gets blocked by Cloudflare's TLS fingerprinting (JA3/JA4)
+ * with a 403 "Request not allowed" response. Using curl bypasses this because curl
+ * has a trusted TLS fingerprint. curl also natively respects https_proxy/HTTPS_PROXY
+ * environment variables, so proxy support works automatically.
+ */
 function fetchUsageApi(accessToken: string): Promise<UsageApiResult> {
   return new Promise((resolve) => {
-    const options = {
-      hostname: 'api.anthropic.com',
-      path: '/api/oauth/usage',
-      method: 'GET',
-      headers: {
-        'Authorization': `Bearer ${accessToken}`,
-        'anthropic-beta': 'oauth-2025-04-20',
-        'User-Agent': 'claude-hud/1.0',
-      },
-      timeout: 5000,
-    };
+    try {
+      const result = execFileSync('/usr/bin/curl', [
+        '-s',
+        '-m', '5',
+        '-H', `Authorization: Bearer ${accessToken}`,
+        '-H', 'anthropic-beta: oauth-2025-04-20',
+        'https://api.anthropic.com/api/oauth/usage',
+      ], {
+        encoding: 'utf8',
+        stdio: ['pipe', 'pipe', 'pipe'],
+        timeout: 6000,
+      }).trim();
 
-    const req = https.request(options, (res) => {
-      let data = '';
+      debug('curl response:', result.substring(0, 100));
 
-      res.on('data', (chunk: Buffer) => {
-        data += chunk.toString();
-      });
+      if (!result) {
+        resolve({ data: null, error: 'empty' });
+        return;
+      }
 
-      res.on('end', () => {
-        if (res.statusCode !== 200) {
-          debug('API returned non-200 status:', res.statusCode);
-          resolve({ data: null, error: res.statusCode ? `http-${res.statusCode}` : 'http-error' });
-          return;
-        }
+      const parsed = JSON.parse(result);
 
-        try {
-          const parsed: UsageApiResponse = JSON.parse(data);
-          resolve({ data: parsed });
-        } catch (error) {
-          debug('Failed to parse API response:', error);
-          resolve({ data: null, error: 'parse' });
-        }
-      });
-    });
+      // Check if API returned an error object
+      if (parsed.error) {
+        debug('API error:', parsed.error.type, parsed.error.message);
+        resolve({ data: null, error: parsed.error.type || 'api-error' });
+        return;
+      }
 
-    req.on('error', (error) => {
-      debug('API request error:', error);
-      resolve({ data: null, error: 'network' });
-    });
-    req.on('timeout', () => {
-      debug('API request timeout');
-      req.destroy();
-      resolve({ data: null, error: 'timeout' });
-    });
-
-    req.end();
+      resolve({ data: parsed as UsageApiResponse });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'unknown';
+      debug('curl failed:', message);
+      resolve({ data: null, error: 'curl-error' });
+    }
   });
 }
 
