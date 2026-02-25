@@ -1,10 +1,10 @@
-import * as fs from 'fs';
-import * as path from 'path';
-import * as os from 'os';
-import * as https from 'https';
 import { execFileSync } from 'child_process';
-import type { UsageData } from './types.js';
+import * as fs from 'fs';
+import * as https from 'https';
+import * as os from 'os';
+import * as path from 'path';
 import { createDebug } from './debug.js';
+import type { UsageData } from './types.js';
 
 export type { UsageData } from './types.js';
 
@@ -40,7 +40,7 @@ interface UsageApiResult {
 // File-based cache (HUD runs as new process each render, so in-memory cache won't persist)
 const CACHE_TTL_MS = 60_000; // 60 seconds
 const CACHE_FAILURE_TTL_MS = 15_000; // 15 seconds for failed requests
-const KEYCHAIN_TIMEOUT_MS = 5000;
+const KEYCHAIN_TIMEOUT_MS = 2000;
 const KEYCHAIN_BACKOFF_MS = 60_000; // Backoff on keychain failures to avoid re-prompting
 
 interface CacheFile {
@@ -398,7 +398,7 @@ function fetchUsageApi(accessToken: string): Promise<UsageApiResult> {
         'anthropic-beta': 'oauth-2025-04-20',
         'User-Agent': 'claude-hud/1.0',
       },
-      timeout: 5000,
+      timeout: 2000,
     };
 
     const req = https.request(options, (res) => {

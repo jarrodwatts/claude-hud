@@ -37,49 +37,40 @@ export async function getGitStatus(cwd?: string): Promise<GitStatus | null> {
   if (!cwd) return null;
 
   try {
-    // Get branch name
-    const { stdout: branchOut } = await execFileAsync(
-      'git',
-      ['rev-parse', '--abbrev-ref', 'HEAD'],
-      { cwd, timeout: 1000, encoding: 'utf8' }
-    );
-    const branch = branchOut.trim();
+    const opts = { cwd, timeout: 1000, encoding: 'utf8' as const };
+
+    // Run all git commands in parallel for faster execution
+    const [branchResult, statusResult, revListResult] = await Promise.allSettled([
+      execFileAsync('git', ['rev-parse', '--abbrev-ref', 'HEAD'], opts),
+      execFileAsync('git', ['--no-optional-locks', 'status', '--porcelain'], opts),
+      execFileAsync('git', ['rev-list', '--left-right', '--count', '@{upstream}...HEAD'], opts),
+    ]);
+
+    // Branch is required
+    if (branchResult.status !== 'fulfilled') return null;
+    const branch = branchResult.value.stdout.trim();
     if (!branch) return null;
 
-    // Check for dirty state and parse file stats
+    // Parse dirty state and file stats (optional)
     let isDirty = false;
     let fileStats: FileStats | undefined;
-    try {
-      const { stdout: statusOut } = await execFileAsync(
-        'git',
-        ['--no-optional-locks', 'status', '--porcelain'],
-        { cwd, timeout: 1000, encoding: 'utf8' }
-      );
-      const trimmed = statusOut.trim();
+    if (statusResult.status === 'fulfilled') {
+      const trimmed = statusResult.value.stdout.trim();
       isDirty = trimmed.length > 0;
       if (isDirty) {
         fileStats = parseFileStats(trimmed);
       }
-    } catch {
-      // Ignore errors, assume clean
     }
 
-    // Get ahead/behind counts
+    // Parse ahead/behind counts (optional)
     let ahead = 0;
     let behind = 0;
-    try {
-      const { stdout: revOut } = await execFileAsync(
-        'git',
-        ['rev-list', '--left-right', '--count', '@{upstream}...HEAD'],
-        { cwd, timeout: 1000, encoding: 'utf8' }
-      );
-      const parts = revOut.trim().split(/\s+/);
+    if (revListResult.status === 'fulfilled') {
+      const parts = revListResult.value.stdout.trim().split(/\s+/);
       if (parts.length === 2) {
         behind = parseInt(parts[0], 10) || 0;
         ahead = parseInt(parts[1], 10) || 0;
       }
-    } catch {
-      // No upstream or error, keep 0/0
     }
 
     return { branch, isDirty, ahead, behind, fileStats };

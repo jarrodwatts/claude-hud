@@ -1,14 +1,14 @@
-import * as fs from 'fs';
-import * as path from 'path';
-import * as os from 'os';
-import * as https from 'https';
 import { execFileSync } from 'child_process';
+import * as fs from 'fs';
+import * as https from 'https';
+import * as os from 'os';
+import * as path from 'path';
 import { createDebug } from './debug.js';
 const debug = createDebug('usage');
 // File-based cache (HUD runs as new process each render, so in-memory cache won't persist)
 const CACHE_TTL_MS = 60_000; // 60 seconds
 const CACHE_FAILURE_TTL_MS = 15_000; // 15 seconds for failed requests
-const KEYCHAIN_TIMEOUT_MS = 5000;
+const KEYCHAIN_TIMEOUT_MS = 2000;
 const KEYCHAIN_BACKOFF_MS = 60_000; // Backoff on keychain failures to avoid re-prompting
 function getCachePath(homeDir) {
     return path.join(homeDir, '.claude', 'plugins', 'claude-hud', '.usage-cache.json');
@@ -319,7 +319,7 @@ function fetchUsageApi(accessToken) {
                 'anthropic-beta': 'oauth-2025-04-20',
                 'User-Agent': 'claude-hud/1.0',
             },
-            timeout: 5000,
+            timeout: 2000,
         };
         const req = https.request(options, (res) => {
             let data = '';

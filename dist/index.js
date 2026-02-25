@@ -1,13 +1,13 @@
+import { realpathSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
+import { loadConfig } from './config.js';
+import { countConfigs } from './config-reader.js';
+import { parseExtraCmdArg, runExtraCmd } from './extra-cmd.js';
+import { getGitStatus } from './git.js';
+import { render } from './render/index.js';
 import { readStdin } from './stdin.js';
 import { parseTranscript } from './transcript.js';
-import { render } from './render/index.js';
-import { countConfigs } from './config-reader.js';
-import { getGitStatus } from './git.js';
 import { getUsage } from './usage-api.js';
-import { loadConfig } from './config.js';
-import { parseExtraCmdArg, runExtraCmd } from './extra-cmd.js';
-import { fileURLToPath } from 'node:url';
-import { realpathSync } from 'node:fs';
 export async function main(overrides = {}) {
     const deps = {
         readStdin,
@@ -30,18 +30,20 @@ export async function main(overrides = {}) {
             return;
         }
         const transcriptPath = stdin.transcript_path ?? '';
-        const transcript = await deps.parseTranscript(transcriptPath);
-        const { claudeMdCount, rulesCount, mcpCount, hooksCount } = await deps.countConfigs(stdin.cwd);
-        const config = await deps.loadConfig();
-        const gitStatus = config.gitStatus.enabled
-            ? await deps.getGitStatus(stdin.cwd)
-            : null;
-        // Only fetch usage if enabled in config (replaces env var requirement)
-        const usageData = config.display.showUsage !== false
-            ? await deps.getUsage()
-            : null;
         const extraCmd = deps.parseExtraCmdArg();
-        const extraLabel = extraCmd ? await deps.runExtraCmd(extraCmd) : null;
+        // Tier 1: independent operations in parallel
+        const [transcript, configCounts, config] = await Promise.all([
+            deps.parseTranscript(transcriptPath),
+            deps.countConfigs(stdin.cwd),
+            deps.loadConfig(),
+        ]);
+        const { claudeMdCount, rulesCount, mcpCount, hooksCount } = configCounts;
+        // Tier 2: config-dependent operations in parallel
+        const [gitStatus, usageData, extraLabel] = await Promise.all([
+            config.gitStatus.enabled ? deps.getGitStatus(stdin.cwd) : Promise.resolve(null),
+            config.display.showUsage !== false ? deps.getUsage() : Promise.resolve(null),
+            extraCmd ? deps.runExtraCmd(extraCmd) : Promise.resolve(null),
+        ]);
         const sessionDuration = formatSessionDuration(transcript.sessionStart, deps.now);
         const ctx = {
             stdin,
