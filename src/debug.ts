@@ -1,7 +1,16 @@
 // Shared debug logging utility
 // Enable via: DEBUG=claude-hud or DEBUG=*
 
-const DEBUG = process.env.DEBUG?.includes('claude-hud') || process.env.DEBUG === '*';
+function isClaudeHudDebugEnabled(value: string | undefined): boolean {
+  if (!value) return false;
+
+  return value
+    .split(/[,\s]+/)
+    .filter(Boolean)
+    .some((token) => token === '*' || token === 'claude-hud' || token.startsWith('claude-hud:'));
+}
+
+const DEBUG = isClaudeHudDebugEnabled(process.env.DEBUG);
 
 /**
  * Create a namespaced debug logger

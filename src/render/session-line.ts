@@ -79,7 +79,8 @@ function buildSections(ctx: RenderContext, sc: SectionContext): Section[] {
   // --- PRIORITY 2: Project + git ---
   if (ctx.stdin.cwd) {
     const segments = ctx.stdin.cwd.split(/[/\\]/).filter(Boolean);
-    const pathLevels = ctx.config?.pathLevels ?? 1;
+    const rawPathLevels = ctx.config?.pathLevels;
+    const pathLevels = Number.isInteger(rawPathLevels) ? Math.min(3, Math.max(1, rawPathLevels)) : 1;
     const projectPath = segments.length > 0 ? segments.slice(-pathLevels).join('/') : '/';
 
     let gitPart = '';

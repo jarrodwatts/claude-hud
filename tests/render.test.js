@@ -110,6 +110,15 @@ test('renderSessionLine displays project name from POSIX cwd', () => {
   assert.ok(!line.includes('/Users/jarrod'));
 });
 
+test('renderSessionLine clamps invalid pathLevels to avoid full path leaks', () => {
+  const ctx = baseContext();
+  ctx.stdin.cwd = '/Users/jarrod/private-project';
+  ctx.config.pathLevels = 0;
+  const line = renderSessionLine(ctx);
+  assert.ok(line.includes('private-project'));
+  assert.ok(!line.includes('/Users/jarrod/private-project'));
+});
+
 test('renderSessionLine displays project name from Windows cwd', { skip: process.platform !== 'win32' }, () => {
   const ctx = baseContext();
   ctx.stdin.cwd = 'C:\\Users\\jarrod\\my-project';

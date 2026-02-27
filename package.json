@@ -10,7 +10,8 @@
     "test": "npm run build && node --test",
     "test:coverage": "npm run build && c8 --reporter=text --reporter=lcov node --test",
     "test:update-snapshots": "UPDATE_SNAPSHOTS=1 npm test",
-    "test:stdin": "echo '{\"model\":{\"display_name\":\"Opus\"},\"context_window\":{\"current_usage\":{\"input_tokens\":45000},\"context_window_size\":200000},\"transcript_path\":\"/tmp/test.jsonl\"}' | node dist/index.js"
+    "test:stdin": "echo '{\"model\":{\"display_name\":\"Opus\"},\"context_window\":{\"current_usage\":{\"input_tokens\":45000},\"context_window_size\":200000},\"transcript_path\":\"/tmp/test.jsonl\"}' | node dist/index.js",
+    "lint": "tsc --noEmit"
   },
   "keywords": [
     "claude-code",

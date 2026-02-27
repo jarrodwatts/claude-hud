@@ -22,6 +22,9 @@ let _cachedWidth: number | null = null;
 let _cachedWidthAt = 0;
 const WIDTH_CACHE_MS = 5_000;
 
+// In-memory fallback for environments where high-water file persistence is unavailable.
+let _memoryHighWater: LineHighWater | null = null;
+
 /**
  * Detect terminal width with multiple fallbacks.
  * The plugin runs as a piped subprocess of Claude Code, so process.stdout.columns
@@ -121,22 +124,28 @@ function getHighWaterPath(): string {
 }
 
 function readHighWater(): LineHighWater | null {
+  if (_memoryHighWater) {
+    return _memoryHighWater;
+  }
+
   try {
     const data = JSON.parse(fs.readFileSync(getHighWaterPath(), 'utf8')) as LineHighWater;
-    if (typeof data.highWater !== 'number' || typeof data.lastHighAt !== 'number') return null;
+    if (typeof data.highWater !== 'number' || typeof data.lastHighAt !== 'number') return _memoryHighWater;
+    _memoryHighWater = data;
     return data;
   } catch {
-    return null;
+    return _memoryHighWater;
   }
 }
 
 function writeHighWater(data: LineHighWater): void {
+  _memoryHighWater = data;
   try {
     const p = getHighWaterPath();
     fs.mkdirSync(path.dirname(p), { recursive: true });
     fs.writeFileSync(p, JSON.stringify(data), 'utf8');
   } catch {
-    // Ignore write failures
+    // Ignore write failures (in-memory fallback remains active)
   }
 }
 
@@ -161,6 +170,7 @@ function getPaddedLineCount(actual: number): number {
 }
 
 export function clearHighWater(): void {
+  _memoryHighWater = null;
   try {
     fs.unlinkSync(getHighWaterPath());
   } catch {
