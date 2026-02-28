@@ -228,9 +228,34 @@ function recordKeychainFailure(homeDir: string, now: number): void {
 }
 
 /**
+ * Find all Claude Code Keychain service names.
+ * Claude Code 2.1+ uses profile-specific names: "Claude Code-credentials-{hash}"
+ * Legacy format: "Claude Code-credentials"
+ */
+function findClaudeKeychainServiceNames(): string[] {
+  try {
+    const output = execFileSync(
+      '/usr/bin/security',
+      ['dump-keychain'],
+      { encoding: 'utf8', stdio: ['pipe', 'pipe', 'pipe'], timeout: KEYCHAIN_TIMEOUT_MS }
+    );
+    const names: string[] = [];
+    const regex = /"svce"<blob>="(Claude Code-credentials(?:-[a-f0-9]+)?)"/g;
+    let match;
+    while ((match = regex.exec(output)) !== null) {
+      if (!names.includes(match[1])) names.push(match[1]);
+    }
+    if (names.length === 0) names.push('Claude Code-credentials');
+    return names;
+  } catch {
+    return ['Claude Code-credentials'];
+  }
+}
+
+/**
  * Read credentials from macOS Keychain.
- * Claude Code 2.x stores OAuth credentials in the macOS Keychain under "Claude Code-credentials".
- * Returns null if not on macOS or credentials not found.
+ * Claude Code 2.1+ stores OAuth credentials with profile-specific service names.
+ * Falls back to legacy "Claude Code-credentials" for older versions.
  *
  * Security: Uses execFileSync with absolute path to avoid shell injection and PATH hijacking.
  */
@@ -246,21 +271,43 @@ function readKeychainCredentials(now: number, homeDir: string): { accessToken: s
     return null;
   }
 
-  try {
-    // Read from macOS Keychain using security command
-    // Security: Use execFileSync with absolute path and args array (no shell)
-    const keychainData = execFileSync(
-      '/usr/bin/security',
-      ['find-generic-password', '-s', 'Claude Code-credentials', '-w'],
-      { encoding: 'utf8', stdio: ['pipe', 'pipe', 'pipe'], timeout: KEYCHAIN_TIMEOUT_MS }
-    ).trim();
+  // Detect current profile name from CLAUDE_CONFIG_DIR (e.g. "~/.claude-max" → "max")
+  const configDir = process.env.CLAUDE_CONFIG_DIR ?? '';
+  const profileMatch = configDir.match(/\.claude-(\w+)$/);
+  const profileHint = profileMatch ? profileMatch[1].toLowerCase() : null;
 
-    if (!keychainData) {
-      return null;
+  try {
+    const serviceNames = findClaudeKeychainServiceNames();
+    debug('Found Keychain service names:', serviceNames);
+
+    let fallback: { accessToken: string; subscriptionType: string } | null = null;
+
+    for (const serviceName of serviceNames) {
+      try {
+        const keychainData = execFileSync(
+          '/usr/bin/security',
+          ['find-generic-password', '-s', serviceName, '-w'],
+          { encoding: 'utf8', stdio: ['pipe', 'pipe', 'pipe'], timeout: KEYCHAIN_TIMEOUT_MS }
+        ).trim();
+
+        if (!keychainData) continue;
+
+        const data: CredentialsFile = JSON.parse(keychainData);
+        const result = parseCredentialsData(data, now);
+        if (!result) continue;
+
+        // Prefer entry matching current profile (e.g. CLAUDE_CONFIG_DIR=~/.claude-max → subscriptionType contains "max")
+        if (profileHint && result.subscriptionType.toLowerCase().includes(profileHint)) {
+          debug('Matched Keychain entry for profile:', profileHint);
+          return result;
+        }
+        if (!fallback) fallback = result;
+      } catch {
+        continue;
+      }
     }
 
-    const data: CredentialsFile = JSON.parse(keychainData);
-    return parseCredentialsData(data, now);
+    return fallback;
   } catch (error) {
     // Security: Only log error message, not full error object (may contain stdout/stderr with tokens)
     const message = error instanceof Error ? error.message : 'unknown error';
