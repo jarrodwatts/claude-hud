@@ -3,6 +3,7 @@ import * as path from 'path';
 import * as os from 'os';
 import * as https from 'https';
 import { execFileSync } from 'child_process';
+import { createHash } from 'crypto';
 import type { UsageData } from './types.js';
 import { createDebug } from './debug.js';
 
@@ -40,7 +41,7 @@ interface UsageApiResult {
 // File-based cache (HUD runs as new process each render, so in-memory cache won't persist)
 const CACHE_TTL_MS = 60_000; // 60 seconds
 const CACHE_FAILURE_TTL_MS = 15_000; // 15 seconds for failed requests
-const KEYCHAIN_TIMEOUT_MS = 5000;
+const KEYCHAIN_TIMEOUT_MS = 3000;
 const KEYCHAIN_BACKOFF_MS = 60_000; // Backoff on keychain failures to avoid re-prompting
 
 interface CacheFile {
@@ -228,34 +229,21 @@ function recordKeychainFailure(homeDir: string, now: number): void {
 }
 
 /**
- * Find all Claude Code Keychain service names.
- * Claude Code 2.1+ uses profile-specific names: "Claude Code-credentials-{hash}"
- * Legacy format: "Claude Code-credentials"
+ * Get the Keychain service name for the current config directory.
+ * Claude Code 2.1+ uses "Claude Code-credentials-{sha256(configDir)[:8]}" for non-default dirs.
+ * Computes hash directly instead of dumping the entire keychain (much faster).
  */
-function findClaudeKeychainServiceNames(): string[] {
-  try {
-    const output = execFileSync(
-      '/usr/bin/security',
-      ['dump-keychain'],
-      { encoding: 'utf8', stdio: ['pipe', 'pipe', 'pipe'], timeout: KEYCHAIN_TIMEOUT_MS }
-    );
-    const names: string[] = [];
-    const regex = /"svce"<blob>="(Claude Code-credentials(?:-[a-f0-9]+)?)"/g;
-    let match;
-    while ((match = regex.exec(output)) !== null) {
-      if (!names.includes(match[1])) names.push(match[1]);
-    }
-    if (names.length === 0) names.push('Claude Code-credentials');
-    return names;
-  } catch {
-    return ['Claude Code-credentials'];
+function getKeychainServiceName(): string {
+  const configDir = process.env.CLAUDE_CONFIG_DIR;
+  if (configDir) {
+    const hash = createHash('sha256').update(configDir).digest('hex').slice(0, 8);
+    return `Claude Code-credentials-${hash}`;
   }
+  return 'Claude Code-credentials';
 }
-
 /**
  * Read credentials from macOS Keychain.
- * Claude Code 2.1+ stores OAuth credentials with profile-specific service names.
- * Falls back to legacy "Claude Code-credentials" for older versions.
+ * Computes the exact service name from CLAUDE_CONFIG_DIR hash for fast, accurate lookup.
  *
  * Security: Uses execFileSync with absolute path to avoid shell injection and PATH hijacking.
  */
@@ -271,48 +259,27 @@ function readKeychainCredentials(now: number, homeDir: string): { accessToken: s
     return null;
   }
 
-  // Detect current profile name from CLAUDE_CONFIG_DIR (e.g. "~/.claude-max" → "max")
-  const configDir = process.env.CLAUDE_CONFIG_DIR ?? '';
-  const profileMatch = configDir.match(/\.claude-(\w+)$/);
-  const profileHint = profileMatch ? profileMatch[1].toLowerCase() : null;
-
   try {
-    const serviceNames = findClaudeKeychainServiceNames();
-    debug('Found Keychain service names:', serviceNames);
+    const serviceName = getKeychainServiceName();
+    debug('Using Keychain service name:', serviceName);
 
-    let fallback: { accessToken: string; subscriptionType: string } | null = null;
+    const keychainData = execFileSync(
+      '/usr/bin/security',
+      ['find-generic-password', '-s', serviceName, '-w'],
+      { encoding: 'utf8', stdio: ['pipe', 'pipe', 'pipe'], timeout: KEYCHAIN_TIMEOUT_MS }
+    ).trim();
 
-    for (const serviceName of serviceNames) {
-      try {
-        const keychainData = execFileSync(
-          '/usr/bin/security',
-          ['find-generic-password', '-s', serviceName, '-w'],
-          { encoding: 'utf8', stdio: ['pipe', 'pipe', 'pipe'], timeout: KEYCHAIN_TIMEOUT_MS }
-        ).trim();
+    if (!keychainData) return null;
 
-        if (!keychainData) continue;
-
-        const data: CredentialsFile = JSON.parse(keychainData);
-        const result = parseCredentialsData(data, now);
-        if (!result) continue;
-
-        // Prefer entry matching current profile (e.g. CLAUDE_CONFIG_DIR=~/.claude-max → subscriptionType contains "max")
-        if (profileHint && result.subscriptionType.toLowerCase().includes(profileHint)) {
-          debug('Matched Keychain entry for profile:', profileHint);
-          return result;
-        }
-        if (!fallback) fallback = result;
-      } catch {
-        continue;
-      }
+    const data: CredentialsFile = JSON.parse(keychainData);
+    const result = parseCredentialsData(data, now);
+    if (result) {
+      debug('Read credentials from Keychain for service:', serviceName);
     }
-
-    return fallback;
+    return result;
   } catch (error) {
-    // Security: Only log error message, not full error object (may contain stdout/stderr with tokens)
     const message = error instanceof Error ? error.message : 'unknown error';
     debug('Failed to read from macOS Keychain:', message);
-    // Record failure for backoff to avoid re-prompting
     recordKeychainFailure(homeDir, now);
     return null;
   }
@@ -445,7 +412,7 @@ function fetchUsageApi(accessToken: string): Promise<UsageApiResult> {
         'anthropic-beta': 'oauth-2025-04-20',
         'User-Agent': 'claude-hud/1.0',
       },
-      timeout: 5000,
+      timeout: 15000,
     };
 
     const req = https.request(options, (res) => {
