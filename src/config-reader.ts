@@ -91,6 +91,33 @@ function countRulesInDir(rulesDir: string): number {
   return count;
 }
 
+function normalizePathForComparison(inputPath: string): string {
+  let normalized = path.normalize(path.resolve(inputPath));
+  const root = path.parse(normalized).root;
+  while (normalized.length > root.length && normalized.endsWith(path.sep)) {
+    normalized = normalized.slice(0, -1);
+  }
+  return process.platform === 'win32' ? normalized.toLowerCase() : normalized;
+}
+
+function pathsReferToSameLocation(pathA: string, pathB: string): boolean {
+  if (normalizePathForComparison(pathA) === normalizePathForComparison(pathB)) {
+    return true;
+  }
+
+  if (!fs.existsSync(pathA) || !fs.existsSync(pathB)) {
+    return false;
+  }
+
+  try {
+    const realPathA = fs.realpathSync.native(pathA);
+    const realPathB = fs.realpathSync.native(pathB);
+    return normalizePathForComparison(realPathA) === normalizePathForComparison(realPathB);
+  } catch {
+    return false;
+  }
+}
+
 export async function countConfigs(cwd?: string): Promise<ConfigCounts> {
   let claudeMdCount = 0;
   let rulesCount = 0;
@@ -134,9 +161,9 @@ export async function countConfigs(cwd?: string): Promise<ConfigCounts> {
 
   // === PROJECT SCOPE ===
 
-  // When cwd is the home directory, {cwd}/.claude/* paths overlap with user scope paths above,
-  // so skip them to avoid double-counting the same CLAUDE.md files.
-  const isHome = cwd === homeDir;
+  // When cwd is the home directory (or an equivalent path to it), {cwd}/.claude/CLAUDE.md
+  // overlaps with user scope ~/.claude/CLAUDE.md, so skip it to avoid double-counting.
+  const isHome = cwd ? pathsReferToSameLocation(cwd, homeDir) : false;
 
   if (cwd) {
     // {cwd}/CLAUDE.md
@@ -154,8 +181,8 @@ export async function countConfigs(cwd?: string): Promise<ConfigCounts> {
       claudeMdCount++;
     }
 
-    // {cwd}/.claude/CLAUDE.local.md (skip if cwd is home)
-    if (!isHome && fs.existsSync(path.join(cwd, '.claude', 'CLAUDE.local.md'))) {
+    // {cwd}/.claude/CLAUDE.local.md
+    if (fs.existsSync(path.join(cwd, '.claude', 'CLAUDE.local.md'))) {
       claudeMdCount++;
     }
 
@@ -198,4 +225,3 @@ export async function countConfigs(cwd?: string): Promise<ConfigCounts> {
 
   return { claudeMdCount, rulesCount, mcpCount, hooksCount };
 }
-

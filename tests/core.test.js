@@ -375,6 +375,27 @@ test('countConfigs honors project and global config locations', async () => {
   }
 });
 
+test('countConfigs avoids home cwd double-counting and keeps CLAUDE.local.md', async () => {
+  const homeDir = await mkdtemp(path.join(tmpdir(), 'claude-hud-home-'));
+  const originalHome = process.env.HOME;
+  process.env.HOME = homeDir;
+
+  try {
+    await mkdir(path.join(homeDir, '.claude'), { recursive: true });
+    await writeFile(path.join(homeDir, '.claude', 'CLAUDE.md'), 'global', 'utf8');
+    await writeFile(path.join(homeDir, '.claude', 'CLAUDE.local.md'), 'global-local', 'utf8');
+
+    const exactCounts = await countConfigs(homeDir);
+    assert.equal(exactCounts.claudeMdCount, 2);
+
+    const trailingSlashCounts = await countConfigs(`${homeDir}${path.sep}`);
+    assert.equal(trailingSlashCounts.claudeMdCount, 2);
+  } finally {
+    process.env.HOME = originalHome;
+    await rm(homeDir, { recursive: true, force: true });
+  }
+});
+
 test('countConfigs excludes disabled user-scope MCPs', async () => {
   const homeDir = await mkdtemp(path.join(tmpdir(), 'claude-hud-home-'));
   const originalHome = process.env.HOME;
