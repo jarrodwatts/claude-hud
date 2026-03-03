@@ -5,7 +5,13 @@ import { renderSessionLine } from '../dist/render/session-line.js';
 import { renderToolsLine } from '../dist/render/tools-line.js';
 import { renderAgentsLine } from '../dist/render/agents-line.js';
 import { renderTodosLine } from '../dist/render/todos-line.js';
+import { renderUsageLine } from '../dist/render/lines/usage.js';
 import { getContextColor } from '../dist/render/colors.js';
+
+function stripAnsi(str) {
+  // eslint-disable-next-line no-control-regex
+  return str.replace(/\x1b\[[0-9;]*m/g, '');
+}
 
 function baseContext() {
   return {
@@ -473,6 +479,23 @@ test('renderSessionLine shows 5hr reset countdown', () => {
   assert.ok(line.includes('2h'), 'should include reset countdown');
 });
 
+test('renderUsageLine shows reset countdown in days when >= 24 hours', () => {
+  const ctx = baseContext();
+  const resetTime = new Date(Date.now() + (151 * 3600000) + (59 * 60000)); // 6d 7h 59m from now
+  ctx.usageData = {
+    planName: 'Pro',
+    fiveHour: 45,
+    sevenDay: 20,
+    fiveHourResetAt: resetTime,
+    sevenDayResetAt: null,
+  };
+  const line = renderUsageLine(ctx);
+  assert.ok(line, 'should render usage line');
+  const plain = stripAnsi(line);
+  assert.ok(/\(\d+d( \d+h)?\)/.test(plain), `expected day/hour reset format, got: ${plain}`);
+  assert.ok(!plain.includes('151h'), `should avoid raw hour format for long durations: ${plain}`);
+});
+
 test('renderSessionLine displays limit reached warning', () => {
   const ctx = baseContext();
   const resetTime = new Date(Date.now() + 3600000); // 1 hour from now
@@ -486,6 +509,24 @@ test('renderSessionLine displays limit reached warning', () => {
   const line = renderSessionLine(ctx);
   assert.ok(line.includes('Limit reached'), 'should show limit reached');
   assert.ok(line.includes('resets'), 'should show reset time');
+});
+
+test('renderUsageLine shows limit reset in days when >= 24 hours', () => {
+  const ctx = baseContext();
+  const resetTime = new Date(Date.now() + (151 * 3600000) + (59 * 60000)); // 6d 7h 59m from now
+  ctx.usageData = {
+    planName: 'Pro',
+    fiveHour: 100,
+    sevenDay: 45,
+    fiveHourResetAt: resetTime,
+    sevenDayResetAt: null,
+  };
+  const line = renderUsageLine(ctx);
+  assert.ok(line, 'should render usage line');
+  const plain = stripAnsi(line);
+  assert.ok(plain.includes('Limit reached'), 'should show limit reached');
+  assert.ok(/resets \d+d( \d+h)?/.test(plain), `expected day/hour reset format, got: ${plain}`);
+  assert.ok(!plain.includes('151h'), `should avoid raw hour format for long durations: ${plain}`);
 });
 
 test('renderSessionLine displays -- for null usage values', () => {
