@@ -2,6 +2,31 @@
 
 All notable changes to Claude HUD will be documented in this file.
 
+## [0.0.8] - 2026-03-03
+
+### Added
+- Session name display in the statusline (#155).
+- `display.contextValue: "remaining"` mode to show remaining context percent (#157).
+- Regression tests for `CLAUDE_CONFIG_DIR` path handling, keychain service resolution fallback ordering, and config counter overlap edge cases.
+
+### Changed
+- Prefer subscription plan labels over API env-var detection for account type display (#158).
+- Usage reset time formatting now switches to days when the reset window is 24h or more (#132).
+
+### Fixed
+- Respect `CLAUDE_CONFIG_DIR` for HUD config lookup, usage cache, speed cache, and legacy credentials file paths (#126).
+- Improve macOS Keychain credential lookup for multi-profile setups by using profile-specific service names with compatibility fallbacks.
+- Fix config counting overlap detection so project `.claude` files are still counted when `cwd` is home and user scope is redirected.
+- Prevent HUD rows from disappearing in narrow terminals (#159).
+- Handle object-based legacy layout values safely during config migration (#144).
+- Prevent double-counting user vs project `CLAUDE.md` when `cwd` is home (#141).
+
+### Dependencies
+- Bump `@types/node` from `25.2.3` to `25.3.3` (#153).
+- Bump `c8` from `10.1.3` to `11.0.0` (#154).
+
+---
+
 ## [0.0.7] - 2026-02-06
 
 ### Changed

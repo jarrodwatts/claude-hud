@@ -1,6 +1,6 @@
 export type LineLayoutType = 'compact' | 'expanded';
 export type AutocompactBufferMode = 'enabled' | 'disabled';
-export type ContextValueMode = 'percent' | 'tokens';
+export type ContextValueMode = 'percent' | 'tokens' | 'remaining';
 export interface HudConfig {
     lineLayout: LineLayoutType;
     showSeparators: boolean;
@@ -32,5 +32,6 @@ export interface HudConfig {
 }
 export declare const DEFAULT_CONFIG: HudConfig;
 export declare function getConfigPath(): string;
+export declare function mergeConfig(userConfig: Partial<HudConfig>): HudConfig;
 export declare function loadConfig(): Promise<HudConfig>;
 //# sourceMappingURL=config.d.ts.map

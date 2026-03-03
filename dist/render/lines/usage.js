@@ -80,6 +80,13 @@ function formatResetTime(resetAt) {
         return `${diffMins}m`;
     const hours = Math.floor(diffMins / 60);
     const mins = diffMins % 60;
+    if (hours >= 24) {
+        const days = Math.floor(hours / 24);
+        const remHours = hours % 24;
+        if (remHours > 0)
+            return `${days}d ${remHours}h`;
+        return `${days}d`;
+    }
     return mins > 0 ? `${hours}h ${mins}m` : `${hours}h`;
 }
 //# sourceMappingURL=usage.js.map

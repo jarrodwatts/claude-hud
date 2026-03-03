@@ -4,6 +4,9 @@ import type { TranscriptData, ToolEntry, AgentEntry, TodoItem } from './types.js
 
 interface TranscriptLine {
   timestamp?: string;
+  type?: string;
+  slug?: string;
+  customTitle?: string;
   message?: {
     content?: ContentBlock[];
   };
@@ -33,6 +36,8 @@ export async function parseTranscript(transcriptPath: string): Promise<Transcrip
   const agentMap = new Map<string, AgentEntry>();
   let latestTodos: TodoItem[] = [];
   const taskIdToIndex = new Map<string, number>();
+  let latestSlug: string | undefined;
+  let customTitle: string | undefined;
 
   try {
     const fileStream = fs.createReadStream(transcriptPath);
@@ -46,6 +51,11 @@ export async function parseTranscript(transcriptPath: string): Promise<Transcrip
 
       try {
         const entry = JSON.parse(line) as TranscriptLine;
+        if (entry.type === 'custom-title' && typeof entry.customTitle === 'string') {
+          customTitle = entry.customTitle;
+        } else if (typeof entry.slug === 'string') {
+          latestSlug = entry.slug;
+        }
         processEntry(entry, toolMap, agentMap, taskIdToIndex, latestTodos, result);
       } catch {
         // Skip malformed lines
@@ -58,6 +68,7 @@ export async function parseTranscript(transcriptPath: string): Promise<Transcrip
   result.tools = Array.from(toolMap.values()).slice(-20);
   result.agents = Array.from(agentMap.values()).slice(-10);
   result.todos = latestTodos;
+  result.sessionName = customTitle ?? latestSlug;
 
   return result;
 }

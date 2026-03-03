@@ -1,6 +1,6 @@
 {
   "name": "claude-hud",
-  "version": "0.0.7",
+  "version": "0.0.8",
   "description": "Real-time statusline HUD for Claude Code",
   "type": "module",
   "main": "dist/index.js",
@@ -23,8 +23,8 @@
     "node": ">=18.0.0"
   },
   "devDependencies": {
-    "@types/node": "^25.2.3",
-    "c8": "^10.1.3",
+    "@types/node": "^25.3.3",
+    "c8": "^11.0.0",
     "typescript": "^5.0.0"
   }
 }

@@ -9,6 +9,14 @@ import { countConfigs } from '../dist/config-reader.js';
 import { getContextPercent, getBufferedPercent, getModelName, getProviderLabel, isBedrockModelId } from '../dist/stdin.js';
 import * as fs from 'node:fs';
 
+function restoreEnvVar(name, value) {
+  if (value === undefined) {
+    delete process.env[name];
+    return;
+  }
+  process.env[name] = value;
+}
+
 test('getContextPercent returns 0 when data is missing', () => {
   assert.equal(getContextPercent({}), 0);
   assert.equal(getContextPercent({ context_window: { context_window_size: 0 } }), 0);
@@ -184,6 +192,43 @@ test('parseTranscript aggregates tools, agents, and todos', async () => {
   assert.equal(result.todos[2].status, 'completed');
   assert.equal(result.todos[3].status, 'in_progress');
   assert.equal(result.sessionStart?.toISOString(), '2024-01-01T00:00:00.000Z');
+});
+
+test('parseTranscript prefers custom title over slug for session name', async () => {
+  const dir = await mkdtemp(path.join(tmpdir(), 'claude-hud-'));
+  const filePath = path.join(dir, 'session-name-custom-title.jsonl');
+  const lines = [
+    JSON.stringify({ type: 'user', slug: 'auto-slug-1' }),
+    JSON.stringify({ type: 'custom-title', customTitle: 'My Renamed Session' }),
+    JSON.stringify({ type: 'assistant', slug: 'auto-slug-2' }),
+  ];
+
+  await writeFile(filePath, lines.join('\n'), 'utf8');
+
+  try {
+    const result = await parseTranscript(filePath);
+    assert.equal(result.sessionName, 'My Renamed Session');
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
+});
+
+test('parseTranscript falls back to latest slug when custom title is missing', async () => {
+  const dir = await mkdtemp(path.join(tmpdir(), 'claude-hud-'));
+  const filePath = path.join(dir, 'session-name-slug.jsonl');
+  const lines = [
+    JSON.stringify({ type: 'user', slug: 'auto-slug-1' }),
+    JSON.stringify({ type: 'assistant', slug: 'auto-slug-2' }),
+  ];
+
+  await writeFile(filePath, lines.join('\n'), 'utf8');
+
+  try {
+    const result = await parseTranscript(filePath);
+    assert.equal(result.sessionName, 'auto-slug-2');
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
 });
 
 test('parseTranscript returns empty result when file is missing', async () => {
@@ -372,6 +417,129 @@ test('countConfigs honors project and global config locations', async () => {
     process.env.HOME = originalHome;
     await rm(homeDir, { recursive: true, force: true });
     await rm(projectDir, { recursive: true, force: true });
+  }
+});
+
+test('countConfigs uses CLAUDE_CONFIG_DIR and matching .json sidecar for user scope', async () => {
+  const homeDir = await mkdtemp(path.join(tmpdir(), 'claude-hud-home-'));
+  const customConfigDir = path.join(homeDir, '.claude-2');
+  const originalHome = process.env.HOME;
+  const originalConfigDir = process.env.CLAUDE_CONFIG_DIR;
+  process.env.HOME = homeDir;
+  process.env.CLAUDE_CONFIG_DIR = customConfigDir;
+
+  try {
+    // Default directory should be ignored when CLAUDE_CONFIG_DIR is set.
+    await mkdir(path.join(homeDir, '.claude', 'rules'), { recursive: true });
+    await writeFile(path.join(homeDir, '.claude', 'CLAUDE.md'), 'default-global', 'utf8');
+    await writeFile(path.join(homeDir, '.claude', 'rules', 'rule.md'), '# default rule', 'utf8');
+    await writeFile(
+      path.join(homeDir, '.claude', 'settings.json'),
+      JSON.stringify({ mcpServers: { defaultA: {} }, hooks: { onDefault: {} } }),
+      'utf8'
+    );
+    await writeFile(path.join(homeDir, '.claude.json'), JSON.stringify({ disabledMcpServers: ['defaultA'] }), 'utf8');
+
+    // Custom config directory and sidecar should drive user-scope counts.
+    await mkdir(customConfigDir, { recursive: true });
+    await writeFile(path.join(customConfigDir, 'CLAUDE.md'), 'custom-global', 'utf8');
+    await writeFile(
+      path.join(customConfigDir, 'settings.json'),
+      JSON.stringify({
+        mcpServers: { customA: {}, customB: {} },
+        hooks: { onStart: {}, onStop: {} },
+      }),
+      'utf8'
+    );
+    await writeFile(
+      `${customConfigDir}.json`,
+      JSON.stringify({ disabledMcpServers: ['customA'] }),
+      'utf8'
+    );
+
+    const counts = await countConfigs();
+    assert.equal(counts.claudeMdCount, 1);
+    assert.equal(counts.rulesCount, 0);
+    assert.equal(counts.mcpCount, 1);
+    assert.equal(counts.hooksCount, 2);
+  } finally {
+    restoreEnvVar('HOME', originalHome);
+    restoreEnvVar('CLAUDE_CONFIG_DIR', originalConfigDir);
+    await rm(homeDir, { recursive: true, force: true });
+  }
+});
+
+test('countConfigs still counts project .claude when cwd is home and CLAUDE_CONFIG_DIR points elsewhere', async () => {
+  const homeDir = await mkdtemp(path.join(tmpdir(), 'claude-hud-home-'));
+  const customConfigDir = path.join(homeDir, '.claude-2');
+  const originalHome = process.env.HOME;
+  const originalConfigDir = process.env.CLAUDE_CONFIG_DIR;
+  process.env.HOME = homeDir;
+  process.env.CLAUDE_CONFIG_DIR = customConfigDir;
+
+  try {
+    // User scope: custom config directory
+    await mkdir(path.join(customConfigDir, 'rules'), { recursive: true });
+    await writeFile(path.join(customConfigDir, 'CLAUDE.md'), 'custom-global', 'utf8');
+    await writeFile(path.join(customConfigDir, 'rules', 'user-rule.md'), '# user rule', 'utf8');
+    await writeFile(
+      path.join(customConfigDir, 'settings.json'),
+      JSON.stringify({ mcpServers: { userServer: {} }, hooks: { onUser: {} } }),
+      'utf8'
+    );
+
+    // Project scope: cwd is home directory with its own .claude contents
+    await mkdir(path.join(homeDir, '.claude', 'rules'), { recursive: true });
+    await writeFile(path.join(homeDir, '.claude', 'CLAUDE.md'), 'project-alt', 'utf8');
+    await writeFile(path.join(homeDir, '.claude', 'rules', 'project-rule.md'), '# project rule', 'utf8');
+    await writeFile(
+      path.join(homeDir, '.claude', 'settings.json'),
+      JSON.stringify({ mcpServers: { projectServer: {} }, hooks: { onProject: {} } }),
+      'utf8'
+    );
+
+    const counts = await countConfigs(homeDir);
+    assert.equal(counts.claudeMdCount, 2);
+    assert.equal(counts.rulesCount, 2);
+    assert.equal(counts.mcpCount, 2);
+    assert.equal(counts.hooksCount, 2);
+  } finally {
+    restoreEnvVar('HOME', originalHome);
+    restoreEnvVar('CLAUDE_CONFIG_DIR', originalConfigDir);
+    await rm(homeDir, { recursive: true, force: true });
+  }
+});
+
+test('countConfigs avoids home cwd double-counting across counters and keeps CLAUDE.local.md', async () => {
+  const homeDir = await mkdtemp(path.join(tmpdir(), 'claude-hud-home-'));
+  const originalHome = process.env.HOME;
+  process.env.HOME = homeDir;
+
+  try {
+    await mkdir(path.join(homeDir, '.claude', 'rules'), { recursive: true });
+    await writeFile(path.join(homeDir, '.claude', 'CLAUDE.md'), 'global', 'utf8');
+    await writeFile(path.join(homeDir, '.claude', 'CLAUDE.local.md'), 'global-local', 'utf8');
+    await writeFile(path.join(homeDir, '.claude', 'rules', 'rule.md'), '# rule', 'utf8');
+    await writeFile(
+      path.join(homeDir, '.claude', 'settings.json'),
+      JSON.stringify({ mcpServers: { one: {} }, hooks: { onStart: {} } }),
+      'utf8'
+    );
+
+    const exactCounts = await countConfigs(homeDir);
+    assert.equal(exactCounts.claudeMdCount, 2);
+    assert.equal(exactCounts.rulesCount, 1);
+    assert.equal(exactCounts.mcpCount, 1);
+    assert.equal(exactCounts.hooksCount, 1);
+
+    const trailingSlashCounts = await countConfigs(`${homeDir}${path.sep}`);
+    assert.equal(trailingSlashCounts.claudeMdCount, 2);
+    assert.equal(trailingSlashCounts.rulesCount, 1);
+    assert.equal(trailingSlashCounts.mcpCount, 1);
+    assert.equal(trailingSlashCounts.hooksCount, 1);
+  } finally {
+    process.env.HOME = originalHome;
+    await rm(homeDir, { recursive: true, force: true });
   }
 });
 

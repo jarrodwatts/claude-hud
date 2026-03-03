@@ -33,9 +33,10 @@ export function renderSessionLine(ctx: RenderContext): string {
   // Model and context bar (FIRST)
   // Plan name only shows if showUsage is enabled (respects hybrid toggle)
   const providerLabel = getProviderLabel(ctx.stdin);
-  const planName = display?.showUsage !== false ? ctx.usageData?.planName : undefined;
+  const showUsage = display?.showUsage !== false;
+  const planName = showUsage ? ctx.usageData?.planName : undefined;
   const hasApiKey = !!process.env.ANTHROPIC_API_KEY;
-  const billingLabel = hasApiKey ? red('API') : planName;
+  const billingLabel = showUsage ? (planName ?? (hasApiKey ? red('API') : undefined)) : undefined;
   const planDisplay = providerLabel ?? billingLabel;
   const modelDisplay = planDisplay ? `${model} | ${planDisplay}` : model;
 
@@ -105,6 +106,11 @@ export function renderSessionLine(ctx: RenderContext): string {
     parts.push(projectPart);
   } else if (gitPart) {
     parts.push(gitPart);
+  }
+
+  // Session name (custom title from /rename, or auto-generated slug)
+  if (ctx.transcript.sessionName) {
+    parts.push(dim(ctx.transcript.sessionName));
   }
 
   // Config counts (respects environmentThreshold)
@@ -218,7 +224,7 @@ function formatTokens(n: number): string {
   return n.toString();
 }
 
-function formatContextValue(ctx: RenderContext, percent: number, mode: 'percent' | 'tokens'): string {
+function formatContextValue(ctx: RenderContext, percent: number, mode: 'percent' | 'tokens' | 'remaining'): string {
   if (mode === 'tokens') {
     const totalTokens = getTotalTokens(ctx.stdin);
     const size = ctx.stdin.context_window?.context_window_size ?? 0;
@@ -226,6 +232,10 @@ function formatContextValue(ctx: RenderContext, percent: number, mode: 'percent'
       return `${formatTokens(totalTokens)}/${formatTokens(size)}`;
     }
     return formatTokens(totalTokens);
+  }
+
+  if (mode === 'remaining') {
+    return `${Math.max(0, 100 - percent)}%`;
   }
 
   return `${percent}%`;

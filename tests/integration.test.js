@@ -14,7 +14,15 @@ function stripAnsi(text) {
   );
 }
 
-test('CLI renders expected output for a basic transcript', async () => {
+function skipIfSpawnBlocked(result, t) {
+  if (result.error?.code === 'EPERM') {
+    t.skip('spawnSync is blocked by sandbox policy in this environment');
+    return true;
+  }
+  return false;
+}
+
+test('CLI renders expected output for a basic transcript', async (t) => {
   const fixturePath = fileURLToPath(new URL('./fixtures/transcript-render.jsonl', import.meta.url));
   const expectedPath = fileURLToPath(new URL('./fixtures/expected/render-basic.txt', import.meta.url));
   const expected = readFileSync(expectedPath, 'utf8').trimEnd();
@@ -41,6 +49,9 @@ test('CLI renders expected output for a basic transcript', async () => {
       env: { ...process.env, HOME: homeDir },
     });
 
+    if (skipIfSpawnBlocked(result, t)) return;
+
+    assert.equal(result.error, undefined, result.error?.message);
     assert.equal(result.status, 0, result.stderr || 'non-zero exit');
     const normalized = stripAnsi(result.stdout).replace(/\u00A0/g, ' ').trimEnd();
     if (process.env.UPDATE_SNAPSHOTS === '1') {
@@ -53,13 +64,16 @@ test('CLI renders expected output for a basic transcript', async () => {
   }
 });
 
-test('CLI prints initializing message on empty stdin', () => {
+test('CLI prints initializing message on empty stdin', (t) => {
   const result = spawnSync('node', ['dist/index.js'], {
     cwd: path.resolve(process.cwd()),
     input: '',
     encoding: 'utf8',
   });
 
+  if (skipIfSpawnBlocked(result, t)) return;
+
+  assert.equal(result.error, undefined, result.error?.message);
   assert.equal(result.status, 0, result.stderr || 'non-zero exit');
   const normalized = stripAnsi(result.stdout).replace(/\u00A0/g, ' ').trimEnd();
   assert.equal(normalized, '[claude-hud] Initializing...');

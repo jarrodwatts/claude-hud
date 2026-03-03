@@ -2,6 +2,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
 import { createDebug } from './debug.js';
+import { getClaudeConfigDir, getClaudeConfigJsonPath } from './claude-config-dir.js';
 
 const debug = createDebug('config');
 
@@ -91,13 +92,40 @@ function countRulesInDir(rulesDir: string): number {
   return count;
 }
 
+function normalizePathForComparison(inputPath: string): string {
+  let normalized = path.normalize(path.resolve(inputPath));
+  const root = path.parse(normalized).root;
+  while (normalized.length > root.length && normalized.endsWith(path.sep)) {
+    normalized = normalized.slice(0, -1);
+  }
+  return process.platform === 'win32' ? normalized.toLowerCase() : normalized;
+}
+
+function pathsReferToSameLocation(pathA: string, pathB: string): boolean {
+  if (normalizePathForComparison(pathA) === normalizePathForComparison(pathB)) {
+    return true;
+  }
+
+  if (!fs.existsSync(pathA) || !fs.existsSync(pathB)) {
+    return false;
+  }
+
+  try {
+    const realPathA = fs.realpathSync.native(pathA);
+    const realPathB = fs.realpathSync.native(pathB);
+    return normalizePathForComparison(realPathA) === normalizePathForComparison(realPathB);
+  } catch {
+    return false;
+  }
+}
+
 export async function countConfigs(cwd?: string): Promise<ConfigCounts> {
   let claudeMdCount = 0;
   let rulesCount = 0;
   let hooksCount = 0;
 
   const homeDir = os.homedir();
-  const claudeDir = path.join(homeDir, '.claude');
+  const claudeDir = getClaudeConfigDir(homeDir);
 
   // Collect all MCP servers across scopes, then subtract disabled ones
   const userMcpServers = new Set<string>();
@@ -120,8 +148,8 @@ export async function countConfigs(cwd?: string): Promise<ConfigCounts> {
   }
   hooksCount += countHooksInFile(userSettings);
 
-  // ~/.claude.json (additional user-scope MCPs)
-  const userClaudeJson = path.join(homeDir, '.claude.json');
+  // {CLAUDE_CONFIG_DIR}.json (additional user-scope MCPs)
+  const userClaudeJson = getClaudeConfigJsonPath(homeDir);
   for (const name of getMcpServerNames(userClaudeJson)) {
     userMcpServers.add(name);
   }
@@ -134,6 +162,12 @@ export async function countConfigs(cwd?: string): Promise<ConfigCounts> {
 
   // === PROJECT SCOPE ===
 
+  // Avoid double-counting when project .claude directory is the same location as user scope.
+  const projectClaudeDir = cwd ? path.join(cwd, '.claude') : null;
+  const projectClaudeOverlapsUserScope = projectClaudeDir
+    ? pathsReferToSameLocation(projectClaudeDir, claudeDir)
+    : false;
+
   if (cwd) {
     // {cwd}/CLAUDE.md
     if (fs.existsSync(path.join(cwd, 'CLAUDE.md'))) {
@@ -145,8 +179,8 @@ export async function countConfigs(cwd?: string): Promise<ConfigCounts> {
       claudeMdCount++;
     }
 
-    // {cwd}/.claude/CLAUDE.md (alternative location)
-    if (fs.existsSync(path.join(cwd, '.claude', 'CLAUDE.md'))) {
+    // {cwd}/.claude/CLAUDE.md (alternative location, skip when it is user scope)
+    if (!projectClaudeOverlapsUserScope && fs.existsSync(path.join(cwd, '.claude', 'CLAUDE.md'))) {
       claudeMdCount++;
     }
 
@@ -156,17 +190,23 @@ export async function countConfigs(cwd?: string): Promise<ConfigCounts> {
     }
 
     // {cwd}/.claude/rules/*.md (recursive)
-    rulesCount += countRulesInDir(path.join(cwd, '.claude', 'rules'));
+    // Skip when it overlaps with user-scope rules.
+    if (!projectClaudeOverlapsUserScope) {
+      rulesCount += countRulesInDir(path.join(cwd, '.claude', 'rules'));
+    }
 
     // {cwd}/.mcp.json (project MCP config) - tracked separately for disabled filtering
     const mcpJsonServers = getMcpServerNames(path.join(cwd, '.mcp.json'));
 
     // {cwd}/.claude/settings.json (project settings)
+    // Skip when it overlaps with user-scope settings.
     const projectSettings = path.join(cwd, '.claude', 'settings.json');
-    for (const name of getMcpServerNames(projectSettings)) {
-      projectMcpServers.add(name);
+    if (!projectClaudeOverlapsUserScope) {
+      for (const name of getMcpServerNames(projectSettings)) {
+        projectMcpServers.add(name);
+      }
+      hooksCount += countHooksInFile(projectSettings);
     }
-    hooksCount += countHooksInFile(projectSettings);
 
     // {cwd}/.claude/settings.local.json (local project settings)
     const localSettings = path.join(cwd, '.claude', 'settings.local.json');
@@ -194,4 +234,3 @@ export async function countConfigs(cwd?: string): Promise<ConfigCounts> {
 
   return { claudeMdCount, rulesCount, mcpCount, hooksCount };
 }
-

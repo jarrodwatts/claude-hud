@@ -6,7 +6,13 @@ import { renderProjectLine } from '../dist/render/lines/project.js';
 import { renderToolsLine } from '../dist/render/tools-line.js';
 import { renderAgentsLine } from '../dist/render/agents-line.js';
 import { renderTodosLine } from '../dist/render/todos-line.js';
+import { renderUsageLine } from '../dist/render/lines/usage.js';
 import { getContextColor } from '../dist/render/colors.js';
+
+function stripAnsi(str) {
+  // eslint-disable-next-line no-control-regex
+  return str.replace(/\x1b\[[0-9;]*m/g, '');
+}
 
 function baseContext() {
   return {
@@ -135,11 +141,55 @@ test('renderSessionLine supports token-based context display', () => {
   assert.ok(line.includes('12k/200k'), 'should include token counts');
 });
 
+test('renderSessionLine supports remaining-based context display', () => {
+  const ctx = baseContext();
+  ctx.config.display.contextValue = 'remaining';
+  ctx.stdin.context_window.context_window_size = 200000;
+  ctx.stdin.context_window.current_usage.input_tokens = 12345;
+  const line = renderSessionLine(ctx);
+  assert.ok(line.includes('71%'), 'should include remaining percentage');
+});
+
+test('render expanded layout supports remaining-based context display', () => {
+  const ctx = baseContext();
+  ctx.config.lineLayout = 'expanded';
+  ctx.config.display.contextValue = 'remaining';
+  ctx.stdin.context_window.context_window_size = 200000;
+  ctx.stdin.context_window.current_usage.input_tokens = 12345;
+
+  const logs = [];
+  const originalLog = console.log;
+  console.log = (line) => logs.push(line);
+  try {
+    render(ctx);
+  } finally {
+    console.log = originalLog;
+  }
+
+  assert.ok(logs.some(line => line.includes('Context') && line.includes('71%')), 'expected remaining percentage on context line');
+});
+
 test('renderSessionLine omits project name when cwd is undefined', () => {
   const ctx = baseContext();
   ctx.stdin.cwd = undefined;
   const line = renderSessionLine(ctx);
   assert.ok(line.includes('[Opus]'));
+});
+
+test('renderSessionLine includes session name when present', () => {
+  const ctx = baseContext();
+  ctx.stdin.cwd = '/tmp/my-project';
+  ctx.transcript.sessionName = 'Renamed Session';
+  const line = renderSessionLine(ctx);
+  assert.ok(line.includes('Renamed Session'));
+});
+
+test('renderProjectLine includes session name when present', () => {
+  const ctx = baseContext();
+  ctx.stdin.cwd = '/tmp/my-project';
+  ctx.transcript.sessionName = 'Renamed Session';
+  const line = renderProjectLine(ctx);
+  assert.ok(line?.includes('Renamed Session'));
 });
 
 test('renderSessionLine omits project name when showProject is false', () => {
@@ -416,6 +466,56 @@ test('renderSessionLine displays plan name in model bracket', () => {
   assert.ok(line.includes('Max'), 'should include plan name');
 });
 
+test('renderSessionLine prefers subscription plan over API env var', () => {
+  const ctx = baseContext();
+  ctx.usageData = {
+    planName: 'Max',
+    fiveHour: 23,
+    sevenDay: 45,
+    fiveHourResetAt: null,
+    sevenDayResetAt: null,
+  };
+  const savedApiKey = process.env.ANTHROPIC_API_KEY;
+  process.env.ANTHROPIC_API_KEY = 'test-key';
+
+  try {
+    const line = renderSessionLine(ctx);
+    assert.ok(line.includes('Max'), 'should include plan label');
+    assert.ok(!line.includes('API'), 'should not include API label when plan is known');
+  } finally {
+    if (savedApiKey === undefined) {
+      delete process.env.ANTHROPIC_API_KEY;
+    } else {
+      process.env.ANTHROPIC_API_KEY = savedApiKey;
+    }
+  }
+});
+
+test('renderProjectLine prefers subscription plan over API env var', () => {
+  const ctx = baseContext();
+  ctx.usageData = {
+    planName: 'Pro',
+    fiveHour: 10,
+    sevenDay: 20,
+    fiveHourResetAt: null,
+    sevenDayResetAt: null,
+  };
+  const savedApiKey = process.env.ANTHROPIC_API_KEY;
+  process.env.ANTHROPIC_API_KEY = 'test-key';
+
+  try {
+    const line = renderProjectLine(ctx);
+    assert.ok(line?.includes('Pro'), 'should include plan label');
+    assert.ok(!line?.includes('API'), 'should not include API label when plan is known');
+  } finally {
+    if (savedApiKey === undefined) {
+      delete process.env.ANTHROPIC_API_KEY;
+    } else {
+      process.env.ANTHROPIC_API_KEY = savedApiKey;
+    }
+  }
+});
+
 test('renderSessionLine shows Bedrock label and hides usage for bedrock model ids', () => {
   const ctx = baseContext();
   ctx.stdin.model = { display_name: 'Sonnet', id: 'anthropic.claude-3-5-sonnet-20240620-v1:0' };
@@ -494,6 +594,23 @@ test('renderSessionLine shows 5hr reset countdown', () => {
   assert.ok(line.includes('2h'), 'should include reset countdown');
 });
 
+test('renderUsageLine shows reset countdown in days when >= 24 hours', () => {
+  const ctx = baseContext();
+  const resetTime = new Date(Date.now() + (151 * 3600000) + (59 * 60000)); // 6d 7h 59m from now
+  ctx.usageData = {
+    planName: 'Pro',
+    fiveHour: 45,
+    sevenDay: 20,
+    fiveHourResetAt: resetTime,
+    sevenDayResetAt: null,
+  };
+  const line = renderUsageLine(ctx);
+  assert.ok(line, 'should render usage line');
+  const plain = stripAnsi(line);
+  assert.ok(/\(\d+d( \d+h)?\)/.test(plain), `expected day/hour reset format, got: ${plain}`);
+  assert.ok(!plain.includes('151h'), `should avoid raw hour format for long durations: ${plain}`);
+});
+
 test('renderSessionLine displays limit reached warning', () => {
   const ctx = baseContext();
   const resetTime = new Date(Date.now() + 3600000); // 1 hour from now
@@ -507,6 +624,24 @@ test('renderSessionLine displays limit reached warning', () => {
   const line = renderSessionLine(ctx);
   assert.ok(line.includes('Limit reached'), 'should show limit reached');
   assert.ok(line.includes('resets'), 'should show reset time');
+});
+
+test('renderUsageLine shows limit reset in days when >= 24 hours', () => {
+  const ctx = baseContext();
+  const resetTime = new Date(Date.now() + (151 * 3600000) + (59 * 60000)); // 6d 7h 59m from now
+  ctx.usageData = {
+    planName: 'Pro',
+    fiveHour: 100,
+    sevenDay: 45,
+    fiveHourResetAt: resetTime,
+    sevenDayResetAt: null,
+  };
+  const line = renderUsageLine(ctx);
+  assert.ok(line, 'should render usage line');
+  const plain = stripAnsi(line);
+  assert.ok(plain.includes('Limit reached'), 'should show limit reached');
+  assert.ok(/resets \d+d( \d+h)?/.test(plain), `expected day/hour reset format, got: ${plain}`);
+  assert.ok(!plain.includes('151h'), `should avoid raw hour format for long durations: ${plain}`);
 });
 
 test('renderSessionLine displays -- for null usage values', () => {

@@ -32,5 +32,18 @@ export type UsageApiDeps = {
  * Cache TTL: 60s for success, 15s for failures.
  */
 export declare function getUsage(overrides?: Partial<UsageApiDeps>): Promise<UsageData | null>;
+/**
+ * Determine the macOS Keychain service name for Claude Code credentials.
+ * Claude Code uses the default service for ~/.claude and a hashed suffix for custom config directories.
+ */
+export declare function getKeychainServiceName(configDir: string, homeDir: string): string;
+export declare function getKeychainServiceNames(configDir: string, homeDir: string, env?: NodeJS.ProcessEnv): string[];
+export declare function resolveKeychainCredentials(serviceNames: string[], now: number, loadService: (serviceName: string) => string): {
+    credentials: {
+        accessToken: string;
+        subscriptionType: string;
+    } | null;
+    shouldBackoff: boolean;
+};
 export declare function clearCache(homeDir?: string): void;
 //# sourceMappingURL=usage-api.d.ts.map
