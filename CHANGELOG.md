@@ -2,6 +2,18 @@
 
 All notable changes to Claude HUD will be documented in this file.
 
+## [0.0.8] - 2026-03-03
+
+### Fixed
+- Respect `CLAUDE_CONFIG_DIR` for HUD config lookup, usage cache, speed cache, and legacy credentials file paths.
+- Improve macOS Keychain credential lookup for multi-profile setups by using profile-specific service names with compatibility fallbacks.
+- Fix config counting overlap detection so project `.claude` files are still counted when `cwd` is home and user scope is redirected.
+
+### Added
+- Regression tests for `CLAUDE_CONFIG_DIR` path handling, keychain service resolution fallback ordering, and config counter overlap edge cases.
+
+---
+
 ## [0.0.7] - 2026-02-06
 
 ### Changed
