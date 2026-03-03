@@ -187,17 +187,23 @@ export async function countConfigs(cwd?: string): Promise<ConfigCounts> {
     }
 
     // {cwd}/.claude/rules/*.md (recursive)
-    rulesCount += countRulesInDir(path.join(cwd, '.claude', 'rules'));
+    // Skip when cwd is home because it overlaps with user-scope ~/.claude/rules.
+    if (!isHome) {
+      rulesCount += countRulesInDir(path.join(cwd, '.claude', 'rules'));
+    }
 
     // {cwd}/.mcp.json (project MCP config) - tracked separately for disabled filtering
     const mcpJsonServers = getMcpServerNames(path.join(cwd, '.mcp.json'));
 
     // {cwd}/.claude/settings.json (project settings)
+    // Skip when cwd is home because it overlaps with user-scope ~/.claude/settings.json.
     const projectSettings = path.join(cwd, '.claude', 'settings.json');
-    for (const name of getMcpServerNames(projectSettings)) {
-      projectMcpServers.add(name);
+    if (!isHome) {
+      for (const name of getMcpServerNames(projectSettings)) {
+        projectMcpServers.add(name);
+      }
+      hooksCount += countHooksInFile(projectSettings);
     }
-    hooksCount += countHooksInFile(projectSettings);
 
     // {cwd}/.claude/settings.local.json (local project settings)
     const localSettings = path.join(cwd, '.claude', 'settings.local.json');

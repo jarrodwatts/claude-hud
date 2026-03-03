@@ -375,21 +375,33 @@ test('countConfigs honors project and global config locations', async () => {
   }
 });
 
-test('countConfigs avoids home cwd double-counting and keeps CLAUDE.local.md', async () => {
+test('countConfigs avoids home cwd double-counting across counters and keeps CLAUDE.local.md', async () => {
   const homeDir = await mkdtemp(path.join(tmpdir(), 'claude-hud-home-'));
   const originalHome = process.env.HOME;
   process.env.HOME = homeDir;
 
   try {
-    await mkdir(path.join(homeDir, '.claude'), { recursive: true });
+    await mkdir(path.join(homeDir, '.claude', 'rules'), { recursive: true });
     await writeFile(path.join(homeDir, '.claude', 'CLAUDE.md'), 'global', 'utf8');
     await writeFile(path.join(homeDir, '.claude', 'CLAUDE.local.md'), 'global-local', 'utf8');
+    await writeFile(path.join(homeDir, '.claude', 'rules', 'rule.md'), '# rule', 'utf8');
+    await writeFile(
+      path.join(homeDir, '.claude', 'settings.json'),
+      JSON.stringify({ mcpServers: { one: {} }, hooks: { onStart: {} } }),
+      'utf8'
+    );
 
     const exactCounts = await countConfigs(homeDir);
     assert.equal(exactCounts.claudeMdCount, 2);
+    assert.equal(exactCounts.rulesCount, 1);
+    assert.equal(exactCounts.mcpCount, 1);
+    assert.equal(exactCounts.hooksCount, 1);
 
     const trailingSlashCounts = await countConfigs(`${homeDir}${path.sep}`);
     assert.equal(trailingSlashCounts.claudeMdCount, 2);
+    assert.equal(trailingSlashCounts.rulesCount, 1);
+    assert.equal(trailingSlashCounts.mcpCount, 1);
+    assert.equal(trailingSlashCounts.hooksCount, 1);
   } finally {
     process.env.HOME = originalHome;
     await rm(homeDir, { recursive: true, force: true });
