@@ -2,6 +2,7 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import * as os from 'node:os';
 import type { StdinData } from './types.js';
+import { getHudPluginDir } from './claude-config-dir.js';
 
 const SPEED_WINDOW_MS = 2000;
 
@@ -21,7 +22,7 @@ const defaultDeps: SpeedTrackerDeps = {
 };
 
 function getCachePath(homeDir: string): string {
-  return path.join(homeDir, '.claude', 'plugins', 'claude-hud', '.speed-cache.json');
+  return path.join(getHudPluginDir(homeDir), '.speed-cache.json');
 }
 
 function readCache(homeDir: string): SpeedCache | null {

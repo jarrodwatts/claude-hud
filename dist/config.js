@@ -1,6 +1,7 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import * as os from 'node:os';
+import { getHudPluginDir } from './claude-config-dir.js';
 export const DEFAULT_CONFIG = {
     lineLayout: 'expanded',
     showSeparators: false,
@@ -32,7 +33,7 @@ export const DEFAULT_CONFIG = {
 };
 export function getConfigPath() {
     const homeDir = os.homedir();
-    return path.join(homeDir, '.claude', 'plugins', 'claude-hud', 'config.json');
+    return path.join(getHudPluginDir(homeDir), 'config.json');
 }
 function validatePathLevels(value) {
     return value === 1 || value === 2 || value === 3;

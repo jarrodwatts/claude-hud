@@ -9,6 +9,14 @@ import { countConfigs } from '../dist/config-reader.js';
 import { getContextPercent, getBufferedPercent, getModelName, getProviderLabel, isBedrockModelId } from '../dist/stdin.js';
 import * as fs from 'node:fs';
 
+function restoreEnvVar(name, value) {
+  if (value === undefined) {
+    delete process.env[name];
+    return;
+  }
+  process.env[name] = value;
+}
+
 test('getContextPercent returns 0 when data is missing', () => {
   assert.equal(getContextPercent({}), 0);
   assert.equal(getContextPercent({ context_window: { context_window_size: 0 } }), 0);
@@ -409,6 +417,96 @@ test('countConfigs honors project and global config locations', async () => {
     process.env.HOME = originalHome;
     await rm(homeDir, { recursive: true, force: true });
     await rm(projectDir, { recursive: true, force: true });
+  }
+});
+
+test('countConfigs uses CLAUDE_CONFIG_DIR and matching .json sidecar for user scope', async () => {
+  const homeDir = await mkdtemp(path.join(tmpdir(), 'claude-hud-home-'));
+  const customConfigDir = path.join(homeDir, '.claude-2');
+  const originalHome = process.env.HOME;
+  const originalConfigDir = process.env.CLAUDE_CONFIG_DIR;
+  process.env.HOME = homeDir;
+  process.env.CLAUDE_CONFIG_DIR = customConfigDir;
+
+  try {
+    // Default directory should be ignored when CLAUDE_CONFIG_DIR is set.
+    await mkdir(path.join(homeDir, '.claude', 'rules'), { recursive: true });
+    await writeFile(path.join(homeDir, '.claude', 'CLAUDE.md'), 'default-global', 'utf8');
+    await writeFile(path.join(homeDir, '.claude', 'rules', 'rule.md'), '# default rule', 'utf8');
+    await writeFile(
+      path.join(homeDir, '.claude', 'settings.json'),
+      JSON.stringify({ mcpServers: { defaultA: {} }, hooks: { onDefault: {} } }),
+      'utf8'
+    );
+    await writeFile(path.join(homeDir, '.claude.json'), JSON.stringify({ disabledMcpServers: ['defaultA'] }), 'utf8');
+
+    // Custom config directory and sidecar should drive user-scope counts.
+    await mkdir(customConfigDir, { recursive: true });
+    await writeFile(path.join(customConfigDir, 'CLAUDE.md'), 'custom-global', 'utf8');
+    await writeFile(
+      path.join(customConfigDir, 'settings.json'),
+      JSON.stringify({
+        mcpServers: { customA: {}, customB: {} },
+        hooks: { onStart: {}, onStop: {} },
+      }),
+      'utf8'
+    );
+    await writeFile(
+      `${customConfigDir}.json`,
+      JSON.stringify({ disabledMcpServers: ['customA'] }),
+      'utf8'
+    );
+
+    const counts = await countConfigs();
+    assert.equal(counts.claudeMdCount, 1);
+    assert.equal(counts.rulesCount, 0);
+    assert.equal(counts.mcpCount, 1);
+    assert.equal(counts.hooksCount, 2);
+  } finally {
+    restoreEnvVar('HOME', originalHome);
+    restoreEnvVar('CLAUDE_CONFIG_DIR', originalConfigDir);
+    await rm(homeDir, { recursive: true, force: true });
+  }
+});
+
+test('countConfigs still counts project .claude when cwd is home and CLAUDE_CONFIG_DIR points elsewhere', async () => {
+  const homeDir = await mkdtemp(path.join(tmpdir(), 'claude-hud-home-'));
+  const customConfigDir = path.join(homeDir, '.claude-2');
+  const originalHome = process.env.HOME;
+  const originalConfigDir = process.env.CLAUDE_CONFIG_DIR;
+  process.env.HOME = homeDir;
+  process.env.CLAUDE_CONFIG_DIR = customConfigDir;
+
+  try {
+    // User scope: custom config directory
+    await mkdir(path.join(customConfigDir, 'rules'), { recursive: true });
+    await writeFile(path.join(customConfigDir, 'CLAUDE.md'), 'custom-global', 'utf8');
+    await writeFile(path.join(customConfigDir, 'rules', 'user-rule.md'), '# user rule', 'utf8');
+    await writeFile(
+      path.join(customConfigDir, 'settings.json'),
+      JSON.stringify({ mcpServers: { userServer: {} }, hooks: { onUser: {} } }),
+      'utf8'
+    );
+
+    // Project scope: cwd is home directory with its own .claude contents
+    await mkdir(path.join(homeDir, '.claude', 'rules'), { recursive: true });
+    await writeFile(path.join(homeDir, '.claude', 'CLAUDE.md'), 'project-alt', 'utf8');
+    await writeFile(path.join(homeDir, '.claude', 'rules', 'project-rule.md'), '# project rule', 'utf8');
+    await writeFile(
+      path.join(homeDir, '.claude', 'settings.json'),
+      JSON.stringify({ mcpServers: { projectServer: {} }, hooks: { onProject: {} } }),
+      'utf8'
+    );
+
+    const counts = await countConfigs(homeDir);
+    assert.equal(counts.claudeMdCount, 2);
+    assert.equal(counts.rulesCount, 2);
+    assert.equal(counts.mcpCount, 2);
+    assert.equal(counts.hooksCount, 2);
+  } finally {
+    restoreEnvVar('HOME', originalHome);
+    restoreEnvVar('CLAUDE_CONFIG_DIR', originalConfigDir);
+    await rm(homeDir, { recursive: true, force: true });
   }
 });
 

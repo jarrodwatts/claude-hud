@@ -1,13 +1,14 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import * as os from 'node:os';
+import { getHudPluginDir } from './claude-config-dir.js';
 const SPEED_WINDOW_MS = 2000;
 const defaultDeps = {
     homeDir: () => os.homedir(),
     now: () => Date.now(),
 };
 function getCachePath(homeDir) {
-    return path.join(homeDir, '.claude', 'plugins', 'claude-hud', '.speed-cache.json');
+    return path.join(getHudPluginDir(homeDir), '.speed-cache.json');
 }
 function readCache(homeDir) {
     try {

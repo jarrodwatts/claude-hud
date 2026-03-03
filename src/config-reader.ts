@@ -2,6 +2,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
 import { createDebug } from './debug.js';
+import { getClaudeConfigDir, getClaudeConfigJsonPath } from './claude-config-dir.js';
 
 const debug = createDebug('config');
 
@@ -124,7 +125,7 @@ export async function countConfigs(cwd?: string): Promise<ConfigCounts> {
   let hooksCount = 0;
 
   const homeDir = os.homedir();
-  const claudeDir = path.join(homeDir, '.claude');
+  const claudeDir = getClaudeConfigDir(homeDir);
 
   // Collect all MCP servers across scopes, then subtract disabled ones
   const userMcpServers = new Set<string>();
@@ -147,8 +148,8 @@ export async function countConfigs(cwd?: string): Promise<ConfigCounts> {
   }
   hooksCount += countHooksInFile(userSettings);
 
-  // ~/.claude.json (additional user-scope MCPs)
-  const userClaudeJson = path.join(homeDir, '.claude.json');
+  // {CLAUDE_CONFIG_DIR}.json (additional user-scope MCPs)
+  const userClaudeJson = getClaudeConfigJsonPath(homeDir);
   for (const name of getMcpServerNames(userClaudeJson)) {
     userMcpServers.add(name);
   }
@@ -161,9 +162,11 @@ export async function countConfigs(cwd?: string): Promise<ConfigCounts> {
 
   // === PROJECT SCOPE ===
 
-  // When cwd is the home directory (or an equivalent path to it), {cwd}/.claude/CLAUDE.md
-  // overlaps with user scope ~/.claude/CLAUDE.md, so skip it to avoid double-counting.
-  const isHome = cwd ? pathsReferToSameLocation(cwd, homeDir) : false;
+  // Avoid double-counting when project .claude directory is the same location as user scope.
+  const projectClaudeDir = cwd ? path.join(cwd, '.claude') : null;
+  const projectClaudeOverlapsUserScope = projectClaudeDir
+    ? pathsReferToSameLocation(projectClaudeDir, claudeDir)
+    : false;
 
   if (cwd) {
     // {cwd}/CLAUDE.md
@@ -176,8 +179,8 @@ export async function countConfigs(cwd?: string): Promise<ConfigCounts> {
       claudeMdCount++;
     }
 
-    // {cwd}/.claude/CLAUDE.md (alternative location, skip if cwd is home)
-    if (!isHome && fs.existsSync(path.join(cwd, '.claude', 'CLAUDE.md'))) {
+    // {cwd}/.claude/CLAUDE.md (alternative location, skip when it is user scope)
+    if (!projectClaudeOverlapsUserScope && fs.existsSync(path.join(cwd, '.claude', 'CLAUDE.md'))) {
       claudeMdCount++;
     }
 
@@ -187,8 +190,8 @@ export async function countConfigs(cwd?: string): Promise<ConfigCounts> {
     }
 
     // {cwd}/.claude/rules/*.md (recursive)
-    // Skip when cwd is home because it overlaps with user-scope ~/.claude/rules.
-    if (!isHome) {
+    // Skip when it overlaps with user-scope rules.
+    if (!projectClaudeOverlapsUserScope) {
       rulesCount += countRulesInDir(path.join(cwd, '.claude', 'rules'));
     }
 
@@ -196,9 +199,9 @@ export async function countConfigs(cwd?: string): Promise<ConfigCounts> {
     const mcpJsonServers = getMcpServerNames(path.join(cwd, '.mcp.json'));
 
     // {cwd}/.claude/settings.json (project settings)
-    // Skip when cwd is home because it overlaps with user-scope ~/.claude/settings.json.
+    // Skip when it overlaps with user-scope settings.
     const projectSettings = path.join(cwd, '.claude', 'settings.json');
-    if (!isHome) {
+    if (!projectClaudeOverlapsUserScope) {
       for (const name of getMcpServerNames(projectSettings)) {
         projectMcpServers.add(name);
       }

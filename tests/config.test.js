@@ -3,6 +3,16 @@ import assert from 'node:assert/strict';
 import { loadConfig, getConfigPath, mergeConfig, DEFAULT_CONFIG } from '../dist/config.js';
 import * as path from 'node:path';
 import * as os from 'node:os';
+import { mkdtemp, mkdir, rm, writeFile } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+
+function restoreEnvVar(name, value) {
+  if (value === undefined) {
+    delete process.env[name];
+    return;
+  }
+  process.env[name] = value;
+}
 
 test('loadConfig returns valid config structure', async () => {
   const config = await loadConfig();
@@ -39,9 +49,58 @@ test('loadConfig returns valid config structure', async () => {
 });
 
 test('getConfigPath returns correct path', () => {
-  const configPath = getConfigPath();
-  const homeDir = os.homedir();
-  assert.equal(configPath, path.join(homeDir, '.claude', 'plugins', 'claude-hud', 'config.json'));
+  const originalConfigDir = process.env.CLAUDE_CONFIG_DIR;
+  delete process.env.CLAUDE_CONFIG_DIR;
+
+  try {
+    const configPath = getConfigPath();
+    const homeDir = os.homedir();
+    assert.equal(configPath, path.join(homeDir, '.claude', 'plugins', 'claude-hud', 'config.json'));
+  } finally {
+    restoreEnvVar('CLAUDE_CONFIG_DIR', originalConfigDir);
+  }
+});
+
+test('getConfigPath respects CLAUDE_CONFIG_DIR', async () => {
+  const originalConfigDir = process.env.CLAUDE_CONFIG_DIR;
+  const customConfigDir = await mkdtemp(path.join(tmpdir(), 'claude-hud-config-dir-'));
+
+  try {
+    process.env.CLAUDE_CONFIG_DIR = customConfigDir;
+    const configPath = getConfigPath();
+    assert.equal(configPath, path.join(customConfigDir, 'plugins', 'claude-hud', 'config.json'));
+  } finally {
+    restoreEnvVar('CLAUDE_CONFIG_DIR', originalConfigDir);
+    await rm(customConfigDir, { recursive: true, force: true });
+  }
+});
+
+test('loadConfig reads user config from CLAUDE_CONFIG_DIR', async () => {
+  const originalConfigDir = process.env.CLAUDE_CONFIG_DIR;
+  const customConfigDir = await mkdtemp(path.join(tmpdir(), 'claude-hud-config-load-'));
+
+  try {
+    process.env.CLAUDE_CONFIG_DIR = customConfigDir;
+    const pluginDir = path.join(customConfigDir, 'plugins', 'claude-hud');
+    await mkdir(pluginDir, { recursive: true });
+    await writeFile(
+      path.join(pluginDir, 'config.json'),
+      JSON.stringify({
+        lineLayout: 'compact',
+        pathLevels: 2,
+        display: { showSpeed: true },
+      }),
+      'utf8'
+    );
+
+    const config = await loadConfig();
+    assert.equal(config.lineLayout, 'compact');
+    assert.equal(config.pathLevels, 2);
+    assert.equal(config.display.showSpeed, true);
+  } finally {
+    restoreEnvVar('CLAUDE_CONFIG_DIR', originalConfigDir);
+    await rm(customConfigDir, { recursive: true, force: true });
+  }
 });
 
 // --- migrateConfig tests (via mergeConfig) ---
