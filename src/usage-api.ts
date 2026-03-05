@@ -1,6 +1,8 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
+import * as net from 'net';
+import * as tls from 'tls';
 import * as https from 'https';
 import { execFileSync } from 'child_process';
 import { createHash } from 'crypto';
@@ -45,6 +47,7 @@ const CACHE_TTL_MS = 60_000; // 60 seconds
 const CACHE_FAILURE_TTL_MS = 15_000; // 15 seconds for failed requests
 const KEYCHAIN_TIMEOUT_MS = 3000;
 const KEYCHAIN_BACKOFF_MS = 60_000; // Backoff on keychain failures to avoid re-prompting
+const USAGE_API_TIMEOUT_MS_DEFAULT = 15_000;
 
 interface CacheFile {
   data: UsageData;
@@ -387,6 +390,30 @@ function readFileCredentials(homeDir: string, now: number): { accessToken: strin
   }
 }
 
+function readFileSubscriptionType(homeDir: string): string | null {
+  const credentialsPath = path.join(getClaudeConfigDir(homeDir), '.credentials.json');
+
+  if (!fs.existsSync(credentialsPath)) {
+    return null;
+  }
+
+  try {
+    const content = fs.readFileSync(credentialsPath, 'utf8');
+    const data: CredentialsFile = JSON.parse(content);
+    const subscriptionType = data.claudeAiOauth?.subscriptionType;
+    const normalizedSubscriptionType = typeof subscriptionType === 'string'
+      ? subscriptionType.trim()
+      : '';
+    if (!normalizedSubscriptionType) {
+      return null;
+    }
+    return normalizedSubscriptionType;
+  } catch (error) {
+    debug('Failed to read file subscriptionType:', error);
+    return null;
+  }
+}
+
 /**
  * Parse and validate credentials data from either Keychain or file.
  */
@@ -429,12 +456,12 @@ function readCredentials(
       return keychainCreds;
     }
     // Keychain has token but no subscriptionType - try to supplement from file
-    const fileCreds = readFileCredentials(homeDir, now);
-    if (fileCreds?.subscriptionType) {
+    const fileSubscriptionType = readFileSubscriptionType(homeDir);
+    if (fileSubscriptionType) {
       debug('Using keychain token with file subscriptionType');
       return {
         accessToken: keychainCreds.accessToken,
-        subscriptionType: fileCreds.subscriptionType,
+        subscriptionType: fileSubscriptionType,
       };
     }
     // No subscriptionType available - use keychain token anyway
@@ -482,10 +509,149 @@ function parseDate(dateStr: string | undefined): Date | null {
   return date;
 }
 
+export function getUsageApiTimeoutMs(env: NodeJS.ProcessEnv = process.env): number {
+  const raw = env.CLAUDE_HUD_USAGE_TIMEOUT_MS?.trim();
+  if (!raw) return USAGE_API_TIMEOUT_MS_DEFAULT;
+
+  const parsed = Number(raw);
+  if (!Number.isInteger(parsed) || parsed <= 0) {
+    debug('Invalid CLAUDE_HUD_USAGE_TIMEOUT_MS value:', raw);
+    return USAGE_API_TIMEOUT_MS_DEFAULT;
+  }
+  return parsed;
+}
+
+export function isNoProxy(hostname: string, env: NodeJS.ProcessEnv = process.env): boolean {
+  const noProxy = env.NO_PROXY ?? env.no_proxy;
+  if (!noProxy) return false;
+
+  const host = hostname.toLowerCase();
+  return noProxy.split(',').some((entry) => {
+    const pattern = entry.trim().toLowerCase();
+    if (!pattern) return false;
+    if (pattern === '*') return true;
+    if (host === pattern) return true;
+    const suffix = pattern.startsWith('.') ? pattern : `.${pattern}`;
+    return host.endsWith(suffix);
+  });
+}
+
+export function getProxyUrl(hostname: string, env: NodeJS.ProcessEnv = process.env): URL | null {
+  if (isNoProxy(hostname, env)) {
+    debug('Proxy bypassed by NO_PROXY for host:', hostname);
+    return null;
+  }
+
+  const proxyEnv = env.HTTPS_PROXY
+    ?? env.https_proxy
+    ?? env.ALL_PROXY
+    ?? env.all_proxy
+    ?? env.HTTP_PROXY
+    ?? env.http_proxy;
+  if (!proxyEnv) return null;
+
+  try {
+    const proxyUrl = new URL(proxyEnv);
+    if (proxyUrl.protocol !== 'http:' && proxyUrl.protocol !== 'https:') {
+      debug('Unsupported proxy protocol:', proxyUrl.protocol);
+      return null;
+    }
+    return proxyUrl;
+  } catch {
+    debug('Invalid proxy URL:', proxyEnv);
+    return null;
+  }
+}
+
+function createProxyTunnelAgent(proxyUrl: URL): https.Agent {
+  const proxyHost = proxyUrl.hostname;
+  const proxyPort = Number.parseInt(proxyUrl.port || (proxyUrl.protocol === 'https:' ? '443' : '80'), 10);
+  const proxyAuth = proxyUrl.username
+    ? `Basic ${Buffer.from(
+      `${decodeURIComponent(proxyUrl.username)}:${decodeURIComponent(proxyUrl.password || '')}`
+    ).toString('base64')}`
+    : null;
+
+  return new class extends https.Agent {
+    override createConnection(
+      options: https.RequestOptions,
+      callback?: (err: Error | null, socket: net.Socket) => void
+    ): net.Socket {
+      const targetHost = String(options.host ?? options.hostname ?? 'localhost');
+      const targetPort = Number(options.port) || 443;
+
+      let settled = false;
+      const settle = (err: Error | null, socket: net.Socket): void => {
+        if (settled) return;
+        settled = true;
+        callback?.(err, socket);
+      };
+
+      const proxySocket = proxyUrl.protocol === 'https:'
+        ? tls.connect({ host: proxyHost, port: proxyPort, servername: proxyHost })
+        : net.connect(proxyPort, proxyHost);
+
+      proxySocket.once('error', (error) => {
+        settle(error, proxySocket);
+      });
+
+      proxySocket.once('connect', () => {
+        const connectHeaders = [
+          `CONNECT ${targetHost}:${targetPort} HTTP/1.1`,
+          `Host: ${targetHost}:${targetPort}`,
+        ];
+        if (proxyAuth) {
+          connectHeaders.push(`Proxy-Authorization: ${proxyAuth}`);
+        }
+        connectHeaders.push('', '');
+
+        proxySocket.write(connectHeaders.join('\r\n'));
+
+        let responseBuffer = Buffer.alloc(0);
+        const onData = (chunk: Buffer): void => {
+          responseBuffer = Buffer.concat([responseBuffer, chunk]);
+          const headerEndIndex = responseBuffer.indexOf('\r\n\r\n');
+          if (headerEndIndex === -1) return;
+
+          proxySocket.removeListener('data', onData);
+
+          const headerText = responseBuffer.subarray(0, headerEndIndex).toString('utf8');
+          const statusLine = headerText.split('\r\n')[0] ?? '';
+          if (!/^HTTP\/1\.[01] 200 /.test(statusLine)) {
+            const error = new Error(`Proxy CONNECT rejected: ${statusLine || 'unknown status'}`);
+            proxySocket.destroy(error);
+            settle(error, proxySocket);
+            return;
+          }
+
+          const tlsSocket = tls.connect({
+            socket: proxySocket,
+            servername: String(options.servername ?? targetHost),
+            rejectUnauthorized: options.rejectUnauthorized !== false,
+          }, () => {
+            settle(null, tlsSocket);
+          });
+
+          tlsSocket.once('error', (error) => {
+            settle(error, tlsSocket);
+          });
+        };
+
+        proxySocket.on('data', onData);
+      });
+
+      return proxySocket;
+    }
+  }();
+}
+
 function fetchUsageApi(accessToken: string): Promise<UsageApiResult> {
   return new Promise((resolve) => {
+    const host = 'api.anthropic.com';
+    const timeoutMs = getUsageApiTimeoutMs();
+    const proxyUrl = getProxyUrl(host);
     const options = {
-      hostname: 'api.anthropic.com',
+      hostname: host,
       path: '/api/oauth/usage',
       method: 'GET',
       headers: {
@@ -493,8 +659,13 @@ function fetchUsageApi(accessToken: string): Promise<UsageApiResult> {
         'anthropic-beta': 'oauth-2025-04-20',
         'User-Agent': 'claude-hud/1.0',
       },
-      timeout: 5000,
+      timeout: timeoutMs,
+      agent: proxyUrl ? createProxyTunnelAgent(proxyUrl) : undefined,
     };
+
+    if (proxyUrl) {
+      debug('Using proxy for usage API:', proxyUrl.origin);
+    }
 
     const req = https.request(options, (res) => {
       let data = '';

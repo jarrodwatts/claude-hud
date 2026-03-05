@@ -6,6 +6,9 @@ import {
   getKeychainServiceName,
   getKeychainServiceNames,
   resolveKeychainCredentials,
+  getUsageApiTimeoutMs,
+  isNoProxy,
+  getProxyUrl,
 } from '../dist/usage-api.js';
 import { mkdtemp, rm, mkdir, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
@@ -278,6 +281,28 @@ describe('getUsage', () => {
     // Must use keychain token (authoritative), but can use file's subscriptionType
     assert.equal(usedToken, 'keychain-token', 'should use keychain token, not file token');
     assert.equal(result?.planName, 'Pro');
+  });
+
+  test('uses file subscriptionType fallback even when file token is expired', async () => {
+    await writeCredentials(tempHome, buildCredentials({
+      accessToken: 'stale-file-token',
+      subscriptionType: 'claude_team_2024',
+      expiresAt: 1,
+    }));
+
+    let usedToken = null;
+    const result = await getUsage({
+      homeDir: () => tempHome,
+      fetchApi: async (token) => {
+        usedToken = token;
+        return buildApiResult();
+      },
+      now: () => 1000,
+      readKeychain: () => ({ accessToken: 'fresh-keychain-token', subscriptionType: '' }),
+    });
+
+    assert.equal(usedToken, 'fresh-keychain-token');
+    assert.equal(result?.planName, 'Team');
   });
 
   test('returns null when keychain has token but no subscriptionType anywhere', async () => {
@@ -560,6 +585,72 @@ describe('getUsage caching behavior', () => {
     clearCache(tempHome);
     await getUsage({ homeDir: () => tempHome, fetchApi, now: () => 2000, readKeychain: () => null });
     assert.equal(fetchCalls, 2);
+  });
+});
+
+describe('getUsageApiTimeoutMs', () => {
+  test('returns default timeout when env is unset', () => {
+    assert.equal(getUsageApiTimeoutMs({}), 15000);
+  });
+
+  test('returns env timeout when value is a positive integer', () => {
+    assert.equal(getUsageApiTimeoutMs({ CLAUDE_HUD_USAGE_TIMEOUT_MS: '20000' }), 20000);
+  });
+
+  test('returns default timeout for invalid env values', () => {
+    assert.equal(getUsageApiTimeoutMs({ CLAUDE_HUD_USAGE_TIMEOUT_MS: '0' }), 15000);
+    assert.equal(getUsageApiTimeoutMs({ CLAUDE_HUD_USAGE_TIMEOUT_MS: '-1' }), 15000);
+    assert.equal(getUsageApiTimeoutMs({ CLAUDE_HUD_USAGE_TIMEOUT_MS: 'abc' }), 15000);
+  });
+});
+
+describe('isNoProxy', () => {
+  test('returns false when NO_PROXY is unset', () => {
+    assert.equal(isNoProxy('api.anthropic.com', {}), false);
+  });
+
+  test('matches exact host and domain suffix patterns', () => {
+    assert.equal(isNoProxy('api.anthropic.com', { NO_PROXY: 'api.anthropic.com' }), true);
+    assert.equal(isNoProxy('api.anthropic.com', { NO_PROXY: '.anthropic.com' }), true);
+    assert.equal(isNoProxy('anthropic.com', { NO_PROXY: '.anthropic.com' }), false);
+    assert.equal(isNoProxy('api.anthropic.com', { NO_PROXY: 'anthropic.com' }), true);
+  });
+
+  test('supports wildcard and lowercase no_proxy', () => {
+    assert.equal(isNoProxy('api.anthropic.com', { NO_PROXY: '*' }), true);
+    assert.equal(isNoProxy('api.anthropic.com', { no_proxy: 'api.anthropic.com' }), true);
+  });
+});
+
+describe('getProxyUrl', () => {
+  test('prefers HTTPS_PROXY and falls back through ALL_PROXY then HTTP_PROXY', () => {
+    const fromHttps = getProxyUrl('api.anthropic.com', {
+      HTTPS_PROXY: 'http://proxy-https.local:8443',
+      HTTP_PROXY: 'http://proxy-http.local:8080',
+    });
+    assert.equal(fromHttps?.hostname, 'proxy-https.local');
+
+    const fromAll = getProxyUrl('api.anthropic.com', {
+      ALL_PROXY: 'http://proxy-all.local:8888',
+      HTTP_PROXY: 'http://proxy-http.local:8080',
+    });
+    assert.equal(fromAll?.hostname, 'proxy-all.local');
+
+    const fromHttp = getProxyUrl('api.anthropic.com', {
+      HTTP_PROXY: 'http://proxy-http.local:8080',
+    });
+    assert.equal(fromHttp?.hostname, 'proxy-http.local');
+  });
+
+  test('returns null when NO_PROXY matches or proxy URL is invalid', () => {
+    assert.equal(getProxyUrl('api.anthropic.com', {
+      HTTPS_PROXY: 'http://proxy.local:8080',
+      NO_PROXY: 'api.anthropic.com',
+    }), null);
+
+    assert.equal(getProxyUrl('api.anthropic.com', {
+      HTTPS_PROXY: 'not a url',
+    }), null);
   });
 });
 
