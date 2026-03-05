@@ -146,6 +146,7 @@ You can also edit the config file directly at `~/.claude/plugins/claude-hud/conf
 | `display.showTools` | boolean | false | Show tools activity line |
 | `display.showAgents` | boolean | false | Show agents activity line |
 | `display.showTodos` | boolean | false | Show todos progress line |
+| `display.showSessionName` | boolean | false | Show session slug or custom title from `/rename` |
 
 ### Usage Limits (Pro/Max/Team)
 

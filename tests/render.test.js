@@ -189,7 +189,6 @@ test('renderSessionLine hides session name by default', () => {
   const ctx = baseContext();
   ctx.stdin.cwd = '/tmp/my-project';
   ctx.transcript.sessionName = 'Renamed Session';
-  ctx.config.display.showSessionName = false;
   const line = renderSessionLine(ctx);
   assert.ok(!line.includes('Renamed Session'));
 });
@@ -207,7 +206,6 @@ test('renderProjectLine hides session name by default', () => {
   const ctx = baseContext();
   ctx.stdin.cwd = '/tmp/my-project';
   ctx.transcript.sessionName = 'Renamed Session';
-  ctx.config.display.showSessionName = false;
   const line = renderProjectLine(ctx);
   assert.ok(!line?.includes('Renamed Session'));
 });

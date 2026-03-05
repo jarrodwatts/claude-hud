@@ -46,6 +46,7 @@ test('loadConfig returns valid config structure', async () => {
   assert.equal(typeof config.display.showTools, 'boolean');
   assert.equal(typeof config.display.showAgents, 'boolean');
   assert.equal(typeof config.display.showTodos, 'boolean');
+  assert.equal(typeof config.display.showSessionName, 'boolean');
 });
 
 test('getConfigPath returns correct path', () => {
@@ -59,6 +60,17 @@ test('getConfigPath returns correct path', () => {
   } finally {
     restoreEnvVar('CLAUDE_CONFIG_DIR', originalConfigDir);
   }
+});
+
+test('mergeConfig defaults showSessionName to false', () => {
+  const config = mergeConfig({});
+  assert.equal(config.display.showSessionName, false);
+  assert.equal(DEFAULT_CONFIG.display.showSessionName, false);
+});
+
+test('mergeConfig preserves explicit showSessionName=true', () => {
+  const config = mergeConfig({ display: { showSessionName: true } });
+  assert.equal(config.display.showSessionName, true);
 });
 
 test('getConfigPath respects CLAUDE_CONFIG_DIR', async () => {
