@@ -32,6 +32,7 @@ export interface HudConfig {
     showTools: boolean;
     showAgents: boolean;
     showTodos: boolean;
+    showSessionName: boolean;
     autocompactBuffer: AutocompactBufferMode;
     usageThreshold: number;
     sevenDayThreshold: number;
@@ -63,6 +64,7 @@ export const DEFAULT_CONFIG: HudConfig = {
     showTools: false,
     showAgents: false,
     showTodos: false,
+    showSessionName: false,
     autocompactBuffer: 'enabled',
     usageThreshold: 0,
     sevenDayThreshold: 80,
@@ -196,6 +198,9 @@ export function mergeConfig(userConfig: Partial<HudConfig>): HudConfig {
     showTodos: typeof migrated.display?.showTodos === 'boolean'
       ? migrated.display.showTodos
       : DEFAULT_CONFIG.display.showTodos,
+    showSessionName: typeof migrated.display?.showSessionName === 'boolean'
+      ? migrated.display.showSessionName
+      : DEFAULT_CONFIG.display.showSessionName,
     autocompactBuffer: validateAutocompactBuffer(migrated.display?.autocompactBuffer)
       ? migrated.display.autocompactBuffer
       : DEFAULT_CONFIG.display.autocompactBuffer,

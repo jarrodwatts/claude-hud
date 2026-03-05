@@ -203,6 +203,7 @@ Use AskUserQuestion:
   - "Tools activity" — Shows running/completed tools (◐ Edit: file.ts | ✓ Read ×3)
   - "Agents & Todos" — Shows subagent status and todo progress
   - "Session info" — Shows session duration and config counts (CLAUDE.md, rules, MCPs)
+  - "Session name" — Shows session slug or custom title from /rename
 
 **If user selects any options**, write `~/.claude/plugins/claude-hud/config.json` (create directories if needed):
 
@@ -211,6 +212,7 @@ Use AskUserQuestion:
 | Tools activity | `display.showTools: true` |
 | Agents & Todos | `display.showAgents: true, display.showTodos: true` |
 | Session info | `display.showDuration: true, display.showConfigCounts: true` |
+| Session name | `display.showSessionName: true` |
 
 Merge with existing config if the file already exists. Only write keys the user selected — don't write `false` for unselected items (defaults handle that).
 

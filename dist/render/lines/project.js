@@ -63,7 +63,7 @@ export function renderProjectLine(ctx) {
     else if (gitPart) {
         parts.push(gitPart);
     }
-    if (ctx.transcript.sessionName) {
+    if (display?.showSessionName && ctx.transcript.sessionName) {
         parts.push(dim(ctx.transcript.sessionName));
     }
     if (parts.length === 0) {

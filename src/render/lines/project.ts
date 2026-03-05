@@ -69,7 +69,7 @@ export function renderProjectLine(ctx: RenderContext): string | null {
     parts.push(gitPart);
   }
 
-  if (ctx.transcript.sessionName) {
+  if (display?.showSessionName && ctx.transcript.sessionName) {
     parts.push(dim(ctx.transcript.sessionName));
   }
 

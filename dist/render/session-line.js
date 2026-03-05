@@ -100,7 +100,7 @@ export function renderSessionLine(ctx) {
         parts.push(gitPart);
     }
     // Session name (custom title from /rename, or auto-generated slug)
-    if (ctx.transcript.sessionName) {
+    if (display?.showSessionName && ctx.transcript.sessionName) {
         parts.push(dim(ctx.transcript.sessionName));
     }
     // Config counts (respects environmentThreshold)

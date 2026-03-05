@@ -25,6 +25,7 @@ export interface HudConfig {
         showTools: boolean;
         showAgents: boolean;
         showTodos: boolean;
+        showSessionName: boolean;
         autocompactBuffer: AutocompactBufferMode;
         usageThreshold: number;
         sevenDayThreshold: number;

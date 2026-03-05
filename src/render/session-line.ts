@@ -109,7 +109,7 @@ export function renderSessionLine(ctx: RenderContext): string {
   }
 
   // Session name (custom title from /rename, or auto-generated slug)
-  if (ctx.transcript.sessionName) {
+  if (display?.showSessionName && ctx.transcript.sessionName) {
     parts.push(dim(ctx.transcript.sessionName));
   }
 

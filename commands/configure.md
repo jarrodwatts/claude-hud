@@ -62,6 +62,7 @@ Questions: **Turn Off → Turn On → Git Style → Layout/Reset** (4 questions 
   - "Output speed" - out: 42.1 tok/s
   - "Usage limits" - 5h: 25% | 7d: 10%
   - "Session duration" - ⏱️ 5m
+  - "Session name" - fix-auth-bug (session slug or custom title)
 
 ### Q4: Turn On (based on chosen preset)
 - header: "Turn On"
@@ -87,6 +88,7 @@ If preset has all items OFF (Minimal), Q3 shows "Nothing to disable - Minimal pr
   - "Todo progress" - ▸ Fix bug (2/5 tasks)
   - "Project name" - my-project path display
   - "Git status" - git:(main*) branch indicator
+  - "Session name" - fix-auth-bug (session slug or custom title)
   - "Usage bar style" - ██░░ 25% visual bar (only if usageBarEnabled is true)
 
 If more than 4 items ON, show Activity items (Tools, Agents, Todos, Project, Git) first.
@@ -102,6 +104,7 @@ Info items (Counts, Tokens, Usage, Speed, Duration) can be turned off via "Reset
   - "Output speed" - out: 42.1 tok/s
   - "Usage limits" - 5h: 25% | 7d: 10%
   - "Usage bar style" - ██░░ 25% visual bar (only if usageBarEnabled is false)
+  - "Session name" - fix-auth-bug (session slug or custom title)
   - "Session duration" - ⏱️ 5m
 
 ### Q3: Git Style (only if Git is currently enabled)
@@ -133,17 +136,17 @@ Info items (Counts, Tokens, Usage, Speed, Duration) can be turned off via "Reset
 
 **Full** (everything ON):
 - Activity: Tools ON, Agents ON, Todos ON
-- Info: Counts ON, Tokens ON, Usage ON, Duration ON
+- Info: Counts ON, Tokens ON, Usage ON, Duration ON, Session Name ON
 - Git: ON (with dirty indicator, no ahead/behind)
 
 **Essential** (activity + git):
 - Activity: Tools ON, Agents ON, Todos ON
-- Info: Counts OFF, Tokens OFF, Usage OFF, Duration ON
+- Info: Counts OFF, Tokens OFF, Usage OFF, Duration ON, Session Name OFF
 - Git: ON (with dirty indicator)
 
 **Minimal** (core only — this is the default):
 - Activity: Tools OFF, Agents OFF, Todos OFF
-- Info: Counts OFF, Tokens OFF, Usage OFF, Duration OFF
+- Info: Counts OFF, Tokens OFF, Usage OFF, Duration OFF, Session Name OFF
 - Git: ON (with dirty indicator)
 
 ---
@@ -183,6 +186,7 @@ Info items (Counts, Tokens, Usage, Speed, Duration) can be turned off via "Reset
 | Output speed | `display.showSpeed` |
 | Usage limits | `display.showUsage` |
 | Usage bar style | `display.usageBarEnabled` |
+| Session name | `display.showSessionName` |
 | Session duration | `display.showDuration` |
 
 **Always true (not configurable):**
