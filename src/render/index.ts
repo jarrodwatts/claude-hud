@@ -385,7 +385,7 @@ export function render(ctx: RenderContext): void {
     : physicalLines;
 
   for (const line of visibleLines) {
-    const outputLine = `${RESET}${line.replace(/ /g, '\u00A0')}`;
+    const outputLine = `${RESET}${line}`;
     console.log(outputLine);
   }
 }

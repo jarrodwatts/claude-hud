@@ -756,6 +756,23 @@ test('render omits separator when showSeparators is true but no activity', () =>
   assert.ok(!logs.some(l => l.includes('─')), 'should not include separator');
 });
 
+test('render preserves regular spaces instead of non-breaking spaces', () => {
+  const ctx = baseContext();
+  ctx.config.lineLayout = 'expanded';
+
+  const logs = [];
+  const originalLog = console.log;
+  console.log = (line) => logs.push(line);
+  try {
+    render(ctx);
+  } finally {
+    console.log = originalLog;
+  }
+
+  assert.ok(logs.length > 0, 'should render at least one line');
+  assert.ok(logs.every(line => !line.includes('\u00A0')), 'output should not include non-breaking spaces');
+});
+
 // fileStats tests
 test('renderSessionLine displays file stats when showFileStats is true', () => {
   const ctx = baseContext();
