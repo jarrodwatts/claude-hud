@@ -81,7 +81,18 @@ export function getBufferedPercent(stdin: StdinData): number {
 }
 
 export function getModelName(stdin: StdinData): string {
-  return stdin.model?.display_name ?? stdin.model?.id ?? 'Unknown';
+  const displayName = stdin.model?.display_name?.trim();
+  if (displayName) {
+    return displayName;
+  }
+
+  const modelId = stdin.model?.id?.trim();
+  if (!modelId) {
+    return 'Unknown';
+  }
+
+  const normalizedBedrockLabel = normalizeBedrockModelLabel(modelId);
+  return normalizedBedrockLabel ?? modelId;
 }
 
 export function isBedrockModelId(modelId?: string): boolean {
@@ -97,4 +108,54 @@ export function getProviderLabel(stdin: StdinData): string | null {
     return 'Bedrock';
   }
   return null;
+}
+
+function normalizeBedrockModelLabel(modelId: string): string | null {
+  if (!isBedrockModelId(modelId)) {
+    return null;
+  }
+
+  const lowercaseId = modelId.toLowerCase();
+  const claudePrefix = 'anthropic.claude-';
+  const claudeIndex = lowercaseId.indexOf(claudePrefix);
+  if (claudeIndex === -1) {
+    return null;
+  }
+
+  let suffix = lowercaseId.slice(claudeIndex + claudePrefix.length);
+  suffix = suffix.replace(/-v\d+:\d+$/, '');
+  suffix = suffix.replace(/-\d{8}$/, '');
+
+  const tokens = suffix.split('-').filter(Boolean);
+  if (tokens.length === 0) {
+    return null;
+  }
+
+  const familyIndex = tokens.findIndex((token) => token === 'haiku' || token === 'sonnet' || token === 'opus');
+  if (familyIndex === -1) {
+    return null;
+  }
+
+  const family = tokens[familyIndex];
+  const beforeVersion = readNumericVersion(tokens, familyIndex - 1, -1).reverse();
+  const afterVersion = readNumericVersion(tokens, familyIndex + 1, 1);
+  const versionParts = beforeVersion.length >= afterVersion.length ? beforeVersion : afterVersion;
+  const version = versionParts.length ? versionParts.join('.') : null;
+  const familyLabel = family[0].toUpperCase() + family.slice(1);
+
+  return version ? `Claude ${familyLabel} ${version}` : `Claude ${familyLabel}`;
+}
+
+function readNumericVersion(tokens: string[], startIndex: number, step: -1 | 1): string[] {
+  const parts: string[] = [];
+  for (let i = startIndex; i >= 0 && i < tokens.length; i += step) {
+    if (!/^\d+$/.test(tokens[i])) {
+      break;
+    }
+    parts.push(tokens[i]);
+    if (parts.length === 2) {
+      break;
+    }
+  }
+  return parts;
 }

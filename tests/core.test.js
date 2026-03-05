@@ -163,9 +163,14 @@ test('native percentage falls back when NaN', () => {
   assert.equal(percent, 28); // falls back to raw calculation
 });
 
-test('getModelName prefers display name, then id, then fallback', () => {
-  assert.equal(getModelName({ model: { display_name: 'Opus', id: 'opus-123' } }), 'Opus');
-  assert.equal(getModelName({ model: { id: 'sonnet-456' } }), 'sonnet-456');
+test('getModelName precedence: trimmed display name, then normalized bedrock label, then raw id, then fallback', () => {
+  assert.equal(getModelName({ model: { display_name: '  Opus  ', id: 'anthropic.claude-3-5-sonnet-20240620-v1:0' } }), 'Opus');
+  assert.equal(getModelName({ model: { id: 'anthropic.claude-3-5-sonnet-20240620-v1:0' } }), 'Claude Sonnet 3.5');
+  assert.equal(getModelName({ model: { id: 'eu.anthropic.claude-opus-4-5-20251101-v1:0' } }), 'Claude Opus 4.5');
+  assert.equal(getModelName({ model: { id: 'us.anthropic.claude-sonnet-4-20250514-v1:0' } }), 'Claude Sonnet 4');
+  assert.equal(getModelName({ model: { id: '  apac.anthropic.claude-unknown-nextgen-20250101-v1:0  ' } }), 'apac.anthropic.claude-unknown-nextgen-20250101-v1:0');
+  assert.equal(getModelName({ model: { id: '  sonnet-456  ' } }), 'sonnet-456');
+  assert.equal(getModelName({ model: { display_name: '   ', id: '   ' } }), 'Unknown');
   assert.equal(getModelName({}), 'Unknown');
 });
 
