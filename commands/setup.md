@@ -89,15 +89,16 @@ This is a [Claude Code platform limitation](https://github.com/anthropics/claude
 
 ---
 
-## Step 1: Detect Platform & Runtime
+## Step 1: Detect Platform, Shell, and Runtime
 
-**IMPORTANT**: Determine the platform from your environment context (`Platform:` value), NOT from `uname -s`. The Bash tool may report a different environment than the user's actual platform (e.g., Git Bash on Windows reports MINGW even when the user launched Claude Code from PowerShell).
+**IMPORTANT**: Use the environment context values (`Platform:` and `Shell:`), not `uname -s` or ad-hoc checks. The Bash tool may report MINGW/MSYS on Windows, so branch only by the context values.
 
-| Platform | Command Format |
-|----------|---------------|
-| `darwin` | bash (macOS) |
-| `linux` | bash (all Linux distros including NixOS, Ubuntu, Arch, etc.) |
-| `win32` | PowerShell (works universally on Windows 10+) |
+| Platform | Shell | Command Format |
+|----------|-------|----------------|
+| `darwin` | any | bash (macOS instructions) |
+| `linux` | any | bash (Linux instructions) |
+| `win32` | `bash` (Git Bash, MSYS2) | bash (use macOS/Linux instructions) |
+| `win32` | `powershell`, `pwsh`, or `cmd` | PowerShell (use Windows instructions) |
 
 ---
 
@@ -135,6 +136,11 @@ This is a [Claude Code platform limitation](https://github.com/anthropics/claude
 
 **Windows** (Platform: `win32`):
 
+Choose instructions by `Shell:` value before running any commands:
+- `Shell: bash` -> use the macOS/Linux section above (same command format).
+- `Shell: powershell`, `pwsh`, or `cmd` -> use the Windows PowerShell section below.
+- Any other shell value -> stop and ask the user which shell launched Claude Code.
+
 1. Get plugin path:
    ```powershell
    (Get-ChildItem "$env:USERPROFILE\.claude\plugins\cache\claude-hud\claude-hud" | Sort-Object LastWriteTime -Descending | Select-Object -First 1).FullName
@@ -168,8 +174,8 @@ Run the generated command. It should produce output (the HUD lines) within a few
 ## Step 3: Apply Configuration
 
 Read the settings file and merge in the statusLine config, preserving all existing settings:
-- **macOS/Linux/Git Bash**: `~/.claude/settings.json`
-- **Windows (native PowerShell)**: `$env:USERPROFILE\.claude\settings.json`
+- **Platform `darwin` or `linux`, or Platform `win32` + Shell `bash`**: `~/.claude/settings.json`
+- **Platform `win32` + Shell `powershell`, `pwsh`, or `cmd`**: `$env:USERPROFILE\.claude\settings.json`
 
 If the file doesn't exist, create it. If it contains invalid JSON, report the error and do not overwrite.
 If a write fails with `File has been unexpectedly modified`, re-read the file and retry the merge once.
@@ -244,9 +250,9 @@ Use AskUserQuestion:
    - Plugin might not be installed: `ls ~/.claude/plugins/cache/claude-hud/`
    - Solution: reinstall plugin via marketplace
 
-   **Windows: "bash not recognized"**:
-   - Wrong command type for Windows
-   - Solution: use the PowerShell command variant
+   **Windows shell mismatch (for example, "bash not recognized")**:
+   - Command format does not match `Platform:` + `Shell:`
+   - Solution: re-run Step 1 branch logic and use the matching variant
 
    **Windows: PowerShell execution policy error**:
    - Run: `Set-ExecutionPolicy -Scope CurrentUser -ExecutionPolicy RemoteSigned`
