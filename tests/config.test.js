@@ -1,6 +1,12 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { loadConfig, getConfigPath, mergeConfig, DEFAULT_CONFIG } from '../dist/config.js';
+import {
+  loadConfig,
+  getConfigPath,
+  mergeConfig,
+  DEFAULT_CONFIG,
+  DEFAULT_ELEMENT_ORDER,
+} from '../dist/config.js';
 import * as path from 'node:path';
 import * as os from 'node:os';
 import { mkdtemp, mkdir, rm, writeFile } from 'node:fs/promises';
@@ -26,6 +32,9 @@ test('loadConfig returns valid config structure', async () => {
 
   // showSeparators must be boolean
   assert.equal(typeof config.showSeparators, 'boolean', 'showSeparators should be boolean');
+  assert.ok(Array.isArray(config.elementOrder), 'elementOrder should be an array');
+  assert.ok(config.elementOrder.length > 0, 'elementOrder should not be empty');
+  assert.deepEqual(config.elementOrder, DEFAULT_ELEMENT_ORDER, 'elementOrder should default to the full expanded layout');
 
   // gitStatus object with expected properties
   assert.equal(typeof config.gitStatus, 'object');
@@ -175,4 +184,39 @@ test('mergeConfig falls back to default for invalid contextValue', () => {
     },
   });
   assert.equal(config.display.contextValue, DEFAULT_CONFIG.display.contextValue);
+});
+
+test('mergeConfig defaults elementOrder to the full expanded layout', () => {
+  const config = mergeConfig({});
+  assert.deepEqual(config.elementOrder, DEFAULT_ELEMENT_ORDER);
+});
+
+test('mergeConfig preserves valid custom elementOrder including activity elements', () => {
+  const config = mergeConfig({
+    elementOrder: ['tools', 'project', 'usage', 'context', 'agents', 'todos', 'environment'],
+  });
+  assert.deepEqual(
+    config.elementOrder,
+    ['tools', 'project', 'usage', 'context', 'agents', 'todos', 'environment']
+  );
+});
+
+test('mergeConfig filters unknown entries and de-duplicates elementOrder', () => {
+  const config = mergeConfig({
+    elementOrder: ['project', 'agents', 'project', 'banana', 'usage', 'agents', 'context'],
+  });
+  assert.deepEqual(config.elementOrder, ['project', 'agents', 'usage', 'context']);
+});
+
+test('mergeConfig treats elementOrder as an explicit expanded-mode filter', () => {
+  const config = mergeConfig({
+    elementOrder: ['usage', 'project'],
+  });
+  assert.deepEqual(config.elementOrder, ['usage', 'project']);
+});
+
+test('mergeConfig falls back to default when elementOrder is empty or invalid', () => {
+  assert.deepEqual(mergeConfig({ elementOrder: [] }).elementOrder, DEFAULT_ELEMENT_ORDER);
+  assert.deepEqual(mergeConfig({ elementOrder: ['unknown'] }).elementOrder, DEFAULT_ELEMENT_ORDER);
+  assert.deepEqual(mergeConfig({ elementOrder: 'project' }).elementOrder, DEFAULT_ELEMENT_ORDER);
 });

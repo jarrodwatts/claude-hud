@@ -39,10 +39,23 @@ function baseContext() {
       lineLayout: 'compact',
       showSeparators: false,
       pathLevels: 1,
+      elementOrder: ['project', 'context', 'usage', 'environment', 'tools', 'agents', 'todos'],
       gitStatus: { enabled: true, showDirty: true, showAheadBehind: false, showFileStats: false },
-      display: { showModel: true, showContextBar: true, contextValue: 'percent', showConfigCounts: true, showDuration: true, showSpeed: false, showTokenBreakdown: true, showUsage: true, usageBarEnabled: false, showTools: true, showAgents: true, showTodos: true, autocompactBuffer: 'enabled', usageThreshold: 0, sevenDayThreshold: 80, environmentThreshold: 0 },
+      display: { showModel: true, showProject: true, showContextBar: true, contextValue: 'percent', showConfigCounts: true, showDuration: true, showSpeed: false, showTokenBreakdown: true, showUsage: true, usageBarEnabled: false, showTools: true, showAgents: true, showTodos: true, showSessionName: false, autocompactBuffer: 'enabled', usageThreshold: 0, sevenDayThreshold: 80, environmentThreshold: 0 },
     },
   };
+}
+
+function captureRenderLines(ctx) {
+  const logs = [];
+  const originalLog = console.log;
+  console.log = line => logs.push(stripAnsi(line));
+  try {
+    render(ctx);
+  } finally {
+    console.log = originalLog;
+  }
+  return logs;
 }
 
 test('renderSessionLine adds token breakdown when context is high', () => {
@@ -867,4 +880,142 @@ test('renderSessionLine combines showFileStats with showDirty and showAheadBehin
   assert.ok(line.includes('↓1'), 'expected behind count');
   assert.ok(line.includes('!3'), 'expected modified count');
   assert.ok(line.includes('✘1'), 'expected deleted count');
+});
+
+test('render expanded layout honors custom elementOrder including activity placement', () => {
+  const ctx = baseContext();
+  ctx.config.lineLayout = 'expanded';
+  ctx.stdin.cwd = '/tmp/my-project';
+  ctx.usageData = {
+    planName: 'Team',
+    fiveHour: 30,
+    sevenDay: 10,
+    fiveHourResetAt: new Date(Date.now() + 60 * 60 * 1000),
+    sevenDayResetAt: new Date(Date.now() + 24 * 60 * 60 * 1000),
+  };
+  ctx.claudeMdCount = 1;
+  ctx.rulesCount = 2;
+  ctx.transcript.tools = [
+    { id: 'tool-1', name: 'Read', status: 'completed', startTime: new Date(0), endTime: new Date(0), duration: 0 },
+  ];
+  ctx.transcript.agents = [
+    { id: 'agent-1', type: 'planner', status: 'running', startTime: new Date(0) },
+  ];
+  ctx.transcript.todos = [
+    { content: 'todo-marker', status: 'in_progress' },
+  ];
+  ctx.config.elementOrder = ['tools', 'project', 'usage', 'context', 'environment', 'agents', 'todos'];
+
+  const lines = captureRenderLines(ctx);
+  const toolIndex = lines.findIndex(line => line.includes('Read'));
+  const projectIndex = lines.findIndex(line => line.includes('my-project'));
+  const combinedIndex = lines.findIndex(line => line.includes('Usage') && line.includes('Context'));
+  const environmentIndex = lines.findIndex(line => line.includes('CLAUDE.md'));
+  const agentIndex = lines.findIndex(line => line.includes('planner'));
+  const todoIndex = lines.findIndex(line => line.includes('todo-marker'));
+
+  assert.deepEqual(
+    [toolIndex, projectIndex, combinedIndex, environmentIndex, agentIndex, todoIndex].every(index => index >= 0),
+    true,
+    'expected all configured elements to render'
+  );
+  assert.ok(toolIndex < projectIndex, 'tool line should move ahead of project');
+  assert.ok(projectIndex < combinedIndex, 'combined usage/context line should follow project');
+  assert.ok(combinedIndex < environmentIndex, 'environment line should follow context/usage');
+  assert.ok(environmentIndex < agentIndex, 'agent line should follow environment');
+  assert.ok(agentIndex < todoIndex, 'todo line should follow agent line');
+});
+
+test('render expanded layout omits elements not present in elementOrder', () => {
+  const ctx = baseContext();
+  ctx.config.lineLayout = 'expanded';
+  ctx.stdin.cwd = '/tmp/my-project';
+  ctx.usageData = {
+    planName: 'Team',
+    fiveHour: 30,
+    sevenDay: 10,
+    fiveHourResetAt: new Date(Date.now() + 60 * 60 * 1000),
+    sevenDayResetAt: new Date(Date.now() + 24 * 60 * 60 * 1000),
+  };
+  ctx.claudeMdCount = 1;
+  ctx.transcript.tools = [
+    { id: 'tool-1', name: 'Read', status: 'completed', startTime: new Date(0), endTime: new Date(0), duration: 0 },
+  ];
+  ctx.transcript.agents = [
+    { id: 'agent-1', type: 'planner', status: 'running', startTime: new Date(0) },
+  ];
+  ctx.transcript.todos = [
+    { content: 'todo-marker', status: 'in_progress' },
+  ];
+  ctx.config.elementOrder = ['project', 'tools'];
+
+  const output = captureRenderLines(ctx).join('\n');
+
+  assert.ok(output.includes('my-project'), 'project should render when included');
+  assert.ok(output.includes('Read'), 'tools should render when included');
+  assert.ok(!output.includes('Context'), 'context should be omitted when excluded');
+  assert.ok(!output.includes('Usage'), 'usage should be omitted when excluded');
+  assert.ok(!output.includes('CLAUDE.md'), 'environment should be omitted when excluded');
+  assert.ok(!output.includes('planner'), 'agents should be omitted when excluded');
+  assert.ok(!output.includes('todo-marker'), 'todos should be omitted when excluded');
+});
+
+test('render expanded layout combines usage and context when adjacent in elementOrder', () => {
+  const ctx = baseContext();
+  ctx.config.lineLayout = 'expanded';
+  ctx.usageData = {
+    planName: 'Team',
+    fiveHour: 30,
+    sevenDay: 10,
+    fiveHourResetAt: new Date(Date.now() + 60 * 60 * 1000),
+    sevenDayResetAt: new Date(Date.now() + 24 * 60 * 60 * 1000),
+  };
+  ctx.config.elementOrder = ['usage', 'context'];
+
+  const lines = captureRenderLines(ctx);
+
+  assert.equal(lines.length, 1, 'adjacent usage and context should share one expanded line');
+  assert.ok(lines[0].includes('Usage'), 'combined line should include usage');
+  assert.ok(lines[0].includes('Context'), 'combined line should include context');
+  assert.ok(lines[0].includes('│'), 'combined line should preserve the shared separator');
+});
+
+test('render expanded layout keeps usage and context separate when not adjacent', () => {
+  const ctx = baseContext();
+  ctx.config.lineLayout = 'expanded';
+  ctx.stdin.cwd = '/tmp/my-project';
+  ctx.usageData = {
+    planName: 'Team',
+    fiveHour: 30,
+    sevenDay: 10,
+    fiveHourResetAt: new Date(Date.now() + 60 * 60 * 1000),
+    sevenDayResetAt: new Date(Date.now() + 24 * 60 * 60 * 1000),
+  };
+  ctx.config.elementOrder = ['usage', 'project', 'context'];
+
+  const lines = captureRenderLines(ctx);
+  const usageLine = lines.find(line => line.includes('Usage'));
+  const contextLine = lines.find(line => line.includes('Context'));
+  const combinedLine = lines.find(line => line.includes('Usage') && line.includes('Context'));
+
+  assert.ok(usageLine, 'usage should render on its own line');
+  assert.ok(contextLine, 'context should render on its own line');
+  assert.equal(combinedLine, undefined, 'usage and context should not combine when separated by another element');
+});
+
+test('render compact layout keeps activity lines even when elementOrder omits them', () => {
+  const ctx = baseContext();
+  ctx.stdin.cwd = '/tmp/my-project';
+  ctx.transcript.tools = [
+    { id: 'tool-1', name: 'Read', status: 'completed', startTime: new Date(0), endTime: new Date(0), duration: 0 },
+  ];
+  ctx.transcript.todos = [
+    { content: 'todo-marker', status: 'in_progress' },
+  ];
+  ctx.config.elementOrder = ['project'];
+
+  const output = captureRenderLines(ctx).join('\n');
+
+  assert.ok(output.includes('Read'), 'compact mode should keep tools visible');
+  assert.ok(output.includes('todo-marker'), 'compact mode should keep todos visible');
 });

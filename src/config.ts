@@ -7,11 +7,25 @@ export type LineLayoutType = 'compact' | 'expanded';
 
 export type AutocompactBufferMode = 'enabled' | 'disabled';
 export type ContextValueMode = 'percent' | 'tokens' | 'remaining';
+export type HudElement = 'project' | 'context' | 'usage' | 'environment' | 'tools' | 'agents' | 'todos';
+
+export const DEFAULT_ELEMENT_ORDER: HudElement[] = [
+  'project',
+  'context',
+  'usage',
+  'environment',
+  'tools',
+  'agents',
+  'todos',
+];
+
+const KNOWN_ELEMENTS = new Set<HudElement>(DEFAULT_ELEMENT_ORDER);
 
 export interface HudConfig {
   lineLayout: LineLayoutType;
   showSeparators: boolean;
   pathLevels: 1 | 2 | 3;
+  elementOrder: HudElement[];
   gitStatus: {
     enabled: boolean;
     showDirty: boolean;
@@ -44,6 +58,7 @@ export const DEFAULT_CONFIG: HudConfig = {
   lineLayout: 'expanded',
   showSeparators: false,
   pathLevels: 1,
+  elementOrder: [...DEFAULT_ELEMENT_ORDER],
   gitStatus: {
     enabled: true,
     showDirty: true,
@@ -91,6 +106,31 @@ function validateAutocompactBuffer(value: unknown): value is AutocompactBufferMo
 
 function validateContextValue(value: unknown): value is ContextValueMode {
   return value === 'percent' || value === 'tokens' || value === 'remaining';
+}
+
+function validateElementOrder(value: unknown): HudElement[] {
+  if (!Array.isArray(value) || value.length === 0) {
+    return [...DEFAULT_ELEMENT_ORDER];
+  }
+
+  const seen = new Set<HudElement>();
+  const elementOrder: HudElement[] = [];
+
+  for (const item of value) {
+    if (typeof item !== 'string' || !KNOWN_ELEMENTS.has(item as HudElement)) {
+      continue;
+    }
+
+    const element = item as HudElement;
+    if (seen.has(element)) {
+      continue;
+    }
+
+    seen.add(element);
+    elementOrder.push(element);
+  }
+
+  return elementOrder.length > 0 ? elementOrder : [...DEFAULT_ELEMENT_ORDER];
 }
 
 interface LegacyConfig {
@@ -142,6 +182,8 @@ export function mergeConfig(userConfig: Partial<HudConfig>): HudConfig {
   const pathLevels = validatePathLevels(migrated.pathLevels)
     ? migrated.pathLevels
     : DEFAULT_CONFIG.pathLevels;
+
+  const elementOrder = validateElementOrder(migrated.elementOrder);
 
   const gitStatus = {
     enabled: typeof migrated.gitStatus?.enabled === 'boolean'
@@ -209,7 +251,7 @@ export function mergeConfig(userConfig: Partial<HudConfig>): HudConfig {
     environmentThreshold: validateThreshold(migrated.display?.environmentThreshold, 100),
   };
 
-  return { lineLayout, showSeparators, pathLevels, gitStatus, display };
+  return { lineLayout, showSeparators, pathLevels, elementOrder, gitStatus, display };
 }
 
 export async function loadConfig(): Promise<HudConfig> {

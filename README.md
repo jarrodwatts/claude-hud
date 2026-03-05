@@ -129,6 +129,7 @@ You can also edit the config file directly at `~/.claude/plugins/claude-hud/conf
 |--------|------|---------|-------------|
 | `lineLayout` | string | `expanded` | Layout: `expanded` (multi-line) or `compact` (single line) |
 | `pathLevels` | 1-3 | 1 | Directory levels to show in project path |
+| `elementOrder` | string[] | `["project","context","usage","environment","tools","agents","todos"]` | Expanded-mode element order. Omit entries to hide them in expanded mode. |
 | `gitStatus.enabled` | boolean | true | Show git branch in HUD |
 | `gitStatus.showDirty` | boolean | true | Show `*` for uncommitted changes |
 | `gitStatus.showAheadBehind` | boolean | false | Show `↑N ↓N` for ahead/behind remote |
@@ -178,6 +179,7 @@ To disable, set `display.showUsage` to `false`.
 {
   "lineLayout": "expanded",
   "pathLevels": 2,
+  "elementOrder": ["project", "tools", "context", "usage", "environment", "agents", "todos"],
   "gitStatus": {
     "enabled": true,
     "showDirty": true,
