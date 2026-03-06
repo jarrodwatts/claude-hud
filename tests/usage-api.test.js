@@ -844,15 +844,16 @@ describe('getUsage caching behavior', () => {
       return buildApiResult();
     };
 
-    await getUsage({ homeDir: () => tempHome, fetchApi, now: () => nowValue, readKeychain: () => null, cacheTtlMs: 10_000, failureCacheTtlMs: 5_000 });
+    const ttls = { cacheTtlMs: 10_000, failureCacheTtlMs: 5_000 };
+    await getUsage({ homeDir: () => tempHome, fetchApi, now: () => nowValue, readKeychain: () => null, ttls });
     assert.equal(fetchCalls, 1);
 
     nowValue += 8_000;
-    await getUsage({ homeDir: () => tempHome, fetchApi, now: () => nowValue, readKeychain: () => null, cacheTtlMs: 10_000, failureCacheTtlMs: 5_000 });
+    await getUsage({ homeDir: () => tempHome, fetchApi, now: () => nowValue, readKeychain: () => null, ttls });
     assert.equal(fetchCalls, 1); // still fresh
 
     nowValue += 3_000;
-    await getUsage({ homeDir: () => tempHome, fetchApi, now: () => nowValue, readKeychain: () => null, cacheTtlMs: 10_000, failureCacheTtlMs: 5_000 });
+    await getUsage({ homeDir: () => tempHome, fetchApi, now: () => nowValue, readKeychain: () => null, ttls });
     assert.equal(fetchCalls, 2); // expired after 11s total
   });
 

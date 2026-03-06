@@ -105,7 +105,9 @@ function hydrateCacheData(data: UsageData): UsageData {
   return data;
 }
 
-function readCacheState(homeDir: string, now: number, cacheTtlMs: number, failureCacheTtlMs: number): CacheState | null {
+type CacheTtls = { cacheTtlMs: number; failureCacheTtlMs: number };
+
+function readCacheState(homeDir: string, now: number, ttls: CacheTtls): CacheState | null {
   try {
     const cachePath = getCachePath(homeDir);
     if (!fs.existsSync(cachePath)) return null;
@@ -114,7 +116,7 @@ function readCacheState(homeDir: string, now: number, cacheTtlMs: number, failur
     const cache: CacheFile = JSON.parse(content);
 
     // Check TTL - use shorter TTL for failure results
-    const ttl = cache.data.apiUnavailable ? failureCacheTtlMs : cacheTtlMs;
+    const ttl = cache.data.apiUnavailable ? ttls.failureCacheTtlMs : ttls.cacheTtlMs;
     return {
       data: hydrateCacheData(cache.data),
       timestamp: cache.timestamp,
@@ -125,8 +127,8 @@ function readCacheState(homeDir: string, now: number, cacheTtlMs: number, failur
   }
 }
 
-function readCache(homeDir: string, now: number, cacheTtlMs: number, failureCacheTtlMs: number): UsageData | null {
-  const cache = readCacheState(homeDir, now, cacheTtlMs, failureCacheTtlMs);
+function readCache(homeDir: string, now: number, ttls: CacheTtls): UsageData | null {
+  const cache = readCacheState(homeDir, now, ttls);
   return cache?.isFresh ? cache.data : null;
 }
 
@@ -208,15 +210,14 @@ function releaseCacheLock(homeDir: string): void {
 async function waitForFreshCache(
   homeDir: string,
   now: () => number,
-  cacheTtlMs: number,
-  failureCacheTtlMs: number,
+  ttls: CacheTtls,
   timeoutMs: number = CACHE_LOCK_WAIT_MS
 ): Promise<UsageData | null> {
   const deadline = Date.now() + timeoutMs;
 
   while (Date.now() < deadline) {
     await new Promise((resolve) => setTimeout(resolve, CACHE_LOCK_POLL_MS));
-    const cached = readCache(homeDir, now(), cacheTtlMs, failureCacheTtlMs);
+    const cached = readCache(homeDir, now(), ttls);
     if (cached) {
       return cached;
     }
@@ -226,7 +227,7 @@ async function waitForFreshCache(
     }
   }
 
-  return readCache(homeDir, now(), cacheTtlMs, failureCacheTtlMs);
+  return readCache(homeDir, now(), ttls);
 }
 
 // Dependency injection for testing
@@ -235,8 +236,7 @@ export type UsageApiDeps = {
   fetchApi: (accessToken: string) => Promise<UsageApiResult>;
   now: () => number;
   readKeychain: (now: number, homeDir: string) => { accessToken: string; subscriptionType: string } | null;
-  cacheTtlMs: number;
-  failureCacheTtlMs: number;
+  ttls: CacheTtls;
 };
 
 const defaultDeps: UsageApiDeps = {
@@ -244,8 +244,7 @@ const defaultDeps: UsageApiDeps = {
   fetchApi: fetchUsageApi,
   now: () => Date.now(),
   readKeychain: readKeychainCredentials,
-  cacheTtlMs: CACHE_TTL_MS,
-  failureCacheTtlMs: CACHE_FAILURE_TTL_MS,
+  ttls: { cacheTtlMs: CACHE_TTL_MS, failureCacheTtlMs: CACHE_FAILURE_TTL_MS },
 };
 
 /**
@@ -268,7 +267,7 @@ export async function getUsage(overrides: Partial<UsageApiDeps> = {}): Promise<U
     return null;
   }
   // Check file-based cache first
-  const cacheState = readCacheState(homeDir, now, deps.cacheTtlMs, deps.failureCacheTtlMs);
+  const cacheState = readCacheState(homeDir, now, deps.ttls);
   if (cacheState?.isFresh) {
     return cacheState.data;
   }
@@ -279,12 +278,12 @@ export async function getUsage(overrides: Partial<UsageApiDeps> = {}): Promise<U
     if (cacheState) {
       return cacheState.data;
     }
-    return await waitForFreshCache(homeDir, deps.now, deps.cacheTtlMs, deps.failureCacheTtlMs);
+    return await waitForFreshCache(homeDir, deps.now, deps.ttls);
   }
   holdsCacheLock = lockStatus === 'acquired';
 
   try {
-    const refreshedCache = readCache(homeDir, deps.now(), deps.cacheTtlMs, deps.failureCacheTtlMs);
+    const refreshedCache = readCache(homeDir, deps.now(), deps.ttls);
     if (refreshedCache) {
       return refreshedCache;
     }

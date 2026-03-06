@@ -61,8 +61,10 @@ export async function main(overrides: Partial<MainDeps> = {}): Promise<void> {
     // Only fetch usage if enabled in config (replaces env var requirement)
     const usageData = config.display.showUsage !== false
       ? await deps.getUsage({
-          cacheTtlMs: config.usage.cacheTtlSeconds * 1000,
-          failureCacheTtlMs: config.usage.failureCacheTtlSeconds * 1000,
+          ttls: {
+            cacheTtlMs: config.usage.cacheTtlSeconds * 1000,
+            failureCacheTtlMs: config.usage.failureCacheTtlSeconds * 1000,
+          },
         })
       : null;
 
