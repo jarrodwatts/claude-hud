@@ -454,6 +454,101 @@ describe('getUsage', () => {
     }
   });
 
+  test('returns null when ANTHROPIC_BASE_URL points to a custom endpoint', async () => {
+    const originalBaseUrl = process.env.ANTHROPIC_BASE_URL;
+    process.env.ANTHROPIC_BASE_URL = 'https://my-proxy.example.com';
+    await writeCredentials(tempHome, buildCredentials());
+    let fetchCalls = 0;
+    try {
+      const result = await getUsage({
+        homeDir: () => tempHome,
+        fetchApi: async () => { fetchCalls += 1; return buildApiResult(); },
+        now: () => 1000,
+        readKeychain: () => null,
+      });
+      assert.equal(result, null);
+      assert.equal(fetchCalls, 0);
+    } finally {
+      restoreEnvVar('ANTHROPIC_BASE_URL', originalBaseUrl);
+    }
+  });
+
+  test('returns null when ANTHROPIC_API_BASE_URL points to a custom endpoint', async () => {
+    const originalApiBaseUrl = process.env.ANTHROPIC_API_BASE_URL;
+    process.env.ANTHROPIC_API_BASE_URL = 'https://my-proxy.example.com';
+    await writeCredentials(tempHome, buildCredentials());
+    let fetchCalls = 0;
+    try {
+      const result = await getUsage({
+        homeDir: () => tempHome,
+        fetchApi: async () => { fetchCalls += 1; return buildApiResult(); },
+        now: () => 1000,
+        readKeychain: () => null,
+      });
+      assert.equal(result, null);
+      assert.equal(fetchCalls, 0);
+    } finally {
+      restoreEnvVar('ANTHROPIC_API_BASE_URL', originalApiBaseUrl);
+    }
+  });
+
+  test('proceeds normally when ANTHROPIC_BASE_URL is set to empty string', async () => {
+    const originalBaseUrl = process.env.ANTHROPIC_BASE_URL;
+    process.env.ANTHROPIC_BASE_URL = '';
+    await writeCredentials(tempHome, buildCredentials());
+    let fetchCalls = 0;
+    try {
+      const result = await getUsage({
+        homeDir: () => tempHome,
+        fetchApi: async () => { fetchCalls += 1; return buildApiResult(); },
+        now: () => 1000,
+        readKeychain: () => null,
+      });
+      assert.equal(fetchCalls, 1);
+      assert.ok(result !== null);
+    } finally {
+      restoreEnvVar('ANTHROPIC_BASE_URL', originalBaseUrl);
+    }
+  });
+
+  test('proceeds normally when ANTHROPIC_BASE_URL is the default Anthropic endpoint', async () => {
+    const originalBaseUrl = process.env.ANTHROPIC_BASE_URL;
+    process.env.ANTHROPIC_BASE_URL = 'https://api.anthropic.com';
+    await writeCredentials(tempHome, buildCredentials());
+    let fetchCalls = 0;
+    try {
+      const result = await getUsage({
+        homeDir: () => tempHome,
+        fetchApi: async () => { fetchCalls += 1; return buildApiResult(); },
+        now: () => 1000,
+        readKeychain: () => null,
+      });
+      assert.equal(fetchCalls, 1);
+      assert.ok(result !== null);
+    } finally {
+      restoreEnvVar('ANTHROPIC_BASE_URL', originalBaseUrl);
+    }
+  });
+
+  test('proceeds normally when ANTHROPIC_BASE_URL is the default endpoint with trailing slash', async () => {
+    const originalBaseUrl = process.env.ANTHROPIC_BASE_URL;
+    process.env.ANTHROPIC_BASE_URL = 'https://api.anthropic.com/';
+    await writeCredentials(tempHome, buildCredentials());
+    let fetchCalls = 0;
+    try {
+      const result = await getUsage({
+        homeDir: () => tempHome,
+        fetchApi: async () => { fetchCalls += 1; return buildApiResult(); },
+        now: () => 1000,
+        readKeychain: () => null,
+      });
+      assert.equal(fetchCalls, 1);
+      assert.ok(result !== null);
+    } finally {
+      restoreEnvVar('ANTHROPIC_BASE_URL', originalBaseUrl);
+    }
+  });
+
   test('sends CONNECT to proxy before any usage API request bytes', async () => {
     const originalHttpsProxy = process.env.HTTPS_PROXY;
     const originalUsageTimeout = process.env.CLAUDE_HUD_USAGE_TIMEOUT_MS;
