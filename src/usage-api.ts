@@ -254,7 +254,8 @@ const defaultDeps: UsageApiDeps = {
  * Returns { apiUnavailable: true, ... } if API call fails (to show warning in HUD).
  *
  * Uses file-based cache since HUD runs as a new process each render (~300ms).
- * Cache TTL: 60s for success, 15s for failures.
+ * Cache TTL is configurable via usage.cacheTtlSeconds / usage.failureCacheTtlSeconds in config.json
+ * (defaults: 60s for success, 15s for failures).
  */
 export async function getUsage(overrides: Partial<UsageApiDeps> = {}): Promise<UsageData | null> {
   const deps = { ...defaultDeps, ...overrides };

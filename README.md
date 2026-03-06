@@ -148,6 +148,8 @@ You can also edit the config file directly at `~/.claude/plugins/claude-hud/conf
 | `display.showAgents` | boolean | false | Show agents activity line |
 | `display.showTodos` | boolean | false | Show todos progress line |
 | `display.showSessionName` | boolean | false | Show session slug or custom title from `/rename` |
+| `usage.cacheTtlSeconds` | number | 60 | How long (seconds) to cache a successful usage API response |
+| `usage.failureCacheTtlSeconds` | number | 15 | How long (seconds) to cache a failed usage API response before retrying |
 
 ### Usage Limits (Pro/Max/Team)
 
@@ -193,6 +195,10 @@ To disable, set `display.showUsage` to `false`.
     "showTodos": true,
     "showConfigCounts": true,
     "showDuration": true
+  },
+  "usage": {
+    "cacheTtlSeconds": 120,
+    "failureCacheTtlSeconds": 30
   }
 }
 ```
