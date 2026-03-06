@@ -220,3 +220,25 @@ test('mergeConfig falls back to default when elementOrder is empty or invalid', 
   assert.deepEqual(mergeConfig({ elementOrder: ['unknown'] }).elementOrder, DEFAULT_ELEMENT_ORDER);
   assert.deepEqual(mergeConfig({ elementOrder: 'project' }).elementOrder, DEFAULT_ELEMENT_ORDER);
 });
+
+test('mergeConfig defaults usage to expected values', () => {
+  const config = mergeConfig({});
+  assert.equal(config.usage.cacheTtlSeconds, 60);
+  assert.equal(config.usage.failureCacheTtlSeconds, 15);
+});
+
+test('mergeConfig accepts custom usage TTL values', () => {
+  const config = mergeConfig({
+    usage: { cacheTtlSeconds: 120, failureCacheTtlSeconds: 30 },
+  });
+  assert.equal(config.usage.cacheTtlSeconds, 120);
+  assert.equal(config.usage.failureCacheTtlSeconds, 30);
+});
+
+test('mergeConfig falls back to defaults for invalid usage values', () => {
+  const config = mergeConfig({
+    usage: { cacheTtlSeconds: -1, failureCacheTtlSeconds: 0 },
+  });
+  assert.equal(config.usage.cacheTtlSeconds, DEFAULT_CONFIG.usage.cacheTtlSeconds);
+  assert.equal(config.usage.failureCacheTtlSeconds, DEFAULT_CONFIG.usage.failureCacheTtlSeconds);
+});

@@ -34,6 +34,10 @@ export interface HudConfig {
         sevenDayThreshold: number;
         environmentThreshold: number;
     };
+    usage: {
+        cacheTtlSeconds: number;
+        failureCacheTtlSeconds: number;
+    };
 }
 export declare const DEFAULT_CONFIG: HudConfig;
 export declare function getConfigPath(): string;

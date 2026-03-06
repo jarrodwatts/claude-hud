@@ -835,6 +835,27 @@ describe('getUsage caching behavior', () => {
     assert.equal(fetchCalls, 2);
   });
 
+  test('respects custom cacheTtlMs and failureCacheTtlMs', async () => {
+    await writeCredentials(tempHome, buildCredentials());
+    let fetchCalls = 0;
+    let nowValue = 1000;
+    const fetchApi = async () => {
+      fetchCalls += 1;
+      return buildApiResult();
+    };
+
+    await getUsage({ homeDir: () => tempHome, fetchApi, now: () => nowValue, readKeychain: () => null, cacheTtlMs: 10_000, failureCacheTtlMs: 5_000 });
+    assert.equal(fetchCalls, 1);
+
+    nowValue += 8_000;
+    await getUsage({ homeDir: () => tempHome, fetchApi, now: () => nowValue, readKeychain: () => null, cacheTtlMs: 10_000, failureCacheTtlMs: 5_000 });
+    assert.equal(fetchCalls, 1); // still fresh
+
+    nowValue += 3_000;
+    await getUsage({ homeDir: () => tempHome, fetchApi, now: () => nowValue, readKeychain: () => null, cacheTtlMs: 10_000, failureCacheTtlMs: 5_000 });
+    assert.equal(fetchCalls, 2); // expired after 11s total
+  });
+
   test('clearCache removes file-based cache', async () => {
     await writeCredentials(tempHome, buildCredentials());
     let fetchCalls = 0;

@@ -52,6 +52,10 @@ export interface HudConfig {
     sevenDayThreshold: number;
     environmentThreshold: number;
   };
+  usage: {
+    cacheTtlSeconds: number;
+    failureCacheTtlSeconds: number;
+  };
 }
 
 export const DEFAULT_CONFIG: HudConfig = {
@@ -84,6 +88,10 @@ export const DEFAULT_CONFIG: HudConfig = {
     usageThreshold: 0,
     sevenDayThreshold: 80,
     environmentThreshold: 0,
+  },
+  usage: {
+    cacheTtlSeconds: 60,
+    failureCacheTtlSeconds: 15,
   },
 };
 
@@ -166,6 +174,11 @@ function migrateConfig(userConfig: Partial<HudConfig> & LegacyConfig): Partial<H
 function validateThreshold(value: unknown, max = 100): number {
   if (typeof value !== 'number') return 0;
   return Math.max(0, Math.min(max, value));
+}
+
+function validatePositiveInt(value: unknown, defaultValue: number): number {
+  if (typeof value !== 'number' || !Number.isInteger(value) || value <= 0) return defaultValue;
+  return value;
 }
 
 export function mergeConfig(userConfig: Partial<HudConfig>): HudConfig {
@@ -251,7 +264,18 @@ export function mergeConfig(userConfig: Partial<HudConfig>): HudConfig {
     environmentThreshold: validateThreshold(migrated.display?.environmentThreshold, 100),
   };
 
-  return { lineLayout, showSeparators, pathLevels, elementOrder, gitStatus, display };
+  const usage = {
+    cacheTtlSeconds: validatePositiveInt(
+      migrated.usage?.cacheTtlSeconds,
+      DEFAULT_CONFIG.usage.cacheTtlSeconds
+    ),
+    failureCacheTtlSeconds: validatePositiveInt(
+      migrated.usage?.failureCacheTtlSeconds,
+      DEFAULT_CONFIG.usage.failureCacheTtlSeconds
+    ),
+  };
+
+  return { lineLayout, showSeparators, pathLevels, elementOrder, gitStatus, display, usage };
 }
 
 export async function loadConfig(): Promise<HudConfig> {

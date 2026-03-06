@@ -43,6 +43,10 @@ export const DEFAULT_CONFIG = {
         sevenDayThreshold: 80,
         environmentThreshold: 0,
     },
+    usage: {
+        cacheTtlSeconds: 60,
+        failureCacheTtlSeconds: 15,
+    },
 };
 export function getConfigPath() {
     const homeDir = os.homedir();
@@ -111,6 +115,11 @@ function validateThreshold(value, max = 100) {
     if (typeof value !== 'number')
         return 0;
     return Math.max(0, Math.min(max, value));
+}
+function validatePositiveInt(value, defaultValue) {
+    if (typeof value !== 'number' || !Number.isInteger(value) || value <= 0)
+        return defaultValue;
+    return value;
 }
 export function mergeConfig(userConfig) {
     const migrated = migrateConfig(userConfig);
@@ -188,7 +197,11 @@ export function mergeConfig(userConfig) {
         sevenDayThreshold: validateThreshold(migrated.display?.sevenDayThreshold, 100),
         environmentThreshold: validateThreshold(migrated.display?.environmentThreshold, 100),
     };
-    return { lineLayout, showSeparators, pathLevels, elementOrder, gitStatus, display };
+    const usage = {
+        cacheTtlSeconds: validatePositiveInt(migrated.usage?.cacheTtlSeconds, DEFAULT_CONFIG.usage.cacheTtlSeconds),
+        failureCacheTtlSeconds: validatePositiveInt(migrated.usage?.failureCacheTtlSeconds, DEFAULT_CONFIG.usage.failureCacheTtlSeconds),
+    };
+    return { lineLayout, showSeparators, pathLevels, elementOrder, gitStatus, display, usage };
 }
 export async function loadConfig() {
     const configPath = getConfigPath();
