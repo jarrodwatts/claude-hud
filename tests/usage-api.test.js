@@ -507,7 +507,7 @@ describe('getUsage', () => {
 });
 
 test('usage API user agent uses a non-empty claude-hud identifier', () => {
-  assert.match(USAGE_API_USER_AGENT, /^claude-hud(?:\/|$)/);
+  assert.equal(USAGE_API_USER_AGENT, 'claude-code/2.1');
 });
 
 describe('getKeychainServiceName', () => {

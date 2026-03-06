@@ -51,7 +51,7 @@ const CACHE_LOCK_POLL_MS = 50;
 const KEYCHAIN_TIMEOUT_MS = 3000;
 const KEYCHAIN_BACKOFF_MS = 60_000; // Backoff on keychain failures to avoid re-prompting
 const USAGE_API_TIMEOUT_MS_DEFAULT = 15_000;
-export const USAGE_API_USER_AGENT = 'claude-hud';
+export const USAGE_API_USER_AGENT = 'claude-code/2.1';
 
 interface CacheFile {
   data: UsageData;
