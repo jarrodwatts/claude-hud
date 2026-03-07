@@ -23,7 +23,7 @@
     "node": ">=18.0.0"
   },
   "devDependencies": {
-    "@types/node": "^25.3.3",
+    "@types/node": "^25.3.5",
     "c8": "^11.0.0",
     "typescript": "^5.0.0"
   }
