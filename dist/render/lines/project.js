@@ -3,6 +3,9 @@ import { cyan, dim, magenta, yellow, red } from '../colors.js';
 export function renderProjectLine(ctx) {
     const display = ctx.config?.display;
     const parts = [];
+    if (ctx.userId) {
+        parts.push(dim(ctx.userId));
+    }
     if (display?.showModel !== false) {
         const model = getModelName(ctx.stdin);
         const providerLabel = getProviderLabel(ctx.stdin);
@@ -26,6 +29,10 @@ export function renderProjectLine(ctx) {
     const showGit = gitConfig?.enabled ?? true;
     if (showGit && ctx.gitStatus) {
         const gitParts = [ctx.gitStatus.branch];
+        // For jj, show changeId alongside branch when they differ
+        if (ctx.gitStatus.provider === 'jj' && ctx.gitStatus.changeId && ctx.gitStatus.changeId !== ctx.gitStatus.branch) {
+            gitParts.push(` ${ctx.gitStatus.changeId}`);
+        }
         if ((gitConfig?.showDirty ?? true) && ctx.gitStatus.isDirty) {
             gitParts.push('*');
         }
@@ -52,7 +59,14 @@ export function renderProjectLine(ctx) {
                 gitParts.push(` ${statParts.join(' ')}`);
             }
         }
-        gitPart = `${magenta('git:(')}${cyan(gitParts.join(''))}${magenta(')')}`;
+        if (ctx.gitStatus.description) {
+            gitParts.push(` "${ctx.gitStatus.description.slice(0, 30)}"`);
+        }
+        if (ctx.gitStatus.workspace) {
+            gitParts.push(` @${ctx.gitStatus.workspace}`);
+        }
+        const vcsLabel = ctx.gitStatus.provider === 'jj' ? 'jj' : 'git';
+        gitPart = `${magenta(`${vcsLabel}:(`)}${cyan(gitParts.join(''))}${magenta(')')}`;
     }
     if (projectPart && gitPart) {
         parts.push(`${projectPart} ${gitPart}`);

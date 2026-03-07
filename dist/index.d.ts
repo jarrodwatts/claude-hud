@@ -2,7 +2,7 @@ import { readStdin } from './stdin.js';
 import { parseTranscript } from './transcript.js';
 import { render } from './render/index.js';
 import { countConfigs } from './config-reader.js';
-import { getGitStatus } from './git.js';
+import { getVcsStatus, getUserId } from './vcs.js';
 import { getUsage } from './usage-api.js';
 import { loadConfig } from './config.js';
 import { parseExtraCmdArg, runExtraCmd } from './extra-cmd.js';
@@ -10,7 +10,8 @@ export type MainDeps = {
     readStdin: typeof readStdin;
     parseTranscript: typeof parseTranscript;
     countConfigs: typeof countConfigs;
-    getGitStatus: typeof getGitStatus;
+    getVcsStatus: typeof getVcsStatus;
+    getUserId: typeof getUserId;
     getUsage: typeof getUsage;
     loadConfig: typeof loadConfig;
     parseExtraCmdArg: typeof parseExtraCmdArg;

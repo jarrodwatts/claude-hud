@@ -34,13 +34,14 @@ function baseContext() {
     hooksCount: 0,
     sessionDuration: '',
     gitStatus: null,
+    userId: null,
     usageData: null,
     config: {
       lineLayout: 'compact',
       showSeparators: false,
       pathLevels: 1,
       elementOrder: ['project', 'context', 'usage', 'environment', 'tools', 'agents', 'todos'],
-      gitStatus: { enabled: true, showDirty: true, showAheadBehind: false, showFileStats: false },
+      gitStatus: { enabled: true, showDirty: true, showAheadBehind: false, showFileStats: false, vcsProvider: 'auto' },
       display: { showModel: true, showProject: true, showContextBar: true, contextValue: 'percent', showConfigCounts: true, showDuration: true, showSpeed: false, showTokenBreakdown: true, showUsage: true, usageBarEnabled: false, showTools: true, showAgents: true, showTodos: true, showSessionName: false, autocompactBuffer: 'enabled', usageThreshold: 0, sevenDayThreshold: 80, environmentThreshold: 0 },
     },
   };
@@ -226,7 +227,7 @@ test('renderProjectLine hides session name by default', () => {
 test('renderSessionLine omits project name when showProject is false', () => {
   const ctx = baseContext();
   ctx.stdin.cwd = '/Users/jarrod/my-project';
-  ctx.gitStatus = { branch: 'main', isDirty: true, ahead: 0, behind: 0 };
+  ctx.gitStatus = { provider: 'git', branch: 'main', isDirty: true, ahead: 0, behind: 0 };
   ctx.config.display.showProject = false;
   const line = renderSessionLine(ctx);
   assert.ok(!line.includes('my-project'), 'should not include project name when showProject is false');
@@ -236,7 +237,7 @@ test('renderSessionLine omits project name when showProject is false', () => {
 test('renderProjectLine keeps git status when showProject is false', () => {
   const ctx = baseContext();
   ctx.stdin.cwd = '/Users/jarrod/my-project';
-  ctx.gitStatus = { branch: 'main', isDirty: true, ahead: 0, behind: 0 };
+  ctx.gitStatus = { provider: 'git', branch: 'main', isDirty: true, ahead: 0, behind: 0 };
   ctx.config.display.showProject = false;
   const line = renderProjectLine(ctx);
   assert.ok(line?.includes('git:('), 'should still include git status');
@@ -246,7 +247,7 @@ test('renderProjectLine keeps git status when showProject is false', () => {
 test('renderSessionLine displays git branch when present', () => {
   const ctx = baseContext();
   ctx.stdin.cwd = '/tmp/my-project';
-  ctx.gitStatus = { branch: 'main', isDirty: false, ahead: 0, behind: 0 };
+  ctx.gitStatus = { provider: 'git', branch: 'main', isDirty: false, ahead: 0, behind: 0 };
   const line = renderSessionLine(ctx);
   assert.ok(line.includes('git:('));
   assert.ok(line.includes('main'));
@@ -263,7 +264,7 @@ test('renderSessionLine omits git branch when null', () => {
 test('renderSessionLine displays branch with slashes', () => {
   const ctx = baseContext();
   ctx.stdin.cwd = '/tmp/my-project';
-  ctx.gitStatus = { branch: 'feature/add-auth', isDirty: false, ahead: 0, behind: 0 };
+  ctx.gitStatus = { provider: 'git', branch: 'feature/add-auth', isDirty: false, ahead: 0, behind: 0 };
   const line = renderSessionLine(ctx);
   assert.ok(line.includes('git:('));
   assert.ok(line.includes('feature/add-auth'));

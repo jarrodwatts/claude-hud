@@ -31,6 +31,7 @@ export interface HudConfig {
     showDirty: boolean;
     showAheadBehind: boolean;
     showFileStats: boolean;
+    vcsProvider: 'auto' | 'git' | 'jj';
   };
   display: {
     showModel: boolean;
@@ -64,6 +65,7 @@ export const DEFAULT_CONFIG: HudConfig = {
     showDirty: true,
     showAheadBehind: false,
     showFileStats: false,
+    vcsProvider: 'auto',
   },
   display: {
     showModel: true,
@@ -102,6 +104,10 @@ function validateLineLayout(value: unknown): value is LineLayoutType {
 
 function validateAutocompactBuffer(value: unknown): value is AutocompactBufferMode {
   return value === 'enabled' || value === 'disabled';
+}
+
+function validateVcsProvider(value: unknown): value is 'auto' | 'git' | 'jj' {
+  return value === 'auto' || value === 'git' || value === 'jj';
 }
 
 function validateContextValue(value: unknown): value is ContextValueMode {
@@ -198,6 +204,9 @@ export function mergeConfig(userConfig: Partial<HudConfig>): HudConfig {
     showFileStats: typeof migrated.gitStatus?.showFileStats === 'boolean'
       ? migrated.gitStatus.showFileStats
       : DEFAULT_CONFIG.gitStatus.showFileStats,
+    vcsProvider: validateVcsProvider(migrated.gitStatus?.vcsProvider)
+      ? migrated.gitStatus.vcsProvider
+      : DEFAULT_CONFIG.gitStatus.vcsProvider,
   };
 
   const display = {

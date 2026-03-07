@@ -50,6 +50,10 @@ export function renderSessionLine(ctx: RenderContext): string {
     parts.push(contextValueDisplay);
   }
 
+  if (ctx.userId) {
+    parts.push(dim(ctx.userId));
+  }
+
   // Project path + git status (SECOND)
   let projectPart: string | null = null;
   if (display?.showProject !== false && ctx.stdin.cwd) {
@@ -68,6 +72,11 @@ export function renderSessionLine(ctx: RenderContext): string {
 
   if (showGit && ctx.gitStatus) {
     const gitParts: string[] = [ctx.gitStatus.branch];
+
+    // For jj, show changeId alongside branch when they differ
+    if (ctx.gitStatus.provider === 'jj' && ctx.gitStatus.changeId && ctx.gitStatus.changeId !== ctx.gitStatus.branch) {
+      gitParts.push(` ${ctx.gitStatus.changeId}`);
+    }
 
     // Show dirty indicator
     if ((gitConfig?.showDirty ?? true) && ctx.gitStatus.isDirty) {
@@ -97,7 +106,15 @@ export function renderSessionLine(ctx: RenderContext): string {
       }
     }
 
-    gitPart = `${magenta('git:(')}${cyan(gitParts.join(''))}${magenta(')')}`;
+    if (ctx.gitStatus.description) {
+      gitParts.push(` "${ctx.gitStatus.description.slice(0, 30)}"`);
+    }
+    if (ctx.gitStatus.workspace) {
+      gitParts.push(` @${ctx.gitStatus.workspace}`);
+    }
+
+    const vcsLabel = ctx.gitStatus.provider === 'jj' ? 'jj' : 'git';
+    gitPart = `${magenta(`${vcsLabel}:(`)}${cyan(gitParts.join(''))}${magenta(')')}`;
   }
 
   if (projectPart && gitPart) {

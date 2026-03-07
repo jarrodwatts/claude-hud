@@ -13,6 +13,7 @@ export interface HudConfig {
         showDirty: boolean;
         showAheadBehind: boolean;
         showFileStats: boolean;
+        vcsProvider: 'auto' | 'git' | 'jj';
     };
     display: {
         showModel: boolean;

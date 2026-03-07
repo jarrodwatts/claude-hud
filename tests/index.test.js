@@ -122,13 +122,14 @@ test('main includes git status in render context', async () => {
     }),
     parseTranscript: async () => ({ tools: [], agents: [], todos: [] }),
     countConfigs: async () => ({ claudeMdCount: 0, rulesCount: 0, mcpCount: 0, hooksCount: 0 }),
-    getGitStatus: async () => ({ branch: 'feature/test', isDirty: false, ahead: 0, behind: 0 }),
+    getVcsStatus: async () => ({ provider: 'git', branch: 'feature/test', isDirty: false, ahead: 0, behind: 0 }),
+    getUserId: async () => null,
     getUsage: async () => null,
     loadConfig: async () => ({
       lineLayout: 'compact',
       showSeparators: false,
       pathLevels: 1,
-      gitStatus: { enabled: true, showDirty: true, showAheadBehind: false, showFileStats: false },
+      gitStatus: { enabled: true, showDirty: true, showAheadBehind: false, showFileStats: false, vcsProvider: 'auto' },
       display: { showModel: true, showContextBar: true, contextValue: 'percent', showConfigCounts: true, showDuration: true, showSpeed: false, showTokenBreakdown: true, showUsage: true, showTools: true, showAgents: true, showTodos: true, autocompactBuffer: 'enabled', usageThreshold: 0, sevenDayThreshold: 80, environmentThreshold: 0 },
     }),
     render: (ctx) => {

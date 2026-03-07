@@ -22,6 +22,7 @@ export const DEFAULT_CONFIG = {
         showDirty: true,
         showAheadBehind: false,
         showFileStats: false,
+        vcsProvider: 'auto',
     },
     display: {
         showModel: true,
@@ -56,6 +57,9 @@ function validateLineLayout(value) {
 }
 function validateAutocompactBuffer(value) {
     return value === 'enabled' || value === 'disabled';
+}
+function validateVcsProvider(value) {
+    return value === 'auto' || value === 'git' || value === 'jj';
 }
 function validateContextValue(value) {
     return value === 'percent' || value === 'tokens' || value === 'remaining';
@@ -137,6 +141,9 @@ export function mergeConfig(userConfig) {
         showFileStats: typeof migrated.gitStatus?.showFileStats === 'boolean'
             ? migrated.gitStatus.showFileStats
             : DEFAULT_CONFIG.gitStatus.showFileStats,
+        vcsProvider: validateVcsProvider(migrated.gitStatus?.vcsProvider)
+            ? migrated.gitStatus.vcsProvider
+            : DEFAULT_CONFIG.gitStatus.vcsProvider,
     };
     const display = {
         showModel: typeof migrated.display?.showModel === 'boolean'

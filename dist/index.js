@@ -2,7 +2,7 @@ import { readStdin } from './stdin.js';
 import { parseTranscript } from './transcript.js';
 import { render } from './render/index.js';
 import { countConfigs } from './config-reader.js';
-import { getGitStatus } from './git.js';
+import { getVcsStatus, getUserId } from './vcs.js';
 import { getUsage } from './usage-api.js';
 import { loadConfig } from './config.js';
 import { parseExtraCmdArg, runExtraCmd } from './extra-cmd.js';
@@ -13,7 +13,8 @@ export async function main(overrides = {}) {
         readStdin,
         parseTranscript,
         countConfigs,
-        getGitStatus,
+        getVcsStatus,
+        getUserId,
         getUsage,
         loadConfig,
         parseExtraCmdArg,
@@ -33,13 +34,15 @@ export async function main(overrides = {}) {
         const transcript = await deps.parseTranscript(transcriptPath);
         const { claudeMdCount, rulesCount, mcpCount, hooksCount } = await deps.countConfigs(stdin.cwd);
         const config = await deps.loadConfig();
-        const gitStatus = config.gitStatus.enabled
-            ? await deps.getGitStatus(stdin.cwd)
-            : null;
-        // Only fetch usage if enabled in config (replaces env var requirement)
-        const usageData = config.display.showUsage !== false
-            ? await deps.getUsage()
-            : null;
+        const [gitStatus, userId, usageData] = await Promise.all([
+            config.gitStatus.enabled
+                ? deps.getVcsStatus(stdin.cwd, config.gitStatus.vcsProvider)
+                : null,
+            deps.getUserId(),
+            config.display.showUsage !== false
+                ? deps.getUsage()
+                : null,
+        ]);
         const extraCmd = deps.parseExtraCmdArg();
         const extraLabel = extraCmd ? await deps.runExtraCmd(extraCmd) : null;
         const sessionDuration = formatSessionDuration(transcript.sessionStart, deps.now);
@@ -52,6 +55,7 @@ export async function main(overrides = {}) {
             hooksCount,
             sessionDuration,
             gitStatus,
+            userId,
             usageData,
             config,
             extraLabel,

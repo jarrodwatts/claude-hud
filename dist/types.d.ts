@@ -1,5 +1,5 @@
 import type { HudConfig } from './config.js';
-import type { GitStatus } from './git.js';
+import type { VcsStatus } from './vcs.js';
 export interface StdinData {
     transcript_path?: string;
     cwd?: string;
@@ -71,7 +71,8 @@ export interface RenderContext {
     mcpCount: number;
     hooksCount: number;
     sessionDuration: string;
-    gitStatus: GitStatus | null;
+    gitStatus: VcsStatus | null;
+    userId: string | null;
     usageData: UsageData | null;
     config: HudConfig;
     extraLabel: string | null;

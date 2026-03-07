@@ -22,12 +22,13 @@ function baseContext() {
     hooksCount: 0,
     sessionDuration: '',
     gitStatus: null,
+    userId: null,
     usageData: null,
     config: {
       lineLayout: 'compact',
       showSeparators: false,
       pathLevels: 1,
-      gitStatus: { enabled: true, showDirty: true, showAheadBehind: false, showFileStats: false },
+      gitStatus: { enabled: true, showDirty: true, showAheadBehind: false, showFileStats: false, vcsProvider: 'auto' },
       display: {
         showModel: true,
         showContextBar: true,
