@@ -76,6 +76,9 @@ export function getBufferedPercent(stdin: StdinData): number {
   }
 
   const totalTokens = getTotalTokens(stdin);
+  if (totalTokens === 0) {
+    return 0;
+  }
   const buffer = size * AUTOCOMPACT_BUFFER_PERCENT;
   return Math.min(100, Math.round(((totalTokens + buffer) / size) * 100));
 }
