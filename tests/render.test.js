@@ -2,6 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { render } from '../dist/render/index.js';
 import { renderSessionLine } from '../dist/render/session-line.js';
+import { renderUsageLine } from '../dist/render/lines/usage.js';
 import { renderToolsLine } from '../dist/render/tools-line.js';
 import { renderAgentsLine } from '../dist/render/agents-line.js';
 import { renderTodosLine } from '../dist/render/todos-line.js';
@@ -495,6 +496,36 @@ test('renderSessionLine displays limit reached warning', () => {
   const line = renderSessionLine(ctx);
   assert.ok(line.includes('Limit reached'), 'should show limit reached');
   assert.ok(line.includes('resets'), 'should show reset time');
+});
+
+test('renderSessionLine uses available reset when both limits are reached', () => {
+  const ctx = baseContext();
+  const sevenDayReset = new Date(Date.now() + 3600000); // 1 hour from now
+  ctx.usageData = {
+    planName: 'Pro',
+    fiveHour: 100,
+    sevenDay: 100,
+    fiveHourResetAt: null,
+    sevenDayResetAt: sevenDayReset,
+  };
+  const line = renderSessionLine(ctx);
+  assert.ok(line.includes('Limit reached'), 'should show limit reached');
+  assert.ok(line.includes('resets'), 'should use available reset time');
+});
+
+test('renderUsageLine uses available reset when both limits are reached', () => {
+  const ctx = baseContext();
+  const sevenDayReset = new Date(Date.now() + 3600000); // 1 hour from now
+  ctx.usageData = {
+    planName: 'Pro',
+    fiveHour: 100,
+    sevenDay: 100,
+    fiveHourResetAt: null,
+    sevenDayResetAt: sevenDayReset,
+  };
+  const line = renderUsageLine(ctx);
+  assert.ok(line?.includes('Limit reached'), 'should show limit reached');
+  assert.ok(line?.includes('resets'), 'should use available reset time');
 });
 
 test('renderSessionLine displays -- for null usage values', () => {

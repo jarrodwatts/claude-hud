@@ -175,9 +175,13 @@ function buildUsageSections(ctx: RenderContext, display: RenderContext['config']
   }
 
   if (isLimitReached(ctx.usageData)) {
-    const resetTime = ctx.usageData.fiveHour === 100
+    const fiveHourReset = ctx.usageData.fiveHour === 100
       ? formatResetTime(ctx.usageData.fiveHourResetAt)
-      : formatResetTime(ctx.usageData.sevenDayResetAt);
+      : '';
+    const sevenDayReset = ctx.usageData.sevenDay === 100
+      ? formatResetTime(ctx.usageData.sevenDayResetAt)
+      : '';
+    const resetTime = fiveHourReset || sevenDayReset;
     return [{ key: 'usage-5h', content: red(`⚠ Limit reached${resetTime ? ` (resets ${resetTime})` : ''}`) }];
   }
 
