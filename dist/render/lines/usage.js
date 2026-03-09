@@ -14,6 +14,11 @@ export function renderUsageLine(ctx) {
     }
     const label = dim('Usage');
     if (ctx.usageData.apiUnavailable) {
+        // 403 means the API restricts access from plugin subprocesses; hide silently
+        // instead of showing a warning that implies something is broken.
+        if (ctx.usageData.apiError === 'http-403') {
+            return null;
+        }
         const errorHint = formatUsageError(ctx.usageData.apiError);
         return `${label} ${yellow(`⚠${errorHint}`)}`;
     }

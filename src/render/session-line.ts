@@ -140,8 +140,12 @@ export function renderSessionLine(ctx: RenderContext): string {
   // Usage limits display (shown when enabled in config, respects usageThreshold)
   if (display?.showUsage !== false && ctx.usageData?.planName && !providerLabel) {
     if (ctx.usageData.apiUnavailable) {
-      const errorHint = formatUsageError(ctx.usageData.apiError);
-      parts.push(yellow(`usage: ⚠${errorHint}`));
+      // 403 means the API restricts access from plugin subprocesses; hide silently
+      // instead of showing a warning that implies something is broken.
+      if (ctx.usageData.apiError !== 'http-403') {
+        const errorHint = formatUsageError(ctx.usageData.apiError);
+        parts.push(yellow(`usage: ⚠${errorHint}`));
+      }
     } else if (isLimitReached(ctx.usageData)) {
       const resetTime = ctx.usageData.fiveHour === 100
         ? formatResetTime(ctx.usageData.fiveHourResetAt)
