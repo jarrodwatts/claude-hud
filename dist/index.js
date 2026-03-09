@@ -38,12 +38,7 @@ export async function main(overrides = {}) {
             : null;
         // Only fetch usage if enabled in config (replaces env var requirement)
         const usageData = config.display.showUsage !== false
-            ? await deps.getUsage({
-                ttls: {
-                    cacheTtlMs: config.usage.cacheTtlSeconds * 1000,
-                    failureCacheTtlMs: config.usage.failureCacheTtlSeconds * 1000,
-                },
-            })
+            ? await deps.getUsage()
             : null;
         const extraCmd = deps.parseExtraCmdArg();
         const extraLabel = extraCmd ? await deps.runExtraCmd(extraCmd) : null;
