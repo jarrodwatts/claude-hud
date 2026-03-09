@@ -44,7 +44,7 @@ interface UsageApiResult {
 
 // File-based cache (HUD runs as new process each render, so in-memory cache won't persist)
 const CACHE_TTL_MS = 60_000; // 60 seconds
-const CACHE_FAILURE_TTL_MS = 15_000; // 15 seconds for failed requests
+const CACHE_FAILURE_TTL_MS = 300_000; // 5 minutes for failed requests (avoids 429 retry storm)
 const CACHE_LOCK_STALE_MS = 30_000;
 const CACHE_LOCK_WAIT_MS = 2_000;
 const CACHE_LOCK_POLL_MS = 50;
