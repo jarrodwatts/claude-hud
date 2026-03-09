@@ -58,16 +58,18 @@ export const USAGE_API_USER_AGENT = 'claude-hud';
  * When using custom providers (e.g., via cc-switch), the OAuth usage API is not applicable.
  */
 function isUsingCustomApiEndpoint(env: NodeJS.ProcessEnv = process.env): boolean {
-  const baseUrl = env.ANTHROPIC_BASE_URL ?? env.ANTHROPIC_API_BASE_URL;
+  const baseUrl = env.ANTHROPIC_BASE_URL?.trim() || env.ANTHROPIC_API_BASE_URL?.trim();
 
   // No custom endpoint configured - using default Anthropic API
   if (!baseUrl) {
     return false;
   }
 
-  // Normalize and check if it's the default Anthropic API
-  const normalized = baseUrl.replace(/\/$/, '').toLowerCase();
-  return normalized !== 'https://api.anthropic.com';
+  try {
+    return new URL(baseUrl).origin !== 'https://api.anthropic.com';
+  } catch {
+    return true;
+  }
 }
 
 interface CacheFile {

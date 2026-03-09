@@ -170,7 +170,7 @@ To disable, set `display.showUsage` to `false`.
 - Check `display.showUsage` is not set to `false` in config
 - API users see no usage display (they have pay-per-token, not rate limits)
 - AWS Bedrock models display `Bedrock` and hide usage limits (usage is managed in AWS)
-- Custom API providers (e.g., via `ANTHROPIC_BASE_URL` or `ANTHROPIC_API_BASE_URL`) skip usage display, as the Anthropic usage API is not applicable
+- Non-default `ANTHROPIC_BASE_URL` / `ANTHROPIC_API_BASE_URL` settings skip usage display, because the Anthropic OAuth usage API may not apply
 - If you are behind a proxy, set `HTTPS_PROXY` (or `HTTP_PROXY`/`ALL_PROXY`) and optional `NO_PROXY`
 - For high-latency environments, increase usage API timeout with `CLAUDE_HUD_USAGE_TIMEOUT_MS` (milliseconds)
 

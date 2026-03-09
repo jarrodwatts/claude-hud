@@ -511,6 +511,50 @@ describe('getUsage', () => {
     }
   });
 
+  test('falls back to ANTHROPIC_API_BASE_URL when ANTHROPIC_BASE_URL is empty', async () => {
+    const originalBaseUrl = process.env.ANTHROPIC_BASE_URL;
+    const originalApiBaseUrl = process.env.ANTHROPIC_API_BASE_URL;
+    process.env.ANTHROPIC_BASE_URL = '';
+    process.env.ANTHROPIC_API_BASE_URL = 'https://my-proxy.example.com';
+    await writeCredentials(tempHome, buildCredentials());
+    let fetchCalls = 0;
+    try {
+      const result = await getUsage({
+        homeDir: () => tempHome,
+        fetchApi: async () => { fetchCalls += 1; return buildApiResult(); },
+        now: () => 1000,
+        readKeychain: () => null,
+      });
+      assert.equal(result, null);
+      assert.equal(fetchCalls, 0);
+    } finally {
+      restoreEnvVar('ANTHROPIC_BASE_URL', originalBaseUrl);
+      restoreEnvVar('ANTHROPIC_API_BASE_URL', originalApiBaseUrl);
+    }
+  });
+
+  test('falls back to ANTHROPIC_API_BASE_URL when ANTHROPIC_BASE_URL is whitespace', async () => {
+    const originalBaseUrl = process.env.ANTHROPIC_BASE_URL;
+    const originalApiBaseUrl = process.env.ANTHROPIC_API_BASE_URL;
+    process.env.ANTHROPIC_BASE_URL = '   ';
+    process.env.ANTHROPIC_API_BASE_URL = 'https://my-proxy.example.com';
+    await writeCredentials(tempHome, buildCredentials());
+    let fetchCalls = 0;
+    try {
+      const result = await getUsage({
+        homeDir: () => tempHome,
+        fetchApi: async () => { fetchCalls += 1; return buildApiResult(); },
+        now: () => 1000,
+        readKeychain: () => null,
+      });
+      assert.equal(result, null);
+      assert.equal(fetchCalls, 0);
+    } finally {
+      restoreEnvVar('ANTHROPIC_BASE_URL', originalBaseUrl);
+      restoreEnvVar('ANTHROPIC_API_BASE_URL', originalApiBaseUrl);
+    }
+  });
+
   test('proceeds normally when ANTHROPIC_BASE_URL is the default Anthropic endpoint', async () => {
     const originalBaseUrl = process.env.ANTHROPIC_BASE_URL;
     process.env.ANTHROPIC_BASE_URL = 'https://api.anthropic.com';
@@ -544,6 +588,74 @@ describe('getUsage', () => {
       });
       assert.equal(fetchCalls, 1);
       assert.ok(result !== null);
+    } finally {
+      restoreEnvVar('ANTHROPIC_BASE_URL', originalBaseUrl);
+    }
+  });
+
+  test('proceeds normally when ANTHROPIC_BASE_URL is the default endpoint with /v1 path', async () => {
+    const originalBaseUrl = process.env.ANTHROPIC_BASE_URL;
+    process.env.ANTHROPIC_BASE_URL = 'https://api.anthropic.com/v1/';
+    await writeCredentials(tempHome, buildCredentials());
+    let fetchCalls = 0;
+    try {
+      const result = await getUsage({
+        homeDir: () => tempHome,
+        fetchApi: async () => { fetchCalls += 1; return buildApiResult(); },
+        now: () => 1000,
+        readKeychain: () => null,
+      });
+      assert.equal(fetchCalls, 1);
+      assert.ok(result !== null);
+    } finally {
+      restoreEnvVar('ANTHROPIC_BASE_URL', originalBaseUrl);
+    }
+  });
+
+  test('prefers non-empty ANTHROPIC_BASE_URL over ANTHROPIC_API_BASE_URL', async () => {
+    const originalBaseUrl = process.env.ANTHROPIC_BASE_URL;
+    const originalApiBaseUrl = process.env.ANTHROPIC_API_BASE_URL;
+    process.env.ANTHROPIC_BASE_URL = 'https://api.anthropic.com';
+    process.env.ANTHROPIC_API_BASE_URL = 'https://my-proxy.example.com';
+    await writeCredentials(tempHome, buildCredentials());
+    let fetchCalls = 0;
+    try {
+      const result = await getUsage({
+        homeDir: () => tempHome,
+        fetchApi: async () => { fetchCalls += 1; return buildApiResult(); },
+        now: () => 1000,
+        readKeychain: () => null,
+      });
+      assert.equal(fetchCalls, 1);
+      assert.ok(result !== null);
+    } finally {
+      restoreEnvVar('ANTHROPIC_BASE_URL', originalBaseUrl);
+      restoreEnvVar('ANTHROPIC_API_BASE_URL', originalApiBaseUrl);
+    }
+  });
+
+  test('ignores cached Anthropic usage when a custom API endpoint is active', async () => {
+    const originalBaseUrl = process.env.ANTHROPIC_BASE_URL;
+    await writeCredentials(tempHome, buildCredentials());
+    try {
+      const cachedResult = await getUsage({
+        homeDir: () => tempHome,
+        fetchApi: async () => buildApiResult(),
+        now: () => 1000,
+        readKeychain: () => null,
+      });
+      assert.ok(cachedResult !== null);
+
+      process.env.ANTHROPIC_BASE_URL = 'https://my-proxy.example.com';
+      let fetchCalls = 0;
+      const result = await getUsage({
+        homeDir: () => tempHome,
+        fetchApi: async () => { fetchCalls += 1; return buildApiResult(); },
+        now: () => 1500,
+        readKeychain: () => null,
+      });
+      assert.equal(result, null);
+      assert.equal(fetchCalls, 0);
     } finally {
       restoreEnvVar('ANTHROPIC_BASE_URL', originalBaseUrl);
     }
