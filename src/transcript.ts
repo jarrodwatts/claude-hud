@@ -57,8 +57,9 @@ export async function parseTranscript(transcriptPath: string): Promise<Transcrip
           latestSlug = entry.slug;
         }
         processEntry(entry, toolMap, agentMap, taskIdToIndex, latestTodos, result);
-      } catch {
-        // Skip malformed lines
+      } catch (error) {
+        const message = error instanceof Error ? error.message : 'unknown error';
+        process.stderr.write(`claude-hud: skipping malformed transcript line: ${message}\n`);
       }
     }
   } catch {

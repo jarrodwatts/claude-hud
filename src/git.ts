@@ -75,8 +75,8 @@ export async function getGitStatus(cwd?: string): Promise<GitStatus | null> {
       );
       const parts = revOut.trim().split(/\s+/);
       if (parts.length === 2) {
-        behind = parseInt(parts[0], 10) || 0;
-        ahead = parseInt(parts[1], 10) || 0;
+        behind = parseInt(parts[0], 10) ?? 0;
+        ahead = parseInt(parts[1], 10) ?? 0;
       }
     } catch {
       // No upstream or error, keep 0/0

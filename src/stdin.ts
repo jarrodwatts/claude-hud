@@ -18,7 +18,9 @@ export async function readStdin(): Promise<StdinData | null> {
       return null;
     }
     return JSON.parse(raw) as StdinData;
-  } catch {
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'unknown error';
+    process.stderr.write(`claude-hud: failed to parse stdin: ${message}\n`);
     return null;
   }
 }
