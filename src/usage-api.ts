@@ -40,11 +40,12 @@ interface UsageApiResponse {
 interface UsageApiResult {
   data: UsageApiResponse | null;
   error?: string;
+  retryAfterMs?: number;  // parsed retry-after header value in ms
 }
 
 // File-based cache (HUD runs as new process each render, so in-memory cache won't persist)
 const CACHE_TTL_MS = 60_000; // 60 seconds
-const CACHE_FAILURE_TTL_MS = 15_000; // 15 seconds for failed requests
+const CACHE_FAILURE_TTL_MS = 120_000; // 120 seconds for failed requests
 const CACHE_LOCK_STALE_MS = 30_000;
 const CACHE_LOCK_WAIT_MS = 2_000;
 const CACHE_LOCK_POLL_MS = 50;
@@ -75,6 +76,8 @@ function isUsingCustomApiEndpoint(env: NodeJS.ProcessEnv = process.env): boolean
 interface CacheFile {
   data: UsageData;
   timestamp: number;
+  retryAfterMs?: number;    // retry-after header value in ms (for 429 responses)
+  lastSuccess?: UsageData;  // last successful response to show during 429 backoff
 }
 
 interface CacheState {
@@ -115,12 +118,28 @@ function readCacheState(homeDir: string, now: number, ttls: CacheTtls): CacheSta
     const content = fs.readFileSync(cachePath, 'utf8');
     const cache: CacheFile = JSON.parse(content);
 
-    // Check TTL - use shorter TTL for failure results
-    const ttl = cache.data.apiUnavailable ? ttls.failureCacheTtlMs : ttls.cacheTtlMs;
+    // Check TTL - use retry-after if available, otherwise use shorter TTL for failure results
+    const ttl = cache.retryAfterMs
+      ? cache.retryAfterMs
+      : cache.data.apiUnavailable ? ttls.failureCacheTtlMs : ttls.cacheTtlMs;
+    const isFresh = now - cache.timestamp < ttl;
+
+    // During 429 backoff, return last successful data if available
+    if (isFresh && cache.data.apiUnavailable && cache.lastSuccess) {
+      const success = cache.lastSuccess;
+      if (success.fiveHourResetAt) success.fiveHourResetAt = new Date(success.fiveHourResetAt);
+      if (success.sevenDayResetAt) success.sevenDayResetAt = new Date(success.sevenDayResetAt);
+      return {
+        data: success,
+        timestamp: cache.timestamp,
+        isFresh,
+      };
+    }
+
     return {
       data: hydrateCacheData(cache.data),
       timestamp: cache.timestamp,
-      isFresh: now - cache.timestamp < ttl,
+      isFresh,
     };
   } catch {
     return null;
@@ -132,7 +151,7 @@ function readCache(homeDir: string, now: number, ttls: CacheTtls): UsageData | n
   return cache?.isFresh ? cache.data : null;
 }
 
-function writeCache(homeDir: string, data: UsageData, timestamp: number): void {
+function writeCache(homeDir: string, data: UsageData, timestamp: number, retryAfterMs?: number): void {
   try {
     const cachePath = getCachePath(homeDir);
     const cacheDir = path.dirname(cachePath);
@@ -141,7 +160,17 @@ function writeCache(homeDir: string, data: UsageData, timestamp: number): void {
       fs.mkdirSync(cacheDir, { recursive: true });
     }
 
-    const cache: CacheFile = { data, timestamp };
+    let lastSuccess: UsageData | undefined;
+    if (data.apiUnavailable) {
+      try {
+        if (fs.existsSync(cachePath)) {
+          const prev: CacheFile = JSON.parse(fs.readFileSync(cachePath, 'utf8'));
+          lastSuccess = prev.lastSuccess ?? (!prev.data.apiUnavailable ? prev.data : undefined);
+        }
+      } catch { /* ignore */ }
+    }
+
+    const cache: CacheFile = { data, timestamp, retryAfterMs, lastSuccess };
     fs.writeFileSync(cachePath, JSON.stringify(cache), 'utf8');
   } catch {
     // Ignore cache write failures
@@ -315,7 +344,7 @@ export async function getUsage(overrides: Partial<UsageApiDeps> = {}): Promise<U
         apiUnavailable: true,
         apiError: apiResult.error,
       };
-      writeCache(homeDir, failureResult, now);
+      writeCache(homeDir, failureResult, now, apiResult.retryAfterMs);
       return failureResult;
     }
 
@@ -837,7 +866,17 @@ function fetchUsageApi(accessToken: string): Promise<UsageApiResult> {
       res.on('end', () => {
         if (res.statusCode !== 200) {
           debug('API returned non-200 status:', res.statusCode);
-          resolve({ data: null, error: res.statusCode ? `http-${res.statusCode}` : 'http-error' });
+          let retryAfterMs: number | undefined;
+          if (res.statusCode === 429) {
+            const retryAfter = res.headers['retry-after'];
+            if (retryAfter) {
+              const seconds = Number(retryAfter);
+              if (!isNaN(seconds) && seconds > 0) {
+                retryAfterMs = seconds * 1000;
+              }
+            }
+          }
+          resolve({ data: null, error: res.statusCode ? `http-${res.statusCode}` : 'http-error', retryAfterMs });
           return;
         }
 
