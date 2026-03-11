@@ -412,8 +412,20 @@ export async function getUsage(overrides: Partial<UsageApiDeps> = {}): Promise<U
         : lastGood;
 
       if (goodData) {
-        // Serve good data silently — user doesn't see rate limit errors
-        writeCache(homeDir, goodData, now, { ...backoffOpts, lastGoodData: goodData });
+        // Serve good data silently — user doesn't see rate limit errors,
+        // but keep the cache entry marked as rate-limited so backoff applies.
+        const cacheEntry: UsageData = isRateLimited
+          ? {
+              planName,
+              fiveHour: null,
+              sevenDay: null,
+              fiveHourResetAt: null,
+              sevenDayResetAt: null,
+              apiUnavailable: true,
+              apiError: apiResult.error,
+            }
+          : goodData;
+        writeCache(homeDir, cacheEntry, now, { ...backoffOpts, lastGoodData: goodData });
         return goodData;
       }
 
