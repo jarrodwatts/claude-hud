@@ -63,9 +63,10 @@ function formatUsagePercent(percent) {
 function formatUsageError(error) {
     if (!error)
         return '';
-    if (error.startsWith('http-')) {
+    if (error === 'rate-limited')
+        return ' (syncing...)';
+    if (error.startsWith('http-'))
         return ` (${error.slice(5)})`;
-    }
     return ` (${error})`;
 }
 function formatResetTime(resetAt) {

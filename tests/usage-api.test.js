@@ -831,7 +831,7 @@ describe('getUsage caching behavior', () => {
     }
   });
 
-  test('cache expires after 60 seconds for success', async () => {
+  test('cache expires after 5 minutes for success', async () => {
     await writeCredentials(cacheTempHome, buildCredentials());
     let fetchCalls = 0;
     let nowValue = 1000;
@@ -843,11 +843,13 @@ describe('getUsage caching behavior', () => {
     await getUsage({ homeDir: () => cacheTempHome, fetchApi, now: () => nowValue, readKeychain: () => null });
     assert.equal(fetchCalls, 1);
 
-    nowValue += 30_000;
+    // Still fresh at 2 minutes
+    nowValue += 120_000;
     await getUsage({ homeDir: () => cacheTempHome, fetchApi, now: () => nowValue, readKeychain: () => null });
     assert.equal(fetchCalls, 1);
 
-    nowValue += 31_000;
+    // Expired after 5 minutes
+    nowValue += 181_000;
     await getUsage({ homeDir: () => cacheTempHome, fetchApi, now: () => nowValue, readKeychain: () => null });
     assert.equal(fetchCalls, 2);
   });

@@ -13,6 +13,8 @@ interface UsageApiResponse {
 interface UsageApiResult {
     data: UsageApiResponse | null;
     error?: string;
+    /** Retry-After header value in seconds (from 429 responses) */
+    retryAfterSec?: number;
 }
 export declare const USAGE_API_USER_AGENT = "claude-code/2.1";
 type CacheTtls = {
