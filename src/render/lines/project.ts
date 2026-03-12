@@ -23,7 +23,33 @@ export function renderProjectLine(ctx: RenderContext): string | null {
     const segments = ctx.stdin.cwd.split(/[/\\]/).filter(Boolean);
     const pathLevels = ctx.config?.pathLevels ?? 1;
     const projectPath = segments.length > 0 ? segments.slice(-pathLevels).join('/') : '/';
-    projectPart = yellow(projectPath);
+
+    // Dynamically truncate path to fit terminal width
+    const termWidth = process.stdout?.columns
+      || process.stderr?.columns
+      || (Number.parseInt(process.env.COLUMNS ?? '', 10) || 0)
+      || 80;
+    const configMaxPath = (ctx.config as any)?.maxPathWidth;
+    const maxPathWidth = typeof configMaxPath === 'number'
+      ? configMaxPath
+      : Math.max(10, termWidth - 45);
+
+    const getDisplayWidth = (s: string) =>
+      [...s].reduce((w, c) => w + ((c.codePointAt(0) ?? 0) > 0x2E7F ? 2 : 1), 0);
+
+    let displayPath = projectPath;
+    if (getDisplayWidth(projectPath) > maxPathWidth) {
+      let width = 0;
+      let cutIdx = 0;
+      for (const c of projectPath) {
+        const cw = (c.codePointAt(0) ?? 0) > 0x2E7F ? 2 : 1;
+        if (width + cw > maxPathWidth - 1) break;
+        width += cw;
+        cutIdx += c.length;
+      }
+      displayPath = projectPath.slice(0, cutIdx) + '…';
+    }
+    projectPart = yellow(displayPath);
   }
 
   let gitPart = '';

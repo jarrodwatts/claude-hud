@@ -245,6 +245,25 @@ function wrapLineToWidth(line, maxWidth) {
 function makeSeparator(length) {
     return dim('─'.repeat(Math.max(length, 1)));
 }
+function packLines(lines, maxWidth) {
+    if (maxWidth <= 0 || lines.length <= 1)
+        return lines;
+    const packed = [];
+    let current = lines[0];
+    for (let i = 1; i < lines.length; i++) {
+        const candidate = `${current} \u2502 ${lines[i]}`;
+        if (visualLength(candidate) <= maxWidth) {
+            current = candidate;
+        }
+        else {
+            packed.push(current);
+            current = lines[i];
+        }
+    }
+    if (current)
+        packed.push(current);
+    return packed;
+}
 const ACTIVITY_ELEMENTS = new Set(['tools', 'agents', 'todos']);
 function collectActivityLines(ctx) {
     const activityLines = [];
@@ -339,41 +358,49 @@ export function render(ctx) {
     const lineLayout = ctx.config?.lineLayout ?? 'expanded';
     const showSeparators = ctx.config?.showSeparators ?? false;
     const terminalWidth = getTerminalWidth();
-    let lines;
+    const effectiveWidth = terminalWidth ?? 80;
+    const maxLines = ctx.config?.maxLines ?? 5;
+    let headerLines;
+    let activityLines;
     if (lineLayout === 'expanded') {
-        const renderedLines = renderExpanded(ctx);
-        lines = renderedLines.map(({ line }) => line);
-        if (showSeparators) {
-            const firstActivityIndex = renderedLines.findIndex(({ isActivity }) => isActivity);
-            if (firstActivityIndex > 0) {
-                const separatorBaseWidth = Math.max(...renderedLines
-                    .slice(0, firstActivityIndex)
-                    .map(({ line }) => visualLength(line)), 20);
-                const separatorWidth = terminalWidth
-                    ? Math.min(separatorBaseWidth, terminalWidth)
-                    : separatorBaseWidth;
-                lines.splice(firstActivityIndex, 0, makeSeparator(separatorWidth));
-            }
-        }
+        const rendered = renderExpanded(ctx);
+        headerLines = rendered.filter(r => !r.isActivity).map(r => r.line);
+        activityLines = rendered.filter(r => r.isActivity).map(r => r.line);
     }
     else {
-        const headerLines = renderCompact(ctx);
-        const activityLines = collectActivityLines(ctx);
-        lines = [...headerLines];
-        if (showSeparators && activityLines.length > 0) {
-            const maxWidth = Math.max(...headerLines.map(visualLength), 20);
-            const separatorWidth = terminalWidth ? Math.min(maxWidth, terminalWidth) : maxWidth;
-            lines.push(makeSeparator(separatorWidth));
-        }
-        lines.push(...activityLines);
+        headerLines = renderCompact(ctx);
+        activityLines = collectActivityLines(ctx);
     }
-    const physicalLines = lines.flatMap(line => line.split('\n'));
-    const visibleLines = terminalWidth
-        ? physicalLines.flatMap(line => wrapLineToWidth(line, terminalWidth))
-        : physicalLines;
+    // Phase 1: split physical lines (\n from agents-line etc.)
+    const headerPhysical = headerLines.flatMap(l => l.split('\n'));
+    const activityPhysical = activityLines.flatMap(l => l.split('\n'));
+    // Phase 2: headers stay one-per-line; activity lines are greedily merged
+    const packedActivity = packLines(activityPhysical, effectiveWidth);
+    // Phase 3: assemble + optional separator
+    const allLines = [...headerPhysical];
+    if (showSeparators && packedActivity.length > 0) {
+        const maxW = Math.max(...headerPhysical.map(visualLength), 20);
+        allLines.push(makeSeparator(Math.min(maxW, effectiveWidth)));
+    }
+    allLines.push(...packedActivity);
+    // Phase 4: budget-aware wrap/truncate (hard maxLines cap)
+    const visibleLines = [];
+    let remaining = maxLines;
+    for (const line of allLines) {
+        if (remaining <= 0)
+            break;
+        const wrapped = terminalWidth ? wrapLineToWidth(line, terminalWidth) : [line];
+        if (wrapped.length <= remaining) {
+            visibleLines.push(...wrapped);
+            remaining -= wrapped.length;
+        }
+        else {
+            visibleLines.push(terminalWidth ? truncateToWidth(line, terminalWidth) : line);
+            remaining -= 1;
+        }
+    }
     for (const line of visibleLines) {
-        const outputLine = `${RESET}${line}`;
-        console.log(outputLine);
+        console.log(`${RESET}${line}`);
     }
 }
 //# sourceMappingURL=index.js.map
