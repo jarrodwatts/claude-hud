@@ -104,9 +104,9 @@ This is a [Claude Code platform limitation](https://github.com/anthropics/claude
 
 **macOS/Linux** (Platform: `darwin` or `linux`):
 
-1. Get plugin path:
+1. Get plugin path (sorted by version number, not modification time):
    ```bash
-   ls -td ~/.claude/plugins/cache/claude-hud/claude-hud/*/ 2>/dev/null | head -1
+   ls -d ~/.claude/plugins/cache/claude-hud/claude-hud/*/ 2>/dev/null | sort -V | tail -1
    ```
    If empty, the plugin is not installed. Go back to Step 0 to check for ghost installation or EXDEV issues. If Step 0 was clean, tell user to install via `/plugin install claude-hud` first.
 
@@ -131,7 +131,7 @@ This is a [Claude Code platform limitation](https://github.com/anthropics/claude
 
 5. Generate command (quotes around runtime path handle spaces):
    ```
-   bash -c '"{RUNTIME_PATH}" "$(ls -td ~/.claude/plugins/cache/claude-hud/claude-hud/*/ 2>/dev/null | head -1){SOURCE}"'
+   bash -c '"{RUNTIME_PATH}" "$(ls -d ~/.claude/plugins/cache/claude-hud/claude-hud/*/ 2>/dev/null | sort -V | tail -1){SOURCE}"'
    ```
 
 **Windows** (Platform: `win32`):
@@ -143,7 +143,7 @@ Choose instructions by `Shell:` value before running any commands:
 
 1. Get plugin path:
    ```powershell
-   (Get-ChildItem "$env:USERPROFILE\.claude\plugins\cache\claude-hud\claude-hud" | Sort-Object LastWriteTime -Descending | Select-Object -First 1).FullName
+   (Get-ChildItem "$env:USERPROFILE\.claude\plugins\cache\claude-hud\claude-hud" | Sort-Object { [version]($_.Name -replace '[^0-9.]') } -Descending | Select-Object -First 1).FullName
    ```
    If empty or errors, the plugin is not installed. Tell user to install via marketplace first.
 
@@ -158,7 +158,7 @@ Choose instructions by `Shell:` value before running any commands:
 
 4. Generate command (note: quotes around runtime path handle spaces in paths):
    ```
-   powershell -Command "& {$p=(Get-ChildItem $env:USERPROFILE\.claude\plugins\cache\claude-hud\claude-hud | Sort-Object LastWriteTime -Descending | Select-Object -First 1).FullName; & '{RUNTIME_PATH}' (Join-Path $p '{SOURCE}')}"
+   powershell -Command "& {$p=(Get-ChildItem $env:USERPROFILE\.claude\plugins\cache\claude-hud\claude-hud | Sort-Object { [version]($_.Name -replace '[^0-9.]') } -Descending | Select-Object -First 1).FullName; & '{RUNTIME_PATH}' (Join-Path $p '{SOURCE}')}"
    ```
 
 **WSL (Windows Subsystem for Linux)**: If running in WSL, use the macOS/Linux instructions. Ensure the plugin is installed in the Linux environment (`~/.claude/plugins/...`), not the Windows side.
@@ -233,7 +233,7 @@ Use AskUserQuestion:
 1. **Verify config was applied**:
    - Read settings file (`~/.claude/settings.json` or `$env:USERPROFILE\.claude\settings.json` on Windows)
    - Check statusLine.command exists and looks correct
-   - If command contains a hardcoded version path (not using dynamic `ls -td` lookup), it may be a stale config from a previous setup
+   - If command contains a hardcoded version path (not using dynamic `sort -V` lookup), it may be a stale config from a previous setup
 
 2. **Test the command manually** and capture error output:
    ```bash
