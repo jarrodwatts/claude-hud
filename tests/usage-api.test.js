@@ -19,6 +19,7 @@ import { existsSync } from 'node:fs';
 import { createServer } from 'node:net';
 
 let tempHome = null;
+let cacheTempHome = null;
 
 async function createTempHome() {
   return await mkdtemp(path.join(tmpdir(), 'claude-hud-usage-'));
@@ -782,19 +783,19 @@ describe('getKeychainServiceNames', () => {
 
 describe('getUsage caching behavior', () => {
   beforeEach(async () => {
-    tempHome = await createTempHome();
-    clearCache(tempHome);
+    cacheTempHome = await createTempHome();
+    clearCache(cacheTempHome);
   });
 
   afterEach(async () => {
-    if (tempHome) {
-      await rm(tempHome, { recursive: true, force: true });
-      tempHome = null;
+    if (cacheTempHome) {
+      await rm(cacheTempHome, { recursive: true, force: true });
+      cacheTempHome = null;
     }
   });
 
   test('cache expires after 60 seconds for success', async () => {
-    await writeCredentials(tempHome, buildCredentials());
+    await writeCredentials(cacheTempHome, buildCredentials());
     let fetchCalls = 0;
     let nowValue = 1000;
     const fetchApi = async () => {
@@ -802,20 +803,20 @@ describe('getUsage caching behavior', () => {
       return buildApiResult();
     };
 
-    await getUsage({ homeDir: () => tempHome, fetchApi, now: () => nowValue, readKeychain: () => null });
+    await getUsage({ homeDir: () => cacheTempHome, fetchApi, now: () => nowValue, readKeychain: () => null });
     assert.equal(fetchCalls, 1);
 
     nowValue += 30_000;
-    await getUsage({ homeDir: () => tempHome, fetchApi, now: () => nowValue, readKeychain: () => null });
+    await getUsage({ homeDir: () => cacheTempHome, fetchApi, now: () => nowValue, readKeychain: () => null });
     assert.equal(fetchCalls, 1);
 
     nowValue += 31_000;
-    await getUsage({ homeDir: () => tempHome, fetchApi, now: () => nowValue, readKeychain: () => null });
+    await getUsage({ homeDir: () => cacheTempHome, fetchApi, now: () => nowValue, readKeychain: () => null });
     assert.equal(fetchCalls, 2);
   });
 
   test('cache expires after 15 seconds for failures', async () => {
-    await writeCredentials(tempHome, buildCredentials());
+    await writeCredentials(cacheTempHome, buildCredentials());
     let fetchCalls = 0;
     let nowValue = 1000;
     const fetchApi = async () => {
@@ -823,20 +824,20 @@ describe('getUsage caching behavior', () => {
       return { data: null, error: 'timeout' };
     };
 
-    await getUsage({ homeDir: () => tempHome, fetchApi, now: () => nowValue, readKeychain: () => null });
+    await getUsage({ homeDir: () => cacheTempHome, fetchApi, now: () => nowValue, readKeychain: () => null });
     assert.equal(fetchCalls, 1);
 
     nowValue += 10_000;
-    await getUsage({ homeDir: () => tempHome, fetchApi, now: () => nowValue, readKeychain: () => null });
+    await getUsage({ homeDir: () => cacheTempHome, fetchApi, now: () => nowValue, readKeychain: () => null });
     assert.equal(fetchCalls, 1);
 
     nowValue += 6_000;
-    await getUsage({ homeDir: () => tempHome, fetchApi, now: () => nowValue, readKeychain: () => null });
+    await getUsage({ homeDir: () => cacheTempHome, fetchApi, now: () => nowValue, readKeychain: () => null });
     assert.equal(fetchCalls, 2);
   });
 
   test('respects custom cacheTtlMs and failureCacheTtlMs', async () => {
-    await writeCredentials(tempHome, buildCredentials());
+    await writeCredentials(cacheTempHome, buildCredentials());
     let fetchCalls = 0;
     let nowValue = 1000;
     const fetchApi = async () => {
@@ -845,36 +846,36 @@ describe('getUsage caching behavior', () => {
     };
 
     const ttls = { cacheTtlMs: 10_000, failureCacheTtlMs: 5_000 };
-    await getUsage({ homeDir: () => tempHome, fetchApi, now: () => nowValue, readKeychain: () => null, ttls });
+    await getUsage({ homeDir: () => cacheTempHome, fetchApi, now: () => nowValue, readKeychain: () => null, ttls });
     assert.equal(fetchCalls, 1);
 
     nowValue += 8_000;
-    await getUsage({ homeDir: () => tempHome, fetchApi, now: () => nowValue, readKeychain: () => null, ttls });
+    await getUsage({ homeDir: () => cacheTempHome, fetchApi, now: () => nowValue, readKeychain: () => null, ttls });
     assert.equal(fetchCalls, 1); // still fresh
 
     nowValue += 3_000;
-    await getUsage({ homeDir: () => tempHome, fetchApi, now: () => nowValue, readKeychain: () => null, ttls });
+    await getUsage({ homeDir: () => cacheTempHome, fetchApi, now: () => nowValue, readKeychain: () => null, ttls });
     assert.equal(fetchCalls, 2); // expired after 11s total
   });
 
   test('clearCache removes file-based cache', async () => {
-    await writeCredentials(tempHome, buildCredentials());
+    await writeCredentials(cacheTempHome, buildCredentials());
     let fetchCalls = 0;
     const fetchApi = async () => {
       fetchCalls += 1;
       return buildApiResult();
     };
 
-    await getUsage({ homeDir: () => tempHome, fetchApi, now: () => 1000, readKeychain: () => null });
+    await getUsage({ homeDir: () => cacheTempHome, fetchApi, now: () => 1000, readKeychain: () => null });
     assert.equal(fetchCalls, 1);
 
-    clearCache(tempHome);
-    await getUsage({ homeDir: () => tempHome, fetchApi, now: () => 2000, readKeychain: () => null });
+    clearCache(cacheTempHome);
+    await getUsage({ homeDir: () => cacheTempHome, fetchApi, now: () => 2000, readKeychain: () => null });
     assert.equal(fetchCalls, 2);
   });
 
   test('deduplicates concurrent refreshes when cache is missing', async () => {
-    await writeCredentials(tempHome, buildCredentials());
+    await writeCredentials(cacheTempHome, buildCredentials());
 
     let fetchCalls = 0;
     let releaseFetch = () => {};
@@ -900,11 +901,11 @@ describe('getUsage caching behavior', () => {
       });
     };
 
-    const first = getUsage({ homeDir: () => tempHome, fetchApi, now: () => 1000, readKeychain: () => null });
+    const first = getUsage({ homeDir: () => cacheTempHome, fetchApi, now: () => 1000, readKeychain: () => null });
     await fetchStarted;
 
-    const second = getUsage({ homeDir: () => tempHome, fetchApi, now: () => 1000, readKeychain: () => null });
-    const third = getUsage({ homeDir: () => tempHome, fetchApi, now: () => 1000, readKeychain: () => null });
+    const second = getUsage({ homeDir: () => cacheTempHome, fetchApi, now: () => 1000, readKeychain: () => null });
+    const third = getUsage({ homeDir: () => cacheTempHome, fetchApi, now: () => 1000, readKeychain: () => null });
 
     releaseFetch();
     const results = await Promise.all([first, second, third]);
@@ -914,11 +915,11 @@ describe('getUsage caching behavior', () => {
   });
 
   test('returns stale cache while another process refreshes expired data', async () => {
-    await writeCredentials(tempHome, buildCredentials());
+    await writeCredentials(cacheTempHome, buildCredentials());
 
     let nowValue = 1000;
     await getUsage({
-      homeDir: () => tempHome,
+      homeDir: () => cacheTempHome,
       fetchApi: async () => buildApiResult(),
       now: () => nowValue,
       readKeychain: () => null,
@@ -951,7 +952,7 @@ describe('getUsage caching behavior', () => {
     };
 
     const leader = getUsage({
-      homeDir: () => tempHome,
+      homeDir: () => cacheTempHome,
       fetchApi,
       now: () => nowValue,
       readKeychain: () => null,
@@ -959,7 +960,7 @@ describe('getUsage caching behavior', () => {
     await fetchStarted;
 
     const follower = await getUsage({
-      homeDir: () => tempHome,
+      homeDir: () => cacheTempHome,
       fetchApi,
       now: () => nowValue,
       readKeychain: () => null,
@@ -978,9 +979,9 @@ describe('getUsage caching behavior', () => {
     delete process.env.CLAUDE_CONFIG_DIR;
 
     try {
-      await writeCredentials(tempHome, buildCredentials());
+      await writeCredentials(cacheTempHome, buildCredentials());
 
-      const pluginDir = path.join(tempHome, '.claude', 'plugins', 'claude-hud');
+      const pluginDir = path.join(cacheTempHome, '.claude', 'plugins', 'claude-hud');
       await mkdir(pluginDir, { recursive: true });
       const lockFile = path.join(pluginDir, '.usage-cache.lock');
       await writeFile(lockFile, '');
@@ -994,7 +995,7 @@ describe('getUsage caching behavior', () => {
       };
 
       const result = await getUsage({
-        homeDir: () => tempHome,
+        homeDir: () => cacheTempHome,
         fetchApi,
         now: () => 1000,
         readKeychain: () => null,
@@ -1009,14 +1010,50 @@ describe('getUsage caching behavior', () => {
     }
   });
 
+  test('treats corrupt lock contents as stale and fetches fresh data', async () => {
+    const originalConfigDir = process.env.CLAUDE_CONFIG_DIR;
+    delete process.env.CLAUDE_CONFIG_DIR;
+
+    try {
+      await writeCredentials(cacheTempHome, buildCredentials());
+
+      const pluginDir = path.join(cacheTempHome, '.claude', 'plugins', 'claude-hud');
+      await mkdir(pluginDir, { recursive: true });
+      const lockFile = path.join(pluginDir, '.usage-cache.lock');
+      await writeFile(lockFile, 'not-a-timestamp');
+      const past = new Date(Date.now() - 60_000);
+      await utimes(lockFile, past, past);
+
+      let fetchCalls = 0;
+      const fetchApi = async () => {
+        fetchCalls += 1;
+        return buildApiResult();
+      };
+
+      const result = await getUsage({
+        homeDir: () => cacheTempHome,
+        fetchApi,
+        now: () => 1000,
+        readKeychain: () => null,
+      });
+
+      assert.equal(fetchCalls, 1);
+      assert.ok(result);
+      assert.equal(result.fiveHour, 25);
+      assert.equal(existsSync(lockFile), false);
+    } finally {
+      restoreEnvVar('CLAUDE_CONFIG_DIR', originalConfigDir);
+    }
+  });
+
   test('returns busy for zero-byte lock with recent mtime (active writer)', async () => {
     const originalConfigDir = process.env.CLAUDE_CONFIG_DIR;
     delete process.env.CLAUDE_CONFIG_DIR;
 
     try {
-      await writeCredentials(tempHome, buildCredentials());
+      await writeCredentials(cacheTempHome, buildCredentials());
 
-      const pluginDir = path.join(tempHome, '.claude', 'plugins', 'claude-hud');
+      const pluginDir = path.join(cacheTempHome, '.claude', 'plugins', 'claude-hud');
       await mkdir(pluginDir, { recursive: true });
       const lockFile = path.join(pluginDir, '.usage-cache.lock');
       await writeFile(lockFile, '');
@@ -1028,7 +1065,7 @@ describe('getUsage caching behavior', () => {
       };
 
       const result = await getUsage({
-        homeDir: () => tempHome,
+        homeDir: () => cacheTempHome,
         fetchApi,
         now: () => 1000,
         readKeychain: () => null,
