@@ -122,6 +122,22 @@ function getRateLimitedTtlMs(count: number): number {
   return Math.min(CACHE_RATE_LIMITED_BASE_MS * Math.pow(2, Math.max(0, count - 1)), CACHE_RATE_LIMITED_MAX_MS);
 }
 
+function getRateLimitedRetryUntil(cache: CacheFile): number | null {
+  if (cache.data.apiError !== 'rate-limited') {
+    return null;
+  }
+
+  if (cache.retryAfterUntil && cache.retryAfterUntil > cache.timestamp) {
+    return cache.retryAfterUntil;
+  }
+
+  if (cache.rateLimitedCount && cache.rateLimitedCount > 0) {
+    return cache.timestamp + getRateLimitedTtlMs(cache.rateLimitedCount);
+  }
+
+  return null;
+}
+
 function readCacheState(homeDir: string, now: number, ttls: CacheTtls): CacheState | null {
   try {
     const cachePath = getCachePath(homeDir);
@@ -130,23 +146,17 @@ function readCacheState(homeDir: string, now: number, ttls: CacheTtls): CacheSta
     const content = fs.readFileSync(cachePath, 'utf8');
     const cache: CacheFile = JSON.parse(content);
 
-    // Prefer lastGoodData over error data for display
-    const displayData = (cache.data.apiUnavailable && cache.lastGoodData)
+    // Only serve lastGoodData during rate-limit backoff. Other failures should remain visible.
+    const displayData = (cache.data.apiError === 'rate-limited' && cache.lastGoodData)
       ? cache.lastGoodData
       : cache.data;
 
-    // Use Retry-After or exponential backoff for 429 rate-limited responses
-    let ttl: number;
-    if (cache.retryAfterUntil && now < cache.retryAfterUntil) {
-      // Server told us exactly when to retry — respect it
+    const rateLimitedRetryUntil = getRateLimitedRetryUntil(cache);
+    if (rateLimitedRetryUntil && now < rateLimitedRetryUntil) {
       return { data: hydrateCacheData(displayData), timestamp: cache.timestamp, isFresh: true };
-    } else if (cache.data.apiError === 'rate-limited' && cache.rateLimitedCount) {
-      ttl = getRateLimitedTtlMs(cache.rateLimitedCount);
-    } else if (cache.data.apiUnavailable) {
-      ttl = ttls.failureCacheTtlMs;
-    } else {
-      ttl = ttls.cacheTtlMs;
     }
+
+    const ttl = cache.data.apiUnavailable ? ttls.failureCacheTtlMs : ttls.cacheTtlMs;
 
     return {
       data: hydrateCacheData(displayData),
@@ -404,32 +414,6 @@ export async function getUsage(overrides: Partial<UsageApiDeps> = {}): Promise<U
         retryAfterUntil,
       };
 
-      // Try to serve stale good data from cache (either direct or lastGoodData)
-      const staleCache = readCacheState(homeDir, now, deps.ttls);
-      const lastGood = readLastGoodData(homeDir);
-      const goodData = (staleCache && !staleCache.data.apiUnavailable)
-        ? staleCache.data
-        : lastGood;
-
-      if (goodData) {
-        // Serve good data silently — user doesn't see rate limit errors,
-        // but keep the cache entry marked as rate-limited so backoff applies.
-        const cacheEntry: UsageData = isRateLimited
-          ? {
-              planName,
-              fiveHour: null,
-              sevenDay: null,
-              fiveHourResetAt: null,
-              sevenDayResetAt: null,
-              apiUnavailable: true,
-              apiError: apiResult.error,
-            }
-          : goodData;
-        writeCache(homeDir, cacheEntry, now, { ...backoffOpts, lastGoodData: goodData });
-        return goodData;
-      }
-
-      // No prior good data at all — cache the failure with backoff
       const failureResult: UsageData = {
         planName,
         fiveHour: null,
@@ -439,6 +423,21 @@ export async function getUsage(overrides: Partial<UsageApiDeps> = {}): Promise<U
         apiUnavailable: true,
         apiError: apiResult.error,
       };
+
+      if (isRateLimited) {
+        const staleCache = readCacheState(homeDir, now, deps.ttls);
+        const lastGood = readLastGoodData(homeDir);
+        const goodData = (staleCache && !staleCache.data.apiUnavailable)
+          ? staleCache.data
+          : lastGood;
+
+        if (goodData) {
+          // Preserve the backoff state in cache, but keep rendering the last successful values.
+          writeCache(homeDir, failureResult, now, { ...backoffOpts, lastGoodData: goodData });
+          return goodData;
+        }
+      }
+
       writeCache(homeDir, failureResult, now, backoffOpts);
       return failureResult;
     }

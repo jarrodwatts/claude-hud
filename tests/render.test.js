@@ -717,6 +717,23 @@ test('renderSessionLine displays warning when API is unavailable', () => {
   assert.ok(!line.includes('5h:'), 'should not show 5h when API unavailable');
 });
 
+test('renderSessionLine shows syncing hint when usage API is rate-limited', () => {
+  const ctx = baseContext();
+  ctx.usageData = {
+    planName: 'Max',
+    fiveHour: null,
+    sevenDay: null,
+    fiveHourResetAt: null,
+    sevenDayResetAt: null,
+    apiUnavailable: true,
+    apiError: 'rate-limited',
+  };
+  const line = renderSessionLine(ctx);
+  assert.ok(line.includes('usage:'), 'should show usage label');
+  assert.ok(line.includes('syncing...'), 'should show syncing hint for rate limiting');
+  assert.ok(!line.includes('rate-limited'), 'should not expose raw rate-limit error key');
+});
+
 test('renderSessionLine hides usage when showUsage config is false (hybrid toggle)', () => {
   const ctx = baseContext();
   ctx.usageData = {

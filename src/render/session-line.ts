@@ -251,9 +251,8 @@ function formatUsagePercent(percent: number | null): string {
 
 function formatUsageError(error?: string): string {
   if (!error) return '';
-  if (error.startsWith('http-')) {
-    return ` (${error.slice(5)})`;
-  }
+  if (error === 'rate-limited') return ' (syncing...)';
+  if (error.startsWith('http-')) return ` (${error.slice(5)})`;
   return ` (${error})`;
 }
 

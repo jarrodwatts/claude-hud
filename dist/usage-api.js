@@ -11,10 +11,8 @@ import { getClaudeConfigDir, getHudPluginDir } from './claude-config-dir.js';
 const debug = createDebug('usage');
 const LEGACY_KEYCHAIN_SERVICE_NAME = 'Claude Code-credentials';
 // File-based cache (HUD runs as new process each render, so in-memory cache won't persist)
-const CACHE_TTL_MS = 5 * 60_000; // 5 minutes — matches Anthropic usage API rate limit window
+const CACHE_TTL_MS = 60_000; // 60 seconds
 const CACHE_FAILURE_TTL_MS = 15_000; // 15 seconds for failed requests
-const CACHE_RATE_LIMITED_BASE_MS = 60_000; // 60s base for 429 backoff
-const CACHE_RATE_LIMITED_MAX_MS = 5 * 60_000; // 5 min max backoff
 const CACHE_LOCK_STALE_MS = 30_000;
 const CACHE_LOCK_WAIT_MS = 2_000;
 const CACHE_LOCK_POLL_MS = 50;
@@ -56,10 +54,6 @@ function hydrateCacheData(data) {
     }
     return data;
 }
-function getRateLimitedTtlMs(count) {
-    // Exponential backoff: 60s, 120s, 240s, capped at 5 min
-    return Math.min(CACHE_RATE_LIMITED_BASE_MS * Math.pow(2, Math.max(0, count - 1)), CACHE_RATE_LIMITED_MAX_MS);
-}
 function readCacheState(homeDir, now, ttls) {
     try {
         const cachePath = getCachePath(homeDir);
@@ -67,56 +61,13 @@ function readCacheState(homeDir, now, ttls) {
             return null;
         const content = fs.readFileSync(cachePath, 'utf8');
         const cache = JSON.parse(content);
-        // Prefer lastGoodData over error data for display
-        const displayData = (cache.data.apiUnavailable && cache.lastGoodData)
-            ? cache.lastGoodData
-            : cache.data;
-        // Use Retry-After or exponential backoff for 429 rate-limited responses
-        let ttl;
-        if (cache.retryAfterUntil && now < cache.retryAfterUntil) {
-            // Server told us exactly when to retry — respect it
-            return { data: hydrateCacheData(displayData), timestamp: cache.timestamp, isFresh: true };
-        }
-        else if (cache.data.apiError === 'rate-limited' && cache.rateLimitedCount) {
-            ttl = getRateLimitedTtlMs(cache.rateLimitedCount);
-        }
-        else if (cache.data.apiUnavailable) {
-            ttl = ttls.failureCacheTtlMs;
-        }
-        else {
-            ttl = ttls.cacheTtlMs;
-        }
+        // Check TTL - use shorter TTL for failure results
+        const ttl = cache.data.apiUnavailable ? ttls.failureCacheTtlMs : ttls.cacheTtlMs;
         return {
-            data: hydrateCacheData(displayData),
+            data: hydrateCacheData(cache.data),
             timestamp: cache.timestamp,
             isFresh: now - cache.timestamp < ttl,
         };
-    }
-    catch {
-        return null;
-    }
-}
-function readRateLimitedCount(homeDir) {
-    try {
-        const cachePath = getCachePath(homeDir);
-        if (!fs.existsSync(cachePath))
-            return 0;
-        const content = fs.readFileSync(cachePath, 'utf8');
-        const cache = JSON.parse(content);
-        return cache.rateLimitedCount ?? 0;
-    }
-    catch {
-        return 0;
-    }
-}
-function readLastGoodData(homeDir) {
-    try {
-        const cachePath = getCachePath(homeDir);
-        if (!fs.existsSync(cachePath))
-            return null;
-        const content = fs.readFileSync(cachePath, 'utf8');
-        const cache = JSON.parse(content);
-        return cache.lastGoodData ? hydrateCacheData(cache.lastGoodData) : null;
     }
     catch {
         return null;
@@ -126,7 +77,7 @@ function readCache(homeDir, now, ttls) {
     const cache = readCacheState(homeDir, now, ttls);
     return cache?.isFresh ? cache.data : null;
 }
-function writeCache(homeDir, data, timestamp, opts) {
+function writeCache(homeDir, data, timestamp) {
     try {
         const cachePath = getCachePath(homeDir);
         const cacheDir = path.dirname(cachePath);
@@ -134,15 +85,6 @@ function writeCache(homeDir, data, timestamp, opts) {
             fs.mkdirSync(cacheDir, { recursive: true });
         }
         const cache = { data, timestamp };
-        if (opts?.rateLimitedCount && opts.rateLimitedCount > 0) {
-            cache.rateLimitedCount = opts.rateLimitedCount;
-        }
-        if (opts?.retryAfterUntil) {
-            cache.retryAfterUntil = opts.retryAfterUntil;
-        }
-        if (opts?.lastGoodData) {
-            cache.lastGoodData = opts.lastGoodData;
-        }
         fs.writeFileSync(cachePath, JSON.stringify(cache), 'utf8');
     }
     catch {
@@ -298,28 +240,7 @@ export async function getUsage(overrides = {}) {
         // Fetch usage from API
         const apiResult = await deps.fetchApi(accessToken);
         if (!apiResult.data) {
-            const isRateLimited = apiResult.error === 'rate-limited';
-            const prevCount = readRateLimitedCount(homeDir);
-            const rateLimitedCount = isRateLimited ? prevCount + 1 : 0;
-            const retryAfterUntil = isRateLimited && apiResult.retryAfterSec
-                ? now + apiResult.retryAfterSec * 1000
-                : undefined;
-            const backoffOpts = {
-                rateLimitedCount: isRateLimited ? rateLimitedCount : undefined,
-                retryAfterUntil,
-            };
-            // Try to serve stale good data from cache (either direct or lastGoodData)
-            const staleCache = readCacheState(homeDir, now, deps.ttls);
-            const lastGood = readLastGoodData(homeDir);
-            const goodData = (staleCache && !staleCache.data.apiUnavailable)
-                ? staleCache.data
-                : lastGood;
-            if (goodData) {
-                // Serve good data silently — user doesn't see rate limit errors
-                writeCache(homeDir, goodData, now, { ...backoffOpts, lastGoodData: goodData });
-                return goodData;
-            }
-            // No prior good data at all — cache the failure with backoff
+            // API call failed, cache the failure to prevent retry storms
             const failureResult = {
                 planName,
                 fiveHour: null,
@@ -329,7 +250,7 @@ export async function getUsage(overrides = {}) {
                 apiUnavailable: true,
                 apiError: apiResult.error,
             };
-            writeCache(homeDir, failureResult, now, backoffOpts);
+            writeCache(homeDir, failureResult, now);
             return failureResult;
         }
         // Parse response - API returns 0-100 percentage directly
@@ -345,8 +266,8 @@ export async function getUsage(overrides = {}) {
             fiveHourResetAt,
             sevenDayResetAt,
         };
-        // Write to file cache — also store as lastGoodData for rate-limit resilience
-        writeCache(homeDir, result, now, { lastGoodData: result });
+        // Write to file cache
+        writeCache(homeDir, result, now);
         return result;
     }
     catch (error) {
@@ -785,23 +706,7 @@ function fetchUsageApi(accessToken) {
             res.on('end', () => {
                 if (res.statusCode !== 200) {
                     debug('API returned non-200 status:', res.statusCode);
-                    // Use a distinct error key for 429 so cache/render can handle it specially
-                    const error = res.statusCode === 429
-                        ? 'rate-limited'
-                        : res.statusCode ? `http-${res.statusCode}` : 'http-error';
-                    // Parse Retry-After header (seconds) from 429 responses
-                    let retryAfterSec;
-                    if (res.statusCode === 429) {
-                        const raw = res.headers['retry-after'];
-                        if (raw) {
-                            const parsed = parseInt(String(raw), 10);
-                            if (Number.isFinite(parsed) && parsed > 0) {
-                                retryAfterSec = parsed;
-                                debug('Retry-After:', retryAfterSec, 'seconds');
-                            }
-                        }
-                    }
-                    resolve({ data: null, error, retryAfterSec });
+                    resolve({ data: null, error: res.statusCode ? `http-${res.statusCode}` : 'http-error' });
                     return;
                 }
                 try {

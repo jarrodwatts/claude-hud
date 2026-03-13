@@ -913,6 +913,97 @@ describe('getUsage caching behavior', () => {
     assert.equal(fetchCalls, 2);
   });
 
+  test('serves last good data during rate-limit backoff only', async () => {
+    await writeCredentials(tempHome, buildCredentials());
+
+    let nowValue = 1000;
+    let fetchCalls = 0;
+    const fetchApi = async () => {
+      fetchCalls += 1;
+      if (fetchCalls === 1) {
+        return buildApiResult({
+          data: buildApiResponse({
+            five_hour: {
+              utilization: 25,
+              resets_at: '2026-01-06T15:00:00Z',
+            },
+          }),
+        });
+      }
+      return { data: null, error: 'rate-limited', retryAfterSec: 120 };
+    };
+
+    const initial = await getUsage({
+      homeDir: () => tempHome,
+      fetchApi,
+      now: () => nowValue,
+      readKeychain: () => null,
+    });
+    assert.equal(initial?.fiveHour, 25);
+
+    nowValue += 301_000;
+    const rateLimited = await getUsage({
+      homeDir: () => tempHome,
+      fetchApi,
+      now: () => nowValue,
+      readKeychain: () => null,
+    });
+    assert.equal(rateLimited?.fiveHour, 25);
+    assert.equal(fetchCalls, 2);
+
+    nowValue += 60_000;
+    const cachedDuringBackoff = await getUsage({
+      homeDir: () => tempHome,
+      fetchApi,
+      now: () => nowValue,
+      readKeychain: () => null,
+    });
+    assert.equal(cachedDuringBackoff?.fiveHour, 25);
+    assert.equal(fetchCalls, 2);
+  });
+
+  test('does not mask non-rate-limited failures with stale good data', async () => {
+    await writeCredentials(tempHome, buildCredentials());
+
+    let nowValue = 1000;
+    let fetchCalls = 0;
+    const fetchApi = async () => {
+      fetchCalls += 1;
+      if (fetchCalls === 1) {
+        return buildApiResult({
+          data: buildApiResponse({
+            five_hour: {
+              utilization: 25,
+              resets_at: '2026-01-06T15:00:00Z',
+            },
+          }),
+        });
+      }
+      return { data: null, error: 'network' };
+    };
+
+    const initial = await getUsage({
+      homeDir: () => tempHome,
+      fetchApi,
+      now: () => nowValue,
+      readKeychain: () => null,
+    });
+    assert.equal(initial?.fiveHour, 25);
+
+    nowValue += 301_000;
+    const failure = await getUsage({
+      homeDir: () => tempHome,
+      fetchApi,
+      now: () => nowValue,
+      readKeychain: () => null,
+    });
+
+    assert.equal(fetchCalls, 2);
+    assert.equal(failure?.apiUnavailable, true);
+    assert.equal(failure?.apiError, 'network');
+    assert.equal(failure?.fiveHour, null);
+  });
+
   test('deduplicates concurrent refreshes when cache is missing', async () => {
     await writeCredentials(cacheTempHome, buildCredentials());
 
@@ -964,7 +1055,7 @@ describe('getUsage caching behavior', () => {
       readKeychain: () => null,
     });
 
-    nowValue += 61_000;
+    nowValue += 301_000;
 
     let fetchCalls = 0;
     let releaseFetch = () => {};
