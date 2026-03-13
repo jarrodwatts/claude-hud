@@ -11,7 +11,7 @@ import {
   getProxyUrl,
   USAGE_API_USER_AGENT,
 } from '../dist/usage-api.js';
-import { mkdtemp, rm, mkdir, writeFile } from 'node:fs/promises';
+import { mkdtemp, rm, mkdir, writeFile, utimes } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { createHash } from 'node:crypto';
@@ -971,6 +971,75 @@ describe('getUsage caching behavior', () => {
     releaseFetch();
     const refreshed = await leader;
     assert.equal(refreshed?.fiveHour, 88);
+  });
+
+  test('treats zero-byte lock file as stale and fetches fresh data', async () => {
+    const originalConfigDir = process.env.CLAUDE_CONFIG_DIR;
+    delete process.env.CLAUDE_CONFIG_DIR;
+
+    try {
+      await writeCredentials(tempHome, buildCredentials());
+
+      const pluginDir = path.join(tempHome, '.claude', 'plugins', 'claude-hud');
+      await mkdir(pluginDir, { recursive: true });
+      const lockFile = path.join(pluginDir, '.usage-cache.lock');
+      await writeFile(lockFile, '');
+      const past = new Date(Date.now() - 60_000);
+      await utimes(lockFile, past, past);
+
+      let fetchCalls = 0;
+      const fetchApi = async () => {
+        fetchCalls += 1;
+        return buildApiResult();
+      };
+
+      const result = await getUsage({
+        homeDir: () => tempHome,
+        fetchApi,
+        now: () => 1000,
+        readKeychain: () => null,
+      });
+
+      assert.equal(fetchCalls, 1);
+      assert.ok(result);
+      assert.equal(result.fiveHour, 25);
+      assert.equal(existsSync(path.join(pluginDir, '.usage-cache.lock')), false);
+    } finally {
+      restoreEnvVar('CLAUDE_CONFIG_DIR', originalConfigDir);
+    }
+  });
+
+  test('returns busy for zero-byte lock with recent mtime (active writer)', async () => {
+    const originalConfigDir = process.env.CLAUDE_CONFIG_DIR;
+    delete process.env.CLAUDE_CONFIG_DIR;
+
+    try {
+      await writeCredentials(tempHome, buildCredentials());
+
+      const pluginDir = path.join(tempHome, '.claude', 'plugins', 'claude-hud');
+      await mkdir(pluginDir, { recursive: true });
+      const lockFile = path.join(pluginDir, '.usage-cache.lock');
+      await writeFile(lockFile, '');
+
+      let fetchCalls = 0;
+      const fetchApi = async () => {
+        fetchCalls += 1;
+        return buildApiResult();
+      };
+
+      const result = await getUsage({
+        homeDir: () => tempHome,
+        fetchApi,
+        now: () => 1000,
+        readKeychain: () => null,
+      });
+
+      assert.equal(fetchCalls, 0);
+      assert.equal(result, null);
+      assert.equal(existsSync(lockFile), true);
+    } finally {
+      restoreEnvVar('CLAUDE_CONFIG_DIR', originalConfigDir);
+    }
   });
 });
 

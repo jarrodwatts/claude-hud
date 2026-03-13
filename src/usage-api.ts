@@ -184,6 +184,24 @@ function tryAcquireCacheLock(homeDir: string): CacheLockStatus {
   }
 
   const lockTimestamp = readLockTimestamp(lockPath);
+  // Unparseable timestamp — use mtime to distinguish a crash leftover from an active writer.
+  if (lockTimestamp === null) {
+    try {
+      const lockStat = fs.statSync(lockPath);
+      if (Date.now() - lockStat.mtimeMs < CACHE_LOCK_STALE_MS) {
+        return 'busy';
+      }
+    } catch {
+      return tryAcquireCacheLock(homeDir);
+    }
+    try {
+      fs.unlinkSync(lockPath);
+    } catch {
+      return 'busy';
+    }
+    return tryAcquireCacheLock(homeDir);
+  }
+
   if (lockTimestamp != null && Date.now() - lockTimestamp > CACHE_LOCK_STALE_MS) {
     try {
       fs.unlinkSync(lockPath);
