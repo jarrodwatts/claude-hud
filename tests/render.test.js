@@ -597,6 +597,24 @@ test('renderSessionLine shows 7d when approaching limit (>=80%)', () => {
   assert.ok(line.includes('85%'), 'should include 7d percentage');
 });
 
+test('renderSessionLine shows 7d reset countdown in text-only mode', () => {
+  const ctx = baseContext();
+  const resetTime = new Date(Date.now() + (28 * 60 * 60 * 1000)); // 1d 4h from now
+  ctx.config.display.sevenDayThreshold = 80;
+  ctx.config.display.usageBarEnabled = false;
+  ctx.usageData = {
+    planName: 'Pro',
+    fiveHour: 45,
+    sevenDay: 85,
+    fiveHourResetAt: null,
+    sevenDayResetAt: resetTime,
+  };
+
+  const line = stripAnsi(renderSessionLine(ctx));
+  assert.ok(line.includes('7d: 85%'), `should include 7d label and percentage: ${line}`);
+  assert.ok(line.includes('(1d 4h)'), `should include 7d reset countdown in text-only mode: ${line}`);
+});
+
 test('renderSessionLine respects sevenDayThreshold override', () => {
   const ctx = baseContext();
   ctx.config.display.sevenDayThreshold = 0;
@@ -642,6 +660,25 @@ test('renderUsageLine shows reset countdown in days when >= 24 hours', () => {
   const plain = stripAnsi(line);
   assert.ok(/\(\d+d( \d+h)?\)/.test(plain), `expected day/hour reset format, got: ${plain}`);
   assert.ok(!plain.includes('151h'), `should avoid raw hour format for long durations: ${plain}`);
+});
+
+test('renderUsageLine shows 7d reset countdown in text-only mode', () => {
+  const ctx = baseContext();
+  const resetTime = new Date(Date.now() + (28 * 60 * 60 * 1000)); // 1d 4h from now
+  ctx.config.display.usageBarEnabled = false;
+  ctx.config.display.sevenDayThreshold = 80;
+  ctx.usageData = {
+    planName: 'Pro',
+    fiveHour: 45,
+    sevenDay: 85,
+    fiveHourResetAt: null,
+    sevenDayResetAt: resetTime,
+  };
+
+  const line = stripAnsi(renderUsageLine(ctx));
+  assert.ok(line.includes('5h: 45%'), `should include 5h text-only usage: ${line}`);
+  assert.ok(line.includes('7d: 85%'), `should include 7d text-only usage: ${line}`);
+  assert.ok(line.includes('(1d 4h)'), `should include 7d reset countdown in text-only mode: ${line}`);
 });
 
 test('renderSessionLine displays limit reached warning', () => {
