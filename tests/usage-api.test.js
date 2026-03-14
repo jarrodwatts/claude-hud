@@ -1,25 +1,62 @@
-import { test, describe, beforeEach, afterEach } from 'node:test';
+import { test, describe, before, beforeEach, afterEach } from 'node:test';
 import assert from 'node:assert/strict';
-import {
-  getUsage,
-  clearCache,
-  getKeychainServiceName,
-  getKeychainServiceNames,
-  resolveKeychainCredentials,
-  getUsageApiTimeoutMs,
-  isNoProxy,
-  getProxyUrl,
-  USAGE_API_USER_AGENT,
-} from '../dist/usage-api.js';
+import { execFileSync } from 'node:child_process';
 import { mkdtemp, rm, mkdir, writeFile, utimes } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { createHash } from 'node:crypto';
 import { existsSync } from 'node:fs';
 import { createServer } from 'node:net';
 
 let tempHome = null;
 let cacheTempHome = null;
+let getUsage;
+let clearCache;
+let getKeychainServiceName;
+let getKeychainServiceNames;
+let resolveKeychainCredentials;
+let getUsageApiTimeoutMs;
+let isNoProxy;
+let getProxyUrl;
+let USAGE_API_USER_AGENT;
+
+function ensureUsageApiDistIsCurrent() {
+  const testDir = path.dirname(fileURLToPath(import.meta.url));
+  const repoRoot = path.resolve(testDir, '..');
+  const distPath = path.join(repoRoot, 'dist', 'usage-api.js');
+
+  if (!existsSync(distPath)) {
+    execFileSync('npm', ['run', 'build'], {
+      cwd: repoRoot,
+      stdio: 'inherit',
+    });
+    return;
+  }
+
+  // These tests import dist/ modules directly. In a source-only PR worktree,
+  // git checkout mtimes are not a reliable signal that dist matches src, so
+  // rebuild once up front to make direct `node --test` runs deterministic.
+  execFileSync('npm', ['run', 'build'], {
+    cwd: repoRoot,
+    stdio: 'inherit',
+  });
+}
+
+before(async () => {
+  ensureUsageApiDistIsCurrent();
+  ({
+    getUsage,
+    clearCache,
+    getKeychainServiceName,
+    getKeychainServiceNames,
+    resolveKeychainCredentials,
+    getUsageApiTimeoutMs,
+    isNoProxy,
+    getProxyUrl,
+    USAGE_API_USER_AGENT,
+  } = await import(`../dist/usage-api.js?cacheBust=${Date.now()}`));
+});
 
 async function createTempHome() {
   return await mkdtemp(path.join(tmpdir(), 'claude-hud-usage-'));
