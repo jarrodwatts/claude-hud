@@ -818,7 +818,7 @@ describe('getKeychainServiceNames', () => {
   });
 });
 
-describe('getUsage caching behavior', () => {
+describe('getUsage caching behavior', { concurrency: false }, () => {
   beforeEach(async () => {
     cacheTempHome = await createTempHome();
     clearCache(cacheTempHome);
@@ -914,7 +914,7 @@ describe('getUsage caching behavior', () => {
   });
 
   test('serves last good data during rate-limit backoff only', async () => {
-    await writeCredentials(tempHome, buildCredentials());
+    await writeCredentials(cacheTempHome, buildCredentials());
 
     let nowValue = 1000;
     let fetchCalls = 0;
@@ -934,7 +934,7 @@ describe('getUsage caching behavior', () => {
     };
 
     const initial = await getUsage({
-      homeDir: () => tempHome,
+      homeDir: () => cacheTempHome,
       fetchApi,
       now: () => nowValue,
       readKeychain: () => null,
@@ -943,7 +943,7 @@ describe('getUsage caching behavior', () => {
 
     nowValue += 301_000;
     const rateLimited = await getUsage({
-      homeDir: () => tempHome,
+      homeDir: () => cacheTempHome,
       fetchApi,
       now: () => nowValue,
       readKeychain: () => null,
@@ -953,7 +953,7 @@ describe('getUsage caching behavior', () => {
 
     nowValue += 60_000;
     const cachedDuringBackoff = await getUsage({
-      homeDir: () => tempHome,
+      homeDir: () => cacheTempHome,
       fetchApi,
       now: () => nowValue,
       readKeychain: () => null,
@@ -963,7 +963,7 @@ describe('getUsage caching behavior', () => {
   });
 
   test('does not mask non-rate-limited failures with stale good data', async () => {
-    await writeCredentials(tempHome, buildCredentials());
+    await writeCredentials(cacheTempHome, buildCredentials());
 
     let nowValue = 1000;
     let fetchCalls = 0;
@@ -983,7 +983,7 @@ describe('getUsage caching behavior', () => {
     };
 
     const initial = await getUsage({
-      homeDir: () => tempHome,
+      homeDir: () => cacheTempHome,
       fetchApi,
       now: () => nowValue,
       readKeychain: () => null,
@@ -992,7 +992,7 @@ describe('getUsage caching behavior', () => {
 
     nowValue += 301_000;
     const failure = await getUsage({
-      homeDir: () => tempHome,
+      homeDir: () => cacheTempHome,
       fetchApi,
       now: () => nowValue,
       readKeychain: () => null,
