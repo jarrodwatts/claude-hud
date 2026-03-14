@@ -39,6 +39,10 @@ export type UsageApiDeps = {
  * Uses file-based cache since HUD runs as a new process each render (~300ms).
  * Cache TTL is configurable via usage.cacheTtlSeconds / usage.failureCacheTtlSeconds in config.json
  * (defaults: 60s for success, 15s for failures).
+ *
+ * Stale-while-revalidate: When stale non-error cache data exists and the API fetch
+ * doesn't complete within SWR_TIMEOUT_MS, returns stale data immediately. The fetch
+ * continues in the background and updates the cache for the next render cycle.
  */
 export declare function getUsage(overrides?: Partial<UsageApiDeps>): Promise<UsageData | null>;
 /**
