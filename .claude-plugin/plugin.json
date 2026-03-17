@@ -6,6 +6,10 @@
     "name": "Jarrod Watts",
     "url": "https://github.com/jarrodwatts"
   },
+  "commands": [
+    "./commands/setup.md",
+    "./commands/configure.md"
+  ],
   "homepage": "https://github.com/jarrodwatts/claude-hud",
   "repository": "https://github.com/jarrodwatts/claude-hud",
   "license": "MIT",
