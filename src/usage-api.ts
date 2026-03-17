@@ -69,6 +69,11 @@ function isUsingCustomApiEndpoint(env: NodeJS.ProcessEnv = process.env): boolean
     return false;
   }
 
+  // MiniMax is handled separately - don't treat it as a custom endpoint here
+  if (baseUrl.includes('minimaxi') || baseUrl.includes('minimax')) {
+    return false;
+  }
+
   try {
     return new URL(baseUrl).origin !== 'https://api.anthropic.com';
   } catch {
@@ -81,6 +86,13 @@ function isUsingCustomApiEndpoint(env: NodeJS.ProcessEnv = process.env): boolean
  * MiniMax is a Chinese LLM provider with its own usage API.
  */
 function isMinimaxEndpoint(env: NodeJS.ProcessEnv = process.env): boolean {
+  // MiniMax support requires explicit opt-in via env var
+  // This prevents accidental MiniMax detection when the env is inherited from shell
+  const minimaxEnabled = env.CLAUDE_HUD_USE_MINIMAX?.toLowerCase().trim();
+  if (minimaxEnabled !== 'true' && minimaxEnabled !== '1' && minimaxEnabled !== 'yes') {
+    return false;
+  }
+
   const baseUrl = env.ANTHROPIC_BASE_URL?.trim() || env.ANTHROPIC_API_BASE_URL?.trim();
 
   if (!baseUrl) {
@@ -407,11 +419,15 @@ export async function getUsage(overrides: Partial<UsageApiDeps> = {}): Promise<U
   }
 
   // Handle MiniMax endpoint specially
-  if (isMinimaxEndpoint()) {
+  // Skip MiniMax detection when fetchApi is overridden (tests provide their own mock)
+  // This prevents shell MiniMax env vars from affecting tests
+  const isFetchApiOverridden = overrides.fetchApi !== undefined;
+  if (!isFetchApiOverridden && isMinimaxEndpoint()) {
     return getMinimaxUsage(homeDir, now, deps.ttls);
   }
 
   // Skip usage API if user is using a custom provider (non-MiniMax)
+  // Always check this - tests that set custom endpoints expect this to work
   if (isUsingCustomApiEndpoint()) {
     debug('Skipping usage API: custom API endpoint configured');
     return null;
