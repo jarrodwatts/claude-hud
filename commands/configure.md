@@ -26,11 +26,11 @@ Advanced settings such as `colors.*`, `pathLevels`, `display.usageThreshold`, an
 Questions: **Layout → Preset → Turn Off → Turn On**
 
 ### Flow B: Update Config (config exists)
-Questions: **Turn Off → Turn On → Git Style → Layout/Reset** (4 questions max)
+Questions: **Turn Off → Turn On → Git Style → Layout/Reset → Custom Line** (5 questions max)
 
 ---
 
-## Flow A: New User (4 Questions)
+## Flow A: New User (5 Questions)
 
 ### Q1: Layout
 - header: "Layout"
@@ -77,9 +77,19 @@ Questions: **Turn Off → Turn On → Git Style → Layout/Reset** (4 questions 
 **Note:** If preset has all items ON (Full), Q4 shows "Nothing to enable - Full preset has everything!"
 If preset has all items OFF (Minimal), Q3 shows "Nothing to disable - Minimal preset is already minimal!"
 
+### Q5: Custom Line (optional)
+- header: "Custom Line"
+- question: "Add a custom phrase to display in the HUD? (e.g. a motto, max 80 chars)"
+- multiSelect: false
+- options:
+  - "Skip" - No custom line
+  - "Enter custom text" - Ask user for their phrase via AskUserQuestion (free text input)
+
+If user chooses "Enter custom text", use AskUserQuestion to get their text. Save as `display.customLine` in config.
+
 ---
 
-## Flow B: Update Config (4 Questions)
+## Flow B: Update Config (5 Questions)
 
 ### Q1: Turn Off
 - header: "Turn Off"
@@ -132,6 +142,18 @@ Info items (Counts, Tokens, Usage, Speed, Duration) can be turned off via "Reset
   - "Switch to Compact" - Everything on one line (if not current)
   - "Reset to Full" - Enable everything
   - "Reset to Essential" - Activity + git only
+
+### Q5: Custom Line (optional)
+- header: "Custom Line"
+- question: "Update your custom phrase? (currently: '{current customLine or none}')"
+- multiSelect: false
+- options:
+  - "Keep current" - No change (skip if no customLine set)
+  - "Enter custom text" - Set or update custom phrase (max 80 chars)
+  - "Remove" - Clear the custom line (only show if customLine is currently set)
+
+If user chooses "Enter custom text", use AskUserQuestion to get their text. Save as `display.customLine` in config.
+If user chooses "Remove", set `display.customLine` to `""` in config.
 
 ---
 
@@ -191,6 +213,7 @@ Info items (Counts, Tokens, Usage, Speed, Duration) can be turned off via "Reset
 | Usage bar style | `display.usageBarEnabled` |
 | Session name | `display.showSessionName` |
 | Session duration | `display.showDuration` |
+| Custom line | `display.customLine` |
 
 **Always true (not configurable):**
 - `display.showModel: true`

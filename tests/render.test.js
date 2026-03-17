@@ -257,6 +257,13 @@ test('renderSessionLine hides session name by default', () => {
   assert.ok(!line.includes('Renamed Session'));
 });
 
+test('renderSessionLine includes customLine when configured', () => {
+  const ctx = baseContext();
+  ctx.config.display.customLine = 'Ship it';
+  const line = stripAnsi(renderSessionLine(ctx));
+  assert.ok(line.includes('Ship it'));
+});
+
 test('renderProjectLine includes session name when showSessionName is true', () => {
   const ctx = baseContext();
   ctx.stdin.cwd = '/tmp/my-project';
@@ -288,6 +295,14 @@ test('renderProjectLine hides session name by default', () => {
   ctx.transcript.sessionName = 'Renamed Session';
   const line = renderProjectLine(ctx);
   assert.ok(!line?.includes('Renamed Session'));
+});
+
+test('renderProjectLine includes customLine when configured', () => {
+  const ctx = baseContext();
+  ctx.stdin.cwd = '/tmp/my-project';
+  ctx.config.display.customLine = 'Stay sharp';
+  const line = stripAnsi(renderProjectLine(ctx) ?? '');
+  assert.ok(line.includes('Stay sharp'));
 });
 
 test('renderProjectLine includes duration when showDuration is true', () => {

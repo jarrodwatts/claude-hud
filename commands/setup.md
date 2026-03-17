@@ -213,6 +213,7 @@ Use AskUserQuestion:
   - "Agents & Todos" — Shows subagent status and todo progress
   - "Session info" — Shows session duration and config counts (CLAUDE.md, rules, MCPs)
   - "Session name" — Shows session slug or custom title from /rename
+  - "Custom line" — Display a custom phrase in the HUD
 
 **If user selects any options**, write `${CLAUDE_CONFIG_DIR:-$HOME/.claude}/plugins/claude-hud/config.json` (create directories if needed):
 
@@ -222,6 +223,7 @@ Use AskUserQuestion:
 | Agents & Todos | `display.showAgents: true, display.showTodos: true` |
 | Session info | `display.showDuration: true, display.showConfigCounts: true` |
 | Session name | `display.showSessionName: true` |
+| Custom line | `display.customLine: "<user's text>"` — ask user for the text (max 80 chars) |
 
 Merge with existing config if the file already exists. Only write keys the user selected — don't write `false` for unselected items (defaults handle that).
 

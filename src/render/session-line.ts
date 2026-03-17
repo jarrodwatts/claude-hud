@@ -2,7 +2,7 @@ import type { RenderContext } from '../types.js';
 import { isLimitReached } from '../types.js';
 import { getContextPercent, getBufferedPercent, getModelName, getProviderLabel, getTotalTokens } from '../stdin.js';
 import { getOutputSpeed } from '../speed-tracker.js';
-import { coloredBar, critical, cyan, dim, magenta, red, warning, yellow, getContextColor, getQuotaColor, quotaBar, RESET } from './colors.js';
+import { coloredBar, critical, cyan, dim, magenta, red, warning, yellow, getContextColor, getQuotaColor, quotaBar, claudeOrange, RESET } from './colors.js';
 import { getAdaptiveBarWidth } from '../utils/terminal.js';
 
 const DEBUG = process.env.DEBUG?.includes('claude-hud') || process.env.DEBUG === '*';
@@ -205,6 +205,12 @@ export function renderSessionLine(ctx: RenderContext): string {
 
   if (ctx.extraLabel) {
     parts.push(dim(ctx.extraLabel));
+  }
+
+  // Custom line (static user-defined text)
+  const customLine = display?.customLine;
+  if (customLine) {
+    parts.push(claudeOrange(customLine));
   }
 
   let line = parts.join(' | ');

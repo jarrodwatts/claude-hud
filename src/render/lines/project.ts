@@ -1,7 +1,7 @@
 import type { RenderContext } from '../../types.js';
 import { getModelName, getProviderLabel } from '../../stdin.js';
 import { getOutputSpeed } from '../../speed-tracker.js';
-import { cyan, dim, magenta, yellow, red } from '../colors.js';
+import { cyan, dim, magenta, yellow, red, claudeOrange } from '../colors.js';
 
 export function renderProjectLine(ctx: RenderContext): string | null {
   const display = ctx.config?.display;
@@ -87,6 +87,11 @@ export function renderProjectLine(ctx: RenderContext): string | null {
 
   if (display?.showDuration !== false && ctx.sessionDuration) {
     parts.push(dim(`⏱️  ${ctx.sessionDuration}`));
+  }
+
+  const customLine = display?.customLine;
+  if (customLine) {
+    parts.push(claudeOrange(customLine));
   }
 
   if (parts.length === 0) {

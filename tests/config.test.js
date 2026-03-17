@@ -88,6 +88,13 @@ test('mergeConfig preserves explicit showSessionName=true', () => {
   assert.equal(config.display.showSessionName, true);
 });
 
+test('mergeConfig preserves customLine and truncates long values', () => {
+  const customLine = 'x'.repeat(120);
+  const config = mergeConfig({ display: { customLine } });
+  assert.equal(config.display.customLine.length, 80);
+  assert.equal(config.display.customLine, customLine.slice(0, 80));
+});
+
 test('getConfigPath respects CLAUDE_CONFIG_DIR', async () => {
   const originalConfigDir = process.env.CLAUDE_CONFIG_DIR;
   const customConfigDir = await mkdtemp(path.join(tmpdir(), 'claude-hud-config-dir-'));

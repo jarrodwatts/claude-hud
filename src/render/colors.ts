@@ -10,6 +10,7 @@ const MAGENTA = '\x1b[35m';
 const CYAN = '\x1b[36m';
 const BRIGHT_BLUE = '\x1b[94m';
 const BRIGHT_MAGENTA = '\x1b[95m';
+const CLAUDE_ORANGE = '\x1b[38;5;208m';
 
 const ANSI_BY_NAME: Record<HudColorName, string> = {
   red: RED,
@@ -54,6 +55,10 @@ export function magenta(text: string): string {
 
 export function dim(text: string): string {
   return colorize(text, DIM);
+}
+
+export function claudeOrange(text: string): string {
+  return colorize(text, CLAUDE_ORANGE);
 }
 
 export function warning(text: string, colors?: Partial<HudColorOverrides>): string {
