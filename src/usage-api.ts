@@ -5,7 +5,7 @@ import * as net from 'net';
 import * as tls from 'tls';
 import * as https from 'https';
 import { execFileSync } from 'child_process';
-import { createHash } from 'crypto';
+import { createHash, pbkdf2Sync, createDecipheriv } from 'crypto';
 import type { UsageData } from './types.js';
 import { createDebug } from './debug.js';
 import { getClaudeConfigDir, getHudPluginDir } from './claude-config-dir.js';
@@ -411,6 +411,33 @@ export async function getUsage(overrides: Partial<UsageApiDeps> = {}): Promise<U
     const apiResult = await deps.fetchApi(accessToken);
     if (!apiResult.data) {
       const isRateLimited = apiResult.error === 'rate-limited';
+
+      // When OAuth API returns 429, try Claude Desktop web cookie fallback (macOS).
+      // The web endpoint (claude.ai) uses a separate rate-limit bucket.
+      if (isRateLimited) {
+        const webResult = await fetchUsageViaWebCookies(homeDir);
+        if (webResult?.data) {
+          debug('Web cookie fallback succeeded, using web usage data');
+          const fiveHour = parseUtilization(webResult.data.five_hour?.utilization);
+          const sevenDay = parseUtilization(webResult.data.seven_day?.utilization);
+          const fiveHourResetAt = parseDate(webResult.data.five_hour?.resets_at);
+          const sevenDayResetAt = parseDate(webResult.data.seven_day?.resets_at);
+
+          const result: UsageData = {
+            planName,
+            fiveHour,
+            sevenDay,
+            fiveHourResetAt,
+            sevenDayResetAt,
+          };
+
+          // Cache as successful result, resetting rate-limit counters
+          writeCache(homeDir, result, now, { lastGoodData: result });
+          return result;
+        }
+        debug('Web cookie fallback unavailable or failed, proceeding with 429 handling');
+      }
+
       const prevCount = readRateLimitedCount(homeDir);
       const rateLimitedCount = isRateLimited ? prevCount + 1 : 0;
       const retryAfterUntil = isRateLimited && apiResult.retryAfterSec
@@ -1069,6 +1096,177 @@ export function parseRetryAfterSeconds(
 
   const retryAfterSeconds = Math.ceil((retryAtMs - nowMs) / 1000);
   return retryAfterSeconds > 0 ? retryAfterSeconds : undefined;
+}
+
+// ─── Claude Desktop Web Cookie Fallback (macOS only) ───
+// When the OAuth /api/oauth/usage endpoint returns 429, fall back to the web
+// endpoint (claude.ai/api/organizations/{orgId}/usage) using Claude Desktop's
+// session cookies. This web endpoint lives in a separate rate-limit bucket.
+// See: https://github.com/anthropics/claude-code/issues/30930
+
+interface ClaudeDesktopCookies {
+  sessionKey: string;
+  lastActiveOrg: string;
+}
+
+/**
+ * Decrypt a Chromium v10 encrypted cookie value using macOS Keychain-derived AES key.
+ */
+function decryptCookieValue(encrypted: Buffer, aesKey: Buffer): string {
+  // Strip 'v10' prefix (3 bytes)
+  const ciphertext = encrypted.subarray(3);
+  // Chromium on macOS uses AES-128-CBC with IV = 0x20 repeated 16 times
+  const iv = Buffer.alloc(16, 0x20);
+  const decipher = createDecipheriv('aes-128-cbc', aesKey, iv);
+  const decrypted = Buffer.concat([decipher.update(ciphertext), decipher.final()]);
+  // Chromium prepends a 32-byte header to the decrypted value
+  return decrypted.length > 32
+    ? decrypted.subarray(32).toString('utf8')
+    : decrypted.toString('utf8');
+}
+
+/**
+ * Read and decrypt Claude Desktop session cookies from the Chromium Cookies DB.
+ * Returns sessionKey and lastActiveOrg, or null if unavailable.
+ *
+ * macOS only — requires Claude Desktop to be installed.
+ */
+function readClaudeDesktopCookies(homeDir: string): ClaudeDesktopCookies | null {
+  if (process.platform !== 'darwin') {
+    return null;
+  }
+
+  const cookiesPath = path.join(homeDir, 'Library', 'Application Support', 'Claude', 'Cookies');
+  if (!fs.existsSync(cookiesPath)) {
+    debug('Claude Desktop Cookies DB not found');
+    return null;
+  }
+
+  try {
+    // Read encryption password from macOS Keychain ("Claude Safe Storage")
+    const password = execFileSync('/usr/bin/security',
+      ['find-generic-password', '-s', 'Claude Safe Storage', '-w'],
+      { encoding: 'utf8', stdio: ['pipe', 'pipe', 'pipe'], timeout: KEYCHAIN_TIMEOUT_MS },
+    ).trim();
+
+    // Derive 16-byte AES key via PBKDF2 (Chromium's macOS cookie encryption scheme)
+    const aesKey = pbkdf2Sync(password, 'saltysalt', 1003, 16, 'sha1');
+
+    // Copy DB to a temp file to avoid SQLite lock contention with Claude Desktop
+    const tmpPath = path.join(os.tmpdir(), `claude-hud-cookies-${process.pid}.db`);
+    fs.copyFileSync(cookiesPath, tmpPath);
+
+    try {
+      // Query encrypted cookie values via sqlite3 CLI (always available on macOS)
+      const sqlOutput = execFileSync('/usr/bin/sqlite3', [
+        tmpPath,
+        "SELECT name, hex(encrypted_value) FROM cookies WHERE host_key LIKE '%claude.ai%' AND (name='sessionKey' OR name='lastActiveOrg');",
+      ], { encoding: 'utf8', timeout: 3000 });
+
+      const cookies: Record<string, string> = {};
+      for (const line of sqlOutput.trim().split('\n')) {
+        if (!line.includes('|')) continue;
+        const pipeIdx = line.indexOf('|');
+        const name = line.substring(0, pipeIdx);
+        const hexValue = line.substring(pipeIdx + 1);
+        if (!name || !hexValue) continue;
+
+        const encrypted = Buffer.from(hexValue, 'hex');
+        cookies[name] = decryptCookieValue(encrypted, aesKey);
+      }
+
+      if (!cookies.sessionKey || !cookies.lastActiveOrg) {
+        debug('Claude Desktop cookies missing sessionKey or lastActiveOrg');
+        return null;
+      }
+
+      return {
+        sessionKey: cookies.sessionKey,
+        lastActiveOrg: cookies.lastActiveOrg,
+      };
+    } finally {
+      try { fs.unlinkSync(tmpPath); } catch { /* ignore */ }
+    }
+  } catch (error) {
+    debug('Failed to read Claude Desktop cookies:', error instanceof Error ? error.message : error);
+    return null;
+  }
+}
+
+/**
+ * Fetch usage data from the Claude web endpoint using Desktop session cookies.
+ * This endpoint uses a separate rate-limit bucket from /api/oauth/usage.
+ */
+function fetchWebUsageApi(cookies: ClaudeDesktopCookies): Promise<UsageApiResult> {
+  return new Promise((resolve) => {
+    const host = 'claude.ai';
+    const timeoutMs = getUsageApiTimeoutMs();
+    const proxyUrl = getProxyUrl(host);
+    const options: https.RequestOptions = {
+      hostname: host,
+      path: `/api/organizations/${cookies.lastActiveOrg}/usage`,
+      method: 'GET',
+      headers: {
+        'Cookie': `sessionKey=${cookies.sessionKey}`,
+        'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
+      },
+      timeout: timeoutMs,
+      agent: proxyUrl ? createProxyTunnelAgent(proxyUrl) : undefined,
+    };
+
+    const req = https.request(options, (res) => {
+      let data = '';
+
+      res.on('data', (chunk: Buffer) => {
+        data += chunk.toString();
+      });
+
+      res.on('end', () => {
+        if (res.statusCode !== 200) {
+          debug('Web usage API returned non-200 status:', res.statusCode);
+          const error = res.statusCode === 429
+            ? 'rate-limited'
+            : res.statusCode ? `http-${res.statusCode}` : 'http-error';
+          resolve({ data: null, error });
+          return;
+        }
+
+        try {
+          const parsed: UsageApiResponse = JSON.parse(data);
+          resolve({ data: parsed });
+        } catch (error) {
+          debug('Failed to parse web usage API response:', error);
+          resolve({ data: null, error: 'parse' });
+        }
+      });
+    });
+
+    req.on('error', (error) => {
+      debug('Web usage API request error:', error);
+      resolve({ data: null, error: 'network' });
+    });
+    req.on('timeout', () => {
+      debug('Web usage API request timeout');
+      req.destroy();
+      resolve({ data: null, error: 'timeout' });
+    });
+
+    req.end();
+  });
+}
+
+/**
+ * Try fetching usage via Claude Desktop web cookies as a fallback.
+ * Returns parsed UsageApiResult or null if cookies are unavailable.
+ */
+export async function fetchUsageViaWebCookies(homeDir: string): Promise<UsageApiResult | null> {
+  const cookies = readClaudeDesktopCookies(homeDir);
+  if (!cookies) {
+    return null;
+  }
+
+  debug('Attempting web cookie fallback for usage data');
+  return fetchWebUsageApi(cookies);
 }
 
 // Export for testing
