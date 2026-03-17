@@ -39,6 +39,34 @@ function isUsingCustomApiEndpoint(env = process.env) {
         return true;
     }
 }
+/**
+ * Check if user is using MiniMax as the API endpoint.
+ * MiniMax is a Chinese LLM provider with its own usage API.
+ */
+function isMinimaxEndpoint(env = process.env) {
+    const baseUrl = env.ANTHROPIC_BASE_URL?.trim() || env.ANTHROPIC_API_BASE_URL?.trim();
+    if (!baseUrl) {
+        return false;
+    }
+    return baseUrl.includes('minimaxi') || baseUrl.includes('minimax');
+}
+/**
+ * Get the API key from environment variables.
+ * Supports ANTHROPIC_AUTH_TOKEN (used by MiniMax) and ANTHROPIC_API_KEY.
+ */
+function getApiKey(env = process.env) {
+    // ANTHROPIC_AUTH_TOKEN is used by MiniMax
+    const authToken = env.ANTHROPIC_AUTH_TOKEN?.trim();
+    if (authToken) {
+        return authToken;
+    }
+    // Fallback to ANTHROPIC_API_KEY
+    const apiKey = env.ANTHROPIC_API_KEY?.trim();
+    if (apiKey) {
+        return apiKey;
+    }
+    return null;
+}
 function getCachePath(homeDir) {
     return path.join(getHudPluginDir(homeDir), '.usage-cache.json');
 }
@@ -268,15 +296,19 @@ export async function getUsage(overrides = {}) {
     const deps = { ...defaultDeps, ...overrides };
     const now = deps.now();
     const homeDir = deps.homeDir();
-    // Skip usage API if user is using a custom provider
-    if (isUsingCustomApiEndpoint()) {
-        debug('Skipping usage API: custom API endpoint configured');
-        return null;
-    }
     // Check file-based cache first
     const cacheState = readCacheState(homeDir, now, deps.ttls);
     if (cacheState?.isFresh) {
         return cacheState.data;
+    }
+    // Handle MiniMax endpoint specially
+    if (isMinimaxEndpoint()) {
+        return getMinimaxUsage(homeDir, now, deps.ttls);
+    }
+    // Skip usage API if user is using a custom provider (non-MiniMax)
+    if (isUsingCustomApiEndpoint()) {
+        debug('Skipping usage API: custom API endpoint configured');
+        return null;
     }
     let holdsCacheLock = false;
     const lockStatus = tryAcquireCacheLock(homeDir);
@@ -651,6 +683,76 @@ function readCredentials(homeDir, now, readKeychain) {
     }
     return null;
 }
+/**
+ * Get usage data from MiniMax API.
+ * MiniMax uses a different API endpoint for usage data compared to Anthropic.
+ */
+async function getMinimaxUsage(homeDir, now, ttls) {
+    // Check cache first
+    const cacheState = readCacheState(homeDir, now, ttls);
+    if (cacheState?.isFresh) {
+        return cacheState.data;
+    }
+    let holdsCacheLock = false;
+    const lockStatus = tryAcquireCacheLock(homeDir);
+    if (lockStatus === 'busy') {
+        if (cacheState) {
+            return cacheState.data;
+        }
+        return await waitForFreshCache(homeDir, () => now, ttls);
+    }
+    holdsCacheLock = lockStatus === 'acquired';
+    try {
+        const refreshedCache = readCache(homeDir, now, ttls);
+        if (refreshedCache) {
+            return refreshedCache;
+        }
+        // Get API key from environment
+        const apiKey = getApiKey();
+        if (!apiKey) {
+            debug('No API key found for MiniMax');
+            return null;
+        }
+        // Fetch usage from MiniMax API
+        const apiResult = await fetchMinimaxUsage(apiKey);
+        if (!apiResult.data) {
+            const failureResult = {
+                planName: 'MiniMax',
+                fiveHour: null,
+                sevenDay: null,
+                fiveHourResetAt: null,
+                sevenDayResetAt: null,
+                apiUnavailable: true,
+                apiError: apiResult.error,
+            };
+            writeCache(homeDir, failureResult, now);
+            return failureResult;
+        }
+        // Parse response
+        const fiveHour = parseUtilization(apiResult.data.five_hour?.utilization);
+        // resets_at already contains the calculated future time from fetchMinimaxUsage
+        const fiveHourResetAt = parseDate(apiResult.data.five_hour?.resets_at);
+        const result = {
+            planName: 'MiniMax',
+            fiveHour,
+            sevenDay: null,
+            fiveHourResetAt,
+            sevenDayResetAt: null,
+        };
+        // Write to cache
+        writeCache(homeDir, result, now, { lastGoodData: result });
+        return result;
+    }
+    catch (error) {
+        debug('getMinimaxUsage failed:', error);
+        return null;
+    }
+    finally {
+        if (holdsCacheLock) {
+            releaseCacheLock(homeDir);
+        }
+    }
+}
 function getPlanName(subscriptionType) {
     const lower = subscriptionType.toLowerCase();
     if (lower.includes('max'))
@@ -866,6 +968,110 @@ function fetchUsageApi(accessToken) {
         });
         req.on('timeout', () => {
             debug('API request timeout');
+            req.destroy();
+            resolve({ data: null, error: 'timeout' });
+        });
+        req.end();
+    });
+}
+/**
+ * Fetch usage data from MiniMax API.
+ */
+function fetchMinimaxUsage(apiKey) {
+    return new Promise((resolve) => {
+        const host = 'www.minimaxi.com';
+        const timeoutMs = getUsageApiTimeoutMs();
+        const proxyUrl = getProxyUrl(host);
+        const options = {
+            hostname: host,
+            path: '/v1/api/openplatform/coding_plan/remains',
+            method: 'GET',
+            headers: {
+                'Authorization': `Bearer ${apiKey}`,
+                'Content-Type': 'application/json',
+                'User-Agent': USAGE_API_USER_AGENT,
+            },
+            timeout: timeoutMs,
+            agent: proxyUrl ? createProxyTunnelAgent(proxyUrl) : undefined,
+        };
+        if (proxyUrl) {
+            debug('Using proxy for MiniMax usage API:', proxyUrl.origin);
+        }
+        const req = https.request(options, (res) => {
+            let data = '';
+            res.on('data', (chunk) => {
+                data += chunk.toString();
+            });
+            res.on('end', () => {
+                if (res.statusCode !== 200) {
+                    debug('MiniMax API returned non-200 status:', res.statusCode);
+                    const error = res.statusCode === 429
+                        ? 'rate-limited'
+                        : res.statusCode ? `http-${res.statusCode}` : 'http-error';
+                    resolve({ data: null, error });
+                    return;
+                }
+                try {
+                    const parsed = JSON.parse(data);
+                    // Check API-level error
+                    if (parsed.base_resp && parsed.base_resp.status_code !== 0) {
+                        debug('MiniMax API error:', parsed.base_resp.status_msg);
+                        resolve({ data: null, error: `minimax-${parsed.base_resp.status_msg}` });
+                        return;
+                    }
+                    if (!parsed.model_remains || parsed.model_remains.length === 0) {
+                        debug('MiniMax API response missing model_remains');
+                        resolve({ data: null, error: 'parse' });
+                        return;
+                    }
+                    // Get current model from environment to match the right model
+                    const currentModel = process.env.ANTHROPIC_MODEL || process.env.ANTHROPIC_DEFAULT_MODEL || '';
+                    // Find matching model in the array
+                    let modelData = parsed.model_remains[0];
+                    for (const m of parsed.model_remains) {
+                        if (currentModel.includes(m.model_name.replace('MiniMax-', ''))) {
+                            modelData = m;
+                            break;
+                        }
+                    }
+                    // Extract values from MiniMax response
+                    // Note: current_interval_usage_count is actually the REMAINING count, not used count!
+                    const total = modelData.current_interval_total_count;
+                    const remaining = modelData.current_interval_usage_count; // This is remaining, not used
+                    const used = total - remaining; // Calculate actual used count
+                    const remainsTimeMs = modelData.remains_time; // Remaining time in milliseconds
+                    // Calculate utilization as percentage USED
+                    const utilization = total > 0 ? Math.round((used / total) * 100) : 0;
+                    // For MiniMax: convert remaining time to future date for resets_at
+                    // This shows remaining time instead of actual reset time
+                    let resetsAt;
+                    if (remainsTimeMs && remainsTimeMs > 0) {
+                        resetsAt = new Date(Date.now() + remainsTimeMs).toISOString();
+                    }
+                    else if (modelData.end_time) {
+                        resetsAt = new Date(modelData.end_time).toISOString();
+                    }
+                    const converted = {
+                        five_hour: {
+                            utilization: utilization,
+                            resets_at: resetsAt,
+                        },
+                    };
+                    debug('MiniMax usage data:', { model: modelData.model_name, used, total, remaining, utilization, remainsTimeMs, resetsAt });
+                    resolve({ data: converted });
+                }
+                catch (error) {
+                    debug('Failed to parse MiniMax API response:', error);
+                    resolve({ data: null, error: 'parse' });
+                }
+            });
+        });
+        req.on('error', (error) => {
+            debug('MiniMax API request error:', error);
+            resolve({ data: null, error: 'network' });
+        });
+        req.on('timeout', () => {
+            debug('MiniMax API request timeout');
             req.destroy();
             resolve({ data: null, error: 'timeout' });
         });
