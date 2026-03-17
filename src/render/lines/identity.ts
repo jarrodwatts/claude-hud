@@ -1,5 +1,6 @@
 import type { RenderContext } from '../../types.js';
 import { getContextPercent, getBufferedPercent, getTotalTokens } from '../../stdin.js';
+import { getOutputSpeed } from '../../speed-tracker.js';
 import { coloredBar, dim, getContextColor, RESET } from '../colors.js';
 
 const DEBUG = process.env.DEBUG?.includes('claude-hud') || process.env.DEBUG === '*';
@@ -31,6 +32,17 @@ export function renderIdentityLine(ctx: RenderContext): string {
       const cache = formatTokens((usage.cache_creation_input_tokens ?? 0) + (usage.cache_read_input_tokens ?? 0));
       line += dim(` (in: ${input}, cache: ${cache})`);
     }
+  }
+
+  if (display?.showSpeed) {
+    const speed = getOutputSpeed(ctx.stdin);
+    if (speed !== null) {
+      line += ` \u2502 ${dim(`out: ${speed.toFixed(1)} tok/s`)}`;
+    }
+  }
+
+  if (display?.showDuration !== false && ctx.sessionDuration) {
+    line += ` \u2502 ${dim(`\u23F1\uFE0F  ${ctx.sessionDuration}`)}`;
   }
 
   return line;
