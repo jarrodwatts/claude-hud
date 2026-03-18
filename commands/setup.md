@@ -131,8 +131,12 @@ This is a [Claude Code platform limitation](https://github.com/anthropics/claude
 
 5. Generate command (quotes around runtime path handle spaces):
    ```
-   bash -c 'plugin_dir=$(ls -d "$HOME"/.claude/plugins/cache/claude-hud/claude-hud/*/ 2>/dev/null | awk -F/ '"'"'{ print $(NF-1) "\t" $0 }'"'"' | sort -t. -k1,1n -k2,2n -k3,3n -k4,4n | tail -1 | cut -f2-); exec "{RUNTIME_PATH}" "${plugin_dir}{SOURCE}"'
+   bash -c 'plugin_dir=$(ls -d "$HOME"/.claude/plugins/cache/claude-hud/claude-hud/*/ 2>/dev/null | awk -F/ '"'"'{ print $(NF-1) "\t" $0 }'"'"' | sort -t. -k1,1n -k2,2n -k3,3n -k4,4n | tail -1 | cut -f2-); [ -d "$plugin_dir" ] && exec "{RUNTIME_PATH}" "${plugin_dir}{SOURCE}"'
    ```
+
+   **CRITICAL**: The awk command MUST include `$0` to output the full path: `{ print $(NF-1) "\t" $0 }`.
+   Without `$0`, `plugin_dir` resolves to empty and node runs from the wrong directory.
+   After generating, verify: `echo "$plugin_dir"` should print a full absolute path like `/Users/.../.claude/plugins/cache/claude-hud/claude-hud/0.0.10/`.
 
 **Windows** (Platform: `win32`):
 
@@ -165,7 +169,13 @@ Choose instructions by `Shell:` value before running any commands:
 
 ## Step 2: Test Command
 
-Run the generated command. It should produce output (the HUD lines) within a few seconds.
+**First**, verify the path resolution works by extracting and testing `plugin_dir`:
+```bash
+plugin_dir=$(ls -d "$HOME"/.claude/plugins/cache/claude-hud/claude-hud/*/ 2>/dev/null | awk -F/ '{ print $(NF-1) "\t" $0 }' | sort -t. -k1,1n -k2,2n -k3,3n -k4,4n | tail -1 | cut -f2-); echo "plugin_dir='${plugin_dir}'"
+```
+This MUST print a full absolute path (e.g. `plugin_dir='/Users/.../.claude/plugins/cache/claude-hud/claude-hud/0.0.10/'`). If it prints `plugin_dir=''`, the awk command in Step 1 is wrong — go back and fix it.
+
+**Then** run the full generated command. It should produce output (the HUD lines) within a few seconds.
 
 - If it errors, do not proceed to Step 3.
 - If it hangs for more than a few seconds, cancel and debug.
