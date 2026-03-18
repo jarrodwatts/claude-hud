@@ -1,15 +1,5 @@
-/**
- * Returns an adaptive progress bar width based on the current terminal width.
- *
- * | Terminal width | Bar width |
- * |---|---|
- * | ≥ 100 cols | 10 (default) |
- * | 60–99 cols | 6 |
- * | < 60 cols | 4 |
- *
- * Falls back to width 10 when terminal width cannot be determined
- * (e.g. non-TTY, piped output).
- */
+// Returns a progress bar width scaled to the current terminal width.
+// Wide (>=100): 10, Medium (60-99): 6, Narrow (<60): 4. Defaults to 10.
 export function getAdaptiveBarWidth(): number {
   const stdoutCols = process.stdout?.columns;
   const cols = (typeof stdoutCols === 'number' && Number.isFinite(stdoutCols) && stdoutCols > 0)
