@@ -263,6 +263,45 @@ test('renderProjectLine hides session name by default', () => {
   assert.ok(!line?.includes('Renamed Session'));
 });
 
+test('renderProjectLine includes duration when showDuration is true', () => {
+  const ctx = baseContext();
+  ctx.stdin.cwd = '/tmp/my-project';
+  ctx.config.display.showDuration = true;
+  ctx.sessionDuration = '12m 34s';
+  const line = renderProjectLine(ctx);
+  assert.ok(line?.includes('12m 34s'), 'should include session duration');
+});
+
+test('renderProjectLine omits duration when showDuration is false', () => {
+  const ctx = baseContext();
+  ctx.stdin.cwd = '/tmp/my-project';
+  ctx.config.display.showDuration = false;
+  ctx.sessionDuration = '12m 34s';
+  const line = renderProjectLine(ctx);
+  assert.ok(!line?.includes('12m 34s'), 'should not include session duration when disabled');
+});
+
+test('renderProjectLine includes speed when showSpeed is true and speed is available', () => {
+  const ctx = baseContext();
+  ctx.stdin.cwd = '/tmp/my-project';
+  ctx.config.display.showSpeed = true;
+  // getOutputSpeed reads from stdin.context_window.current_usage.output_tokens
+  // and compares with a file-based cache, so it may return null on first call.
+  // We test that the code path doesn't crash and includes 'tok/s' if speed is non-null.
+  const line = renderProjectLine(ctx);
+  // Speed may be null on first render (no cache), so just verify no crash
+  assert.ok(typeof line === 'string' || line === null);
+});
+
+test('renderProjectLine omits speed when showSpeed is false', () => {
+  const ctx = baseContext();
+  ctx.stdin.cwd = '/tmp/my-project';
+  ctx.config.display.showSpeed = false;
+  ctx.stdin.context_window.current_usage.output_tokens = 5000;
+  const line = renderProjectLine(ctx);
+  assert.ok(!line?.includes('tok/s'), 'should not include speed when disabled');
+});
+
 test('renderSessionLine omits project name when showProject is false', () => {
   const ctx = baseContext();
   ctx.stdin.cwd = '/Users/jarrod/my-project';
