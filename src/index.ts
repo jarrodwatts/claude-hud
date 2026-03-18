@@ -1,14 +1,14 @@
-import { readStdin } from './stdin.js';
-import { parseTranscript } from './transcript.js';
-import { render } from './render/index.js';
-import { countConfigs } from './config-reader.js';
-import { getGitStatus } from './git.js';
-import { getUsage } from './usage-api.js';
-import { loadConfig } from './config.js';
-import { parseExtraCmdArg, runExtraCmd } from './extra-cmd.js';
-import type { RenderContext } from './types.js';
-import { fileURLToPath } from 'node:url';
-import { realpathSync } from 'node:fs';
+import { readStdin } from "./stdin.js";
+import { parseTranscript } from "./transcript.js";
+import { render } from "./render/index.js";
+import { countConfigs } from "./config-reader.js";
+import { getGitStatus } from "./git.js";
+import { getUsage } from "./usage-api.js";
+import { loadConfig } from "./config.js";
+import { parseExtraCmdArg, runExtraCmd } from "./extra-cmd.js";
+import type { RenderContext } from "./types.js";
+import { fileURLToPath } from "node:url";
+import { realpathSync } from "node:fs";
 
 export type MainDeps = {
   readStdin: typeof readStdin;
@@ -44,14 +44,15 @@ export async function main(overrides: Partial<MainDeps> = {}): Promise<void> {
     const stdin = await deps.readStdin();
 
     if (!stdin) {
-      deps.log('[claude-hud] Initializing...');
+      deps.log("[claude-hud] Initializing...");
       return;
     }
 
-    const transcriptPath = stdin.transcript_path ?? '';
+    const transcriptPath = stdin.transcript_path ?? "";
     const transcript = await deps.parseTranscript(transcriptPath);
 
-    const { claudeMdCount, rulesCount, mcpCount, hooksCount } = await deps.countConfigs(stdin.cwd);
+    const { claudeMdCount, rulesCount, mcpCount, hooksCount } =
+      await deps.countConfigs(stdin.cwd);
 
     const config = await deps.loadConfig();
     const gitStatus = config.gitStatus.enabled
@@ -59,19 +60,23 @@ export async function main(overrides: Partial<MainDeps> = {}): Promise<void> {
       : null;
 
     // Only fetch usage if enabled in config (replaces env var requirement)
-    const usageData = config.display.showUsage !== false
-      ? await deps.getUsage({
-          ttls: {
-            cacheTtlMs: config.usage.cacheTtlSeconds * 1000,
-            failureCacheTtlMs: config.usage.failureCacheTtlSeconds * 1000,
-          },
-        })
-      : null;
+    const usageData =
+      config.display.showUsage !== false
+        ? await deps.getUsage({
+            ttls: {
+              cacheTtlMs: config.usage.cacheTtlSeconds * 1000,
+              failureCacheTtlMs: config.usage.failureCacheTtlSeconds * 1000,
+            },
+          })
+        : null;
 
-    const extraCmd = deps.parseExtraCmdArg();
+    const extraCmd = deps.parseExtraCmdArg() ?? config.customLine;
     const extraLabel = extraCmd ? await deps.runExtraCmd(extraCmd) : null;
 
-    const sessionDuration = formatSessionDuration(transcript.sessionStart, deps.now);
+    const sessionDuration = formatSessionDuration(
+      transcript.sessionStart,
+      deps.now,
+    );
 
     const ctx: RenderContext = {
       stdin,
@@ -89,19 +94,25 @@ export async function main(overrides: Partial<MainDeps> = {}): Promise<void> {
 
     deps.render(ctx);
   } catch (error) {
-    deps.log('[claude-hud] Error:', error instanceof Error ? error.message : 'Unknown error');
+    deps.log(
+      "[claude-hud] Error:",
+      error instanceof Error ? error.message : "Unknown error",
+    );
   }
 }
 
-export function formatSessionDuration(sessionStart?: Date, now: () => number = () => Date.now()): string {
+export function formatSessionDuration(
+  sessionStart?: Date,
+  now: () => number = () => Date.now(),
+): string {
   if (!sessionStart) {
-    return '';
+    return "";
   }
 
   const ms = now() - sessionStart.getTime();
   const mins = Math.floor(ms / 60000);
 
-  if (mins < 1) return '<1m';
+  if (mins < 1) return "<1m";
   if (mins < 60) return `${mins}m`;
 
   const hours = Math.floor(mins / 60);
