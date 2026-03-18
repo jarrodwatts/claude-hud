@@ -41,6 +41,7 @@ export interface HudConfig {
   lineLayout: LineLayoutType;
   showSeparators: boolean;
   pathLevels: 1 | 2 | 3;
+  maxLineWidth: number | null;
   elementOrder: HudElement[];
   gitStatus: {
     enabled: boolean;
@@ -79,6 +80,7 @@ export const DEFAULT_CONFIG: HudConfig = {
   lineLayout: 'expanded',
   showSeparators: false,
   pathLevels: 1,
+  maxLineWidth: null,
   elementOrder: [...DEFAULT_ELEMENT_ORDER],
   gitStatus: {
     enabled: true,
@@ -230,6 +232,10 @@ export function mergeConfig(userConfig: Partial<HudConfig>): HudConfig {
     ? migrated.pathLevels
     : DEFAULT_CONFIG.pathLevels;
 
+  const maxLineWidth = (typeof migrated.maxLineWidth === 'number' && Number.isInteger(migrated.maxLineWidth) && migrated.maxLineWidth > 0)
+    ? migrated.maxLineWidth
+    : DEFAULT_CONFIG.maxLineWidth;
+
   const elementOrder = validateElementOrder(migrated.elementOrder);
 
   const gitStatus = {
@@ -327,7 +333,7 @@ export function mergeConfig(userConfig: Partial<HudConfig>): HudConfig {
       : DEFAULT_CONFIG.colors.critical,
   };
 
-  return { lineLayout, showSeparators, pathLevels, elementOrder, gitStatus, display, usage, colors };
+  return { lineLayout, showSeparators, pathLevels, maxLineWidth, elementOrder, gitStatus, display, usage, colors };
 }
 
 export async function loadConfig(): Promise<HudConfig> {

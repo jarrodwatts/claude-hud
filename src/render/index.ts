@@ -411,7 +411,8 @@ function renderExpanded(ctx: RenderContext): Array<{ line: string; isActivity: b
 export function render(ctx: RenderContext): void {
   const lineLayout = ctx.config?.lineLayout ?? 'expanded';
   const showSeparators = ctx.config?.showSeparators ?? false;
-  const terminalWidth = getTerminalWidth();
+  const maxLineWidth = ctx.config?.maxLineWidth ?? null;
+  const terminalWidth = maxLineWidth ?? getTerminalWidth();
 
   let lines: string[];
 
