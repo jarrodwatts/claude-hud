@@ -87,4 +87,5 @@ export interface RenderContext {
   usageData: UsageData | null;
   config: HudConfig;
   extraLabel: string | null;
+  claudeCodeVersion?: string;
 }

@@ -9,6 +9,22 @@ import { parseExtraCmdArg, runExtraCmd } from './extra-cmd.js';
 import type { RenderContext } from './types.js';
 import { fileURLToPath } from 'node:url';
 import { realpathSync } from 'node:fs';
+import { execSync } from 'node:child_process';
+
+let _cachedClaudeCodeVersion: string | undefined;
+
+function getClaudeCodeVersion(): string | undefined {
+  if (_cachedClaudeCodeVersion !== undefined) return _cachedClaudeCodeVersion || undefined;
+  try {
+    const output = execSync('claude --version', { timeout: 2000, stdio: ['ignore', 'pipe', 'ignore'] })
+      .toString().trim();
+    // Output is like "2.1.77 (Claude Code)" — extract just the version number
+    _cachedClaudeCodeVersion = output.split(' ')[0] ?? '';
+  } catch {
+    _cachedClaudeCodeVersion = '';
+  }
+  return _cachedClaudeCodeVersion || undefined;
+}
 
 export type MainDeps = {
   readStdin: typeof readStdin;
@@ -73,6 +89,8 @@ export async function main(overrides: Partial<MainDeps> = {}): Promise<void> {
 
     const sessionDuration = formatSessionDuration(transcript.sessionStart, deps.now);
 
+    const claudeCodeVersion = config.display.showClaudeCodeVersion ? getClaudeCodeVersion() : undefined;
+
     const ctx: RenderContext = {
       stdin,
       transcript,
@@ -85,6 +103,7 @@ export async function main(overrides: Partial<MainDeps> = {}): Promise<void> {
       usageData,
       config,
       extraLabel,
+      claudeCodeVersion,
     };
 
     deps.render(ctx);

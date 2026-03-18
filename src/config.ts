@@ -7,7 +7,7 @@ export type LineLayoutType = 'compact' | 'expanded';
 
 export type AutocompactBufferMode = 'enabled' | 'disabled';
 export type ContextValueMode = 'percent' | 'tokens' | 'remaining';
-export type HudElement = 'project' | 'context' | 'usage' | 'environment' | 'tools' | 'agents' | 'todos';
+export type HudElement = 'project' | 'context' | 'usage' | 'environment' | 'version' | 'tools' | 'agents' | 'todos';
 export type HudColorName =
   | 'red'
   | 'green'
@@ -30,6 +30,7 @@ export const DEFAULT_ELEMENT_ORDER: HudElement[] = [
   'context',
   'usage',
   'environment',
+  'version',
   'tools',
   'agents',
   'todos',
@@ -63,6 +64,7 @@ export interface HudConfig {
     showAgents: boolean;
     showTodos: boolean;
     showSessionName: boolean;
+    showClaudeCodeVersion: boolean;
     autocompactBuffer: AutocompactBufferMode;
     usageThreshold: number;
     sevenDayThreshold: number;
@@ -101,6 +103,7 @@ export const DEFAULT_CONFIG: HudConfig = {
     showAgents: false,
     showTodos: false,
     showSessionName: false,
+    showClaudeCodeVersion: false,
     autocompactBuffer: 'enabled',
     usageThreshold: 0,
     sevenDayThreshold: 80,
@@ -290,6 +293,9 @@ export function mergeConfig(userConfig: Partial<HudConfig>): HudConfig {
     showSessionName: typeof migrated.display?.showSessionName === 'boolean'
       ? migrated.display.showSessionName
       : DEFAULT_CONFIG.display.showSessionName,
+    showClaudeCodeVersion: typeof migrated.display?.showClaudeCodeVersion === 'boolean'
+      ? migrated.display.showClaudeCodeVersion
+      : DEFAULT_CONFIG.display.showClaudeCodeVersion,
     autocompactBuffer: validateAutocompactBuffer(migrated.display?.autocompactBuffer)
       ? migrated.display.autocompactBuffer
       : DEFAULT_CONFIG.display.autocompactBuffer,

@@ -10,6 +10,7 @@ import {
   renderProjectLine,
   renderEnvironmentLine,
   renderUsageLine,
+  renderVersionLine,
 } from './lines/index.js';
 import { dim, RESET } from './colors.js';
 
@@ -339,6 +340,8 @@ function renderElementLine(ctx: RenderContext, element: HudElement): string | nu
       return renderUsageLine(ctx);
     case 'environment':
       return renderEnvironmentLine(ctx);
+    case 'version':
+      return renderVersionLine(ctx);
     case 'tools':
       return display?.showTools === false ? null : renderToolsLine(ctx);
     case 'agents':
