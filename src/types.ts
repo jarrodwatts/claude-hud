@@ -85,6 +85,7 @@ export interface RenderContext {
   sessionDuration: string;
   gitStatus: GitStatus | null;
   usageData: UsageData | null;
+  accountEmail: string | null;
   config: HudConfig;
   extraLabel: string | null;
 }

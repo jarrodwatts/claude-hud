@@ -109,6 +109,11 @@ export function renderSessionLine(ctx: RenderContext): string {
     parts.push(gitPart);
   }
 
+  // Account email
+  if (display?.showAccountEmail && ctx.accountEmail) {
+    parts.push(dim(ctx.accountEmail));
+  }
+
   // Session name (custom title from /rename, or auto-generated slug)
   if (display?.showSessionName && ctx.transcript.sessionName) {
     parts.push(dim(ctx.transcript.sessionName));

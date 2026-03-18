@@ -3,7 +3,7 @@ import { parseTranscript } from './transcript.js';
 import { render } from './render/index.js';
 import { countConfigs } from './config-reader.js';
 import { getGitStatus } from './git.js';
-import { getUsage } from './usage-api.js';
+import { getUsage, getAccountEmail } from './usage-api.js';
 import { loadConfig } from './config.js';
 import { parseExtraCmdArg, runExtraCmd } from './extra-cmd.js';
 import type { RenderContext } from './types.js';
@@ -68,6 +68,11 @@ export async function main(overrides: Partial<MainDeps> = {}): Promise<void> {
         })
       : null;
 
+    // Only fetch account email if enabled in config
+    const accountEmail = config.display.showAccountEmail
+      ? await getAccountEmail()
+      : null;
+
     const extraCmd = deps.parseExtraCmdArg();
     const extraLabel = extraCmd ? await deps.runExtraCmd(extraCmd) : null;
 
@@ -83,6 +88,7 @@ export async function main(overrides: Partial<MainDeps> = {}): Promise<void> {
       sessionDuration,
       gitStatus,
       usageData,
+      accountEmail,
       config,
       extraLabel,
     };

@@ -1071,6 +1071,143 @@ export function parseRetryAfterSeconds(
   return retryAfterSeconds > 0 ? retryAfterSeconds : undefined;
 }
 
+// --- Account Email ---
+
+const EMAIL_CACHE_TTL_MS = 60 * 60_000; // 1 hour — email rarely changes
+const EMAIL_FAILURE_CACHE_TTL_MS = 5 * 60_000; // 5 min on failure
+
+interface EmailCacheFile {
+  email: string | null;
+  timestamp: number;
+  isFailure?: boolean;
+}
+
+function getEmailCachePath(homeDir: string): string {
+  return path.join(getHudPluginDir(homeDir), '.email-cache.json');
+}
+
+function readEmailCache(homeDir: string, now: number): string | null | undefined {
+  try {
+    const cachePath = getEmailCachePath(homeDir);
+    if (!fs.existsSync(cachePath)) return undefined;
+
+    const content = fs.readFileSync(cachePath, 'utf8');
+    const cache: EmailCacheFile = JSON.parse(content);
+    const ttl = cache.isFailure ? EMAIL_FAILURE_CACHE_TTL_MS : EMAIL_CACHE_TTL_MS;
+
+    if (now - cache.timestamp < ttl) {
+      return cache.email;
+    }
+    return undefined; // cache expired
+  } catch {
+    return undefined;
+  }
+}
+
+function writeEmailCache(homeDir: string, email: string | null, timestamp: number, isFailure?: boolean): void {
+  try {
+    const cachePath = getEmailCachePath(homeDir);
+    const cacheDir = path.dirname(cachePath);
+    if (!fs.existsSync(cacheDir)) {
+      fs.mkdirSync(cacheDir, { recursive: true });
+    }
+    const cache: EmailCacheFile = { email, timestamp, isFailure };
+    fs.writeFileSync(cachePath, JSON.stringify(cache), 'utf8');
+  } catch {
+    // Ignore cache write failures
+  }
+}
+
+function fetchEmailApi(accessToken: string): Promise<{ email: string | null; error?: string }> {
+  return new Promise((resolve) => {
+    const host = 'api.anthropic.com';
+    const timeoutMs = getUsageApiTimeoutMs();
+    const proxyUrl = getProxyUrl(host);
+    const options = {
+      hostname: host,
+      path: '/api/oauth/userinfo',
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${accessToken}`,
+        'anthropic-beta': 'oauth-2025-04-20',
+        'User-Agent': USAGE_API_USER_AGENT,
+      },
+      timeout: timeoutMs,
+      agent: proxyUrl ? createProxyTunnelAgent(proxyUrl) : undefined,
+    };
+
+    const req = https.request(options, (res) => {
+      let data = '';
+      res.on('data', (chunk: Buffer) => {
+        data += chunk.toString();
+      });
+      res.on('end', () => {
+        if (res.statusCode !== 200) {
+          debug('Email API returned non-200 status:', res.statusCode);
+          resolve({ email: null, error: `http-${res.statusCode}` });
+          return;
+        }
+        try {
+          const parsed = JSON.parse(data) as { email?: string };
+          resolve({ email: parsed.email ?? null });
+        } catch {
+          debug('Failed to parse email API response');
+          resolve({ email: null, error: 'parse' });
+        }
+      });
+    });
+
+    req.on('error', (error) => {
+      debug('Email API request error:', error);
+      resolve({ email: null, error: 'network' });
+    });
+    req.on('timeout', () => {
+      debug('Email API request timeout');
+      req.destroy();
+      resolve({ email: null, error: 'timeout' });
+    });
+
+    req.end();
+  });
+}
+
+/**
+ * Get the account email associated with the current OAuth credentials.
+ * Uses the Anthropic userinfo endpoint with file-based caching (1 hour TTL).
+ * Returns null if unavailable (API user, endpoint not found, etc.).
+ */
+export async function getAccountEmail(): Promise<string | null> {
+  const homeDir = os.homedir();
+  const now = Date.now();
+
+  // Skip if using custom API endpoint
+  if (isUsingCustomApiEndpoint()) {
+    return null;
+  }
+
+  // Check cache first
+  const cached = readEmailCache(homeDir, now);
+  if (cached !== undefined) {
+    return cached;
+  }
+
+  // Read credentials
+  const credentials = readCredentials(homeDir, now, readKeychainCredentials);
+  if (!credentials) {
+    return null;
+  }
+
+  // Fetch from API
+  const result = await fetchEmailApi(credentials.accessToken);
+  if (result.error) {
+    writeEmailCache(homeDir, null, now, true);
+    return null;
+  }
+
+  writeEmailCache(homeDir, result.email, now);
+  return result.email;
+}
+
 // Export for testing
 export function clearCache(homeDir?: string): void {
   if (homeDir) {
