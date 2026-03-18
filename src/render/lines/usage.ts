@@ -2,19 +2,8 @@ import type { RenderContext } from '../../types.js';
 import { isLimitReached } from '../../types.js';
 import { getProviderLabel } from '../../stdin.js';
 import { critical, warning, dim, getQuotaColor, quotaBar, RESET } from '../colors.js';
+import { getAdaptiveBarWidth } from '../../utils/terminal.js';
 
-function getBarWidth(): number {
-  const stdoutCols = process.stdout?.columns;
-  const cols = (typeof stdoutCols === 'number' && Number.isFinite(stdoutCols) && stdoutCols > 0)
-    ? stdoutCols
-    : Number.parseInt(process.env.COLUMNS ?? '', 10);
-  if (Number.isFinite(cols) && cols > 0) {
-    if (cols >= 100) return 10;
-    if (cols >= 60) return 6;
-    return 4;
-  }
-  return 10;
-}
 export function renderUsageLine(ctx: RenderContext): string | null {
   const display = ctx.config?.display;
   const colors = ctx.config?.colors;
@@ -60,8 +49,8 @@ export function renderUsageLine(ctx: RenderContext): string | null {
   const usageBarEnabled = display?.usageBarEnabled ?? true;
   const fiveHourPart = usageBarEnabled
     ? (fiveHourReset
-        ? `${quotaBar(fiveHour ?? 0, getBarWidth(), colors)} ${fiveHourDisplay} (${fiveHourReset} / 5h)`
-        : `${quotaBar(fiveHour ?? 0, getBarWidth(), colors)} ${fiveHourDisplay}`)
+        ? `${quotaBar(fiveHour ?? 0, getAdaptiveBarWidth(), colors)} ${fiveHourDisplay} (${fiveHourReset} / 5h)`
+        : `${quotaBar(fiveHour ?? 0, getAdaptiveBarWidth(), colors)} ${fiveHourDisplay}`)
     : (fiveHourReset
         ? `5h: ${fiveHourDisplay} (${fiveHourReset})`
         : `5h: ${fiveHourDisplay}`);
@@ -75,8 +64,8 @@ export function renderUsageLine(ctx: RenderContext): string | null {
     const sevenDayReset = formatResetTime(ctx.usageData.sevenDayResetAt);
     const sevenDayPart = usageBarEnabled
       ? (sevenDayReset
-          ? `${quotaBar(sevenDay, getBarWidth(), colors)} ${sevenDayDisplay} (${sevenDayReset} / 7d)`
-          : `${quotaBar(sevenDay, getBarWidth(), colors)} ${sevenDayDisplay}`)
+          ? `${quotaBar(sevenDay, getAdaptiveBarWidth(), colors)} ${sevenDayDisplay} (${sevenDayReset} / 7d)`
+          : `${quotaBar(sevenDay, getAdaptiveBarWidth(), colors)} ${sevenDayDisplay}`)
       : (sevenDayReset
           ? `7d: ${sevenDayDisplay} (${sevenDayReset})`
           : `7d: ${sevenDayDisplay}`);

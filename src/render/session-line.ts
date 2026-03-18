@@ -3,25 +3,7 @@ import { isLimitReached } from '../types.js';
 import { getContextPercent, getBufferedPercent, getModelName, getProviderLabel, getTotalTokens } from '../stdin.js';
 import { getOutputSpeed } from '../speed-tracker.js';
 import { coloredBar, critical, cyan, dim, magenta, red, warning, yellow, getContextColor, getQuotaColor, quotaBar, RESET } from './colors.js';
-
-/**
- * Returns the progress bar width scaled to the current terminal width.
- * - Wide terminal (≥100 cols): 10 (default)
- * - Medium terminal (60–99 cols): 6
- * - Narrow terminal (<60 cols): 4
- */
-function getBarWidth(): number {
-  const stdoutCols = process.stdout?.columns;
-  const cols = (typeof stdoutCols === 'number' && Number.isFinite(stdoutCols) && stdoutCols > 0)
-    ? stdoutCols
-    : Number.parseInt(process.env.COLUMNS ?? '', 10);
-  if (Number.isFinite(cols) && cols > 0) {
-    if (cols >= 100) return 10;
-    if (cols >= 60) return 6;
-    return 4;
-  }
-  return 10;
-}
+import { getAdaptiveBarWidth } from '../utils/terminal.js';
 
 const DEBUG = process.env.DEBUG?.includes('claude-hud') || process.env.DEBUG === '*';
 
@@ -42,7 +24,7 @@ export function renderSessionLine(ctx: RenderContext): string {
   }
 
   const colors = ctx.config?.colors;
-  const barWidth = getBarWidth();
+  const barWidth = getAdaptiveBarWidth();
   const bar = coloredBar(percent, barWidth, colors);
 
   const parts: string[] = [];
