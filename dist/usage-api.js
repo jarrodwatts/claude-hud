@@ -212,7 +212,7 @@ function tryAcquireCacheLock(homeDir) {
         }
         return tryAcquireCacheLock(homeDir);
     }
-    if (lockTimestamp != null && Date.now() - lockTimestamp > CACHE_LOCK_STALE_MS) {
+    if (lockTimestamp == null || Date.now() - lockTimestamp > CACHE_LOCK_STALE_MS) {
         try {
             fs.unlinkSync(lockPath);
         }
