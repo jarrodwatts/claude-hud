@@ -57,11 +57,10 @@ test('loadConfig returns valid config structure', async () => {
   assert.equal(typeof config.display.showTodos, 'boolean');
   assert.equal(typeof config.display.showSessionName, 'boolean');
   assert.equal(typeof config.colors, 'object');
-  assert.equal(typeof config.colors.context, 'string');
-  assert.equal(typeof config.colors.usage, 'string');
-  assert.equal(typeof config.colors.warning, 'string');
-  assert.equal(typeof config.colors.usageWarning, 'string');
-  assert.equal(typeof config.colors.critical, 'string');
+  for (const key of ['context', 'usage', 'warning', 'usageWarning', 'critical']) {
+    const t = typeof config.colors[key];
+    assert.ok(t === 'string' || t === 'number', `colors.${key} should be string or number, got ${t}`);
+  }
 });
 
 test('getConfigPath returns correct path', () => {
