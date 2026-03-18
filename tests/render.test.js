@@ -130,6 +130,38 @@ test('getContextColor and getQuotaColor respect custom semantic overrides', () =
   assert.equal(getQuotaColor(80, colors), '\x1b[33m');
 });
 
+test('getContextColor and getQuotaColor resolve 256-color indices', () => {
+  const colors = {
+    context: 82,
+    usage: 214,
+    warning: 220,
+    usageWarning: 97,
+    critical: 196,
+  };
+
+  assert.equal(getContextColor(10, colors), '\x1b[38;5;82m');
+  assert.equal(getContextColor(70, colors), '\x1b[38;5;220m');
+  assert.equal(getContextColor(90, colors), '\x1b[38;5;196m');
+  assert.equal(getQuotaColor(25, colors), '\x1b[38;5;214m');
+  assert.equal(getQuotaColor(80, colors), '\x1b[38;5;97m');
+  assert.equal(getQuotaColor(95, colors), '\x1b[38;5;196m');
+});
+
+test('getContextColor and getQuotaColor resolve hex color strings', () => {
+  const colors = {
+    context: '#33ff00',
+    usage: '#FFB000',
+    warning: '#ff87d7',
+    usageWarning: '#af87ff',
+    critical: '#ff0000',
+  };
+
+  assert.equal(getContextColor(10, colors), '\x1b[38;2;51;255;0m');
+  assert.equal(getContextColor(70, colors), '\x1b[38;2;255;135;215m');
+  assert.equal(getQuotaColor(25, colors), '\x1b[38;2;255;176;0m');
+  assert.equal(getQuotaColor(80, colors), '\x1b[38;2;175;135;255m');
+});
+
 test('renderSessionLine includes config counts when present', () => {
   const ctx = baseContext();
   ctx.stdin.cwd = '/tmp/my-project';

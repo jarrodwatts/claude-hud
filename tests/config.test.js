@@ -275,3 +275,78 @@ test('mergeConfig falls back to defaults for invalid usage values', () => {
   assert.equal(config.usage.cacheTtlSeconds, DEFAULT_CONFIG.usage.cacheTtlSeconds);
   assert.equal(config.usage.failureCacheTtlSeconds, DEFAULT_CONFIG.usage.failureCacheTtlSeconds);
 });
+
+// --- Custom color value tests (256-color and hex) ---
+
+test('mergeConfig accepts 256-color index values', () => {
+  const config = mergeConfig({
+    colors: {
+      context: 82,
+      usage: 214,
+      warning: 220,
+      usageWarning: 97,
+      critical: 196,
+    },
+  });
+  assert.equal(config.colors.context, 82);
+  assert.equal(config.colors.usage, 214);
+  assert.equal(config.colors.warning, 220);
+  assert.equal(config.colors.usageWarning, 97);
+  assert.equal(config.colors.critical, 196);
+});
+
+test('mergeConfig accepts hex color strings', () => {
+  const config = mergeConfig({
+    colors: {
+      context: '#33ff00',
+      usage: '#FFB000',
+      warning: '#ff87d7',
+    },
+  });
+  assert.equal(config.colors.context, '#33ff00');
+  assert.equal(config.colors.usage, '#FFB000');
+  assert.equal(config.colors.warning, '#ff87d7');
+});
+
+test('mergeConfig accepts mixed named, 256-color, and hex values', () => {
+  const config = mergeConfig({
+    colors: {
+      context: '#33ff00',
+      usage: 214,
+      warning: 'yellow',
+      usageWarning: '#af87ff',
+      critical: 'red',
+    },
+  });
+  assert.equal(config.colors.context, '#33ff00');
+  assert.equal(config.colors.usage, 214);
+  assert.equal(config.colors.warning, 'yellow');
+  assert.equal(config.colors.usageWarning, '#af87ff');
+  assert.equal(config.colors.critical, 'red');
+});
+
+test('mergeConfig rejects invalid 256-color indices', () => {
+  const config = mergeConfig({
+    colors: {
+      context: 256,
+      usage: -1,
+      warning: 1.5,
+    },
+  });
+  assert.equal(config.colors.context, DEFAULT_CONFIG.colors.context);
+  assert.equal(config.colors.usage, DEFAULT_CONFIG.colors.usage);
+  assert.equal(config.colors.warning, DEFAULT_CONFIG.colors.warning);
+});
+
+test('mergeConfig rejects invalid hex strings', () => {
+  const config = mergeConfig({
+    colors: {
+      context: '#fff',
+      usage: '#gggggg',
+      warning: 'ff0000',
+    },
+  });
+  assert.equal(config.colors.context, DEFAULT_CONFIG.colors.context);
+  assert.equal(config.colors.usage, DEFAULT_CONFIG.colors.usage);
+  assert.equal(config.colors.warning, DEFAULT_CONFIG.colors.warning);
+});
