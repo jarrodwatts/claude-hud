@@ -4,15 +4,17 @@ import { getProviderLabel } from '../../stdin.js';
 import { critical, warning, dim, getQuotaColor, quotaBar, RESET } from '../colors.js';
 
 function getBarWidth(): number {
-  const cols = process.stdout?.columns;
-  if (typeof cols === 'number' && Number.isFinite(cols) && cols > 0) {
+  const stdoutCols = process.stdout?.columns;
+  const cols = (typeof stdoutCols === 'number' && Number.isFinite(stdoutCols) && stdoutCols > 0)
+    ? stdoutCols
+    : Number.parseInt(process.env.COLUMNS ?? '', 10);
+  if (Number.isFinite(cols) && cols > 0) {
     if (cols >= 100) return 10;
     if (cols >= 60) return 6;
     return 4;
   }
   return 10;
 }
-
 export function renderUsageLine(ctx: RenderContext): string | null {
   const display = ctx.config?.display;
   const colors = ctx.config?.colors;

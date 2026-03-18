@@ -3,15 +3,17 @@ import { getContextPercent, getBufferedPercent, getTotalTokens } from '../../std
 import { coloredBar, dim, getContextColor, RESET } from '../colors.js';
 
 function getBarWidth(): number {
-  const cols = process.stdout?.columns;
-  if (typeof cols === 'number' && Number.isFinite(cols) && cols > 0) {
+  const stdoutCols = process.stdout?.columns;
+  const cols = (typeof stdoutCols === 'number' && Number.isFinite(stdoutCols) && stdoutCols > 0)
+    ? stdoutCols
+    : Number.parseInt(process.env.COLUMNS ?? '', 10);
+  if (Number.isFinite(cols) && cols > 0) {
     if (cols >= 100) return 10;
     if (cols >= 60) return 6;
     return 4;
   }
   return 10;
 }
-
 const DEBUG = process.env.DEBUG?.includes('claude-hud') || process.env.DEBUG === '*';
 
 export function renderIdentityLine(ctx: RenderContext): string {
