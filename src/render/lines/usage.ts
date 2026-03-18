@@ -3,6 +3,16 @@ import { isLimitReached } from '../../types.js';
 import { getProviderLabel } from '../../stdin.js';
 import { critical, warning, dim, getQuotaColor, quotaBar, RESET } from '../colors.js';
 
+function getBarWidth(): number {
+  const cols = process.stdout?.columns;
+  if (typeof cols === 'number' && Number.isFinite(cols) && cols > 0) {
+    if (cols >= 100) return 10;
+    if (cols >= 60) return 6;
+    return 4;
+  }
+  return 10;
+}
+
 export function renderUsageLine(ctx: RenderContext): string | null {
   const display = ctx.config?.display;
   const colors = ctx.config?.colors;
@@ -48,8 +58,8 @@ export function renderUsageLine(ctx: RenderContext): string | null {
   const usageBarEnabled = display?.usageBarEnabled ?? true;
   const fiveHourPart = usageBarEnabled
     ? (fiveHourReset
-        ? `${quotaBar(fiveHour ?? 0, 10, colors)} ${fiveHourDisplay} (${fiveHourReset} / 5h)`
-        : `${quotaBar(fiveHour ?? 0, 10, colors)} ${fiveHourDisplay}`)
+        ? `${quotaBar(fiveHour ?? 0, getBarWidth(), colors)} ${fiveHourDisplay} (${fiveHourReset} / 5h)`
+        : `${quotaBar(fiveHour ?? 0, getBarWidth(), colors)} ${fiveHourDisplay}`)
     : (fiveHourReset
         ? `5h: ${fiveHourDisplay} (${fiveHourReset})`
         : `5h: ${fiveHourDisplay}`);
@@ -63,8 +73,8 @@ export function renderUsageLine(ctx: RenderContext): string | null {
     const sevenDayReset = formatResetTime(ctx.usageData.sevenDayResetAt);
     const sevenDayPart = usageBarEnabled
       ? (sevenDayReset
-          ? `${quotaBar(sevenDay, 10, colors)} ${sevenDayDisplay} (${sevenDayReset} / 7d)`
-          : `${quotaBar(sevenDay, 10, colors)} ${sevenDayDisplay}`)
+          ? `${quotaBar(sevenDay, getBarWidth(), colors)} ${sevenDayDisplay} (${sevenDayReset} / 7d)`
+          : `${quotaBar(sevenDay, getBarWidth(), colors)} ${sevenDayDisplay}`)
       : (sevenDayReset
           ? `7d: ${sevenDayDisplay} (${sevenDayReset})`
           : `7d: ${sevenDayDisplay}`);

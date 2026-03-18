@@ -4,6 +4,22 @@ import { getContextPercent, getBufferedPercent, getModelName, getProviderLabel, 
 import { getOutputSpeed } from '../speed-tracker.js';
 import { coloredBar, critical, cyan, dim, magenta, red, warning, yellow, getContextColor, getQuotaColor, quotaBar, RESET } from './colors.js';
 
+/**
+ * Returns the progress bar width scaled to the current terminal width.
+ * - Wide terminal (≥100 cols): 10 (default)
+ * - Medium terminal (60–99 cols): 6
+ * - Narrow terminal (<60 cols): 4
+ */
+function getBarWidth(): number {
+  const cols = process.stdout?.columns;
+  if (typeof cols === 'number' && Number.isFinite(cols) && cols > 0) {
+    if (cols >= 100) return 10;
+    if (cols >= 60) return 6;
+    return 4;
+  }
+  return 10;
+}
+
 const DEBUG = process.env.DEBUG?.includes('claude-hud') || process.env.DEBUG === '*';
 
 /**
@@ -23,7 +39,8 @@ export function renderSessionLine(ctx: RenderContext): string {
   }
 
   const colors = ctx.config?.colors;
-  const bar = coloredBar(percent, 10, colors);
+  const barWidth = getBarWidth();
+  const bar = coloredBar(percent, barWidth, colors);
 
   const parts: string[] = [];
   const display = ctx.config?.display;
@@ -164,8 +181,8 @@ export function renderSessionLine(ctx: RenderContext): string {
         const usageBarEnabled = display?.usageBarEnabled ?? true;
         const fiveHourPart = usageBarEnabled
           ? (fiveHourReset
-              ? `${quotaBar(fiveHour ?? 0, 10, colors)} ${fiveHourDisplay} (${fiveHourReset} / 5h)`
-              : `${quotaBar(fiveHour ?? 0, 10, colors)} ${fiveHourDisplay}`)
+              ? `${quotaBar(fiveHour ?? 0, barWidth, colors)} ${fiveHourDisplay} (${fiveHourReset} / 5h)`
+              : `${quotaBar(fiveHour ?? 0, barWidth, colors)} ${fiveHourDisplay}`)
           : (fiveHourReset
               ? `5h: ${fiveHourDisplay} (${fiveHourReset})`
               : `5h: ${fiveHourDisplay}`);
@@ -176,8 +193,8 @@ export function renderSessionLine(ctx: RenderContext): string {
           const sevenDayReset = formatResetTime(ctx.usageData.sevenDayResetAt);
           const sevenDayPart = usageBarEnabled
             ? (sevenDayReset
-                ? `${quotaBar(sevenDay, 10, colors)} ${sevenDayDisplay} (${sevenDayReset} / 7d)`
-                : `${quotaBar(sevenDay, 10, colors)} ${sevenDayDisplay}`)
+                ? `${quotaBar(sevenDay, barWidth, colors)} ${sevenDayDisplay} (${sevenDayReset} / 7d)`
+                : `${quotaBar(sevenDay, barWidth, colors)} ${sevenDayDisplay}`)
             : (sevenDayReset
                 ? `7d: ${sevenDayDisplay} (${sevenDayReset})`
                 : `7d: ${sevenDayDisplay}`);
