@@ -1,5 +1,6 @@
 import type { RenderContext } from '../../types.js';
 import { getModelName, getProviderLabel } from '../../stdin.js';
+import { getOutputSpeed } from '../../speed-tracker.js';
 import { cyan, dim, magenta, yellow, red } from '../colors.js';
 
 export function renderProjectLine(ctx: RenderContext): string | null {
@@ -75,6 +76,17 @@ export function renderProjectLine(ctx: RenderContext): string | null {
 
   if (ctx.extraLabel) {
     parts.push(dim(ctx.extraLabel));
+  }
+
+  if (display?.showSpeed) {
+    const speed = getOutputSpeed(ctx.stdin);
+    if (speed !== null) {
+      parts.push(dim(`out: ${speed.toFixed(1)} tok/s`));
+    }
+  }
+
+  if (display?.showDuration !== false && ctx.sessionDuration) {
+    parts.push(dim(`⏱️  ${ctx.sessionDuration}`));
   }
 
   if (parts.length === 0) {
