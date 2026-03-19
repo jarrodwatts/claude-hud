@@ -171,6 +171,22 @@ Run the generated command. It should produce output (the HUD lines) within a few
 - If it hangs for more than a few seconds, cancel and debug.
 - This test catches issues like broken runtime binaries, missing plugins, or path problems.
 
++ **Pre-warm the usage cache**: After the test succeeds, run the command once with
++ sample stdin data to trigger an initial usage API fetch and populate `.usage-cache.json`:
++ 
++ **macOS/Linux**:
++ ```bash
++ echo '{"model":{"display_name":"claude-opus-4-5"},"session_id":"warmup","timestamp":"'$(date -u +%Y-%m-%dT%H:%M:%SZ)'"}' | {GENERATED_COMMAND} > /dev/null 2>&1 &
++ ```
++ **Windows (PowerShell)**:
++ ```powershell
++ $warmup = '{"model":{"display_name":"claude-opus-4-5"},"session_id":"warmup","timestamp":"2024-01-01T00:00:00Z"}'
++ Start-Process -NoNewWindow -FilePath "powershell" -ArgumentList "-Command `"$warmup | {GENERATED_COMMAND}`"" 2>$null
++ ```
++ This runs in the background (`&`) so setup doesn't block. By the time the user starts
++ their first session, `.usage-cache.json` will already exist and the Usage line will
++ render immediately instead of showing `(loading...)`.
+
 ## Step 3: Apply Configuration
 
 Read the settings file and merge in the statusLine config, preserving all existing settings:

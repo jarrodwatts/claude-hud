@@ -496,6 +496,13 @@ function isKeychainBackoff(homeDir: string, now: number): boolean {
   try {
     const backoffPath = getKeychainBackoffPath(homeDir);
     if (!fs.existsSync(backoffPath)) return false;
+    
+    // Don't honour the backoff on cold start — if no usage cache exists yet,
+    // we must attempt a fetch even if keychain previously failed, otherwise
+    // the Usage line will show "(loading...)" for the full 60s backoff window.
+    const cachePath = getCachePath(homeDir);
+    if (!fs.existsSync(cachePath)) return false;
+
     const timestamp = parseInt(fs.readFileSync(backoffPath, 'utf8'), 10);
     return now - timestamp < KEYCHAIN_BACKOFF_MS;
   } catch {
