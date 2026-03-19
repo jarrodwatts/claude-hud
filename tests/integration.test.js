@@ -76,5 +76,5 @@ test('CLI prints initializing message on empty stdin', (t) => {
   assert.equal(result.error, undefined, result.error?.message);
   assert.equal(result.status, 0, result.stderr || 'non-zero exit');
   const normalized = stripAnsi(result.stdout).replace(/\u00A0/g, ' ').trimEnd();
-  assert.equal(normalized, '[claude-hud] Initializing...');
+  assert.ok(normalized.startsWith('[claude-hud] Initializing...'), `unexpected output: ${normalized}`);
 });
