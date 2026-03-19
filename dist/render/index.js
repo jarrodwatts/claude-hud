@@ -19,6 +19,12 @@ function getTerminalWidth() {
     if (typeof stdoutColumns === 'number' && Number.isFinite(stdoutColumns) && stdoutColumns > 0) {
         return Math.floor(stdoutColumns);
     }
+    // When running as a statusline subprocess, stdout is piped but stderr is
+    // still connected to the real terminal — use it to get the actual width.
+    const stderrColumns = process.stderr?.columns;
+    if (typeof stderrColumns === 'number' && Number.isFinite(stderrColumns) && stderrColumns > 0) {
+        return Math.floor(stderrColumns);
+    }
     const envColumns = Number.parseInt(process.env.COLUMNS ?? '', 10);
     if (Number.isFinite(envColumns) && envColumns > 0) {
         return envColumns;
