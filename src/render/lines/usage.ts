@@ -11,8 +11,10 @@ export function renderUsageLine(ctx: RenderContext): string | null {
     return null;
   }
 
+  // Show loading state when usage data hasn't been fetched yet
   if (!ctx.usageData?.planName) {
-    return null;
+    const label = dim('Usage');
+    return `${label} ${dim('(loading...)')}`;
   }
 
   if (getProviderLabel(ctx.stdin)) {
