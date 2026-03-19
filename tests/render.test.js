@@ -1,5 +1,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
 import { render } from '../dist/render/index.js';
 import { renderSessionLine } from '../dist/render/session-line.js';
 import { renderProjectLine } from '../dist/render/lines/project.js';
@@ -204,6 +207,39 @@ test('render expanded layout supports remaining-based context display', () => {
 
   // 12345/200k = 6.17% raw, scale ≈ 0.026, buffer ≈ 858 → 7% buffered → 93% remaining
   assert.ok(logs.some(line => line.includes('Context') && line.includes('93%')), 'expected remaining percentage on context line');
+});
+
+test('render expanded layout includes duration on context line', () => {
+  const ctx = baseContext();
+  ctx.config.lineLayout = 'expanded';
+  ctx.sessionDuration = '12m';
+
+  const lines = captureRenderLines(ctx);
+  assert.ok(lines.some(line => line.includes('Context') && line.includes('⏱️  12m')));
+});
+
+test('render expanded layout includes output speed when enabled', async () => {
+  const ctx = baseContext();
+  ctx.config.lineLayout = 'expanded';
+  ctx.config.display.showSpeed = true;
+  ctx.config.display.showDuration = false;
+  ctx.stdin.context_window.current_usage.output_tokens = 100;
+
+  const tempHome = fs.mkdtempSync(path.join(os.tmpdir(), 'claude-hud-speed-'));
+  const previousHome = process.env.HOME;
+  process.env.HOME = tempHome;
+
+  try {
+    captureRenderLines(ctx);
+    await new Promise(resolve => setTimeout(resolve, 20));
+    ctx.stdin.context_window.current_usage.output_tokens = 130;
+
+    const lines = captureRenderLines(ctx);
+    assert.ok(lines.some(line => line.includes('Context') && line.includes('out:')));
+  } finally {
+    process.env.HOME = previousHome;
+    fs.rmSync(tempHome, { recursive: true, force: true });
+  }
 });
 
 test('renderSessionLine omits project name when cwd is undefined', () => {

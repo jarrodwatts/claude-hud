@@ -1,5 +1,6 @@
 import type { RenderContext } from '../../types.js';
 import { getContextPercent, getBufferedPercent, getTotalTokens } from '../../stdin.js';
+import { getOutputSpeed } from '../../speed-tracker.js';
 import { coloredBar, dim, getContextColor, RESET } from '../colors.js';
 
 const DEBUG = process.env.DEBUG?.includes('claude-hud') || process.env.DEBUG === '*';
@@ -23,6 +24,23 @@ export function renderIdentityLine(ctx: RenderContext): string {
   let line = display?.showContextBar !== false
     ? `${dim('Context')} ${coloredBar(percent, 10, colors)} ${contextValueDisplay}`
     : `${dim('Context')} ${contextValueDisplay}`;
+
+  const expandedExtras: string[] = [];
+
+  if (display?.showSpeed) {
+    const speed = getOutputSpeed(ctx.stdin);
+    if (speed !== null) {
+      expandedExtras.push(dim(`out: ${speed.toFixed(1)} tok/s`));
+    }
+  }
+
+  if (display?.showDuration !== false && ctx.sessionDuration) {
+    expandedExtras.push(dim(`⏱️  ${ctx.sessionDuration}`));
+  }
+
+  if (expandedExtras.length > 0) {
+    line += ` │ ${expandedExtras.join(' │ ')}`;
+  }
 
   if (display?.showTokenBreakdown !== false && percent >= 85) {
     const usage = ctx.stdin.context_window?.current_usage;
