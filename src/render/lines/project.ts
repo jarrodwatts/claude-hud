@@ -73,6 +73,10 @@ export function renderProjectLine(ctx: RenderContext): string | null {
     parts.push(dim(ctx.transcript.sessionName));
   }
 
+  if (ctx.extraLabel) {
+    parts.push(dim(ctx.extraLabel));
+  }
+
   if (parts.length === 0) {
     return null;
   }

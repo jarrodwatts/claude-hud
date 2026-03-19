@@ -239,6 +239,22 @@ test('renderProjectLine includes session name when showSessionName is true', () 
   assert.ok(line?.includes('Renamed Session'));
 });
 
+test('renderProjectLine includes extraLabel when present', () => {
+  const ctx = baseContext();
+  ctx.stdin.cwd = '/tmp/my-project';
+  ctx.extraLabel = 'user [MAX]';
+  const line = renderProjectLine(ctx);
+  assert.ok(line?.includes('user [MAX]'));
+});
+
+test('renderProjectLine omits extraLabel when null', () => {
+  const ctx = baseContext();
+  ctx.stdin.cwd = '/tmp/my-project';
+  ctx.extraLabel = null;
+  const line = renderProjectLine(ctx);
+  assert.ok(!line?.includes('user [MAX]'));
+});
+
 test('renderProjectLine hides session name by default', () => {
   const ctx = baseContext();
   ctx.stdin.cwd = '/tmp/my-project';
