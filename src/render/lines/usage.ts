@@ -49,10 +49,10 @@ export function renderUsageLine(ctx: RenderContext): string | null {
   const usageBarEnabled = display?.usageBarEnabled ?? true;
   const fiveHourPart = usageBarEnabled
     ? (fiveHourReset
-        ? `${quotaBar(fiveHour ?? 0, getAdaptiveBarWidth(), colors)} ${fiveHourDisplay} (${fiveHourReset} / 5h)`
+        ? `${quotaBar(fiveHour ?? 0, getAdaptiveBarWidth(), colors)} ${fiveHourDisplay} (resets in ${fiveHourReset})`
         : `${quotaBar(fiveHour ?? 0, getAdaptiveBarWidth(), colors)} ${fiveHourDisplay}`)
     : (fiveHourReset
-        ? `5h: ${fiveHourDisplay} (${fiveHourReset})`
+        ? `5h: ${fiveHourDisplay} (resets in ${fiveHourReset})`
         : `5h: ${fiveHourDisplay}`);
 
   const sevenDayThreshold = display?.sevenDayThreshold ?? 80;
@@ -64,10 +64,10 @@ export function renderUsageLine(ctx: RenderContext): string | null {
     const sevenDayReset = formatResetTime(ctx.usageData.sevenDayResetAt);
     const sevenDayPart = usageBarEnabled
       ? (sevenDayReset
-          ? `${quotaBar(sevenDay, getAdaptiveBarWidth(), colors)} ${sevenDayDisplay} (${sevenDayReset} / 7d)`
+          ? `${quotaBar(sevenDay, getAdaptiveBarWidth(), colors)} ${sevenDayDisplay} (resets in ${sevenDayReset})`
           : `${quotaBar(sevenDay, getAdaptiveBarWidth(), colors)} ${sevenDayDisplay}`)
       : (sevenDayReset
-          ? `7d: ${sevenDayDisplay} (${sevenDayReset})`
+          ? `7d: ${sevenDayDisplay} (resets in ${sevenDayReset})`
           : `7d: ${sevenDayDisplay}`);
     return `${label} ${fiveHourPart} | ${sevenDayPart}${syncingSuffix}`;
   }
