@@ -251,6 +251,10 @@ To disable, set `display.showUsage` to `false`.
 - These are hidden by default — enable with `showTools`, `showAgents`, `showTodos` in config
 - They also only appear when there's activity to show
 
+**HUD not appearing after setup (macOS)?**
+- On macOS, Claude Code may need a restart to pick up the new statusLine config
+- Simply run `claude` again in your terminal to restart
+
 ---
 
 ## Requirements

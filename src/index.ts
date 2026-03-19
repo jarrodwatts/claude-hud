@@ -44,7 +44,12 @@ export async function main(overrides: Partial<MainDeps> = {}): Promise<void> {
     const stdin = await deps.readStdin();
 
     if (!stdin) {
+      // Running without stdin - this happens during setup verification
+      const isMacOS = process.platform === 'darwin';
       deps.log('[claude-hud] Initializing...');
+      if (isMacOS) {
+        deps.log('[claude-hud] Note: On macOS, you may need to restart Claude Code for the HUD to appear.');
+      }
       return;
     }
 
