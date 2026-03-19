@@ -192,6 +192,12 @@ If a write fails with `File has been unexpectedly modified`, re-read the file an
 }
 ```
 
+
+After successfully writing the config, tell the user:
+
+> ✅ Config written. **Please restart Claude Code now** — quit and run `claude` again in your terminal.
+> Once restarted, run `/claude-hud:setup` again to complete Step 4 and verify the HUD is working.
+
 **Note**: The generated command dynamically finds and runs the latest installed plugin version. Updates are automatic - no need to re-run setup after plugin updates. If the HUD suddenly stops working, re-run `/claude-hud:setup` to verify the plugin is still installed.
 
 ## Step 4: Optional Features
@@ -225,6 +231,8 @@ Merge with existing config if the file already exists. Only write keys the user 
 
 ## Step 5: Verify & Finish
 
+**First, confirm the user has restarted Claude Code** since Step 3 wrote the config. If they haven't, ask them to restart before proceeding — the HUD cannot appear in the same session where setup was run.
+ 
 Use AskUserQuestion:
 - Question: "Setup complete! The HUD should appear below your input field. Is it working?"
 - Options: "Yes, it's working" / "No, something's wrong"
@@ -233,17 +241,22 @@ Use AskUserQuestion:
 
 **If no**: Debug systematically:
 
-1. **Verify config was applied**:
+1. **Restart Claude Code** (most common cause on macOS):
+    - The statusLine config requires a restart to take effect
+    - Quit Claude Code completely and run `claude` again, then re-run `/claude-hud:setup` to verify
+    - If you've already restarted, continue below
+
+2. **Verify config was applied**:
    - Read settings file (`${CLAUDE_CONFIG_DIR:-$HOME/.claude}/settings.json` or `$env:USERPROFILE\.claude\settings.json` on Windows)
    - Check statusLine.command exists and looks correct
    - If command contains a hardcoded version path (not using the dynamic version-lookup command), it may be a stale config from a previous setup
 
-2. **Test the command manually** and capture error output:
+3. **Test the command manually** and capture error output:
    ```bash
    {GENERATED_COMMAND} 2>&1
    ```
 
-3. **Common issues to check**:
+4. **Common issues to check**:
 
    **"command not found" or empty output**:
    - Runtime path might be wrong: `ls -la {RUNTIME_PATH}`
@@ -269,4 +282,4 @@ Use AskUserQuestion:
    - If using WSL, ensure plugin is installed in Linux environment, not Windows
    - Check: `ls "${CLAUDE_CONFIG_DIR:-$HOME/.claude}/plugins/cache/claude-hud/"`
 
-4. **If still stuck**: Show the user the exact command that was generated and the error, so they can report it or debug further
+5. **If still stuck**: Show the user the exact command that was generated and the error, so they can report it or debug further
