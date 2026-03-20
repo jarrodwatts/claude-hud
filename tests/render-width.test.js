@@ -82,18 +82,22 @@ function displayWidth(text) {
   return width;
 }
 
-function withTerminal(columns, fn) {
-  const originalColumns = process.stdout.columns;
-  Object.defineProperty(process.stdout, 'columns', { value: columns, configurable: true });
+function withColumns(stream, columns, fn) {
+  const originalColumns = stream.columns;
+  Object.defineProperty(stream, 'columns', { value: columns, configurable: true });
   try {
     fn();
   } finally {
     if (originalColumns === undefined) {
-      delete process.stdout.columns;
+      delete stream.columns;
     } else {
-      Object.defineProperty(process.stdout, 'columns', { value: originalColumns, configurable: true });
+      Object.defineProperty(stream, 'columns', { value: originalColumns, configurable: true });
     }
   }
+}
+
+function withTerminal(columns, fn) {
+  withColumns(process.stdout, columns, fn);
 }
 
 function captureRender(ctx) {
@@ -181,6 +185,31 @@ test('render falls back to COLUMNS env when stdout.columns is unavailable', () =
 
   assert.ok(lines.length > 1, 'should still render output lines');
   assert.ok(lines.every(line => displayWidth(line) <= 10), 'all lines should fit COLUMNS width');
+});
+
+test('render falls back to stderr.columns when stdout.columns is unavailable', () => {
+  const ctx = baseContext();
+  const originalEnvColumns = process.env.COLUMNS;
+
+  let lines = [];
+  withColumns(process.stdout, undefined, () => {
+    withColumns(process.stderr, 12, () => {
+      process.env.COLUMNS = '10';
+      try {
+        lines = captureRender(ctx);
+      } finally {
+        if (originalEnvColumns === undefined) {
+          delete process.env.COLUMNS;
+        } else {
+          process.env.COLUMNS = originalEnvColumns;
+        }
+      }
+    });
+  });
+
+  assert.ok(lines.length > 0, 'should still render output lines');
+  assert.ok(lines.every(line => displayWidth(line) <= 12), 'stderr width should be honored');
+  assert.ok(lines.some(line => displayWidth(line) > 10), 'stderr width should override COLUMNS fallback');
 });
 
 test('render prefers stdout columns over COLUMNS env fallback', () => {
