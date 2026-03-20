@@ -1,4 +1,5 @@
 import type { RenderContext } from '../../types.js';
+import type { ContextValueMode } from '../../config.js';
 import { getContextPercent, getBufferedPercent, getTotalTokens } from '../../stdin.js';
 import { coloredBar, dim, getContextColor, RESET } from '../colors.js';
 import { getAdaptiveBarWidth } from '../../utils/terminal.js';
@@ -47,7 +48,7 @@ function formatTokens(n: number): string {
   return n.toString();
 }
 
-function formatContextValue(ctx: RenderContext, percent: number, mode: 'percent' | 'tokens' | 'remaining' | 'both'): string {
+function formatContextValue(ctx: RenderContext, percent: number, mode: ContextValueMode): string {
   if (mode === 'tokens') {
     const totalTokens = getTotalTokens(ctx.stdin);
     const size = ctx.stdin.context_window?.context_window_size ?? 0;

@@ -1,4 +1,5 @@
 import type { RenderContext } from '../types.js';
+import type { ContextValueMode } from '../config.js';
 import { isLimitReached } from '../types.js';
 import { getContextPercent, getBufferedPercent, getModelName, getProviderLabel, getTotalTokens } from '../stdin.js';
 import { getOutputSpeed } from '../speed-tracker.js';
@@ -238,7 +239,7 @@ function formatTokens(n: number): string {
   return n.toString();
 }
 
-function formatContextValue(ctx: RenderContext, percent: number, mode: 'percent' | 'tokens' | 'remaining' | 'both'): string {
+function formatContextValue(ctx: RenderContext, percent: number, mode: ContextValueMode): string {
   if (mode === 'tokens') {
     const totalTokens = getTotalTokens(ctx.stdin);
     const size = ctx.stdin.context_window?.context_window_size ?? 0;
