@@ -6,7 +6,7 @@ import { getHudPluginDir } from './claude-config-dir.js';
 export type LineLayoutType = 'compact' | 'expanded';
 
 export type AutocompactBufferMode = 'enabled' | 'disabled';
-export type ContextValueMode = 'percent' | 'tokens' | 'remaining';
+export type ContextValueMode = 'percent' | 'tokens' | 'remaining' | 'both';
 export type HudElement = 'project' | 'context' | 'usage' | 'environment' | 'tools' | 'agents' | 'todos';
 export type HudColorName =
   | 'red'
@@ -142,7 +142,7 @@ function validateAutocompactBuffer(value: unknown): value is AutocompactBufferMo
 }
 
 function validateContextValue(value: unknown): value is ContextValueMode {
-  return value === 'percent' || value === 'tokens' || value === 'remaining';
+  return value === 'percent' || value === 'tokens' || value === 'remaining' || value === 'both';
 }
 
 function validateColorName(value: unknown): value is HudColorName {

@@ -46,7 +46,7 @@ test('loadConfig returns valid config structure', async () => {
   assert.equal(typeof config.display, 'object');
   assert.equal(typeof config.display.showModel, 'boolean');
   assert.equal(typeof config.display.showContextBar, 'boolean');
-  assert.ok(['percent', 'tokens', 'remaining'].includes(config.display.contextValue), 'contextValue should be valid');
+  assert.ok(['percent', 'tokens', 'remaining', 'both'].includes(config.display.contextValue), 'contextValue should be valid');
   assert.equal(typeof config.display.showConfigCounts, 'boolean');
   assert.equal(typeof config.display.showDuration, 'boolean');
   assert.equal(typeof config.display.showSpeed, 'boolean');
@@ -187,6 +187,15 @@ test('mergeConfig accepts contextValue=remaining', () => {
     },
   });
   assert.equal(config.display.contextValue, 'remaining');
+});
+
+test('mergeConfig accepts contextValue=both', () => {
+  const config = mergeConfig({
+    display: {
+      contextValue: 'both',
+    },
+  });
+  assert.equal(config.display.contextValue, 'both');
 });
 
 test('mergeConfig falls back to default for invalid contextValue', () => {
