@@ -44,6 +44,24 @@ interface UsageApiResult {
   retryAfterSec?: number;
 }
 
+interface GlmQuotaLimitResponse {
+  limits?: Array<{
+    type?: string;
+    percentage?: number;
+    currentValue?: number;
+    usage?: number;
+    usageDetails?: Array<{
+      key?: string;
+      value?: number;
+    }>;
+  }>;
+}
+
+interface GlmUsageApiResult {
+  data: GlmQuotaLimitResponse | null;
+  error?: string;
+}
+
 // File-based cache (HUD runs as new process each render, so in-memory cache won't persist)
 const CACHE_TTL_MS = 5 * 60_000; // 5 minutes — matches Anthropic usage API rate limit window
 const CACHE_FAILURE_TTL_MS = 15_000; // 15 seconds for failed requests
@@ -70,9 +88,247 @@ function isUsingCustomApiEndpoint(env: NodeJS.ProcessEnv = process.env): boolean
   }
 
   try {
-    return new URL(baseUrl).origin !== 'https://api.anthropic.com';
+    const url = new URL(baseUrl);
+    // GLM endpoints are supported - don't skip usage for them
+    if (isGlmEndpoint(baseUrl)) {
+      return false;
+    }
+    return url.origin !== 'https://api.anthropic.com';
   } catch {
     return true;
+  }
+}
+
+/**
+ * Check if user is using a GLM (Zhipu AI / Z.ai) endpoint.
+ * These endpoints support usage API via /api/monitor/usage/quota/limit
+ */
+function isGlmEndpoint(baseUrl: string): boolean {
+  const lower = baseUrl.toLowerCase();
+  return lower.includes('open.bigmodel.cn') ||
+         lower.includes('dev.bigmodel.cn') ||
+         lower.includes('api.z.ai');
+}
+
+/**
+ * Check if user is using a GLM endpoint (wrapper for convenience).
+ */
+function isUsingGlmEndpoint(env: NodeJS.ProcessEnv = process.env): boolean {
+  const baseUrl = env.ANTHROPIC_BASE_URL?.trim() || env.ANTHROPIC_API_BASE_URL?.trim();
+  if (!baseUrl) {
+    return false;
+  }
+  return isGlmEndpoint(baseUrl);
+}
+
+/**
+ * Get the base domain from ANTHROPIC_BASE_URL for GLM usage API.
+ */
+function getGlmBaseDomain(env: NodeJS.ProcessEnv = process.env): string | null {
+  const baseUrl = env.ANTHROPIC_BASE_URL?.trim() || env.ANTHROPIC_API_BASE_URL?.trim();
+  if (!baseUrl || !isGlmEndpoint(baseUrl)) {
+    return null;
+  }
+  try {
+    const parsed = new URL(baseUrl);
+    return `${parsed.protocol}//${parsed.host}`;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Fetch GLM usage data from Zhipu/Z.ai API.
+ */
+function fetchGlmUsageApi(env: NodeJS.ProcessEnv = process.env): Promise<GlmUsageApiResult> {
+  return new Promise((resolve) => {
+    const baseDomain = getGlmBaseDomain(env);
+    if (!baseDomain) {
+      resolve({ data: null, error: 'invalid-url' });
+      return;
+    }
+
+    const authToken = env.ANTHROPIC_AUTH_TOKEN?.trim();
+    if (!authToken) {
+      resolve({ data: null, error: 'no-auth-token' });
+      return;
+    }
+
+    const timeoutMs = getUsageApiTimeoutMs(env);
+    const parsedUrl = new URL(baseDomain);
+
+    const options = {
+      hostname: parsedUrl.hostname,
+      port: 443,
+      path: '/api/monitor/usage/quota/limit',
+      method: 'GET',
+      headers: {
+        'Authorization': authToken,
+        'Accept-Language': 'en-US,en',
+        'Content-Type': 'application/json',
+        'User-Agent': USAGE_API_USER_AGENT,
+      },
+      timeout: timeoutMs,
+    };
+
+    const req = https.request(options, (res) => {
+      let data = '';
+
+      res.on('data', (chunk: Buffer) => {
+        data += chunk.toString();
+      });
+
+      res.on('end', () => {
+        if (res.statusCode !== 200) {
+          debug('GLM API returned non-200 status:', res.statusCode);
+          const error = res.statusCode === 429
+            ? 'rate-limited'
+            : res.statusCode ? `http-${res.statusCode}` : 'http-error';
+          resolve({ data: null, error });
+          return;
+        }
+
+        try {
+          const parsed = JSON.parse(data);
+          resolve({ data: parsed.data || parsed });
+        } catch (error) {
+          debug('Failed to parse GLM API response:', error);
+          resolve({ data: null, error: 'parse' });
+        }
+      });
+    });
+
+    req.on('error', (error) => {
+      debug('GLM API request error:', error);
+      resolve({ data: null, error: 'network' });
+    });
+
+    req.on('timeout', () => {
+      debug('GLM API request timeout');
+      req.destroy();
+      resolve({ data: null, error: 'timeout' });
+    });
+
+    req.end();
+  });
+}
+
+/**
+ * Parse GLM quota limit response to UsageData format.
+ */
+function parseGlmUsageData(response: GlmQuotaLimitResponse, env: NodeJS.ProcessEnv = process.env): UsageData {
+  let fiveHour: number | null = null;
+  let sevenDay: number | null = null;
+  let planName: string | null = null;
+
+  // Determine plan name from ANTHROPIC_BASE_URL or default to GLM
+  const baseUrl = env.ANTHROPIC_BASE_URL?.trim() || '';
+  if (baseUrl.includes('api.z.ai')) {
+    planName = 'Z.ai';
+  } else {
+    planName = 'GLM';
+  }
+
+  if (response.limits) {
+    for (const limit of response.limits) {
+      if (limit.type === 'TOKENS_LIMIT' || limit.type === 'Token usage(5 Hour)') {
+        fiveHour = parseUtilization(limit.percentage);
+      } else if (limit.type === 'TIME_LIMIT' || limit.type === 'MCP usage(1 Month)') {
+        // MCP usage is monthly, show as sevenDay for now
+        sevenDay = parseUtilization(limit.percentage);
+      }
+    }
+  }
+
+  return {
+    planName,
+    fiveHour,
+    sevenDay,
+    fiveHourResetAt: null,
+    sevenDayResetAt: null,
+  };
+}
+
+/**
+ * Get usage data for GLM (Zhipu/Z.ai) endpoints.
+ */
+async function getGlmUsage(
+  homeDir: string,
+  now: number,
+  ttls: CacheTtls
+): Promise<UsageData | null> {
+  // Check file-based cache first
+  const cacheState = readCacheState(homeDir, now, ttls);
+  if (cacheState?.isFresh) {
+    return cacheState.data;
+  }
+
+  let holdsCacheLock = false;
+  const lockStatus = tryAcquireCacheLock(homeDir);
+  if (lockStatus === 'busy') {
+    if (cacheState) {
+      return cacheState.data;
+    }
+    return await waitForFreshCache(homeDir, () => Date.now(), ttls);
+  }
+  holdsCacheLock = lockStatus === 'acquired';
+
+  try {
+    const refreshedCache = readCache(homeDir, Date.now(), ttls);
+    if (refreshedCache) {
+      return refreshedCache;
+    }
+
+    // Fetch usage from GLM API
+    const apiResult = await fetchGlmUsageApi();
+    if (!apiResult.data) {
+      const isRateLimited = apiResult.error === 'rate-limited';
+      const prevCount = readRateLimitedCount(homeDir);
+      const rateLimitedCount = isRateLimited ? prevCount + 1 : 0;
+      const backoffOpts: WriteCacheOpts = {
+        rateLimitedCount: isRateLimited ? rateLimitedCount : undefined,
+      };
+
+      const failureResult: UsageData = {
+        planName: 'GLM',
+        fiveHour: null,
+        sevenDay: null,
+        fiveHourResetAt: null,
+        sevenDayResetAt: null,
+        apiUnavailable: true,
+        apiError: apiResult.error,
+      };
+
+      if (isRateLimited) {
+        const staleCache = readCacheState(homeDir, now, ttls);
+        const lastGood = readLastGoodData(homeDir);
+        const goodData = (staleCache && !staleCache.data.apiUnavailable)
+          ? staleCache.data
+          : lastGood;
+
+        if (goodData) {
+          writeCache(homeDir, failureResult, now, { ...backoffOpts, lastGoodData: goodData });
+          return withRateLimitedSyncing(goodData);
+        }
+      }
+
+      writeCache(homeDir, failureResult, now, backoffOpts);
+      return failureResult;
+    }
+
+    const result = parseGlmUsageData(apiResult.data);
+
+    // Write to file cache
+    writeCache(homeDir, result, now, { lastGoodData: result });
+
+    return result;
+  } catch (error) {
+    debug('getGlmUsage failed:', error);
+    return null;
+  } finally {
+    if (holdsCacheLock) {
+      releaseCacheLock(homeDir);
+    }
   }
 }
 
@@ -366,7 +622,12 @@ export async function getUsage(overrides: Partial<UsageApiDeps> = {}): Promise<U
   const now = deps.now();
   const homeDir = deps.homeDir();
 
-  // Skip usage API if user is using a custom provider
+  // Handle GLM (Zhipu/Z.ai) endpoints separately
+  if (isUsingGlmEndpoint()) {
+    return getGlmUsage(homeDir, now, deps.ttls);
+  }
+
+  // Skip usage API if user is using a custom provider (non-GLM)
   if (isUsingCustomApiEndpoint()) {
     debug('Skipping usage API: custom API endpoint configured');
     return null;
