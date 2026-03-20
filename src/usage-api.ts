@@ -401,10 +401,18 @@ export async function getUsage(overrides: Partial<UsageApiDeps> = {}): Promise<U
     const { accessToken, subscriptionType } = credentials;
 
     // Determine plan name from subscriptionType
-    const planName = getPlanName(subscriptionType);
+    let planName = getPlanName(subscriptionType);
     if (!planName) {
-      // API user, no usage limits to show
-      return null;
+      // subscriptionType may be null/empty after OAuth token refresh —
+      // Claude Code does not always persist this field when rewriting credentials.
+      // Fall back to cached planName if available (display-only, not auth-critical).
+      const cached = readCacheState(homeDir, now, deps.ttls);
+      if (cached?.data?.planName) {
+        planName = cached.data.planName;
+      } else {
+        // No cached plan either — genuine API user, no usage limits to show
+        return null;
+      }
     }
 
     // Fetch usage from API

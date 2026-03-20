@@ -550,6 +550,71 @@ describe('getUsage', () => {
     assert.equal(fetchCalls, 0);
   });
 
+  test('falls back to cached planName when subscriptionType becomes null after token refresh', async () => {
+    // First call: valid subscriptionType, populates cache with planName
+    await writeCredentials(tempHome, buildCredentials({ subscriptionType: 'claude_max_2024' }));
+    let fetchCalls = 0;
+    const fetchApi = async () => {
+      fetchCalls += 1;
+      return buildApiResult();
+    };
+
+    const initial = await getUsage({
+      homeDir: () => tempHome,
+      fetchApi,
+      now: () => 1000,
+      readKeychain: () => null,
+    });
+    assert.equal(initial?.planName, 'Max');
+    assert.equal(fetchCalls, 1);
+
+    // Simulate token refresh that loses subscriptionType
+    await writeCredentials(tempHome, buildCredentials({ subscriptionType: null }));
+
+    // Second call: subscriptionType is null, but cache has planName='Max'
+    const afterRefresh = await getUsage({
+      homeDir: () => tempHome,
+      fetchApi,
+      now: () => 2000, // within cache TTL
+      readKeychain: () => null,
+    });
+
+    // Should return cached data (still fresh), with planName preserved
+    assert.equal(afterRefresh?.planName, 'Max');
+  });
+
+  test('falls back to cached planName when subscriptionType is null and cache is stale', async () => {
+    // First call: valid subscriptionType, populates cache
+    await writeCredentials(tempHome, buildCredentials({ subscriptionType: 'claude_pro_2024' }));
+    let fetchCalls = 0;
+    const fetchApi = async () => {
+      fetchCalls += 1;
+      return buildApiResult();
+    };
+
+    await getUsage({
+      homeDir: () => tempHome,
+      fetchApi,
+      now: () => 1000,
+      readKeychain: () => null,
+    });
+    assert.equal(fetchCalls, 1);
+
+    // Simulate token refresh that loses subscriptionType + cache expired
+    await writeCredentials(tempHome, buildCredentials({ subscriptionType: null }));
+
+    const afterRefresh = await getUsage({
+      homeDir: () => tempHome,
+      fetchApi,
+      now: () => 400_000, // cache expired (>5min)
+      readKeychain: () => null,
+    });
+
+    // Should use cached planName for the API call, fetching fresh usage data
+    assert.equal(afterRefresh?.planName, 'Pro');
+    assert.equal(fetchCalls, 2);
+  });
+
   test('parses plan name and usage data', async () => {
     await writeCredentials(tempHome, buildCredentials({ subscriptionType: 'claude_pro_2024' }));
     let fetchCalls = 0;
