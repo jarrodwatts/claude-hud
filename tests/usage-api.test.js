@@ -27,8 +27,9 @@ function ensureUsageApiDistIsCurrent() {
   const repoRoot = path.resolve(testDir, '..');
   const distPath = path.join(repoRoot, 'dist', 'usage-api.js');
 
+  const npm = process.platform === 'win32' ? 'npm.cmd' : 'npm';
   if (!existsSync(distPath)) {
-    execFileSync('npm', ['run', 'build'], {
+    execFileSync(npm, ['run', 'build'], {
       cwd: repoRoot,
       stdio: 'inherit',
     });
@@ -38,7 +39,7 @@ function ensureUsageApiDistIsCurrent() {
   // These tests import dist/ modules directly. In a source-only PR worktree,
   // git checkout mtimes are not a reliable signal that dist matches src, so
   // rebuild once up front to make direct `node --test` runs deterministic.
-  execFileSync('npm', ['run', 'build'], {
+  execFileSync(npm, ['run', 'build'], {
     cwd: repoRoot,
     stdio: 'inherit',
   });
@@ -454,7 +455,7 @@ describe('getUsage', () => {
     assert.equal(fetchCalls, 0);
   });
 
-  test('returns null for API users (no subscriptionType)', async () => {
+  test('returns usage for API users (subscriptionType: "api")', async () => {
     await writeCredentials(tempHome, buildCredentials({ subscriptionType: 'api' }));
     let fetchCalls = 0;
     const result = await getUsage({
@@ -467,8 +468,8 @@ describe('getUsage', () => {
       readKeychain: () => null,
     });
 
-    assert.equal(result, null);
-    assert.equal(fetchCalls, 0);
+    assert.equal(result?.planName, 'API');
+    assert.equal(fetchCalls, 1);
   });
 
   test('uses complete keychain credentials without falling back to file', async () => {

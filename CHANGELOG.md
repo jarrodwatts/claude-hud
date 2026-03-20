@@ -4,6 +4,11 @@ All notable changes to Claude HUD will be documented in this file.
 
 ## [Unreleased]
 
+## [0.0.12] - 2026-03-20
+
+### Fixed
+- Weekly usage bar disappeared for free users. Users on the API tier are now correctly recognized and their weekly usage statistics are displayed. (#238)
+
 ## [0.0.11] - 2026-03-20
 
 ### Fixed

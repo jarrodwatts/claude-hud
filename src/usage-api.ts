@@ -815,7 +815,8 @@ function getPlanName(subscriptionType: string): string | null {
   if (lower.includes('pro')) return 'Pro';
   if (lower.includes('team')) return 'Team';
   // API users don't have subscriptionType or have 'api'
-  if (!subscriptionType || lower.includes('api')) return null;
+  if (lower.includes('api')) return 'API';
+  if (!subscriptionType) return null;
   // Unknown subscription type - show it capitalized
   return subscriptionType.charAt(0).toUpperCase() + subscriptionType.slice(1);
 }

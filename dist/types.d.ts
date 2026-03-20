@@ -62,6 +62,8 @@ export interface TranscriptData {
     todos: TodoItem[];
     sessionStart?: Date;
     sessionName?: string;
+    /** Internal: mtime of the transcript file at cache-write time. Not rendered. */
+    _cacheMtimeMs?: number;
 }
 export interface RenderContext {
     stdin: StdinData;

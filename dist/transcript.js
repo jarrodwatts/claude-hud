@@ -1,14 +1,57 @@
 import * as fs from 'fs';
+import * as path from 'path';
+import * as os from 'os';
 import * as readline from 'readline';
+import { createHash } from 'crypto';
+/**
+ * Returns a stable temp-file path for caching a given transcript's parsed data.
+ * Uses a SHA-256 hash of the absolute path to avoid filesystem-illegal characters.
+ */
+function getTranscriptCachePath(transcriptPath) {
+    const hash = createHash('sha256').update(path.resolve(transcriptPath)).digest('hex').slice(0, 16);
+    return path.join(os.tmpdir(), `claude-hud-cache-${hash}.json`);
+}
 export async function parseTranscript(transcriptPath) {
-    const result = {
-        tools: [],
-        agents: [],
-        todos: [],
-    };
+    const empty = { tools: [], agents: [], todos: [] };
     if (!transcriptPath || !fs.existsSync(transcriptPath)) {
-        return result;
+        return empty;
     }
+    // --- Cache layer: skip full parse when transcript hasn't changed ---
+    let currentMtimeMs;
+    try {
+        currentMtimeMs = fs.statSync(transcriptPath).mtimeMs;
+    }
+    catch {
+        // If we can't stat, fall through to full parse
+    }
+    const cachePath = getTranscriptCachePath(transcriptPath);
+    if (currentMtimeMs !== undefined) {
+        try {
+            const raw = fs.readFileSync(cachePath, 'utf8');
+            const cached = JSON.parse(raw);
+            if (cached._cacheMtimeMs === currentMtimeMs) {
+                // Cache is fresh — restore Date objects and return immediately
+                if (cached.sessionStart)
+                    cached.sessionStart = new Date(cached.sessionStart);
+                for (const t of cached.tools) {
+                    t.startTime = new Date(t.startTime);
+                    if (t.endTime)
+                        t.endTime = new Date(t.endTime);
+                }
+                for (const a of cached.agents) {
+                    a.startTime = new Date(a.startTime);
+                    if (a.endTime)
+                        a.endTime = new Date(a.endTime);
+                }
+                return cached;
+            }
+        }
+        catch {
+            // Cache missing or corrupted — proceed to full parse
+        }
+    }
+    // --- End cache layer ---
+    const result = { tools: [], agents: [], todos: [] };
     const toolMap = new Map();
     const agentMap = new Map();
     let latestTodos = [];
@@ -46,6 +89,16 @@ export async function parseTranscript(transcriptPath) {
     result.agents = Array.from(agentMap.values()).slice(-10);
     result.todos = latestTodos;
     result.sessionName = customTitle ?? latestSlug;
+    // Write to cache (best-effort, fire-and-forget)
+    if (currentMtimeMs !== undefined) {
+        try {
+            const toCache = { ...result, _cacheMtimeMs: currentMtimeMs };
+            fs.writeFileSync(cachePath, JSON.stringify(toCache), 'utf8');
+        }
+        catch {
+            // Non-fatal: proceed without caching
+        }
+    }
     return result;
 }
 function processEntry(entry, toolMap, agentMap, taskIdToIndex, latestTodos, result) {
