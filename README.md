@@ -184,7 +184,7 @@ To disable, set `display.showUsage` to `false`.
 - AWS Bedrock models display `Bedrock` and hide usage limits (usage is managed in AWS)
 - Non-default `ANTHROPIC_BASE_URL` / `ANTHROPIC_API_BASE_URL` settings skip usage display, because the Anthropic OAuth usage API may not apply
 - If you are behind a proxy, set `HTTPS_PROXY` (or `HTTP_PROXY`/`ALL_PROXY`) and optional `NO_PROXY`
-- For high-latency environments, increase usage API timeout with `CLAUDE_HUD_USAGE_TIMEOUT_MS` (milliseconds)
+- For high-latency environments, increase the usage API timeout with `CLAUDE_HUD_USAGE_TIMEOUT_MS` (milliseconds)
 
 ### Example Configuration
 
@@ -252,7 +252,7 @@ To disable, set `display.showUsage` to `false`.
 - They also only appear when there's activity to show
 
 **HUD not appearing after setup?**
-- Restart Claude Code so it picks up the new statusLine config
+- Restart Claude Code, so it picks up the new statusLine config
 - On macOS, fully quit Claude Code and run `claude` again in your terminal
 
 ---
