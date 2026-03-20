@@ -1,5 +1,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
+import path from 'node:path';
+import { tmpdir } from 'node:os';
 import { render } from '../dist/render/index.js';
 import { renderSessionLine } from '../dist/render/session-line.js';
 import { renderProjectLine } from '../dist/render/lines/project.js';
@@ -63,6 +66,30 @@ function captureRenderLines(ctx) {
     console.log = originalLog;
   }
   return logs;
+}
+
+async function withDeterministicSpeedCache(fn) {
+  const tempConfigDir = await mkdtemp(path.join(tmpdir(), 'claude-hud-render-'));
+  const originalConfigDir = process.env.CLAUDE_CONFIG_DIR;
+  const originalNow = Date.now;
+  const cachePath = path.join(tempConfigDir, 'plugins', 'claude-hud', '.speed-cache.json');
+
+  process.env.CLAUDE_CONFIG_DIR = tempConfigDir;
+  await mkdir(path.dirname(cachePath), { recursive: true });
+  await writeFile(cachePath, JSON.stringify({ outputTokens: 1000, timestamp: 1000 }), 'utf8');
+  Date.now = () => 2000;
+
+  try {
+    await fn();
+  } finally {
+    Date.now = originalNow;
+    if (originalConfigDir === undefined) {
+      delete process.env.CLAUDE_CONFIG_DIR;
+    } else {
+      process.env.CLAUDE_CONFIG_DIR = originalConfigDir;
+    }
+    await rm(tempConfigDir, { recursive: true, force: true });
+  }
 }
 
 test('renderSessionLine adds token breakdown when context is high', () => {
@@ -281,16 +308,16 @@ test('renderProjectLine omits duration when showDuration is false', () => {
   assert.ok(!line?.includes('12m 34s'), 'should not include session duration when disabled');
 });
 
-test('renderProjectLine includes speed when showSpeed is true and speed is available', () => {
-  const ctx = baseContext();
-  ctx.stdin.cwd = '/tmp/my-project';
-  ctx.config.display.showSpeed = true;
-  // getOutputSpeed reads from stdin.context_window.current_usage.output_tokens
-  // and compares with a file-based cache, so it may return null on first call.
-  // We test that the code path doesn't crash and includes 'tok/s' if speed is non-null.
-  const line = renderProjectLine(ctx);
-  // Speed may be null on first render (no cache), so just verify no crash
-  assert.ok(typeof line === 'string' || line === null);
+test('renderProjectLine includes speed when showSpeed is true and speed is available', async () => {
+  await withDeterministicSpeedCache(async () => {
+    const ctx = baseContext();
+    ctx.stdin.cwd = '/tmp/my-project';
+    ctx.stdin.context_window.current_usage.output_tokens = 2000;
+    ctx.config.display.showSpeed = true;
+
+    const line = renderProjectLine(ctx);
+    assert.ok(line?.includes('out: 1000.0 tok/s'), 'should include deterministic speed');
+  });
 });
 
 test('renderProjectLine omits speed when showSpeed is false', () => {
@@ -300,6 +327,24 @@ test('renderProjectLine omits speed when showSpeed is false', () => {
   ctx.stdin.context_window.current_usage.output_tokens = 5000;
   const line = renderProjectLine(ctx);
   assert.ok(!line?.includes('tok/s'), 'should not include speed when disabled');
+});
+
+test('render expanded layout includes speed and duration on the project line', async () => {
+  await withDeterministicSpeedCache(async () => {
+    const ctx = baseContext();
+    ctx.config.lineLayout = 'expanded';
+    ctx.stdin.cwd = '/tmp/my-project';
+    ctx.stdin.context_window.current_usage.output_tokens = 2000;
+    ctx.config.display.showSpeed = true;
+    ctx.sessionDuration = '12m 34s';
+
+    const lines = captureRenderLines(ctx);
+    const projectLine = lines.find(line => line.includes('my-project'));
+
+    assert.ok(projectLine, 'expected an expanded project line');
+    assert.ok(projectLine.includes('out: 1000.0 tok/s'), 'should include deterministic speed');
+    assert.ok(projectLine.includes('⏱️  12m 34s'), 'should include session duration');
+  });
 });
 
 test('renderSessionLine omits project name when showProject is false', () => {
