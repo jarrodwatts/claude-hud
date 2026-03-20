@@ -403,14 +403,16 @@ export async function getUsage(overrides: Partial<UsageApiDeps> = {}): Promise<U
     // Determine plan name from subscriptionType
     let planName = getPlanName(subscriptionType);
     if (!planName) {
-      // subscriptionType may be null/empty after OAuth token refresh —
-      // Claude Code does not always persist this field when rewriting credentials.
-      // Fall back to cached planName if available (display-only, not auth-critical).
-      const cached = readCacheState(homeDir, now, deps.ttls);
-      if (cached?.data?.planName) {
-        planName = cached.data.planName;
-      } else {
-        // No cached plan either — genuine API user, no usage limits to show
+      // Only fall back to cache when subscriptionType is genuinely missing/empty
+      // (lost during OAuth token refresh). Explicit values like 'api' should not
+      // trigger the fallback — those users intentionally have no usage limits.
+      if (!subscriptionType.trim()) {
+        const cached = readCacheState(homeDir, now, deps.ttls);
+        if (cached?.data?.planName) {
+          planName = cached.data.planName;
+        }
+      }
+      if (!planName) {
         return null;
       }
     }

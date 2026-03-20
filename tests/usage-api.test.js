@@ -581,6 +581,7 @@ describe('getUsage', () => {
 
     // Should return cached data (still fresh), with planName preserved
     assert.equal(afterRefresh?.planName, 'Max');
+    assert.equal(fetchCalls, 1);
   });
 
   test('falls back to cached planName when subscriptionType is null and cache is stale', async () => {
@@ -613,6 +614,33 @@ describe('getUsage', () => {
     // Should use cached planName for the API call, fetching fresh usage data
     assert.equal(afterRefresh?.planName, 'Pro');
     assert.equal(fetchCalls, 2);
+  });
+
+  test('does not use cached OAuth planName for explicit API subscription', async () => {
+    // Prime cache with an OAuth subscription that has a planName
+    await writeCredentials(tempHome, buildCredentials({ subscriptionType: 'claude_pro_2024' }));
+    const initial = await getUsage({
+      homeDir: () => tempHome,
+      fetchApi: async () => buildApiResult(),
+      now: () => 1000,
+      readKeychain: () => null,
+    });
+    assert.equal(initial?.planName, 'Pro');
+
+    // Switch to an explicit API-key user after cache expires
+    await writeCredentials(tempHome, buildCredentials({ subscriptionType: 'api' }));
+
+    let fetchCalls = 0;
+    const apiUserUsage = await getUsage({
+      homeDir: () => tempHome,
+      fetchApi: async () => { fetchCalls += 1; return buildApiResult(); },
+      now: () => 400_000, // cache expired (>5min)
+      readKeychain: () => null,
+    });
+
+    // Explicit API users must not fall back to the cached OAuth planName
+    assert.equal(apiUserUsage, null);
+    assert.equal(fetchCalls, 0);
   });
 
   test('parses plan name and usage data', async () => {
