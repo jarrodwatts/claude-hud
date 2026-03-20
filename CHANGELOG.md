@@ -4,6 +4,12 @@ All notable changes to Claude HUD will be documented in this file.
 
 ## [Unreleased]
 
+## [0.0.11] - 2026-03-20
+
+### Fixed
+- Terminal rendering corruption (garbled Unicode) in sessions with transcript files exceeding 5MB. Mitigation involves introducing a file-based mtime cache in `parseTranscript` to avoid frequent full-file re-parsing of large JSONL buffers. (#256)
+
+
 ## [0.0.10] - 2026-03-14
 
 ### Added

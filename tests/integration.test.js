@@ -53,12 +53,13 @@ test('CLI renders expected output for a basic transcript', async (t) => {
 
     assert.equal(result.error, undefined, result.error?.message);
     assert.equal(result.status, 0, result.stderr || 'non-zero exit');
-    const normalized = stripAnsi(result.stdout).replace(/\u00A0/g, ' ').trimEnd();
+    const normalized = stripAnsi(result.stdout).replace(/\u00A0/g, ' ').replace(/\r\n/g, '\n').trimEnd();
     if (process.env.UPDATE_SNAPSHOTS === '1') {
       await writeFile(expectedPath, normalized + '\n', 'utf8');
       return;
     }
-    assert.equal(normalized, expected);
+    const expectedNormalized = expected.replace(/\r\n/g, '\n');
+    assert.equal(normalized, expectedNormalized);
   } finally {
     await rm(homeDir, { recursive: true, force: true });
   }
