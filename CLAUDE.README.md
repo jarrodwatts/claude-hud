@@ -21,7 +21,7 @@ Real-time statusline showing context usage, active tools, running agents, and to
 /claude-hud:setup
 ```
 
-Done. The HUD appears immediately — no restart needed.
+Done. Restart Claude Code to load the new statusLine config, then the HUD will appear.
 
 ---
 
@@ -67,7 +67,7 @@ This adds the statusLine configuration to the user's settings.json.
 
 Tell the user:
 - Installation complete
-- The statusline appears immediately — no restart needed
+- Restart Claude Code to load the statusline config, then the HUD will appear
 - It shows: context usage, active tools, running agents, and todo progress
 
 ### Step 6: Ask About Starring (Optional)

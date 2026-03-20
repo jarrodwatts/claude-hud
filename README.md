@@ -44,7 +44,7 @@ Then run the install command below in that session. This is a [Claude Code platf
 /claude-hud:setup
 ```
 
-Done! The HUD appears immediately — no restart needed.
+Done! Restart Claude Code to load the new statusLine config, then the HUD will appear.
 
 ---
 
@@ -251,9 +251,9 @@ To disable, set `display.showUsage` to `false`.
 - These are hidden by default — enable with `showTools`, `showAgents`, `showTodos` in config
 - They also only appear when there's activity to show
 
-**HUD not appearing after setup (macOS)?**
-- On macOS, Claude Code may need a restart to pick up the new statusLine config
-- Simply run `claude` again in your terminal to restart
+**HUD not appearing after setup?**
+- Restart Claude Code so it picks up the new statusLine config
+- On macOS, fully quit Claude Code and run `claude` again in your terminal
 
 ---
 
