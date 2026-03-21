@@ -5,6 +5,13 @@ import { getAdaptiveBarWidth } from '../../utils/terminal.js';
 
 const DEBUG = process.env.DEBUG?.includes('claude-hud') || process.env.DEBUG === '*';
 
+function ordinal(n: number): string {
+  if (n === 1) return '1st';
+  if (n === 2) return '2nd';
+  if (n === 3) return '3rd';
+  return `${n}th`;
+}
+
 export function renderIdentityLine(ctx: RenderContext): string {
   const rawPercent = getContextPercent(ctx.stdin);
   const bufferedPercent = getBufferedPercent(ctx.stdin);
@@ -19,11 +26,16 @@ export function renderIdentityLine(ctx: RenderContext): string {
   const display = ctx.config?.display;
   const contextValueMode = display?.contextValue ?? 'percent';
   const contextValue = formatContextValue(ctx, percent, contextValueMode);
-  const contextValueDisplay = `${getContextColor(percent, colors)}${contextValue}${RESET}`;
+
+  const alertThresholds = ctx.config.alerts?.context
+    ? { warningThreshold: ctx.config.alerts.context.warningThreshold, criticalThreshold: ctx.config.alerts.context.criticalThreshold }
+    : undefined;
+
+  const contextValueDisplay = `${getContextColor(percent, colors, alertThresholds)}${contextValue}${RESET}`;
 
   const barStyle = display?.barStyle ?? 'classic';
   let line = display?.showContextBar !== false
-    ? `${dim('Context')} ${coloredBar(percent, getAdaptiveBarWidth(), colors, barStyle)} ${contextValueDisplay}`
+    ? `${dim('Context')} ${coloredBar(percent, getAdaptiveBarWidth(), colors, barStyle, alertThresholds)} ${contextValueDisplay}`
     : `${dim('Context')} ${contextValueDisplay}`;
 
   if (display?.showTokenBreakdown !== false && percent >= 85) {
@@ -33,6 +45,17 @@ export function renderIdentityLine(ctx: RenderContext): string {
       const cache = formatTokens((usage.cache_creation_input_tokens ?? 0) + (usage.cache_read_input_tokens ?? 0));
       line += dim(` (in: ${input}, cache: ${cache})`);
     }
+  }
+
+  if (ctx.burnRate && ctx.config.display.showBurnRate) {
+    const formatted = ctx.burnRate.tokensPerMinute >= 1000
+      ? `${(ctx.burnRate.tokensPerMinute / 1000).toFixed(1)}k`
+      : `${ctx.burnRate.tokensPerMinute}`;
+    line += ` ${dim('│')} ${dim(`${formatted} tok/m`)}`;
+  }
+
+  if (ctx.sessionStats.autocompactCount > 0) {
+    line += dim(` (${ordinal(ctx.sessionStats.autocompactCount)} compact)`);
   }
 
   return line;

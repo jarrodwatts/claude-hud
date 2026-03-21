@@ -120,7 +120,9 @@ export async function main(overrides: Partial<MainDeps> = {}): Promise<void> {
         usage5hPercent: usageData?.fiveHour ?? 0,
         usage7dPercent: usageData?.sevenDay ?? 0,
         estimatedCallsRemaining: burnRate?.estimatedCallsRemaining ?? null,
-        usageResetTime: null,
+        usageResetTime: usageData?.fiveHourResetAt
+          ? formatResetTimeForAlert(usageData.fiveHourResetAt)
+          : null,
         alertConfig: config.alerts,
         cacheDir,
       });
@@ -152,6 +154,17 @@ export async function main(overrides: Partial<MainDeps> = {}): Promise<void> {
   } catch (error) {
     deps.log('[claude-hud] Error:', error instanceof Error ? error.message : 'Unknown error');
   }
+}
+
+export function formatResetTimeForAlert(resetAt: Date): string {
+  const now = new Date();
+  const diffMs = resetAt.getTime() - now.getTime();
+  if (diffMs <= 0) return 'now';
+  const mins = Math.ceil(diffMs / 60000);
+  if (mins < 60) return `${mins}m`;
+  const hours = Math.floor(mins / 60);
+  const remMins = mins % 60;
+  return remMins > 0 ? `${hours}h ${remMins}m` : `${hours}h`;
 }
 
 export function formatSessionDuration(sessionStart?: Date, now: () => number = () => Date.now()): string {

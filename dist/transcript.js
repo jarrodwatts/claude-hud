@@ -1,12 +1,43 @@
 import * as fs from 'fs';
 import * as readline from 'readline';
+import { readCache, writeCache, getDefaultCacheDir } from './cache.js';
+function restoreDates(data) {
+    return {
+        ...data,
+        sessionStart: data.sessionStart ? new Date(data.sessionStart) : undefined,
+        tools: data.tools.map(t => ({
+            ...t,
+            startTime: new Date(t.startTime),
+            endTime: t.endTime ? new Date(t.endTime) : undefined,
+        })),
+        agents: data.agents.map(a => ({
+            ...a,
+            startTime: new Date(a.startTime),
+            endTime: a.endTime ? new Date(a.endTime) : undefined,
+        })),
+        todos: data.todos,
+    };
+}
 export async function parseTranscript(transcriptPath) {
     const result = {
         tools: [],
         agents: [],
         todos: [],
     };
-    if (!transcriptPath || !fs.existsSync(transcriptPath)) {
+    if (!transcriptPath) {
+        return result;
+    }
+    const cacheDir = getDefaultCacheDir();
+    const stats = fs.statSync(transcriptPath, { throwIfNoEntry: false });
+    if (!stats)
+        return result;
+    const mtime = stats.mtimeMs;
+    const cacheKey = 'transcript-parsed';
+    const cached = readCache(cacheKey, 500, cacheDir, mtime);
+    if (cached) {
+        return restoreDates(cached);
+    }
+    if (!fs.existsSync(transcriptPath)) {
         return result;
     }
     const toolMap = new Map();
@@ -46,6 +77,7 @@ export async function parseTranscript(transcriptPath) {
     result.agents = Array.from(agentMap.values()).slice(-10);
     result.todos = latestTodos;
     result.sessionName = customTitle ?? latestSlug;
+    writeCache(cacheKey, result, cacheDir, mtime);
     return result;
 }
 function processEntry(entry, toolMap, agentMap, taskIdToIndex, latestTodos, result) {

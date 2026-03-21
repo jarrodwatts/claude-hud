@@ -1,6 +1,7 @@
 import * as fs from 'fs';
 import * as readline from 'readline';
 import type { TranscriptData, ToolEntry, AgentEntry, TodoItem } from './types.js';
+import { readCache, writeCache, getDefaultCacheDir } from './cache.js';
 
 interface TranscriptLine {
   timestamp?: string;
@@ -21,6 +22,24 @@ interface ContentBlock {
   is_error?: boolean;
 }
 
+function restoreDates(data: TranscriptData): TranscriptData {
+  return {
+    ...data,
+    sessionStart: data.sessionStart ? new Date(data.sessionStart) : undefined,
+    tools: data.tools.map(t => ({
+      ...t,
+      startTime: new Date(t.startTime),
+      endTime: t.endTime ? new Date(t.endTime) : undefined,
+    })),
+    agents: data.agents.map(a => ({
+      ...a,
+      startTime: new Date(a.startTime),
+      endTime: a.endTime ? new Date(a.endTime) : undefined,
+    })),
+    todos: data.todos,
+  };
+}
+
 export async function parseTranscript(transcriptPath: string): Promise<TranscriptData> {
   const result: TranscriptData = {
     tools: [],
@@ -28,7 +47,23 @@ export async function parseTranscript(transcriptPath: string): Promise<Transcrip
     todos: [],
   };
 
-  if (!transcriptPath || !fs.existsSync(transcriptPath)) {
+  if (!transcriptPath) {
+    return result;
+  }
+
+  const cacheDir = getDefaultCacheDir();
+  const stats = fs.statSync(transcriptPath, { throwIfNoEntry: false });
+  if (!stats) return result;
+
+  const mtime = stats.mtimeMs;
+  const cacheKey = 'transcript-parsed';
+
+  const cached = readCache<TranscriptData>(cacheKey, 500, cacheDir, mtime);
+  if (cached) {
+    return restoreDates(cached);
+  }
+
+  if (!fs.existsSync(transcriptPath)) {
     return result;
   }
 
@@ -70,6 +105,7 @@ export async function parseTranscript(transcriptPath: string): Promise<Transcrip
   result.todos = latestTodos;
   result.sessionName = customTitle ?? latestSlug;
 
+  writeCache(cacheKey, result, cacheDir, mtime);
   return result;
 }
 
