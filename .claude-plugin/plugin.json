@@ -15,7 +15,8 @@
     "./commands/dashboard.md",
     "./commands/stats.md",
     "./commands/report.md",
-    "./commands/update.md"
+    "./commands/update.md",
+    "./commands/preset.md"
   ],
   "homepage": "https://github.com/jarrodwatts/claude-hud",
   "repository": "https://github.com/jarrodwatts/claude-hud",
