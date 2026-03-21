@@ -4,6 +4,15 @@ All notable changes to Claude HUD will be documented in this file.
 
 ## [Unreleased]
 
+## [0.7.0] - 2026-03-22
+
+### Added
+- `/claude-hud:update` command — checks current vs latest npm version, prompts to update or view changelog when a newer version is available (`commands/update.md`)
+- Config schema validation — `validateConfigWithWarnings()` logs warnings for unknown top-level keys, unknown `display` keys, wrong `theme` type, and invalid `locale` values when `DEBUG=claude-hud` is set (`src/config.ts`)
+- Debug timing dashboard — when `DEBUG=claude-hud` is set, logs per-step timing for `readStdin`, `parseTranscript`, `loadConfig`, `gitStatus`, `usageApi`, `render`, and total pipeline duration (`src/index.ts`)
+- Config schema versioning — `schemaVersion` field added to `HudConfig` interface and `DEFAULT_CONFIG` (value: `1`); `mergeConfig` includes migration scaffolding for future breaking config changes; always normalizes output to current schema version (`src/config.ts`)
+- Graceful degradation tests — comprehensive test suite verifying all modules handle garbage input (corrupted JSON, NaN, Infinity, negative percentages, >100% values, zero tokens) without throwing (`tests/degradation.test.js`)
+
 ## [0.6.0] - 2026-03-22
 
 ### Added
