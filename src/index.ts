@@ -9,13 +9,14 @@ import { parseExtraCmdArg, runExtraCmd } from './extra-cmd.js';
 import type { RenderContext } from './types.js';
 import { fileURLToPath } from 'node:url';
 import { realpathSync } from 'node:fs';
-import { getDefaultCacheDir } from './cache.js';
+import { getDefaultCacheDir, readCache, writeCache } from './cache.js';
 import { loadProviders, fetchAllProviders } from './providers/index.js';
 import { evaluateAlerts, shouldBell } from './alert.js';
 import { calculateBurnRate, recordTokenSnapshot } from './burn-rate.js';
 import { updateSessionStats, getSessionStats, getSparkline } from './session-stats.js';
 import { getTerminalWidth } from './utils/terminal.js';
 import { estimateCost } from './cost-tracker.js';
+import { saveCurrentSession } from './session-history.js';
 
 export type MainDeps = {
   readStdin: typeof readStdin;
@@ -136,6 +137,22 @@ export async function main(overrides: Partial<MainDeps> = {}): Promise<void> {
     }
 
     const costEstimate = config.display.showCost ? estimateCost(stdin, cacheDir) : null;
+
+    // Session history — only save when stats have changed
+    const prevStatsHash = readCache<string>('prev-session-hash', 60000, cacheDir);
+    const currentHash = `${sessionStats.totalToolCalls}-${sessionStats.autocompactCount}-${sessionStats.peakContextPercent}`;
+    if (prevStatsHash !== currentHash) {
+      writeCache('prev-session-hash', currentHash, cacheDir);
+      saveCurrentSession({
+        startTime: transcript.sessionStart?.toISOString() || new Date().toISOString(),
+        duration: sessionDuration,
+        model: stdin.model?.display_name || 'unknown',
+        peakContextPercent: sessionStats.peakContextPercent,
+        autocompactCount: sessionStats.autocompactCount,
+        totalToolCalls: sessionStats.totalToolCalls,
+        totalAgentRuns: sessionStats.totalAgentRuns,
+      });
+    }
 
     const ctx: RenderContext = {
       stdin,
