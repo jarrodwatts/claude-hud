@@ -16,7 +16,7 @@ import { calculateBurnRate, recordTokenSnapshot } from './burn-rate.js';
 import { updateSessionStats, getSessionStats, getSparkline } from './session-stats.js';
 import { getTerminalWidth } from './utils/terminal.js';
 import { estimateCost } from './cost-tracker.js';
-import { saveCurrentSession } from './session-history.js';
+import { saveCurrentSession, getLastSession, formatSessionSummary } from './session-history.js';
 
 export type MainDeps = {
   readStdin: typeof readStdin;
@@ -163,6 +163,16 @@ export async function main(overrides: Partial<MainDeps> = {}): Promise<void> {
         totalToolCalls: sessionStats.totalToolCalls,
         totalAgentRuns: sessionStats.totalAgentRuns,
       });
+    }
+
+    // Last session summary — show once at session start
+    const shownLastSession = readCache<boolean>('shown-last-session', 24 * 60 * 60 * 1000, cacheDir);
+    if (!shownLastSession && transcript.tools.length === 0) {
+      const lastSession = getLastSession();
+      if (lastSession) {
+        console.error(`[claude-hud] ${formatSessionSummary(lastSession)}`);
+        writeCache('shown-last-session', true, cacheDir);
+      }
     }
 
     const ctx: RenderContext = {
