@@ -4,6 +4,54 @@ All notable changes to Claude HUD will be documented in this file.
 
 ## [Unreleased]
 
+## [0.1.0] - 2026-03-21
+
+### Added
+- Cache layer (`src/cache.ts`) — unified file-based caching with TTL for transcript, git, and config data
+- Framework providers (`src/providers/`) — AGW combo status and Agent Teams worktree monitoring
+- Alert engine (`src/alert.ts`) — configurable threshold alerts with visual, bell, macOS notification, and prediction text
+- Burn rate tracking (`src/burn-rate.ts`) — sliding 5-minute window token consumption rate
+- Session statistics (`src/session-stats.ts`) — peak context tracking and autocompact detection
+- Session history (`src/session-history.ts`) — persistent record of last 50 sessions
+- Cost estimation (`src/cost-tracker.ts`) — session cost based on model pricing
+- Context sparkline — mini trend chart using `▁▂▃▄▅▆▇█` characters
+- Context time prediction — estimated time until autocompact based on burn rate
+- Color themes — Default, Catppuccin Mocha, Dracula, Nord (`src/themes.ts`)
+- Light theme variants — Catppuccin Latte, Nord Light for light terminals
+- Terminal theme auto-detection via `COLORFGBG` environment variable
+- Activity indicator (`◉`) — red when tools running, green when idle
+- Tree prefixes (`├─` / `└─`) — hierarchical connectors for activity lines
+- Modern bar characters (`▰▱`) — alternative to classic `█░`
+- Todo mini progress bar (`▪▪▪▪▪`) — per-item colored status squares
+- Merged tools+agents display — combined on one line for density
+- Tool error rate display — `✘ N err` count in tools line
+- API latency tracking — response time display with color coding
+- macOS notifications for critical alerts via `osascript`
+- Config import/export (`src/config-io.ts`)
+- Health check diagnostics (`src/health-check.ts`)
+- `/claude-hud:health` command — diagnostic health check
+- `/claude-hud:export` command — config export/import/reset
+- `/claude-hud:theme` command — one-click theme switching
+- Benchmark script (`scripts/benchmark.sh`) — 300ms budget verification
+- Shared formatting utilities (`src/utils/format.ts`)
+
+### Changed
+- Bar renderers accept `barStyle` parameter (`classic` or `modern`)
+- Context/usage color thresholds configurable via alert config (threshold unification)
+- Usage 5h/7d separator changed from `|` to `│` for visual consistency
+- Responsive terminal adaptation — 3-layer system (content reduction → progressive hiding → character wrap)
+- Content never truncated with `...` — wraps to next line instead
+- `getTerminalWidth()` moved to shared `src/utils/terminal.ts`
+- `colorize()` exported from `src/render/colors.ts`
+- `HudElement` type extended with `'framework'` and `'alert'`
+- `RenderContext` extended with frameworkStatus, alerts, burnRate, sessionStats, sparkline, costEstimate, apiLatency, terminalWidth
+
+### Fixed
+- `barStyle` config not passed through to `coloredBar()` / `quotaBar()` calls
+- Autocompact detection false positives — now requires sustained drop across 2+ readings
+
+---
+
 ## [0.0.10] - 2026-03-14
 
 ### Added
