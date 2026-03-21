@@ -90,6 +90,15 @@ export async function main(overrides: Partial<MainDeps> = {}): Promise<void> {
       usageData,
       config,
       extraLabel,
+      frameworkStatus: [],
+      alerts: [],
+      burnRate: null,
+      sessionStats: {
+        totalToolCalls: 0,
+        totalAgentRuns: 0,
+        peakContextPercent: 0,
+        autocompactCount: 0,
+      },
     };
 
     deps.render(ctx);

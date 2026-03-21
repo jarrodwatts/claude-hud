@@ -292,6 +292,10 @@ function renderElementLine(ctx, element) {
             return display?.showAgents === false ? null : renderAgentsLine(ctx);
         case 'todos':
             return display?.showTodos === false ? null : renderTodosLine(ctx);
+        case 'framework':
+            return null; // Framework rendering not yet implemented
+        case 'alert':
+            return null; // Alert rendering not yet implemented
     }
 }
 function renderCompact(ctx) {

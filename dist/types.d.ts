@@ -63,6 +63,42 @@ export interface TranscriptData {
     sessionStart?: Date;
     sessionName?: string;
 }
+export interface FrameworkEntry {
+    label: string;
+    status: 'running' | 'completed' | 'error' | 'waiting';
+    progress?: string;
+    detail?: string;
+}
+export interface FrameworkStatus {
+    provider: string;
+    entries: FrameworkEntry[];
+}
+export interface FrameworkProvider {
+    name: string;
+    isAvailable(): boolean;
+    fetch(): Promise<FrameworkStatus | null>;
+}
+export interface AlertAction {
+    visual: boolean;
+    bell: boolean;
+    predict: boolean;
+}
+export interface Alert {
+    type: 'context-warning' | 'context-critical' | 'usage-5h-warning' | 'usage-5h-critical' | 'usage-7d-warning';
+    message: string;
+    actions: AlertAction;
+}
+export interface BurnRate {
+    tokensPerMinute: number;
+    estimatedCallsRemaining: number;
+}
+export interface SessionStats {
+    startTime?: Date;
+    totalToolCalls: number;
+    totalAgentRuns: number;
+    peakContextPercent: number;
+    autocompactCount: number;
+}
 export interface RenderContext {
     stdin: StdinData;
     transcript: TranscriptData;
@@ -75,5 +111,9 @@ export interface RenderContext {
     usageData: UsageData | null;
     config: HudConfig;
     extraLabel: string | null;
+    frameworkStatus: FrameworkStatus[];
+    alerts: Alert[];
+    burnRate: BurnRate | null;
+    sessionStats: SessionStats;
 }
 //# sourceMappingURL=types.d.ts.map

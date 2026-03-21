@@ -1,7 +1,8 @@
+import type { AlertAction } from './types.js';
 export type LineLayoutType = 'compact' | 'expanded';
 export type AutocompactBufferMode = 'enabled' | 'disabled';
 export type ContextValueMode = 'percent' | 'tokens' | 'remaining';
-export type HudElement = 'project' | 'context' | 'usage' | 'environment' | 'tools' | 'agents' | 'todos';
+export type HudElement = 'project' | 'context' | 'usage' | 'environment' | 'framework' | 'tools' | 'agents' | 'todos' | 'alert';
 export type HudColorName = 'red' | 'green' | 'yellow' | 'magenta' | 'cyan' | 'brightBlue' | 'brightMagenta';
 /** A color value: named preset, 256-color index (0-255), or hex string (#rrggbb). */
 export type HudColorValue = HudColorName | number | string;
@@ -44,12 +45,44 @@ export interface HudConfig {
         sevenDayThreshold: number;
         environmentThreshold: number;
         customLine: string;
+        showFrameworks: boolean;
+        showBurnRate: boolean;
+        showAlerts: boolean;
+        activityIndicator: boolean;
+        treePrefixes: boolean;
+        mergeToolsAgents: boolean;
+        barStyle: 'classic' | 'modern';
     };
     usage: {
         cacheTtlSeconds: number;
         failureCacheTtlSeconds: number;
     };
     colors: HudColorOverrides;
+    frameworks: {
+        agw: {
+            enabled: boolean;
+            endpoint: string;
+        };
+        agentTeams: {
+            enabled: boolean;
+        };
+    };
+    alerts: {
+        context: {
+            warningThreshold: number;
+            criticalThreshold: number;
+            actions: AlertAction;
+        };
+        usage5h: {
+            warningThreshold: number;
+            criticalThreshold: number;
+            actions: AlertAction;
+        };
+        usage7d: {
+            warningThreshold: number;
+            actions: AlertAction;
+        };
+    };
 }
 export declare const DEFAULT_CONFIG: HudConfig;
 export declare function getConfigPath(): string;

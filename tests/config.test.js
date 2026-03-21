@@ -356,3 +356,31 @@ test('mergeConfig rejects invalid hex strings', () => {
   assert.equal(config.colors.usage, DEFAULT_CONFIG.colors.usage);
   assert.equal(config.colors.warning, DEFAULT_CONFIG.colors.warning);
 });
+
+test('merges new enhancement config fields with defaults', () => {
+  const config = mergeConfig({
+    display: { showFrameworks: true, barStyle: 'modern' },
+    alerts: { context: { warningThreshold: 60 } },
+    frameworks: { agw: { endpoint: 'http://localhost:4000' } },
+  });
+  assert.strictEqual(config.display.showFrameworks, true);
+  assert.strictEqual(config.display.barStyle, 'modern');
+  assert.strictEqual(config.display.showAlerts, true);
+  assert.strictEqual(config.display.activityIndicator, true);
+  assert.strictEqual(config.display.treePrefixes, true);
+  assert.strictEqual(config.display.mergeToolsAgents, true);
+  assert.strictEqual(config.alerts.context.warningThreshold, 60);
+  assert.strictEqual(config.alerts.context.criticalThreshold, 85);
+  assert.strictEqual(config.alerts.context.actions.visual, true);
+  assert.strictEqual(config.frameworks.agw.endpoint, 'http://localhost:4000');
+  assert.strictEqual(config.frameworks.agw.enabled, true);
+  assert.strictEqual(config.frameworks.agentTeams.enabled, true);
+});
+
+test('includes framework and alert in HudElement type', () => {
+  const config = mergeConfig({
+    elementOrder: ['project', 'context', 'usage', 'framework', 'tools', 'alert', 'todos'],
+  });
+  assert.ok(config.elementOrder.includes('framework'));
+  assert.ok(config.elementOrder.includes('alert'));
+});

@@ -65,6 +65,15 @@ export async function main(overrides = {}) {
             usageData,
             config,
             extraLabel,
+            frameworkStatus: [],
+            alerts: [],
+            burnRate: null,
+            sessionStats: {
+                totalToolCalls: 0,
+                totalAgentRuns: 0,
+                peakContextPercent: 0,
+                autocompactCount: 0,
+            },
         };
         deps.render(ctx);
     }

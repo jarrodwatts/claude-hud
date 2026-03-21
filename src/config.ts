@@ -2,12 +2,13 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import * as os from 'node:os';
 import { getHudPluginDir } from './claude-config-dir.js';
+import type { AlertAction } from './types.js';
 
 export type LineLayoutType = 'compact' | 'expanded';
 
 export type AutocompactBufferMode = 'enabled' | 'disabled';
 export type ContextValueMode = 'percent' | 'tokens' | 'remaining';
-export type HudElement = 'project' | 'context' | 'usage' | 'environment' | 'tools' | 'agents' | 'todos';
+export type HudElement = 'project' | 'context' | 'usage' | 'environment' | 'framework' | 'tools' | 'agents' | 'todos' | 'alert';
 export type HudColorName =
   | 'red'
   | 'green'
@@ -29,13 +30,7 @@ export interface HudColorOverrides {
 }
 
 export const DEFAULT_ELEMENT_ORDER: HudElement[] = [
-  'project',
-  'context',
-  'usage',
-  'environment',
-  'tools',
-  'agents',
-  'todos',
+  'project', 'context', 'usage', 'environment', 'framework', 'tools', 'agents', 'todos', 'alert',
 ];
 
 const KNOWN_ELEMENTS = new Set<HudElement>(DEFAULT_ELEMENT_ORDER);
@@ -71,12 +66,28 @@ export interface HudConfig {
     sevenDayThreshold: number;
     environmentThreshold: number;
     customLine: string;
+    showFrameworks: boolean;
+    showBurnRate: boolean;
+    showAlerts: boolean;
+    activityIndicator: boolean;
+    treePrefixes: boolean;
+    mergeToolsAgents: boolean;
+    barStyle: 'classic' | 'modern';
   };
   usage: {
     cacheTtlSeconds: number;
     failureCacheTtlSeconds: number;
   };
   colors: HudColorOverrides;
+  frameworks: {
+    agw: { enabled: boolean; endpoint: string };
+    agentTeams: { enabled: boolean };
+  };
+  alerts: {
+    context: { warningThreshold: number; criticalThreshold: number; actions: AlertAction };
+    usage5h: { warningThreshold: number; criticalThreshold: number; actions: AlertAction };
+    usage7d: { warningThreshold: number; actions: AlertAction };
+  };
 }
 
 export const DEFAULT_CONFIG: HudConfig = {
@@ -110,6 +121,13 @@ export const DEFAULT_CONFIG: HudConfig = {
     sevenDayThreshold: 80,
     environmentThreshold: 0,
     customLine: '',
+    showFrameworks: false,
+    showBurnRate: false,
+    showAlerts: true,
+    activityIndicator: true,
+    treePrefixes: true,
+    mergeToolsAgents: true,
+    barStyle: 'classic' as const,
   },
   usage: {
     cacheTtlSeconds: 60,
@@ -121,6 +139,15 @@ export const DEFAULT_CONFIG: HudConfig = {
     warning: 'yellow',
     usageWarning: 'brightMagenta',
     critical: 'red',
+  },
+  frameworks: {
+    agw: { enabled: true, endpoint: 'http://localhost:3000' },
+    agentTeams: { enabled: true },
+  },
+  alerts: {
+    context: { warningThreshold: 70, criticalThreshold: 85, actions: { visual: true, bell: false, predict: true } },
+    usage5h: { warningThreshold: 70, criticalThreshold: 90, actions: { visual: true, bell: true, predict: true } },
+    usage7d: { warningThreshold: 80, actions: { visual: true, bell: false, predict: true } },
   },
 };
 
@@ -313,6 +340,27 @@ export function mergeConfig(userConfig: Partial<HudConfig>): HudConfig {
     customLine: typeof migrated.display?.customLine === 'string'
       ? migrated.display.customLine.slice(0, 80)
       : DEFAULT_CONFIG.display.customLine,
+    showFrameworks: typeof migrated.display?.showFrameworks === 'boolean'
+      ? migrated.display.showFrameworks
+      : DEFAULT_CONFIG.display.showFrameworks,
+    showBurnRate: typeof migrated.display?.showBurnRate === 'boolean'
+      ? migrated.display.showBurnRate
+      : DEFAULT_CONFIG.display.showBurnRate,
+    showAlerts: typeof migrated.display?.showAlerts === 'boolean'
+      ? migrated.display.showAlerts
+      : DEFAULT_CONFIG.display.showAlerts,
+    activityIndicator: typeof migrated.display?.activityIndicator === 'boolean'
+      ? migrated.display.activityIndicator
+      : DEFAULT_CONFIG.display.activityIndicator,
+    treePrefixes: typeof migrated.display?.treePrefixes === 'boolean'
+      ? migrated.display.treePrefixes
+      : DEFAULT_CONFIG.display.treePrefixes,
+    mergeToolsAgents: typeof migrated.display?.mergeToolsAgents === 'boolean'
+      ? migrated.display.mergeToolsAgents
+      : DEFAULT_CONFIG.display.mergeToolsAgents,
+    barStyle: (migrated.display?.barStyle === 'classic' || migrated.display?.barStyle === 'modern')
+      ? migrated.display.barStyle
+      : DEFAULT_CONFIG.display.barStyle,
   };
 
   const usage = {
@@ -344,7 +392,68 @@ export function mergeConfig(userConfig: Partial<HudConfig>): HudConfig {
       : DEFAULT_CONFIG.colors.critical,
   };
 
-  return { lineLayout, showSeparators, pathLevels, elementOrder, gitStatus, display, usage, colors };
+  const frameworks = {
+    agw: {
+      enabled: typeof migrated.frameworks?.agw?.enabled === 'boolean'
+        ? migrated.frameworks.agw.enabled
+        : DEFAULT_CONFIG.frameworks.agw.enabled,
+      endpoint: typeof migrated.frameworks?.agw?.endpoint === 'string'
+        ? migrated.frameworks.agw.endpoint
+        : DEFAULT_CONFIG.frameworks.agw.endpoint,
+    },
+    agentTeams: {
+      enabled: typeof migrated.frameworks?.agentTeams?.enabled === 'boolean'
+        ? migrated.frameworks.agentTeams.enabled
+        : DEFAULT_CONFIG.frameworks.agentTeams.enabled,
+    },
+  };
+
+  function mergeAlertThreshold(value: unknown, defaultValue: number): number {
+    if (typeof value === 'number' && value >= 0 && value <= 100) return value;
+    return defaultValue;
+  }
+
+  function mergeAlertActions(userActions: Partial<AlertAction> | undefined, defaultActions: AlertAction): AlertAction {
+    return {
+      visual: typeof userActions?.visual === 'boolean' ? userActions.visual : defaultActions.visual,
+      bell: typeof userActions?.bell === 'boolean' ? userActions.bell : defaultActions.bell,
+      predict: typeof userActions?.predict === 'boolean' ? userActions.predict : defaultActions.predict,
+    };
+  }
+
+  const alerts = {
+    context: {
+      warningThreshold: mergeAlertThreshold(
+        migrated.alerts?.context?.warningThreshold,
+        DEFAULT_CONFIG.alerts.context.warningThreshold
+      ),
+      criticalThreshold: mergeAlertThreshold(
+        migrated.alerts?.context?.criticalThreshold,
+        DEFAULT_CONFIG.alerts.context.criticalThreshold
+      ),
+      actions: mergeAlertActions(migrated.alerts?.context?.actions, DEFAULT_CONFIG.alerts.context.actions),
+    },
+    usage5h: {
+      warningThreshold: mergeAlertThreshold(
+        migrated.alerts?.usage5h?.warningThreshold,
+        DEFAULT_CONFIG.alerts.usage5h.warningThreshold
+      ),
+      criticalThreshold: mergeAlertThreshold(
+        migrated.alerts?.usage5h?.criticalThreshold,
+        DEFAULT_CONFIG.alerts.usage5h.criticalThreshold
+      ),
+      actions: mergeAlertActions(migrated.alerts?.usage5h?.actions, DEFAULT_CONFIG.alerts.usage5h.actions),
+    },
+    usage7d: {
+      warningThreshold: mergeAlertThreshold(
+        migrated.alerts?.usage7d?.warningThreshold,
+        DEFAULT_CONFIG.alerts.usage7d.warningThreshold
+      ),
+      actions: mergeAlertActions(migrated.alerts?.usage7d?.actions, DEFAULT_CONFIG.alerts.usage7d.actions),
+    },
+  };
+
+  return { lineLayout, showSeparators, pathLevels, elementOrder, gitStatus, display, usage, colors, frameworks, alerts };
 }
 
 export async function loadConfig(): Promise<HudConfig> {
