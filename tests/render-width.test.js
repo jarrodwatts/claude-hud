@@ -84,6 +84,7 @@ function baseContext() {
     },
     extraLabel: null,
     costEstimate: null,
+    apiLatency: null,
   };
 }
 

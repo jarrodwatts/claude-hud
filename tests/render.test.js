@@ -45,6 +45,7 @@ function baseContext() {
     sparkline: [],
     terminalWidth: null,
     costEstimate: null,
+    apiLatency: null,
     config: {
       lineLayout: 'compact',
       showSeparators: false,

@@ -43,6 +43,14 @@ export function writeCache<T>(key: string, data: T, cacheDir: string, mtime?: nu
   saveStore(cacheDir, store);
 }
 
+export function readLatency(cacheDir: string): number | null {
+  return readCache<number>('api-latency-ms', 60000, cacheDir);
+}
+
+export function writeLatency(latencyMs: number, cacheDir: string): void {
+  writeCache('api-latency-ms', latencyMs, cacheDir);
+}
+
 export function getDefaultCacheDir(): string {
   const configDir = process.env.CLAUDE_CONFIG_DIR || path.join(process.env.HOME || '', '.claude');
   return path.join(configDir, 'plugins', 'claude-hud', '.cache');

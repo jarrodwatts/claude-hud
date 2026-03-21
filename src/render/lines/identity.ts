@@ -1,6 +1,6 @@
 import type { RenderContext } from '../../types.js';
 import { getContextPercent, getBufferedPercent, getTotalTokens } from '../../stdin.js';
-import { coloredBar, dim, getContextColor, RESET } from '../colors.js';
+import { coloredBar, dim, getContextColor, RESET, red, warning } from '../colors.js';
 import { getAdaptiveBarWidth } from '../../utils/terminal.js';
 import { formatCost } from '../../cost-tracker.js';
 
@@ -96,6 +96,11 @@ export function renderIdentityLine(ctx: RenderContext): string {
 
   if (!isNarrow && ctx.sparkline && ctx.sparkline.length >= 3) {
     line += ` ${dim(renderSparkline(ctx.sparkline))}`;
+  }
+
+  if (!isNarrow && ctx.apiLatency !== null && ctx.apiLatency !== undefined && ctx.apiLatency > 0) {
+    const latencyColor = ctx.apiLatency > 5000 ? red : ctx.apiLatency > 2000 ? warning : dim;
+    line += ` ${latencyColor(`${ctx.apiLatency}ms`)}`;
   }
 
   return line;

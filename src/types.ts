@@ -142,4 +142,5 @@ export interface RenderContext {
   sparkline: number[];
   terminalWidth: number | null;
   costEstimate: CostEstimate | null;
+  apiLatency: number | null;
 }

@@ -9,7 +9,7 @@ import { parseExtraCmdArg, runExtraCmd } from './extra-cmd.js';
 import type { RenderContext } from './types.js';
 import { fileURLToPath } from 'node:url';
 import { realpathSync } from 'node:fs';
-import { getDefaultCacheDir, readCache, writeCache } from './cache.js';
+import { getDefaultCacheDir, readCache, writeCache, readLatency, writeLatency } from './cache.js';
 import { loadProviders, fetchAllProviders } from './providers/index.js';
 import { evaluateAlerts, shouldBell } from './alert.js';
 import { calculateBurnRate, recordTokenSnapshot } from './burn-rate.js';
@@ -71,7 +71,10 @@ export async function main(overrides: Partial<MainDeps> = {}): Promise<void> {
       ? await deps.getGitStatus(stdin.cwd)
       : null;
 
+    const cacheDir = getDefaultCacheDir();
+
     // Only fetch usage if enabled in config (replaces env var requirement)
+    const usageStart = Date.now();
     const usageData = config.display.showUsage !== false
       ? await deps.getUsage({
           ttls: {
@@ -80,13 +83,15 @@ export async function main(overrides: Partial<MainDeps> = {}): Promise<void> {
           },
         })
       : null;
+    if (config.display.showUsage !== false && usageData !== null) {
+      writeLatency(Date.now() - usageStart, cacheDir);
+    }
+    const apiLatency = readLatency(cacheDir);
 
     const extraCmd = deps.parseExtraCmdArg();
     const extraLabel = extraCmd ? await deps.runExtraCmd(extraCmd) : null;
 
     const sessionDuration = formatSessionDuration(transcript.sessionStart, deps.now);
-
-    const cacheDir = getDefaultCacheDir();
 
     // Framework providers
     let frameworkStatus: RenderContext['frameworkStatus'] = [];
@@ -173,6 +178,7 @@ export async function main(overrides: Partial<MainDeps> = {}): Promise<void> {
       sparkline,
       terminalWidth: getTerminalWidth(),
       costEstimate,
+      apiLatency,
     };
 
     deps.render(ctx);
