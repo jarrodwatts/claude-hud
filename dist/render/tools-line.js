@@ -1,4 +1,5 @@
 import { yellow, green, cyan, dim, magenta, red } from './colors.js';
+import { truncatePath } from '../utils/format.js';
 export function renderToolsLine(ctx) {
     const { tools } = ctx.transcript;
     if (tools.length === 0) {
@@ -8,7 +9,7 @@ export function renderToolsLine(ctx) {
     const runningTools = tools.filter((t) => t.status === 'running');
     const completedTools = tools.filter((t) => t.status === 'completed' || t.status === 'error');
     for (const tool of runningTools.slice(-2)) {
-        const target = tool.target ? truncatePath(tool.target) : '';
+        const target = tool.target ? truncatePath(tool.target.replace(/\\/g, '/')) : '';
         parts.push(`${yellow('◐')} ${cyan(tool.name)}${target ? dim(`: ${target}`) : ''}`);
     }
     const toolCounts = new Map();
@@ -40,18 +41,5 @@ export function renderToolsLine(ctx) {
         return null;
     }
     return parts.join(' | ');
-}
-function truncatePath(path, maxLen = 20) {
-    // Normalize Windows backslashes to forward slashes for consistent display
-    const normalizedPath = path.replace(/\\/g, '/');
-    if (normalizedPath.length <= maxLen)
-        return normalizedPath;
-    // Split by forward slash (already normalized)
-    const parts = normalizedPath.split('/');
-    const filename = parts.pop() || normalizedPath;
-    if (filename.length >= maxLen) {
-        return filename.slice(0, maxLen - 3) + '...';
-    }
-    return '.../' + filename;
 }
 //# sourceMappingURL=tools-line.js.map

@@ -64,23 +64,22 @@ test('main logs unknown error for non-Error throws', async () => {
   assert.ok(logs.some((line) => line.includes('Unknown error')));
 });
 
-test('index entrypoint runs when executed directly', async () => {
-  const originalArgv = [...process.argv];
-  const originalIsTTY = process.stdin.isTTY;
-  const originalLog = console.log;
+test('main logs initializing message when stdin returns null', async () => {
   const logs = [];
 
-  try {
-    const moduleUrl = new URL('../dist/index.js', import.meta.url);
-    process.argv[1] = new URL(moduleUrl).pathname;
-    Object.defineProperty(process.stdin, 'isTTY', { value: true, configurable: true });
-    console.log = (...args) => logs.push(args.join(' '));
-    await import(`${moduleUrl}?entry=${Date.now()}`);
-  } finally {
-    console.log = originalLog;
-    process.argv = originalArgv;
-    Object.defineProperty(process.stdin, 'isTTY', { value: originalIsTTY, configurable: true });
-  }
+  await main({
+    readStdin: async () => null,
+    parseTranscript: async () => ({ tools: [], agents: [], todos: [] }),
+    countConfigs: async () => ({ claudeMdCount: 0, rulesCount: 0, mcpCount: 0, hooksCount: 0 }),
+    getGitStatus: async () => null,
+    getUsage: async () => null,
+    loadConfig: async () => (await import('../dist/config.js')).DEFAULT_CONFIG,
+    parseExtraCmdArg: () => null,
+    runExtraCmd: async () => null,
+    render: () => {},
+    now: () => Date.now(),
+    log: (...args) => logs.push(args.join(' ')),
+  });
 
   assert.ok(logs.some((line) => line.includes('[claude-hud] Initializing...')));
 });

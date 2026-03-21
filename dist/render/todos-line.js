@@ -1,4 +1,5 @@
 import { yellow, green, dim, claudeOrange } from './colors.js';
+import { truncateString } from '../utils/format.js';
 export function renderTodosLine(ctx) {
     const { todos } = ctx.transcript;
     if (!todos || todos.length === 0) {
@@ -13,7 +14,7 @@ export function renderTodosLine(ctx) {
         }
         return null;
     }
-    const content = truncateContent(inProgress.content);
+    const content = truncateString(inProgress.content, 50);
     const progress = dim(`(${completed}/${total})`);
     const miniBar = ctx.transcript.todos.slice(0, 10).map(todo => {
         if (todo.status === 'completed')
@@ -24,10 +25,5 @@ export function renderTodosLine(ctx) {
     }).join('');
     const suffix = ctx.transcript.todos.length > 10 ? dim('…') : '';
     return `${yellow('▸')} ${content} ${progress} │ ${miniBar}${suffix}`;
-}
-function truncateContent(content, maxLen = 50) {
-    if (content.length <= maxLen)
-        return content;
-    return content.slice(0, maxLen - 3) + '...';
 }
 //# sourceMappingURL=todos-line.js.map

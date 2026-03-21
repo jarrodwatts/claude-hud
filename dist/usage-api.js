@@ -78,7 +78,7 @@ function withRateLimitedSyncing(data) {
         apiError: 'rate-limited',
     };
 }
-function readCacheState(homeDir, now, ttls) {
+function readUsageCacheState(homeDir, now, ttls) {
     try {
         const cachePath = getCachePath(homeDir);
         if (!fs.existsSync(cachePath))
@@ -130,11 +130,11 @@ function readLastGoodData(homeDir) {
         return null;
     }
 }
-function readCache(homeDir, now, ttls) {
-    const cache = readCacheState(homeDir, now, ttls);
+function readUsageCache(homeDir, now, ttls) {
+    const cache = readUsageCacheState(homeDir, now, ttls);
     return cache?.isFresh ? cache.data : null;
 }
-function writeCache(homeDir, data, timestamp, opts) {
+function writeUsageCache(homeDir, data, timestamp, opts) {
     try {
         const cachePath = getCachePath(homeDir);
         const cacheDir = path.dirname(cachePath);
@@ -238,7 +238,7 @@ async function waitForFreshCache(homeDir, now, ttls, timeoutMs = CACHE_LOCK_WAIT
     const deadline = Date.now() + timeoutMs;
     while (Date.now() < deadline) {
         await new Promise((resolve) => setTimeout(resolve, CACHE_LOCK_POLL_MS));
-        const cached = readCache(homeDir, now(), ttls);
+        const cached = readUsageCache(homeDir, now(), ttls);
         if (cached) {
             return cached;
         }
@@ -246,7 +246,7 @@ async function waitForFreshCache(homeDir, now, ttls, timeoutMs = CACHE_LOCK_WAIT
             break;
         }
     }
-    return readCache(homeDir, now(), ttls);
+    return readUsageCache(homeDir, now(), ttls);
 }
 const defaultDeps = {
     homeDir: () => os.homedir(),
@@ -274,7 +274,7 @@ export async function getUsage(overrides = {}) {
         return null;
     }
     // Check file-based cache first
-    const cacheState = readCacheState(homeDir, now, deps.ttls);
+    const cacheState = readUsageCacheState(homeDir, now, deps.ttls);
     if (cacheState?.isFresh) {
         return cacheState.data;
     }
@@ -288,7 +288,7 @@ export async function getUsage(overrides = {}) {
     }
     holdsCacheLock = lockStatus === 'acquired';
     try {
-        const refreshedCache = readCache(homeDir, deps.now(), deps.ttls);
+        const refreshedCache = readUsageCache(homeDir, deps.now(), deps.ttls);
         if (refreshedCache) {
             return refreshedCache;
         }
@@ -326,7 +326,7 @@ export async function getUsage(overrides = {}) {
                 apiError: apiResult.error,
             };
             if (isRateLimited) {
-                const staleCache = readCacheState(homeDir, now, deps.ttls);
+                const staleCache = readUsageCacheState(homeDir, now, deps.ttls);
                 const lastGood = readLastGoodData(homeDir);
                 const goodData = (staleCache && !staleCache.data.apiUnavailable)
                     ? staleCache.data
@@ -334,11 +334,11 @@ export async function getUsage(overrides = {}) {
                 if (goodData) {
                     // Preserve the backoff state in cache, but keep rendering the last successful values
                     // with a syncing hint so stale data is visible to the user.
-                    writeCache(homeDir, failureResult, now, { ...backoffOpts, lastGoodData: goodData });
+                    writeUsageCache(homeDir, failureResult, now, { ...backoffOpts, lastGoodData: goodData });
                     return withRateLimitedSyncing(goodData);
                 }
             }
-            writeCache(homeDir, failureResult, now, backoffOpts);
+            writeUsageCache(homeDir, failureResult, now, backoffOpts);
             return failureResult;
         }
         // Parse response - API returns 0-100 percentage directly
@@ -355,7 +355,7 @@ export async function getUsage(overrides = {}) {
             sevenDayResetAt,
         };
         // Write to file cache — also store as lastGoodData for rate-limit resilience
-        writeCache(homeDir, result, now, { lastGoodData: result });
+        writeUsageCache(homeDir, result, now, { lastGoodData: result });
         return result;
     }
     catch (error) {

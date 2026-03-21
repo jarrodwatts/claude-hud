@@ -1,43 +1,15 @@
-import * as fs from 'node:fs';
-import * as path from 'node:path';
 import * as os from 'node:os';
+import * as path from 'node:path';
+import { readCache, writeCache } from './cache.js';
 import { getHudPluginDir } from './claude-config-dir.js';
 const SPEED_WINDOW_MS = 2000;
+const SPEED_CACHE_KEY = 'speed-tracker';
 const defaultDeps = {
     homeDir: () => os.homedir(),
     now: () => Date.now(),
 };
-function getCachePath(homeDir) {
-    return path.join(getHudPluginDir(homeDir), '.speed-cache.json');
-}
-function readCache(homeDir) {
-    try {
-        const cachePath = getCachePath(homeDir);
-        if (!fs.existsSync(cachePath))
-            return null;
-        const content = fs.readFileSync(cachePath, 'utf8');
-        const parsed = JSON.parse(content);
-        if (typeof parsed.outputTokens !== 'number' || typeof parsed.timestamp !== 'number') {
-            return null;
-        }
-        return parsed;
-    }
-    catch {
-        return null;
-    }
-}
-function writeCache(homeDir, cache) {
-    try {
-        const cachePath = getCachePath(homeDir);
-        const cacheDir = path.dirname(cachePath);
-        if (!fs.existsSync(cacheDir)) {
-            fs.mkdirSync(cacheDir, { recursive: true });
-        }
-        fs.writeFileSync(cachePath, JSON.stringify(cache), 'utf8');
-    }
-    catch {
-        // Ignore cache write failures
-    }
+function getCacheDir(homeDir) {
+    return path.join(getHudPluginDir(homeDir), '.cache');
 }
 export function getOutputSpeed(stdin, overrides = {}) {
     const outputTokens = stdin.context_window?.current_usage?.output_tokens;
@@ -46,8 +18,8 @@ export function getOutputSpeed(stdin, overrides = {}) {
     }
     const deps = { ...defaultDeps, ...overrides };
     const now = deps.now();
-    const homeDir = deps.homeDir();
-    const previous = readCache(homeDir);
+    const cacheDir = getCacheDir(deps.homeDir());
+    const previous = readCache(SPEED_CACHE_KEY, 5000, cacheDir);
     let speed = null;
     if (previous && outputTokens >= previous.outputTokens) {
         const deltaTokens = outputTokens - previous.outputTokens;
@@ -56,7 +28,7 @@ export function getOutputSpeed(stdin, overrides = {}) {
             speed = deltaTokens / (deltaMs / 1000);
         }
     }
-    writeCache(homeDir, { outputTokens, timestamp: now });
+    writeCache(SPEED_CACHE_KEY, { outputTokens, timestamp: now }, cacheDir);
     return speed;
 }
 //# sourceMappingURL=speed-tracker.js.map

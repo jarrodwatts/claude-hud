@@ -1,4 +1,5 @@
 import { yellow, green, magenta, dim } from './colors.js';
+import { truncateString } from '../utils/format.js';
 export function renderAgentsLine(ctx) {
     const { agents } = ctx.transcript;
     const runningAgents = agents.filter((a) => a.status === 'running');
@@ -19,14 +20,9 @@ function formatAgent(agent) {
     const statusIcon = agent.status === 'running' ? yellow('◐') : green('✓');
     const type = magenta(agent.type);
     const model = agent.model ? dim(`[${agent.model}]`) : '';
-    const desc = agent.description ? dim(`: ${truncateDesc(agent.description)}`) : '';
+    const desc = agent.description ? dim(`: ${truncateString(agent.description, 40)}`) : '';
     const elapsed = formatElapsed(agent);
     return `${statusIcon} ${type}${model ? ` ${model}` : ''}${desc} ${dim(`(${elapsed})`)}`;
-}
-function truncateDesc(desc, maxLen = 40) {
-    if (desc.length <= maxLen)
-        return desc;
-    return desc.slice(0, maxLen - 3) + '...';
 }
 function formatElapsed(agent) {
     const now = Date.now();

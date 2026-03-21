@@ -1,6 +1,3 @@
-export interface ExtraLabel {
-    label: string;
-}
 /**
  * Sanitize output to prevent terminal escape injection.
  * Strips ANSI escapes, OSC sequences, control characters, and bidi controls.
