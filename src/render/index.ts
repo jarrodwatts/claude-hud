@@ -1,6 +1,7 @@
 import type { HudElement } from '../config.js';
 import { DEFAULT_ELEMENT_ORDER } from '../config.js';
 import type { RenderContext } from '../types.js';
+import { getContextPercent, getBufferedPercent } from '../stdin.js';
 import { renderSessionLine } from './session-line.js';
 import { renderToolsLine } from './tools-line.js';
 import { renderAgentsLine } from './agents-line.js';
@@ -452,9 +453,20 @@ export function render(ctx: RenderContext): void {
   const showSeparators = ctx.config?.showSeparators ?? false;
   const terminalWidth = getTerminalWidth();
 
+  // Smart auto-compact: switch to compact when context is critically high
+  let effectiveLayout = lineLayout;
+  if (lineLayout === 'expanded' && ctx.config?.display?.autoCompactSwitch !== false) {
+    const contextPercent = getContextPercent(ctx.stdin);
+    const bufferedPercent = getBufferedPercent(ctx.stdin);
+    const percent = (ctx.config?.display?.autocompactBuffer ?? 'enabled') === 'disabled' ? contextPercent : bufferedPercent;
+    if (percent >= 85) {
+      effectiveLayout = 'compact';
+    }
+  }
+
   let lines: string[];
 
-  if (lineLayout === 'expanded') {
+  if (effectiveLayout === 'expanded') {
     const renderedLines = renderExpanded(ctx);
     const useTree = ctx.config?.display?.treePrefixes ?? false;
 
