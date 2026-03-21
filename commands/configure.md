@@ -23,14 +23,14 @@ Advanced settings such as `colors.*`, `pathLevels`, `display.usageThreshold`, an
 ## Two Flows Based on Config State
 
 ### Flow A: New User (no config)
-Questions: **Layout → Preset → Turn Off → Turn On**
+Questions: **Layout → Preset → Bar Style → Turn Off → Turn On**
 
 ### Flow B: Update Config (config exists)
-Questions: **Turn Off → Turn On → Git Style → Layout/Reset → Custom Line** (5 questions max)
+Questions: **Turn Off → Turn On → Git Style → Color Theme → Layout/Reset → Custom Line** (6 questions max)
 
 ---
 
-## Flow A: New User (5 Questions)
+## Flow A: New User (6 Questions)
 
 ### Q1: Layout
 - header: "Layout"
@@ -50,7 +50,20 @@ Questions: **Turn Off → Turn On → Git Style → Layout/Reset → Custom Line
   - "Essential" - Activity + git, minimal info
   - "Minimal" - Core only (model, context bar)
 
-### Q3: Turn Off (based on chosen preset)
+### Q3: Bar Style
+- header: "Bar Style"
+- question: "Choose progress bar characters:"
+- multiSelect: false
+- options:
+  - "Classic" — █████░░░░░ (default)
+  - "Modern" — ▰▰▰▰▰▱▱▱▱▱
+
+| Option | Config |
+|--------|--------|
+| Classic | `display.barStyle: "classic"` |
+| Modern | `display.barStyle: "modern"` |
+
+### Q4: Turn Off (based on chosen preset)
 - header: "Turn Off"
 - question: "Disable any of these? (enabled by your preset)"
 - multiSelect: true
@@ -66,18 +79,24 @@ Questions: **Turn Off → Turn On → Git Style → Layout/Reset → Custom Line
   - "Usage limits" - 5h: 25% | 7d: 10%
   - "Session duration" - ⏱️ 5m
   - "Session name" - fix-auth-bug (session slug or custom title)
+  - "Frameworks" — ⟳ AGW: pipeline (3/5) │ ⬡ Teams: fe✓ be◐
+  - "Burn rate" — 1.2k tok/m consumption rate
+  - "Alerts" — ⚠ Context 92% — ~8 calls
+  - "Activity indicator" — ◉ red/green status dot
+  - "Tree prefixes" — ├─ └─ hierarchical connectors
+  - "Merge tools+agents" — Combine on one line
 
-### Q4: Turn On (based on chosen preset)
+### Q5: Turn On (based on chosen preset)
 - header: "Turn On"
 - question: "Enable any of these? (disabled by your preset)"
 - multiSelect: true
 - options: **ONLY items that are OFF in the chosen preset** (max 4)
   - (same list as above, filtered to OFF items)
 
-**Note:** If preset has all items ON (Full), Q4 shows "Nothing to enable - Full preset has everything!"
-If preset has all items OFF (Minimal), Q3 shows "Nothing to disable - Minimal preset is already minimal!"
+**Note:** If preset has all items ON (Full), Q5 shows "Nothing to enable - Full preset has everything!"
+If preset has all items OFF (Minimal), Q4 shows "Nothing to disable - Minimal preset is already minimal!"
 
-### Q5: Custom Line (optional)
+### Q6: Custom Line (optional)
 - header: "Custom Line"
 - question: "Add a custom phrase to display in the HUD? (e.g. a motto, max 80 chars)"
 - multiSelect: false
@@ -89,7 +108,7 @@ If user chooses "Enter custom text", use AskUserQuestion to get their text. Save
 
 ---
 
-## Flow B: Update Config (5 Questions)
+## Flow B: Update Config (6 Questions)
 
 ### Q1: Turn Off
 - header: "Turn Off"
@@ -105,7 +124,7 @@ If user chooses "Enter custom text", use AskUserQuestion to get their text. Save
   - "Usage bar style" - ██░░ 25% visual bar (only if usageBarEnabled is true)
 
 If more than 4 items ON, show Activity items (Tools, Agents, Todos, Project, Git) first.
-Info items (Counts, Tokens, Usage, Speed, Duration) can be turned off via "Reset to Minimal" in Q4.
+Info items (Counts, Tokens, Usage, Speed, Duration) can be turned off via "Reset to Minimal" in Q5.
 
 ### Q2: Turn On
 - header: "Turn On"
@@ -119,6 +138,12 @@ Info items (Counts, Tokens, Usage, Speed, Duration) can be turned off via "Reset
   - "Usage bar style" - ██░░ 25% visual bar (only if usageBarEnabled is false)
   - "Session name" - fix-auth-bug (session slug or custom title)
   - "Session duration" - ⏱️ 5m
+  - "Frameworks" — ⟳ AGW: pipeline (3/5) │ ⬡ Teams: fe✓ be◐
+  - "Burn rate" — 1.2k tok/m consumption rate
+  - "Alerts" — ⚠ Context 92% — ~8 calls
+  - "Activity indicator" — ◉ red/green status dot
+  - "Tree prefixes" — ├─ └─ hierarchical connectors
+  - "Merge tools+agents" — Combine on one line
 
 ### Q3: Git Style (only if Git is currently enabled)
 - header: "Git Style"
@@ -132,7 +157,18 @@ Info items (Counts, Tokens, Usage, Speed, Duration) can be turned off via "Reset
 
 **Skip Q3 if Git is OFF** - proceed to Q4.
 
-### Q4: Layout/Reset
+### Q4: Color Theme
+- header: "Color Theme"
+- question: "Apply a color theme?"
+- multiSelect: false
+- options:
+  - "Keep current" — No change
+  - "Default" — Green/Blue/Yellow/Red
+  - "Catppuccin Mocha" — Pastel dark theme
+  - "Dracula" — Purple-accented dark theme
+  - "Nord" — Cool blue-toned theme
+
+### Q5: Layout/Reset
 - header: "Layout/Reset"
 - question: "Change layout or reset to preset?"
 - multiSelect: false
@@ -143,7 +179,7 @@ Info items (Counts, Tokens, Usage, Speed, Duration) can be turned off via "Reset
   - "Reset to Full" - Enable everything
   - "Reset to Essential" - Activity + git only
 
-### Q5: Custom Line (optional)
+### Q6: Custom Line (optional)
 - header: "Custom Line"
 - question: "Update your custom phrase? (currently: '{current customLine or none}')"
 - multiSelect: false
@@ -163,16 +199,19 @@ If user chooses "Remove", set `display.customLine` to `""` in config.
 - Activity: Tools ON, Agents ON, Todos ON
 - Info: Counts ON, Tokens ON, Usage ON, Duration ON, Session Name ON
 - Git: ON (with dirty indicator, no ahead/behind)
+- New features: showFrameworks: true, showBurnRate: true, showAlerts: true, activityIndicator: true, treePrefixes: true, mergeToolsAgents: true
 
 **Essential** (activity + git):
 - Activity: Tools ON, Agents ON, Todos ON
 - Info: Counts OFF, Tokens OFF, Usage OFF, Duration ON, Session Name OFF
 - Git: ON (with dirty indicator)
+- New features: showFrameworks: false, showBurnRate: false, showAlerts: true, activityIndicator: true, treePrefixes: true, mergeToolsAgents: true
 
 **Minimal** (core only — this is the default):
 - Activity: Tools OFF, Agents OFF, Todos OFF
 - Info: Counts OFF, Tokens OFF, Usage OFF, Duration OFF, Session Name OFF
 - Git: ON (with dirty indicator)
+- New features: showFrameworks: false, showBurnRate: false, showAlerts: true, activityIndicator: true, treePrefixes: false, mergeToolsAgents: false
 
 ---
 
@@ -214,6 +253,12 @@ If user chooses "Remove", set `display.customLine` to `""` in config.
 | Session name | `display.showSessionName` |
 | Session duration | `display.showDuration` |
 | Custom line | `display.customLine` |
+| Frameworks status | `display.showFrameworks` |
+| Burn rate | `display.showBurnRate` |
+| Alerts | `display.showAlerts` |
+| Activity indicator | `display.activityIndicator` |
+| Tree prefixes | `display.treePrefixes` |
+| Merge tools+agents | `display.mergeToolsAgents` |
 
 **Always true (not configurable):**
 - `display.showModel: true`
@@ -236,17 +281,19 @@ If user chooses "Remove", set `display.customLine` to `""` in config.
 
 ### For New Users (Flow A):
 1. Apply chosen preset as base
-2. Apply Turn Off selections (set those items to OFF)
-3. Apply Turn On selections (set those items to ON)
-4. Apply chosen layout
+2. Apply bar style selection
+3. Apply Turn Off selections (set those items to OFF)
+4. Apply Turn On selections (set those items to ON)
+5. Apply chosen layout
 
 ### For Returning Users (Flow B):
 1. Start from current config
 2. Apply Turn Off selections (set to OFF, including usageBarEnabled if selected)
 3. Apply Turn On selections (set to ON, including usageBarEnabled if selected)
 4. Apply Git Style selection (if shown)
-5. If "Reset to [preset]" selected, override with preset values
-6. If layout change selected, apply it
+5. Apply Color Theme selection (if not "Keep current")
+6. If "Reset to [preset]" selected, override with preset values
+7. If layout change selected, apply it
 
 ---
 
@@ -273,6 +320,15 @@ Changes:
 Context ████░░░░░ 45% │ Usage ██░░░░░░░░ 25% (1h 30m / 5h)
 ◐ Edit: file.ts | ✓ Read ×3
 ▸ Fix auth bug (2/5)
+```
+
+**Preview (Expanded, Full preset):**
+```
+◉ [Opus 4.6 | Max] │ my-project git:(main*)
+Context ▰▰▰▰▰▱▱▱▱▱ 45% │ 1.2k tok/m │ Usage ▰▰▱▱▱▱▱▱▱▱ 25% (resets in 1h 30m)
+├─ ⟳ AGW: review-loop (3/5) │ ⬡ Teams: fe✓ be◐
+├─ ◐ Edit: auth.ts │ ✓ Read ×3 │ ◐ explore [haiku] (2m)
+└─ ▸ Fix auth bug (2/5) │ ▪▪▪▪▪
 ```
 
 **Preview of HUD (Compact layout):**
