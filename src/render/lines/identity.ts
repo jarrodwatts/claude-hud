@@ -117,6 +117,10 @@ export function renderIdentityLine(ctx: RenderContext): string {
     line += dim(` (${ordinal(ctx.sessionStats.autocompactCount)} compact)`);
   }
 
+  if (ctx.resumeInfo) {
+    line += ` ${dim(`↓${ctx.resumeInfo.preCompactPercent}→${ctx.resumeInfo.postCompactPercent}%`)}`;
+  }
+
   if (!isNarrow && ctx.sparkline && ctx.sparkline.length >= 3) {
     line += ` ${renderHeatmap(ctx.sparkline)}`;
   }

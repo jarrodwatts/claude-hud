@@ -1,6 +1,33 @@
 import { readCache, writeCache } from './cache.js';
 import type { SessionStats } from './types.js';
 
+export interface ResumeInfo {
+  preCompactPercent: number;
+  postCompactPercent: number;
+  tokensRecovered: number;
+}
+
+const RESUME_KEY = 'resume-info';
+
+export function detectResume(contextPercent: number, prevPercent: number | null, contextSize: number, cacheDir: string): ResumeInfo | null {
+  if (prevPercent === null || prevPercent - contextPercent < 20) return null;
+
+  const tokensRecovered = Math.round((prevPercent - contextPercent) / 100 * contextSize);
+  const info: ResumeInfo = {
+    preCompactPercent: prevPercent,
+    postCompactPercent: contextPercent,
+    tokensRecovered,
+  };
+
+  // Store for display (expires after 60s — only show briefly after compact)
+  writeCache(RESUME_KEY, info, cacheDir);
+  return info;
+}
+
+export function getResumeInfo(cacheDir: string): ResumeInfo | null {
+  return readCache<ResumeInfo>(RESUME_KEY, 60000, cacheDir);
+}
+
 export interface PromptStats {
   count: number;
   avgTokens: number;

@@ -5,6 +5,7 @@ import type { McpServerInfo } from './mcp-monitor.js';
 import type { Locale } from './i18n.js';
 import type { CustomWidget } from './custom-widgets.js';
 import type { Suggestion } from './suggestions.js';
+import type { ResumeInfo } from './session-stats.js';
 
 export interface StdinData {
   transcript_path?: string;
@@ -153,4 +154,5 @@ export interface RenderContext {
   customWidgets: CustomWidget[];
   suggestions: Suggestion[];
   rateLimitEta: string | null;
+  resumeInfo: ResumeInfo | null;
 }

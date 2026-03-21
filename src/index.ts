@@ -14,7 +14,7 @@ import { getDefaultCacheDir, readCache, writeCache, readLatency, writeLatency } 
 import { loadProviders, fetchAllProviders } from './providers/index.js';
 import { evaluateAlerts, shouldBell, sendNotification, recordAlertHistory, runAlertHook, predictRateLimitHit, sendWebhook } from './alert.js';
 import { calculateBurnRate, recordTokenSnapshot } from './burn-rate.js';
-import { updateSessionStats, getSessionStats, getSparkline, updatePromptStats, updateAgentStats } from './session-stats.js';
+import { updateSessionStats, getSessionStats, getSparkline, updatePromptStats, updateAgentStats, detectResume, getResumeInfo } from './session-stats.js';
 import { getTerminalWidth } from './utils/terminal.js';
 import { estimateCost } from './cost-tracker.js';
 import { saveCurrentSession, getLastSession, formatSessionSummary } from './session-history.js';
@@ -161,6 +161,13 @@ export async function main(overrides: Partial<MainDeps> = {}): Promise<void> {
     // Context percent
     const contextPercent = getContextPercent(stdin);
 
+    // Session resume detection — detect autocompact by large context drop
+    const prevContextPercent = readCache<number>('prev-context-percent', 86400000, cacheDir);
+    const contextSizeForResume = stdin.context_window?.context_window_size ?? 0;
+    detectResume(contextPercent, prevContextPercent, contextSizeForResume, cacheDir);
+    writeCache('prev-context-percent', contextPercent, cacheDir);
+    const resumeInfo = getResumeInfo(cacheDir);
+
     // Agent efficiency tracking
     if (transcript.agents.length > 0) {
       updateAgentStats(transcript.agents, cacheDir);
@@ -284,6 +291,7 @@ export async function main(overrides: Partial<MainDeps> = {}): Promise<void> {
       locale: config.locale ?? detectLocale(),
       customWidgets,
       rateLimitEta,
+      resumeInfo,
     };
     const suggestions = config.display.showAlerts
       ? getSuggestions(suggestionInput as RenderContext)

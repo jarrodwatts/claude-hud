@@ -91,6 +91,7 @@ function baseContext() {
     locale: 'en',
     customWidgets: [],
     rateLimitEta: null,
+    resumeInfo: null,
   };
 }
 

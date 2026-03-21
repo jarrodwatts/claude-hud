@@ -51,6 +51,7 @@ function baseContext() {
     locale: 'en',
     customWidgets: [],
     rateLimitEta: null,
+    resumeInfo: null,
     config: {
       lineLayout: 'compact',
       showSeparators: false,
