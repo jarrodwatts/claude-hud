@@ -10,8 +10,14 @@ export function renderProjectLine(ctx: RenderContext): string | null {
 
   if (display?.activityIndicator) {
     const hasRunning = ctx.transcript.tools.some(t => t.status === 'running');
-    const indicator = hasRunning ? colorize('◉', '\x1b[31m') : green('◉');
-    parts.unshift(indicator);
+    if (hasRunning) {
+      const spinChars = ['◐', '◓', '◑', '◒'];
+      // Rotate every ~300ms (the polling interval)
+      const idx = Math.floor(Date.now() / 300) % spinChars.length;
+      parts.unshift(colorize(spinChars[idx], '\x1b[31m'));
+    } else {
+      parts.unshift(green('◉'));
+    }
   }
 
   if (display?.showModel !== false) {

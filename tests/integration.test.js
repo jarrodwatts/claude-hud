@@ -54,11 +54,13 @@ test('CLI renders expected output for a basic transcript', async (t) => {
     assert.equal(result.error, undefined, result.error?.message);
     assert.equal(result.status, 0, result.stderr || 'non-zero exit');
     const normalized = stripAnsi(result.stdout).replace(/\u00A0/g, ' ').trimEnd();
+    // Normalize spinner chars (◐◓◑◒) to ◉ so snapshots are stable across poll cycles
+    const normalizedSpinner = normalized.replace(/[◐◓◑◒]/g, '◉');
     if (process.env.UPDATE_SNAPSHOTS === '1') {
-      await writeFile(expectedPath, normalized + '\n', 'utf8');
+      await writeFile(expectedPath, normalizedSpinner + '\n', 'utf8');
       return;
     }
-    assert.equal(normalized, expected);
+    assert.equal(normalizedSpinner, expected);
   } finally {
     await rm(homeDir, { recursive: true, force: true });
   }
