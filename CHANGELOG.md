@@ -4,6 +4,14 @@ All notable changes to Claude HUD will be documented in this file.
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-03-21
+
+### Added
+- Multi-session detection — PID-based lock files track concurrent Claude Code sessions; project line shows `⊕N` indicator when more than one session is active (`src/session-lock.ts`, `src/render/lines/project.ts`)
+- Session comparison metrics — `compareWithLastSession()` computes duration, tool call count, and compact count deltas vs the previous completed session (`src/session-history.ts`)
+- Dashboard export — `exportDashboard()` aggregates all session records into a JSON snapshot with summary stats; `/claude-hud:dashboard` command lets users display, copy, or save the export (`src/session-history.ts`, `commands/dashboard.md`)
+- Weekly usage summary — `generateWeeklySummary()` and `formatWeeklySummary()` aggregate the past 7 days of sessions, reporting tool calls, agent runs, compacts, avg duration, most-used model, and peak context percent (`src/session-history.ts`)
+
 ## [0.2.0] - 2026-03-21
 
 ### Added

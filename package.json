@@ -1,6 +1,6 @@
 {
   "name": "@sooneocean/claude-hud",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "Enhanced real-time statusline HUD for Claude Code — with cache, alerts, frameworks, themes, and Dashboard Rich visuals",
   "type": "module",
   "main": "dist/index.js",
