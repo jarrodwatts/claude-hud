@@ -12,7 +12,8 @@
     "./commands/health.md",
     "./commands/export.md",
     "./commands/theme.md",
-    "./commands/dashboard.md"
+    "./commands/dashboard.md",
+    "./commands/stats.md"
   ],
   "homepage": "https://github.com/jarrodwatts/claude-hud",
   "repository": "https://github.com/jarrodwatts/claude-hud",
