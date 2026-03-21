@@ -134,7 +134,7 @@ This is a [Claude Code platform limitation](https://github.com/anthropics/claude
 
 5. Generate command (quotes around runtime path handle spaces):
    ```
-   bash -c 'plugin_dir=$(ls -d "${CLAUDE_CONFIG_DIR:-$HOME/.claude}"/plugins/cache/claude-hud/claude-hud/*/ 2>/dev/null | awk -F/ '"'"'{ print $(NF-1) "\t" $0 }'"'"' | sort -t. -k1,1n -k2,2n -k3,3n -k4,4n | tail -1 | cut -f2-); exec "{RUNTIME_PATH}" "${plugin_dir}{SOURCE}"'
+   bash -c 'plugin_dir=$(ls -d "${CLAUDE_CONFIG_DIR:-$HOME/.claude}"/plugins/cache/claude-hud/claude-hud/*/ 2>/dev/null | awk -F/ '"'"'{ print $(NF-1) "\t" $0 }'"'"' | sort -t. -k1,1n -k2,2n -k3,3n -k4,4n | tail -1 | cut -f2-); exec "{RUNTIME_PATH}" $([ "$(basename {RUNTIME_PATH})" = "bun" ] && echo "--env-file /dev/null") "${plugin_dir}{SOURCE}"'
    ```
 
 **Windows** (Platform: `win32`):

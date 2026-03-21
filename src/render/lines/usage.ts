@@ -59,7 +59,13 @@ export function renderUsageLine(ctx: RenderContext): string | null {
   const syncingSuffix = ctx.usageData.apiError === 'rate-limited'
     ? ` ${dim('(syncing...)')}`
     : '';
-  if (sevenDay !== null && sevenDay >= sevenDayThreshold) {
+
+  // For free/weekly-only users (fiveHour is null but sevenDay exists), always show the
+  // seven-day bar regardless of the threshold — it's their only usage indicator.
+  // For paid users, only show seven-day when it exceeds the threshold (default 80%).
+  const sevenDayVisible = sevenDay !== null && (fiveHour === null || sevenDay >= sevenDayThreshold);
+
+  if (sevenDayVisible) {
     const sevenDayDisplay = formatUsagePercent(sevenDay, colors);
     const sevenDayReset = formatResetTime(ctx.usageData.sevenDayResetAt);
     const sevenDayPart = usageBarEnabled
@@ -69,6 +75,11 @@ export function renderUsageLine(ctx: RenderContext): string | null {
       : (sevenDayReset
           ? `7d: ${sevenDayDisplay} (resets in ${sevenDayReset})`
           : `7d: ${sevenDayDisplay}`);
+
+    // Free users have no 5-hour window: show only the weekly bar without a leading placeholder
+    if (fiveHour === null) {
+      return `${label} ${sevenDayPart}${syncingSuffix}`;
+    }
     return `${label} ${fiveHourPart} | ${sevenDayPart}${syncingSuffix}`;
   }
 

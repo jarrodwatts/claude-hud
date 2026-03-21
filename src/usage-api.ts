@@ -35,6 +35,12 @@ interface UsageApiResponse {
     utilization?: number;
     resets_at?: string;
   };
+  rate_limits?: {
+    requests_limit?: number;
+    requests_remaining?: number;
+    tokens_limit?: number;
+    tokens_remaining?: number;
+  };
 }
 
 interface UsageApiResult {
@@ -401,10 +407,16 @@ export async function getUsage(overrides: Partial<UsageApiDeps> = {}): Promise<U
     const { accessToken, subscriptionType } = credentials;
 
     // Determine plan name from subscriptionType
-    const planName = getPlanName(subscriptionType);
+    let planName = getPlanName(subscriptionType);
     if (!planName) {
-      // API user, no usage limits to show
-      return null;
+      // subscriptionType may be temporarily null during OAuth refresh — fall back to cached planName
+      const lastGood = readLastGoodData(homeDir);
+      if (lastGood?.planName) {
+        planName = lastGood.planName;
+      } else {
+        // API user or truly unknown, no usage limits to show
+        return null;
+      }
     }
 
     // Fetch usage from API
@@ -458,12 +470,22 @@ export async function getUsage(overrides: Partial<UsageApiDeps> = {}): Promise<U
     const fiveHourResetAt = parseDate(apiResult.data.five_hour?.resets_at);
     const sevenDayResetAt = parseDate(apiResult.data.seven_day?.resets_at);
 
+    const rateLimits = apiResult.data.rate_limits
+      ? {
+          requests_limit: apiResult.data.rate_limits.requests_limit,
+          requests_remaining: apiResult.data.rate_limits.requests_remaining,
+          tokens_limit: apiResult.data.rate_limits.tokens_limit,
+          tokens_remaining: apiResult.data.rate_limits.tokens_remaining,
+        }
+      : undefined;
+
     const result: UsageData = {
       planName,
       fiveHour,
       sevenDay,
       fiveHourResetAt,
       sevenDayResetAt,
+      ...(rateLimits && { rateLimits }),
     };
 
     // Write to file cache — also store as lastGoodData for rate-limit resilience
