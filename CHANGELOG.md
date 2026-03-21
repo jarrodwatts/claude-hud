@@ -4,6 +4,14 @@ All notable changes to Claude HUD will be documented in this file.
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-03-21
+
+### Added
+- MCP server health monitoring — reads server names from `~/.claude/settings.json` and project-level settings; environment line shows server names (up to 3, with overflow count) when `showConfigCounts` is enabled (`src/mcp-monitor.ts`, `src/render/lines/environment.ts`)
+- Git advanced status — stash count displayed as `⚑N` after the git branch indicator; active rebase/merge/cherry-pick/bisect state shown as a warning label (`src/git.ts`, `src/render/lines/project.ts`)
+- i18n support — English, Chinese (zh), and Japanese (ja) label translations with automatic locale detection from `LANG`/`LC_ALL`/`LANGUAGE` environment variables; configurable via `locale` config key; Context and Usage labels are localized (`src/i18n.ts`, `src/config.ts`)
+- Custom widget API — users can add up to 5 custom label/value pairs to the project line by creating `~/.claude/plugins/claude-hud/widgets.json`; updates are polled every 5 seconds via cache (`src/custom-widgets.ts`, `src/render/lines/project.ts`)
+
 ## [0.3.0] - 2026-03-21
 
 ### Added
