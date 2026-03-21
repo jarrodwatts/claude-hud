@@ -37,6 +37,12 @@ Calculate statistics for the last 7 days and generate markdown:
 |-------|----------|---|
 | {model} | {count} | {pct}% |
 
+## By Tag
+| Tag | Sessions | Tool Calls |
+|-----|----------|------------|
+| feature | 5 | 234 |
+| bug | 3 | 89 |
+
 ## Session Details
 | # | Date | Duration | Model | Tools | Peak Ctx | Compacts |
 |---|------|----------|-------|-------|----------|----------|

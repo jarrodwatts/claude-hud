@@ -12,6 +12,7 @@ export interface SessionRecord {
   autocompactCount: number;
   totalToolCalls: number;
   totalAgentRuns: number;
+  tags?: string[];
 }
 
 function getHistoryPath(): string {
@@ -55,6 +56,24 @@ export function getLastSession(): SessionRecord | null {
   const history = loadHistory();
   // Return the second-to-last (last completed session, not current)
   return history.length >= 2 ? history[history.length - 2] : null;
+}
+
+export function tagCurrentSession(tags: string[], _cacheDir: string): void {
+  const history = loadHistory();
+  if (history.length === 0) return;
+
+  // Tag the most recent session
+  const last = history[history.length - 1];
+  last.tags = [...new Set([...(last.tags || []), ...tags])];
+
+  const dir = path.dirname(getHistoryPath());
+  fs.mkdirSync(dir, { recursive: true });
+  fs.writeFileSync(getHistoryPath(), JSON.stringify(history, null, 2));
+  if (DEBUG) console.error(`[claude-hud:session-history] tagged session with: ${tags.join(', ')}`);
+}
+
+export function getSessionsByTag(tag: string): SessionRecord[] {
+  return loadHistory().filter(s => s.tags?.includes(tag));
 }
 
 export function formatSessionSummary(record: SessionRecord): string {
