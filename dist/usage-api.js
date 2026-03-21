@@ -148,10 +148,15 @@ function fetchGlmUsageApi(env = process.env) {
 }
 /**
  * Parse GLM quota limit response to UsageData format.
+ * GLM returns:
+ * - TOKENS_LIMIT, unit=3, -- 5 hour limit
+ * - TOKENS_LIMIT, unit=6  -- weekly limit
+ * - TIME_LIMIT, unit=5   -- MCP monthly usage
  */
 function parseGlmUsageData(response, env = process.env) {
     let fiveHour = null;
     let sevenDay = null;
+    let mcpUsage = null;
     let planName = null;
     // Determine plan name from ANTHROPIC_BASE_URL or default to GLM
     const baseUrl = env.ANTHROPIC_BASE_URL?.trim() || '';
@@ -163,12 +168,17 @@ function parseGlmUsageData(response, env = process.env) {
     }
     if (response.limits) {
         for (const limit of response.limits) {
-            if (limit.type === 'TOKENS_LIMIT' || limit.type === 'Token usage(5 Hour)') {
+            // unit=3 is 5-hour token limit
+            if (limit.type === 'TOKENS_LIMIT' && limit.unit === 3) {
                 fiveHour = parseUtilization(limit.percentage);
             }
-            else if (limit.type === 'TIME_LIMIT' || limit.type === 'MCP usage(1 Month)') {
-                // MCP usage is monthly, show as sevenDay for now
+            // unit=6 is weekly token limit
+            if (limit.type === 'TOKENS_LIMIT' && limit.unit === 6) {
                 sevenDay = parseUtilization(limit.percentage);
+            }
+            // TIME_LIMIT is MCP usage (monthly)
+            if (limit.type === 'TIME_LIMIT') {
+                mcpUsage = parseUtilization(limit.percentage);
             }
         }
     }
@@ -178,6 +188,7 @@ function parseGlmUsageData(response, env = process.env) {
         sevenDay,
         fiveHourResetAt: null,
         sevenDayResetAt: null,
+        mcpUsage,
     };
 }
 /**

@@ -51,6 +51,7 @@ export interface UsageData {
     sevenDay: number | null;
     fiveHourResetAt: Date | null;
     sevenDayResetAt: Date | null;
+    mcpUsage?: number | null;
     apiUnavailable?: boolean;
     apiError?: string;
 }
