@@ -2,6 +2,7 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import * as os from 'node:os';
 import { getHudPluginDir } from './claude-config-dir.js';
+import { getTheme } from './themes.js';
 export const DEFAULT_ELEMENT_ORDER = [
     'project', 'context', 'usage', 'environment', 'framework', 'tools', 'agents', 'todos', 'alert',
 ];
@@ -44,7 +45,10 @@ export const DEFAULT_CONFIG = {
         treePrefixes: true,
         mergeToolsAgents: true,
         barStyle: 'classic',
+        showCost: false,
+        showNotifications: false,
     },
+    theme: 'default',
     usage: {
         cacheTtlSeconds: 60,
         failureCacheTtlSeconds: 15,
@@ -257,27 +261,40 @@ export function mergeConfig(userConfig) {
         barStyle: (migrated.display?.barStyle === 'classic' || migrated.display?.barStyle === 'modern')
             ? migrated.display.barStyle
             : DEFAULT_CONFIG.display.barStyle,
+        showCost: typeof migrated.display?.showCost === 'boolean'
+            ? migrated.display.showCost
+            : DEFAULT_CONFIG.display.showCost,
+        showNotifications: typeof migrated.display?.showNotifications === 'boolean'
+            ? migrated.display.showNotifications
+            : DEFAULT_CONFIG.display.showNotifications,
     };
     const usage = {
         cacheTtlSeconds: validatePositiveInt(migrated.usage?.cacheTtlSeconds, DEFAULT_CONFIG.usage.cacheTtlSeconds),
         failureCacheTtlSeconds: validatePositiveInt(migrated.usage?.failureCacheTtlSeconds, DEFAULT_CONFIG.usage.failureCacheTtlSeconds),
     };
+    const theme = typeof migrated.theme === 'string' ? migrated.theme : DEFAULT_CONFIG.theme;
+    // Start with default colors
+    const defaultColors = { ...DEFAULT_CONFIG.colors };
+    // Apply theme colors as base (if a valid theme is set)
+    const resolvedTheme = getTheme(theme);
+    const themeColors = resolvedTheme ? { ...resolvedTheme.colors } : defaultColors;
+    // User's explicit color overrides take precedence over theme
     const colors = {
         context: validateColorValue(migrated.colors?.context)
             ? migrated.colors.context
-            : DEFAULT_CONFIG.colors.context,
+            : themeColors.context,
         usage: validateColorValue(migrated.colors?.usage)
             ? migrated.colors.usage
-            : DEFAULT_CONFIG.colors.usage,
+            : themeColors.usage,
         warning: validateColorValue(migrated.colors?.warning)
             ? migrated.colors.warning
-            : DEFAULT_CONFIG.colors.warning,
+            : themeColors.warning,
         usageWarning: validateColorValue(migrated.colors?.usageWarning)
             ? migrated.colors.usageWarning
-            : DEFAULT_CONFIG.colors.usageWarning,
+            : themeColors.usageWarning,
         critical: validateColorValue(migrated.colors?.critical)
             ? migrated.colors.critical
-            : DEFAULT_CONFIG.colors.critical,
+            : themeColors.critical,
     };
     const frameworks = {
         agw: {
@@ -322,7 +339,7 @@ export function mergeConfig(userConfig) {
             actions: mergeAlertActions(migrated.alerts?.usage7d?.actions, DEFAULT_CONFIG.alerts.usage7d.actions),
         },
     };
-    return { lineLayout, showSeparators, pathLevels, elementOrder, gitStatus, display, usage, colors, frameworks, alerts };
+    return { lineLayout, showSeparators, pathLevels, elementOrder, gitStatus, display, theme, usage, colors, frameworks, alerts };
 }
 export async function loadConfig() {
     const configPath = getConfigPath();

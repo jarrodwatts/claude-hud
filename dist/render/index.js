@@ -7,6 +7,7 @@ import { renderFrameworkLine } from './framework-line.js';
 import { renderAlertLine } from './alert-line.js';
 import { renderIdentityLine, renderProjectLine, renderEnvironmentLine, renderUsageLine, } from './lines/index.js';
 import { dim, RESET } from './colors.js';
+import { getTerminalWidth } from '../utils/terminal.js';
 // eslint-disable-next-line no-control-regex
 const ANSI_ESCAPE_PATTERN = /^\x1b\[[0-9;]*m/;
 const ANSI_ESCAPE_GLOBAL = /\x1b\[[0-9;]*m/g;
@@ -15,23 +16,6 @@ const GRAPHEME_SEGMENTER = typeof Intl.Segmenter === 'function'
     : null;
 function stripAnsi(str) {
     return str.replace(ANSI_ESCAPE_GLOBAL, '');
-}
-function getTerminalWidth() {
-    const stdoutColumns = process.stdout?.columns;
-    if (typeof stdoutColumns === 'number' && Number.isFinite(stdoutColumns) && stdoutColumns > 0) {
-        return Math.floor(stdoutColumns);
-    }
-    // When running as a statusline subprocess, stdout is piped but stderr is
-    // still connected to the real terminal — use it to get the actual width.
-    const stderrColumns = process.stderr?.columns;
-    if (typeof stderrColumns === 'number' && Number.isFinite(stderrColumns) && stderrColumns > 0) {
-        return Math.floor(stderrColumns);
-    }
-    const envColumns = Number.parseInt(process.env.COLUMNS ?? '', 10);
-    if (Number.isFinite(envColumns) && envColumns > 0) {
-        return envColumns;
-    }
-    return null;
 }
 function splitAnsiTokens(str) {
     const tokens = [];
@@ -226,13 +210,33 @@ function splitWrapParts(line) {
     }
     return parts;
 }
+function wrapSingleSegment(str, maxWidth) {
+    const lines = [];
+    let remaining = str;
+    while (visualLength(remaining) > maxWidth) {
+        const sliced = sliceVisible(remaining, maxWidth);
+        lines.push(sliced + RESET);
+        remaining = remaining.slice(sliced.length);
+        // Skip any leading ANSI escape at the boundary so color continuity is preserved
+        let ansiMatch = ANSI_ESCAPE_PATTERN.exec(remaining);
+        while (ansiMatch && remaining.startsWith(ansiMatch[0])) {
+            remaining = remaining.slice(ansiMatch[0].length);
+            ansiMatch = ANSI_ESCAPE_PATTERN.exec(remaining);
+        }
+    }
+    if (remaining) {
+        lines.push(remaining);
+    }
+    return lines.length > 0 ? lines : [str];
+}
 function wrapLineToWidth(line, maxWidth) {
     if (maxWidth <= 0 || visualLength(line) <= maxWidth) {
         return [line];
     }
     const parts = splitWrapParts(line);
     if (parts.length <= 1) {
-        return [truncateToWidth(line, maxWidth)];
+        // Single segment — wrap at character level instead of truncating
+        return wrapSingleSegment(line, maxWidth);
     }
     const wrapped = [];
     let current = parts[0].segment;
@@ -242,11 +246,22 @@ function wrapLineToWidth(line, maxWidth) {
             current = candidate;
             continue;
         }
-        wrapped.push(truncateToWidth(current, maxWidth));
+        // Push current line, wrapping if still too wide
+        if (visualLength(current) > maxWidth) {
+            wrapped.push(...wrapSingleSegment(current, maxWidth));
+        }
+        else {
+            wrapped.push(current);
+        }
         current = part.segment;
     }
     if (current) {
-        wrapped.push(truncateToWidth(current, maxWidth));
+        if (visualLength(current) > maxWidth) {
+            wrapped.push(...wrapSingleSegment(current, maxWidth));
+        }
+        else {
+            wrapped.push(current);
+        }
     }
     return wrapped;
 }

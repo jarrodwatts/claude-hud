@@ -52,7 +52,10 @@ export interface HudConfig {
         treePrefixes: boolean;
         mergeToolsAgents: boolean;
         barStyle: 'classic' | 'modern';
+        showCost: boolean;
+        showNotifications: boolean;
     };
+    theme: string;
     usage: {
         cacheTtlSeconds: number;
         failureCacheTtlSeconds: number;

@@ -1,7 +1,8 @@
 import { isLimitReached } from '../../types.js';
 import { getProviderLabel } from '../../stdin.js';
-import { critical, warning, dim, getQuotaColor, quotaBar, RESET } from '../colors.js';
+import { critical, warning, dim, quotaBar } from '../colors.js';
 import { getAdaptiveBarWidth } from '../../utils/terminal.js';
+import { formatResetTime, formatUsageError, formatUsagePercent } from '../../utils/format.js';
 export function renderUsageLine(ctx) {
     const display = ctx.config?.display;
     const colors = ctx.config?.colors;
@@ -60,42 +61,5 @@ export function renderUsageLine(ctx) {
         return `${label} ${fiveHourPart} ${dim('│')} ${sevenDayPart}${syncingSuffix}`;
     }
     return `${label} ${fiveHourPart}${syncingSuffix}`;
-}
-function formatUsagePercent(percent, colors) {
-    if (percent === null) {
-        return dim('--');
-    }
-    const color = getQuotaColor(percent, colors);
-    return `${color}${percent}%${RESET}`;
-}
-function formatUsageError(error) {
-    if (!error)
-        return '';
-    if (error === 'rate-limited')
-        return ' (syncing...)';
-    if (error.startsWith('http-'))
-        return ` (${error.slice(5)})`;
-    return ` (${error})`;
-}
-function formatResetTime(resetAt) {
-    if (!resetAt)
-        return '';
-    const now = new Date();
-    const diffMs = resetAt.getTime() - now.getTime();
-    if (diffMs <= 0)
-        return '';
-    const diffMins = Math.ceil(diffMs / 60000);
-    if (diffMins < 60)
-        return `${diffMins}m`;
-    const hours = Math.floor(diffMins / 60);
-    const mins = diffMins % 60;
-    if (hours >= 24) {
-        const days = Math.floor(hours / 24);
-        const remHours = hours % 24;
-        if (remHours > 0)
-            return `${days}d ${remHours}h`;
-        return `${days}d`;
-    }
-    return mins > 0 ? `${hours}h ${mins}m` : `${hours}h`;
 }
 //# sourceMappingURL=usage.js.map

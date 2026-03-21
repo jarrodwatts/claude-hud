@@ -17,6 +17,7 @@ import { updateSessionStats, getSessionStats, getSparkline } from './session-sta
 import { getTerminalWidth } from './utils/terminal.js';
 import { estimateCost } from './cost-tracker.js';
 import { saveCurrentSession, getLastSession, formatSessionSummary } from './session-history.js';
+import { formatResetTime } from './utils/format.js';
 
 export type MainDeps = {
   readStdin: typeof readStdin;
@@ -130,7 +131,7 @@ export async function main(overrides: Partial<MainDeps> = {}): Promise<void> {
         usage7dPercent: usageData?.sevenDay ?? 0,
         estimatedCallsRemaining: burnRate?.estimatedCallsRemaining ?? null,
         usageResetTime: usageData?.fiveHourResetAt
-          ? formatResetTimeForAlert(usageData.fiveHourResetAt)
+          ? formatResetTime(usageData.fiveHourResetAt)
           : null,
         alertConfig: config.alerts,
         cacheDir,
@@ -201,17 +202,6 @@ export async function main(overrides: Partial<MainDeps> = {}): Promise<void> {
   } catch (error) {
     deps.log('[claude-hud] Error:', error instanceof Error ? error.message : 'Unknown error');
   }
-}
-
-export function formatResetTimeForAlert(resetAt: Date): string {
-  const now = new Date();
-  const diffMs = resetAt.getTime() - now.getTime();
-  if (diffMs <= 0) return 'now';
-  const mins = Math.ceil(diffMs / 60000);
-  if (mins < 60) return `${mins}m`;
-  const hours = Math.floor(mins / 60);
-  const remMins = mins % 60;
-  return remMins > 0 ? `${hours}h ${remMins}m` : `${hours}h`;
 }
 
 export function formatSessionDuration(sessionStart?: Date, now: () => number = () => Date.now()): string {

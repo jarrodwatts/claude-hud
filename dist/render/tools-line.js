@@ -1,4 +1,4 @@
-import { yellow, green, cyan, dim, magenta } from './colors.js';
+import { yellow, green, cyan, dim, magenta, red } from './colors.js';
 export function renderToolsLine(ctx) {
     const { tools } = ctx.transcript;
     if (tools.length === 0) {
@@ -21,6 +21,11 @@ export function renderToolsLine(ctx) {
         .slice(0, 4);
     for (const [name, count] of sortedTools) {
         parts.push(`${green('✓')} ${name} ${dim(`×${count}`)}`);
+    }
+    // Show error count if any tools failed
+    const errorCount = ctx.transcript.tools.filter(t => t.status === 'error').length;
+    if (errorCount > 0) {
+        parts.push(`${red('✘')} ${errorCount} err`);
     }
     if (ctx.config.display.mergeToolsAgents && ctx.transcript.agents.length > 0) {
         const recentAgents = ctx.transcript.agents.slice(-2);

@@ -1,6 +1,8 @@
-import { getContextPercent, getBufferedPercent, getTotalTokens } from '../../stdin.js';
-import { coloredBar, dim, getContextColor, RESET } from '../colors.js';
-import { getAdaptiveBarWidth } from '../../utils/terminal.js';
+import { getContextPercent, getBufferedPercent } from '../../stdin.js';
+import { coloredBar, dim, getContextColor, RESET, red, warning } from '../colors.js';
+import { getAdaptiveBarWidth, isNarrowTerminal, isVeryNarrowTerminal } from '../../utils/terminal.js';
+import { formatCost } from '../../cost-tracker.js';
+import { formatTokens, formatContextValue } from '../../utils/format.js';
 const DEBUG = process.env.DEBUG?.includes('claude-hud') || process.env.DEBUG === '*';
 const SPARK_CHARS = '▁▂▃▄▅▆▇█';
 function renderSparkline(values) {
@@ -43,7 +45,11 @@ export function renderIdentityLine(ctx) {
     let line = display?.showContextBar !== false
         ? `${dim('Context')} ${coloredBar(percent, getAdaptiveBarWidth(), colors, barStyle, alertThresholds)} ${contextValueDisplay}`
         : `${dim('Context')} ${contextValueDisplay}`;
-    if (display?.showTokenBreakdown !== false && percent >= 85) {
+    // Progressive content reduction based on terminal width
+    const tw = ctx.terminalWidth;
+    const isNarrow = isNarrowTerminal(tw);
+    const isVeryNarrow = isVeryNarrowTerminal(tw);
+    if (!isVeryNarrow && display?.showTokenBreakdown !== false && percent >= 85) {
         const usage = ctx.stdin.context_window?.current_usage;
         if (usage) {
             const input = formatTokens(usage.input_tokens ?? 0);
@@ -51,13 +57,18 @@ export function renderIdentityLine(ctx) {
             line += dim(` (in: ${input}, cache: ${cache})`);
         }
     }
-    if (ctx.burnRate && ctx.config.display.showBurnRate) {
+    if (ctx.costEstimate && ctx.config.display.showCost) {
+        if (!isNarrow) {
+            line += ` ${dim('│')} ${dim(formatCost(ctx.costEstimate.sessionCost))}`;
+        }
+    }
+    if (!isNarrow && ctx.burnRate && ctx.config.display.showBurnRate) {
         const formatted = ctx.burnRate.tokensPerMinute >= 1000
             ? `${(ctx.burnRate.tokensPerMinute / 1000).toFixed(1)}k`
             : `${ctx.burnRate.tokensPerMinute}`;
         line += ` ${dim('│')} ${dim(`${formatted} tok/m`)}`;
     }
-    if (ctx.burnRate && ctx.burnRate.tokensPerMinute > 0 && percent >= (alertThresholds?.warningThreshold ?? 70)) {
+    if (!isNarrow && ctx.burnRate && ctx.burnRate.tokensPerMinute > 0 && percent >= (alertThresholds?.warningThreshold ?? 70)) {
         const remaining = ctx.stdin.context_window?.context_window_size
             ? ctx.stdin.context_window.context_window_size - (ctx.stdin.context_window?.current_usage?.input_tokens ?? 0)
             : 0;
@@ -67,35 +78,16 @@ export function renderIdentityLine(ctx) {
             line += dim(` ~${timeStr}`);
         }
     }
-    if (ctx.sessionStats.autocompactCount > 0) {
+    if (!isVeryNarrow && ctx.sessionStats.autocompactCount > 0) {
         line += dim(` (${ordinal(ctx.sessionStats.autocompactCount)} compact)`);
     }
-    if (ctx.sparkline && ctx.sparkline.length >= 3) {
+    if (!isNarrow && ctx.sparkline && ctx.sparkline.length >= 3) {
         line += ` ${dim(renderSparkline(ctx.sparkline))}`;
     }
+    if (!isNarrow && ctx.apiLatency !== null && ctx.apiLatency !== undefined && ctx.apiLatency > 0) {
+        const latencyColor = ctx.apiLatency > 5000 ? red : ctx.apiLatency > 2000 ? warning : dim;
+        line += ` ${latencyColor(`${ctx.apiLatency}ms`)}`;
+    }
     return line;
-}
-function formatTokens(n) {
-    if (n >= 1000000) {
-        return `${(n / 1000000).toFixed(1)}M`;
-    }
-    if (n >= 1000) {
-        return `${(n / 1000).toFixed(0)}k`;
-    }
-    return n.toString();
-}
-function formatContextValue(ctx, percent, mode) {
-    if (mode === 'tokens') {
-        const totalTokens = getTotalTokens(ctx.stdin);
-        const size = ctx.stdin.context_window?.context_window_size ?? 0;
-        if (size > 0) {
-            return `${formatTokens(totalTokens)}/${formatTokens(size)}`;
-        }
-        return formatTokens(totalTokens);
-    }
-    if (mode === 'remaining') {
-        return `${Math.max(0, 100 - percent)}%`;
-    }
-    return `${percent}%`;
 }
 //# sourceMappingURL=identity.js.map

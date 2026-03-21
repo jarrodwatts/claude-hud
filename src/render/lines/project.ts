@@ -2,6 +2,7 @@ import type { RenderContext } from '../../types.js';
 import { getModelName, getProviderLabel } from '../../stdin.js';
 import { getOutputSpeed } from '../../speed-tracker.js';
 import { cyan, dim, magenta, yellow, red, claudeOrange, colorize, green } from '../colors.js';
+import { isNarrowTerminal } from '../../utils/terminal.js';
 
 export function renderProjectLine(ctx: RenderContext): string | null {
   const display = ctx.config?.display;
@@ -78,7 +79,7 @@ export function renderProjectLine(ctx: RenderContext): string | null {
 
   // Progressive content reduction based on terminal width
   const tw = ctx.terminalWidth;
-  const isNarrow = tw !== null && tw < 80;
+  const isNarrow = isNarrowTerminal(tw);
 
   if (!isNarrow && display?.showSessionName && ctx.transcript.sessionName) {
     parts.push(dim(ctx.transcript.sessionName));

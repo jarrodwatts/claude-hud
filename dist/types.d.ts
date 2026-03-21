@@ -1,5 +1,6 @@
 import type { HudConfig } from './config.js';
 import type { GitStatus } from './git.js';
+import type { CostEstimate } from './cost-tracker.js';
 export interface StdinData {
     transcript_path?: string;
     cwd?: string;
@@ -116,5 +117,8 @@ export interface RenderContext {
     burnRate: BurnRate | null;
     sessionStats: SessionStats;
     sparkline: number[];
+    terminalWidth: number | null;
+    costEstimate: CostEstimate | null;
+    apiLatency: number | null;
 }
 //# sourceMappingURL=types.d.ts.map

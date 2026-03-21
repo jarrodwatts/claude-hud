@@ -9,6 +9,17 @@ const TIMEOUT_MS = 3000;
 
 const isDebug = process.env.DEBUG?.includes('claude-hud') ?? false;
 
+const SHELL_ESCAPE_RE = /[\x00-\x1f\x7f`$\\]/g;
+const CONSECUTIVE_SPACES_RE = /\s{2,}/g;
+const LEADING_TRAILING_SPACES_RE = /^\s+|\s+$/g;
+
+// ANSI/control sequence patterns used in sanitize()
+const CSI_SEQUENCE_RE = /\x1B\[[0-?]*[ -/]*[@-~]/g;
+const OSC_SEQUENCE_RE = /\x1B\][^\x07\x1B]*(?:\x07|\x1B\\)/g;
+const C1_ESCAPE_RE = /\x1B[@-Z\\-_]/g;
+const CONTROL_CHARS_RE = /[\u0000-\u001F\u007F-\u009F]/g;
+const BIDI_CHARS_RE = /[\u061C\u200E\u200F\u202A-\u202E\u2066-\u2069\u206A-\u206F]/g;
+
 function debug(message: string): void {
   if (isDebug) {
     console.error(`[claude-hud:extra-cmd] ${message}`);
@@ -25,11 +36,11 @@ export interface ExtraLabel {
  */
 export function sanitize(input: string): string {
   return input
-    .replace(/\x1B\[[0-?]*[ -/]*[@-~]/g, '') // CSI sequences
-    .replace(/\x1B\][^\x07\x1B]*(?:\x07|\x1B\\)/g, '') // OSC sequences
-    .replace(/\x1B[@-Z\\-_]/g, '') // 7-bit C1 / ESC Fe
-    .replace(/[\u0000-\u001F\u007F-\u009F]/g, '') // C0/C1 controls
-    .replace(/[\u061C\u200E\u200F\u202A-\u202E\u2066-\u2069\u206A-\u206F]/g, ''); // bidi
+    .replace(CSI_SEQUENCE_RE, '') // CSI sequences
+    .replace(OSC_SEQUENCE_RE, '') // OSC sequences
+    .replace(C1_ESCAPE_RE, '') // 7-bit C1 / ESC Fe
+    .replace(CONTROL_CHARS_RE, '') // C0/C1 controls
+    .replace(BIDI_CHARS_RE, ''); // bidi
 }
 
 /**

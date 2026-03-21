@@ -8,11 +8,15 @@ import { loadConfig } from './config.js';
 import { parseExtraCmdArg, runExtraCmd } from './extra-cmd.js';
 import { fileURLToPath } from 'node:url';
 import { realpathSync } from 'node:fs';
-import { getDefaultCacheDir } from './cache.js';
+import { getDefaultCacheDir, readCache, writeCache, readLatency, writeLatency } from './cache.js';
 import { loadProviders, fetchAllProviders } from './providers/index.js';
-import { evaluateAlerts, shouldBell } from './alert.js';
+import { evaluateAlerts, shouldBell, sendNotification } from './alert.js';
 import { calculateBurnRate, recordTokenSnapshot } from './burn-rate.js';
 import { updateSessionStats, getSessionStats, getSparkline } from './session-stats.js';
+import { getTerminalWidth } from './utils/terminal.js';
+import { estimateCost } from './cost-tracker.js';
+import { saveCurrentSession, getLastSession, formatSessionSummary } from './session-history.js';
+import { formatResetTime } from './utils/format.js';
 export async function main(overrides = {}) {
     const deps = {
         readStdin,
@@ -46,7 +50,9 @@ export async function main(overrides = {}) {
         const gitStatus = config.gitStatus.enabled
             ? await deps.getGitStatus(stdin.cwd)
             : null;
+        const cacheDir = getDefaultCacheDir();
         // Only fetch usage if enabled in config (replaces env var requirement)
+        const usageStart = Date.now();
         const usageData = config.display.showUsage !== false
             ? await deps.getUsage({
                 ttls: {
@@ -55,10 +61,13 @@ export async function main(overrides = {}) {
                 },
             })
             : null;
+        if (config.display.showUsage !== false && usageData !== null) {
+            writeLatency(Date.now() - usageStart, cacheDir);
+        }
+        const apiLatency = readLatency(cacheDir);
         const extraCmd = deps.parseExtraCmdArg();
         const extraLabel = extraCmd ? await deps.runExtraCmd(extraCmd) : null;
         const sessionDuration = formatSessionDuration(transcript.sessionStart, deps.now);
-        const cacheDir = getDefaultCacheDir();
         // Framework providers
         let frameworkStatus = [];
         if (config.display.showFrameworks) {
@@ -92,13 +101,44 @@ export async function main(overrides = {}) {
                 usage7dPercent: usageData?.sevenDay ?? 0,
                 estimatedCallsRemaining: burnRate?.estimatedCallsRemaining ?? null,
                 usageResetTime: usageData?.fiveHourResetAt
-                    ? formatResetTimeForAlert(usageData.fiveHourResetAt)
+                    ? formatResetTime(usageData.fiveHourResetAt)
                     : null,
                 alertConfig: config.alerts,
                 cacheDir,
             });
             if (shouldBell(alerts, cacheDir)) {
                 process.stderr.write('\x07');
+                if (config.display.showNotifications) {
+                    const criticalAlert = alerts.find(a => a.type.includes('critical'));
+                    if (criticalAlert) {
+                        sendNotification('Claude HUD', criticalAlert.message);
+                    }
+                }
+            }
+        }
+        const costEstimate = config.display.showCost ? estimateCost(stdin, cacheDir) : null;
+        // Session history — only save when stats have changed
+        const prevStatsHash = readCache('prev-session-hash', 60000, cacheDir);
+        const currentHash = `${sessionStats.totalToolCalls}-${sessionStats.autocompactCount}-${sessionStats.peakContextPercent}`;
+        if (prevStatsHash !== currentHash) {
+            writeCache('prev-session-hash', currentHash, cacheDir);
+            saveCurrentSession({
+                startTime: transcript.sessionStart?.toISOString() || new Date().toISOString(),
+                duration: sessionDuration,
+                model: stdin.model?.display_name || 'unknown',
+                peakContextPercent: sessionStats.peakContextPercent,
+                autocompactCount: sessionStats.autocompactCount,
+                totalToolCalls: sessionStats.totalToolCalls,
+                totalAgentRuns: sessionStats.totalAgentRuns,
+            });
+        }
+        // Last session summary — show once at session start
+        const shownLastSession = readCache('shown-last-session', 24 * 60 * 60 * 1000, cacheDir);
+        if (!shownLastSession && transcript.tools.length === 0) {
+            const lastSession = getLastSession();
+            if (lastSession) {
+                console.error(`[claude-hud] ${formatSessionSummary(lastSession)}`);
+                writeCache('shown-last-session', true, cacheDir);
             }
         }
         const ctx = {
@@ -118,24 +158,15 @@ export async function main(overrides = {}) {
             burnRate,
             sessionStats,
             sparkline,
+            terminalWidth: getTerminalWidth(),
+            costEstimate,
+            apiLatency,
         };
         deps.render(ctx);
     }
     catch (error) {
         deps.log('[claude-hud] Error:', error instanceof Error ? error.message : 'Unknown error');
     }
-}
-export function formatResetTimeForAlert(resetAt) {
-    const now = new Date();
-    const diffMs = resetAt.getTime() - now.getTime();
-    if (diffMs <= 0)
-        return 'now';
-    const mins = Math.ceil(diffMs / 60000);
-    if (mins < 60)
-        return `${mins}m`;
-    const hours = Math.floor(mins / 60);
-    const remMins = mins % 60;
-    return remMins > 0 ? `${hours}h ${remMins}m` : `${hours}h`;
 }
 export function formatSessionDuration(sessionStart, now = () => Date.now()) {
     if (!sessionStart) {

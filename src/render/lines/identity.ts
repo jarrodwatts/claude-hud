@@ -1,8 +1,9 @@
 import type { RenderContext } from '../../types.js';
-import { getContextPercent, getBufferedPercent, getTotalTokens } from '../../stdin.js';
+import { getContextPercent, getBufferedPercent } from '../../stdin.js';
 import { coloredBar, dim, getContextColor, RESET, red, warning } from '../colors.js';
-import { getAdaptiveBarWidth } from '../../utils/terminal.js';
+import { getAdaptiveBarWidth, isNarrowTerminal, isVeryNarrowTerminal } from '../../utils/terminal.js';
 import { formatCost } from '../../cost-tracker.js';
+import { formatTokens, formatContextValue } from '../../utils/format.js';
 
 const DEBUG = process.env.DEBUG?.includes('claude-hud') || process.env.DEBUG === '*';
 
@@ -54,8 +55,8 @@ export function renderIdentityLine(ctx: RenderContext): string {
 
   // Progressive content reduction based on terminal width
   const tw = ctx.terminalWidth;
-  const isNarrow = tw !== null && tw < 80;
-  const isVeryNarrow = tw !== null && tw < 60;
+  const isNarrow = isNarrowTerminal(tw);
+  const isVeryNarrow = isVeryNarrowTerminal(tw);
 
   if (!isVeryNarrow && display?.showTokenBreakdown !== false && percent >= 85) {
     const usage = ctx.stdin.context_window?.current_usage;
@@ -106,29 +107,3 @@ export function renderIdentityLine(ctx: RenderContext): string {
   return line;
 }
 
-function formatTokens(n: number): string {
-  if (n >= 1000000) {
-    return `${(n / 1000000).toFixed(1)}M`;
-  }
-  if (n >= 1000) {
-    return `${(n / 1000).toFixed(0)}k`;
-  }
-  return n.toString();
-}
-
-function formatContextValue(ctx: RenderContext, percent: number, mode: 'percent' | 'tokens' | 'remaining'): string {
-  if (mode === 'tokens') {
-    const totalTokens = getTotalTokens(ctx.stdin);
-    const size = ctx.stdin.context_window?.context_window_size ?? 0;
-    if (size > 0) {
-      return `${formatTokens(totalTokens)}/${formatTokens(size)}`;
-    }
-    return formatTokens(totalTokens);
-  }
-
-  if (mode === 'remaining') {
-    return `${Math.max(0, 100 - percent)}%`;
-  }
-
-  return `${percent}%`;
-}

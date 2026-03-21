@@ -36,3 +36,11 @@ export function getTerminalWidth(): number | null {
 
   return null;
 }
+
+export function isNarrowTerminal(width: number | null): boolean {
+  return width !== null && width < 80;
+}
+
+export function isVeryNarrowTerminal(width: number | null): boolean {
+  return width !== null && width < 60;
+}

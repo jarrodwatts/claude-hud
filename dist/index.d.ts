@@ -20,6 +20,5 @@ export type MainDeps = {
     log: (...args: unknown[]) => void;
 };
 export declare function main(overrides?: Partial<MainDeps>): Promise<void>;
-export declare function formatResetTimeForAlert(resetAt: Date): string;
 export declare function formatSessionDuration(sessionStart?: Date, now?: () => number): string;
 //# sourceMappingURL=index.d.ts.map

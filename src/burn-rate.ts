@@ -21,6 +21,9 @@ export function recordTokenSnapshot(tokens: number, cacheDir: string, timestamp?
 }
 
 export function calculateBurnRate(currentTokens: number, contextWindowSize: number, cacheDir: string): BurnRate | null {
+  if (!Number.isFinite(currentTokens) || currentTokens <= 0) return null;
+  if (!Number.isFinite(contextWindowSize) || contextWindowSize <= 0) return null;
+
   const snapshots = readCache<TokenSnapshot[]>(CACHE_KEY, SNAPSHOT_TTL, cacheDir);
   if (!snapshots || snapshots.length < 2) return null;
 

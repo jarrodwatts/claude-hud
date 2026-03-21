@@ -1,6 +1,7 @@
 import { getModelName, getProviderLabel } from '../../stdin.js';
 import { getOutputSpeed } from '../../speed-tracker.js';
 import { cyan, dim, magenta, yellow, red, claudeOrange, colorize, green } from '../colors.js';
+import { isNarrowTerminal } from '../../utils/terminal.js';
 export function renderProjectLine(ctx) {
     const display = ctx.config?.display;
     const parts = [];
@@ -69,10 +70,13 @@ export function renderProjectLine(ctx) {
     else if (gitPart) {
         parts.push(gitPart);
     }
-    if (display?.showSessionName && ctx.transcript.sessionName) {
+    // Progressive content reduction based on terminal width
+    const tw = ctx.terminalWidth;
+    const isNarrow = isNarrowTerminal(tw);
+    if (!isNarrow && display?.showSessionName && ctx.transcript.sessionName) {
         parts.push(dim(ctx.transcript.sessionName));
     }
-    if (ctx.extraLabel) {
+    if (!isNarrow && ctx.extraLabel) {
         parts.push(dim(ctx.extraLabel));
     }
     if (display?.showSpeed) {
@@ -81,7 +85,7 @@ export function renderProjectLine(ctx) {
             parts.push(dim(`out: ${speed.toFixed(1)} tok/s`));
         }
     }
-    if (display?.showDuration !== false && ctx.sessionDuration) {
+    if (!isNarrow && display?.showDuration !== false && ctx.sessionDuration) {
         parts.push(dim(`⏱️  ${ctx.sessionDuration}`));
     }
     const customLine = display?.customLine;
