@@ -1,11 +1,17 @@
 import type { RenderContext } from '../../types.js';
 import { getModelName, getProviderLabel } from '../../stdin.js';
 import { getOutputSpeed } from '../../speed-tracker.js';
-import { cyan, dim, magenta, yellow, red, claudeOrange } from '../colors.js';
+import { cyan, dim, magenta, yellow, red, claudeOrange, colorize, green } from '../colors.js';
 
 export function renderProjectLine(ctx: RenderContext): string | null {
   const display = ctx.config?.display;
   const parts: string[] = [];
+
+  if (display?.activityIndicator) {
+    const hasRunning = ctx.transcript.tools.some(t => t.status === 'running');
+    const indicator = hasRunning ? colorize('◉', '\x1b[31m') : green('◉');
+    parts.unshift(indicator);
+  }
 
   if (display?.showModel !== false) {
     const model = getModelName(ctx.stdin);

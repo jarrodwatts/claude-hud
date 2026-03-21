@@ -1,4 +1,4 @@
-import { yellow, green, dim } from './colors.js';
+import { yellow, green, dim, claudeOrange } from './colors.js';
 export function renderTodosLine(ctx) {
     const { todos } = ctx.transcript;
     if (!todos || todos.length === 0) {
@@ -15,7 +15,15 @@ export function renderTodosLine(ctx) {
     }
     const content = truncateContent(inProgress.content);
     const progress = dim(`(${completed}/${total})`);
-    return `${yellow('▸')} ${content} ${progress}`;
+    const miniBar = ctx.transcript.todos.slice(0, 10).map(todo => {
+        if (todo.status === 'completed')
+            return green('▪');
+        if (todo.status === 'in_progress')
+            return claudeOrange('▪');
+        return dim('▪');
+    }).join('');
+    const suffix = ctx.transcript.todos.length > 10 ? dim('…') : '';
+    return `${yellow('▸')} ${content} ${progress} │ ${miniBar}${suffix}`;
 }
 function truncateContent(content, maxLen = 50) {
     if (content.length <= maxLen)

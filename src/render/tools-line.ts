@@ -1,5 +1,5 @@
 import type { RenderContext } from '../types.js';
-import { yellow, green, cyan, dim } from './colors.js';
+import { yellow, green, cyan, dim, magenta } from './colors.js';
 
 export function renderToolsLine(ctx: RenderContext): string | null {
   const { tools } = ctx.transcript;
@@ -30,6 +30,16 @@ export function renderToolsLine(ctx: RenderContext): string | null {
 
   for (const [name, count] of sortedTools) {
     parts.push(`${green('✓')} ${name} ${dim(`×${count}`)}`);
+  }
+
+  if (ctx.config.display.mergeToolsAgents && ctx.transcript.agents.length > 0) {
+    const recentAgents = ctx.transcript.agents.slice(-2);
+    for (const agent of recentAgents) {
+      const icon = agent.status === 'running' ? magenta('◐') : green('✓');
+      const model = agent.model ? dim(`[${agent.model}]`) : '';
+      const desc = agent.description ? dim(`: ${agent.description.slice(0, 30)}`) : '';
+      parts.push(`${icon} ${agent.type || 'agent'}${model}${desc}`);
+    }
   }
 
   if (parts.length === 0) {

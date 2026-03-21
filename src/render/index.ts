@@ -5,6 +5,8 @@ import { renderSessionLine } from './session-line.js';
 import { renderToolsLine } from './tools-line.js';
 import { renderAgentsLine } from './agents-line.js';
 import { renderTodosLine } from './todos-line.js';
+import { renderFrameworkLine } from './framework-line.js';
+import { renderAlertLine } from './alert-line.js';
 import {
   renderIdentityLine,
   renderProjectLine,
@@ -304,6 +306,14 @@ function makeSeparator(length: number): string {
   return dim('─'.repeat(Math.max(length, 1)));
 }
 
+function addTreePrefixes(lines: string[], useTree: boolean): string[] {
+  if (!useTree || lines.length === 0) return lines;
+  return lines.map((line, i) => {
+    const prefix = i === lines.length - 1 ? dim('└─ ') : dim('├─ ');
+    return prefix + line;
+  });
+}
+
 const ACTIVITY_ELEMENTS = new Set<HudElement>(['tools', 'agents', 'todos']);
 
 function collectActivityLines(ctx: RenderContext): string[] {
@@ -353,9 +363,17 @@ function renderElementLine(ctx: RenderContext, element: HudElement): string | nu
     case 'todos':
       return display?.showTodos === false ? null : renderTodosLine(ctx);
     case 'framework':
-      return null; // Framework rendering not yet implemented
+      if (ctx.config.display.showFrameworks && ctx.frameworkStatus.length > 0) {
+        const line = renderFrameworkLine(ctx.frameworkStatus);
+        if (line) return line;
+      }
+      return null;
     case 'alert':
-      return null; // Alert rendering not yet implemented
+      if (ctx.config.display.showAlerts && ctx.alerts.length > 0) {
+        const line = renderAlertLine(ctx.alerts);
+        if (line) return line;
+      }
+      return null;
   }
 }
 
@@ -428,10 +446,23 @@ export function render(ctx: RenderContext): void {
 
   if (lineLayout === 'expanded') {
     const renderedLines = renderExpanded(ctx);
-    lines = renderedLines.map(({ line }) => line);
+    const useTree = ctx.config?.display?.treePrefixes ?? false;
+
+    const firstActivityIndex = renderedLines.findIndex(({ isActivity }) => isActivity);
+    const activityLineStrings = renderedLines
+      .filter(({ isActivity }) => isActivity)
+      .map(({ line }) => line);
+    const prefixedActivityLines = addTreePrefixes(activityLineStrings, useTree);
+
+    let prefixCursor = 0;
+    lines = renderedLines.map(({ line, isActivity }) => {
+      if (isActivity) {
+        return prefixedActivityLines[prefixCursor++] ?? line;
+      }
+      return line;
+    });
 
     if (showSeparators) {
-      const firstActivityIndex = renderedLines.findIndex(({ isActivity }) => isActivity);
       if (firstActivityIndex > 0) {
         const separatorBaseWidth = Math.max(
           ...renderedLines
