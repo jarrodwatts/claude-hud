@@ -49,6 +49,7 @@ function baseContext() {
     sessionCount: 1,
     mcpServers: [],
     locale: 'en',
+    customWidgets: [],
     config: {
       lineLayout: 'compact',
       showSeparators: false,

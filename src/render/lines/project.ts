@@ -122,6 +122,12 @@ export function renderProjectLine(ctx: RenderContext): string | null {
     parts.push(dim(`⊕${ctx.sessionCount}`));
   }
 
+  if (ctx.customWidgets && ctx.customWidgets.length > 0) {
+    for (const widget of ctx.customWidgets) {
+      parts.push(dim(`${widget.label}: ${widget.value}`));
+    }
+  }
+
   if (parts.length === 0) {
     return null;
   }

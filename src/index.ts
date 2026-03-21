@@ -21,6 +21,7 @@ import { registerSession, getSessionCount } from './session-lock.js';
 import { formatResetTime } from './utils/format.js';
 import { getMcpServers } from './mcp-monitor.js';
 import { detectLocale } from './i18n.js';
+import { loadCustomWidgets } from './custom-widgets.js';
 
 export type MainDeps = {
   readStdin: typeof readStdin;
@@ -165,6 +166,7 @@ export async function main(overrides: Partial<MainDeps> = {}): Promise<void> {
     const costEstimate = config.display.showCost ? estimateCost(stdin, cacheDir) : null;
 
     const mcpServers = getMcpServers(cacheDir);
+    const customWidgets = loadCustomWidgets(cacheDir);
 
     // Session history — only save when stats have changed
     const prevStatsHash = readCache<string>('prev-session-hash', 60000, cacheDir);
@@ -215,6 +217,7 @@ export async function main(overrides: Partial<MainDeps> = {}): Promise<void> {
       sessionCount: getSessionCount(),
       mcpServers,
       locale: config.locale ?? detectLocale(),
+      customWidgets,
     };
 
     deps.render(ctx);

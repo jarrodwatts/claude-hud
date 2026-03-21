@@ -3,6 +3,7 @@ import type { GitStatus } from './git.js';
 import type { CostEstimate } from './cost-tracker.js';
 import type { McpServerInfo } from './mcp-monitor.js';
 import type { Locale } from './i18n.js';
+import type { CustomWidget } from './custom-widgets.js';
 
 export interface StdinData {
   transcript_path?: string;
@@ -148,4 +149,5 @@ export interface RenderContext {
   sessionCount: number;
   mcpServers: McpServerInfo[];
   locale: Locale;
+  customWidgets: CustomWidget[];
 }
