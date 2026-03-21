@@ -14,6 +14,7 @@ import {
   renderUsageLine,
 } from './lines/index.js';
 import { dim, RESET } from './colors.js';
+import { getTerminalWidth } from '../utils/terminal.js';
 
 // eslint-disable-next-line no-control-regex
 const ANSI_ESCAPE_PATTERN = /^\x1b\[[0-9;]*m/;
@@ -24,27 +25,6 @@ const GRAPHEME_SEGMENTER = typeof Intl.Segmenter === 'function'
 
 function stripAnsi(str: string): string {
   return str.replace(ANSI_ESCAPE_GLOBAL, '');
-}
-
-function getTerminalWidth(): number | null {
-  const stdoutColumns = process.stdout?.columns;
-  if (typeof stdoutColumns === 'number' && Number.isFinite(stdoutColumns) && stdoutColumns > 0) {
-    return Math.floor(stdoutColumns);
-  }
-
-  // When running as a statusline subprocess, stdout is piped but stderr is
-  // still connected to the real terminal — use it to get the actual width.
-  const stderrColumns = process.stderr?.columns;
-  if (typeof stderrColumns === 'number' && Number.isFinite(stderrColumns) && stderrColumns > 0) {
-    return Math.floor(stderrColumns);
-  }
-
-  const envColumns = Number.parseInt(process.env.COLUMNS ?? '', 10);
-  if (Number.isFinite(envColumns) && envColumns > 0) {
-    return envColumns;
-  }
-
-  return null;
 }
 
 function splitAnsiTokens(str: string): Array<{ type: 'ansi' | 'text'; value: string }> {
@@ -271,6 +251,26 @@ function splitWrapParts(line: string): Array<{ separator: string; segment: strin
   return parts;
 }
 
+function wrapSingleSegment(str: string, maxWidth: number): string[] {
+  const lines: string[] = [];
+  let remaining = str;
+  while (visualLength(remaining) > maxWidth) {
+    const sliced = sliceVisible(remaining, maxWidth);
+    lines.push(sliced + RESET);
+    remaining = remaining.slice(sliced.length);
+    // Skip any leading ANSI escape at the boundary so color continuity is preserved
+    let ansiMatch = ANSI_ESCAPE_PATTERN.exec(remaining);
+    while (ansiMatch && remaining.startsWith(ansiMatch[0])) {
+      remaining = remaining.slice(ansiMatch[0].length);
+      ansiMatch = ANSI_ESCAPE_PATTERN.exec(remaining);
+    }
+  }
+  if (remaining) {
+    lines.push(remaining);
+  }
+  return lines.length > 0 ? lines : [str];
+}
+
 function wrapLineToWidth(line: string, maxWidth: number): string[] {
   if (maxWidth <= 0 || visualLength(line) <= maxWidth) {
     return [line];
@@ -278,7 +278,8 @@ function wrapLineToWidth(line: string, maxWidth: number): string[] {
 
   const parts = splitWrapParts(line);
   if (parts.length <= 1) {
-    return [truncateToWidth(line, maxWidth)];
+    // Single segment — wrap at character level instead of truncating
+    return wrapSingleSegment(line, maxWidth);
   }
 
   const wrapped: string[] = [];
@@ -291,12 +292,21 @@ function wrapLineToWidth(line: string, maxWidth: number): string[] {
       continue;
     }
 
-    wrapped.push(truncateToWidth(current, maxWidth));
+    // Push current line, wrapping if still too wide
+    if (visualLength(current) > maxWidth) {
+      wrapped.push(...wrapSingleSegment(current, maxWidth));
+    } else {
+      wrapped.push(current);
+    }
     current = part.segment;
   }
 
   if (current) {
-    wrapped.push(truncateToWidth(current, maxWidth));
+    if (visualLength(current) > maxWidth) {
+      wrapped.push(...wrapSingleSegment(current, maxWidth));
+    } else {
+      wrapped.push(current);
+    }
   }
 
   return wrapped;

@@ -14,6 +14,7 @@ import { loadProviders, fetchAllProviders } from './providers/index.js';
 import { evaluateAlerts, shouldBell } from './alert.js';
 import { calculateBurnRate, recordTokenSnapshot } from './burn-rate.js';
 import { updateSessionStats, getSessionStats, getSparkline } from './session-stats.js';
+import { getTerminalWidth } from './utils/terminal.js';
 
 export type MainDeps = {
   readStdin: typeof readStdin;
@@ -150,6 +151,7 @@ export async function main(overrides: Partial<MainDeps> = {}): Promise<void> {
       burnRate,
       sessionStats,
       sparkline,
+      terminalWidth: getTerminalWidth(),
     };
 
     deps.render(ctx);

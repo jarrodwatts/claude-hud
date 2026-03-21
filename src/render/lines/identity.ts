@@ -51,7 +51,12 @@ export function renderIdentityLine(ctx: RenderContext): string {
     ? `${dim('Context')} ${coloredBar(percent, getAdaptiveBarWidth(), colors, barStyle, alertThresholds)} ${contextValueDisplay}`
     : `${dim('Context')} ${contextValueDisplay}`;
 
-  if (display?.showTokenBreakdown !== false && percent >= 85) {
+  // Progressive content reduction based on terminal width
+  const tw = ctx.terminalWidth;
+  const isNarrow = tw !== null && tw < 80;
+  const isVeryNarrow = tw !== null && tw < 60;
+
+  if (!isVeryNarrow && display?.showTokenBreakdown !== false && percent >= 85) {
     const usage = ctx.stdin.context_window?.current_usage;
     if (usage) {
       const input = formatTokens(usage.input_tokens ?? 0);
@@ -60,14 +65,14 @@ export function renderIdentityLine(ctx: RenderContext): string {
     }
   }
 
-  if (ctx.burnRate && ctx.config.display.showBurnRate) {
+  if (!isNarrow && ctx.burnRate && ctx.config.display.showBurnRate) {
     const formatted = ctx.burnRate.tokensPerMinute >= 1000
       ? `${(ctx.burnRate.tokensPerMinute / 1000).toFixed(1)}k`
       : `${ctx.burnRate.tokensPerMinute}`;
     line += ` ${dim('│')} ${dim(`${formatted} tok/m`)}`;
   }
 
-  if (ctx.burnRate && ctx.burnRate.tokensPerMinute > 0 && percent >= (alertThresholds?.warningThreshold ?? 70)) {
+  if (!isNarrow && ctx.burnRate && ctx.burnRate.tokensPerMinute > 0 && percent >= (alertThresholds?.warningThreshold ?? 70)) {
     const remaining = ctx.stdin.context_window?.context_window_size
       ? ctx.stdin.context_window.context_window_size - (ctx.stdin.context_window?.current_usage?.input_tokens ?? 0)
       : 0;
@@ -78,11 +83,11 @@ export function renderIdentityLine(ctx: RenderContext): string {
     }
   }
 
-  if (ctx.sessionStats.autocompactCount > 0) {
+  if (!isVeryNarrow && ctx.sessionStats.autocompactCount > 0) {
     line += dim(` (${ordinal(ctx.sessionStats.autocompactCount)} compact)`);
   }
 
-  if (ctx.sparkline && ctx.sparkline.length >= 3) {
+  if (!isNarrow && ctx.sparkline && ctx.sparkline.length >= 3) {
     line += ` ${dim(renderSparkline(ctx.sparkline))}`;
   }
 

@@ -43,6 +43,7 @@ function baseContext() {
     burnRate: null,
     sessionStats: { totalToolCalls: 0, totalAgentRuns: 0, peakContextPercent: 0, autocompactCount: 0 },
     sparkline: [],
+    terminalWidth: null,
     config: {
       lineLayout: 'compact',
       showSeparators: false,

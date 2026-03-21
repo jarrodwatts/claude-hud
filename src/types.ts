@@ -139,4 +139,5 @@ export interface RenderContext {
   burnRate: BurnRate | null;
   sessionStats: SessionStats;
   sparkline: number[];
+  terminalWidth: number | null;
 }

@@ -76,11 +76,15 @@ export function renderProjectLine(ctx: RenderContext): string | null {
     parts.push(gitPart);
   }
 
-  if (display?.showSessionName && ctx.transcript.sessionName) {
+  // Progressive content reduction based on terminal width
+  const tw = ctx.terminalWidth;
+  const isNarrow = tw !== null && tw < 80;
+
+  if (!isNarrow && display?.showSessionName && ctx.transcript.sessionName) {
     parts.push(dim(ctx.transcript.sessionName));
   }
 
-  if (ctx.extraLabel) {
+  if (!isNarrow && ctx.extraLabel) {
     parts.push(dim(ctx.extraLabel));
   }
 
@@ -91,7 +95,7 @@ export function renderProjectLine(ctx: RenderContext): string | null {
     }
   }
 
-  if (display?.showDuration !== false && ctx.sessionDuration) {
+  if (!isNarrow && display?.showDuration !== false && ctx.sessionDuration) {
     parts.push(dim(`⏱️  ${ctx.sessionDuration}`));
   }
 

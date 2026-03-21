@@ -28,6 +28,7 @@ function baseContext() {
     burnRate: null,
     sessionStats: { totalToolCalls: 0, totalAgentRuns: 0, peakContextPercent: 0, autocompactCount: 0 },
     sparkline: [],
+    terminalWidth: null,
     config: {
       lineLayout: 'compact',
       showSeparators: false,
@@ -287,8 +288,9 @@ test('render does not split model/provider separator inside brackets', () => {
     lines = captureRender(ctx);
   });
 
-  assert.equal(lines.length, 1, 'single compact line should be truncated, not split');
-  assert.ok(!lines[0].startsWith('Bedrock]'), 'provider label should not become a wrapped prefix');
+  assert.ok(lines.length >= 1, 'should render at least one line');
+  assert.ok(!lines[0].startsWith('Bedrock]'), 'provider label should not become a wrapped prefix on a new line via separator split');
+  assert.ok(lines.every(line => displayWidth(line) <= 12), 'all wrapped lines should fit terminal width');
 });
 
 test('render clamps separator width in narrow terminals', () => {
@@ -308,7 +310,7 @@ test('render clamps separator width in narrow terminals', () => {
   assert.ok(displayWidth(separatorLine) <= 8, 'separator should fit terminal width');
 });
 
-test('render truncation respects Unicode display width', () => {
+test('render wraps overlong Unicode segments without truncation', () => {
   const ctx = baseContext();
   ctx.stdin.cwd = '/tmp/project';
   ctx.extraLabel = '你好你好你好你好你好';
@@ -318,6 +320,7 @@ test('render truncation respects Unicode display width', () => {
     lines = captureRender(ctx);
   });
 
-  assert.ok(lines.some(line => line.includes('...')), 'should truncate an overlong Unicode segment');
+  assert.ok(!lines.some(line => line.includes('...')), 'should NOT truncate — content should wrap instead');
   assert.ok(lines.every(line => displayWidth(line) <= 10), 'all lines should respect terminal cell width');
+  assert.ok(lines.length > 1, 'wrapping should produce multiple lines');
 });
