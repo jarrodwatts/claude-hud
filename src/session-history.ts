@@ -60,3 +60,35 @@ export function getLastSession(): SessionRecord | null {
 export function formatSessionSummary(record: SessionRecord): string {
   return `Last: ${record.model} ${record.duration} | ${record.peakContextPercent}% peak | ${record.totalToolCalls} tools | ${record.autocompactCount} compacts`;
 }
+
+export interface SessionComparison {
+  durationDelta: string;      // "+15m" or "-5m"
+  toolCallsDelta: number;     // +10 or -5
+  compactsDelta: number;      // +1 or -1
+}
+
+export function compareWithLastSession(
+  current: { duration: string; toolCalls: number; compacts: number },
+  _cacheDir: string,
+): SessionComparison | null {
+  const last = getLastSession();
+  if (!last) return null;
+
+  const lastMins = parseDurationToMins(last.duration);
+  const currentMins = parseDurationToMins(current.duration);
+
+  const durationDelta = currentMins - lastMins;
+  const durationStr = durationDelta >= 0 ? `+${durationDelta}m` : `${durationDelta}m`;
+
+  return {
+    durationDelta: durationStr,
+    toolCallsDelta: current.toolCalls - last.totalToolCalls,
+    compactsDelta: current.compacts - last.autocompactCount,
+  };
+}
+
+export function parseDurationToMins(duration: string): number {
+  const hourMatch = duration.match(/(\d+)h/);
+  const minMatch = duration.match(/(\d+)m/);
+  return (hourMatch ? parseInt(hourMatch[1]) * 60 : 0) + (minMatch ? parseInt(minMatch[1]) : 0);
+}
