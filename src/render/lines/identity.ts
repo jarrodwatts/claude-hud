@@ -2,7 +2,7 @@ import type { RenderContext } from '../../types.js';
 import { getContextPercent, getBufferedPercent } from '../../stdin.js';
 import { coloredBar, dim, getContextColor, RESET, red, warning } from '../colors.js';
 import { getAdaptiveBarWidth, isNarrowTerminal, isVeryNarrowTerminal } from '../../utils/terminal.js';
-import { formatCost } from '../../cost-tracker.js';
+import { formatCost, predictSessionCost } from '../../cost-tracker.js';
 import { formatTokens, formatContextValue } from '../../utils/format.js';
 
 const DEBUG = process.env.DEBUG?.includes('claude-hud') || process.env.DEBUG === '*';
@@ -70,6 +70,12 @@ export function renderIdentityLine(ctx: RenderContext): string {
   if (ctx.costEstimate && ctx.config.display.showCost) {
     if (!isNarrow) {
       line += ` ${dim('│')} ${dim(formatCost(ctx.costEstimate.sessionCost))}`;
+      const contextSize = ctx.stdin.context_window?.context_window_size ?? 0;
+      const inputTokens = ctx.stdin.context_window?.current_usage?.input_tokens ?? 0;
+      const prediction = predictSessionCost(ctx.costEstimate.sessionCost, ctx.burnRate ?? null, contextSize, inputTokens);
+      if (prediction) {
+        line += dim(` →${prediction}`);
+      }
     }
   }
 

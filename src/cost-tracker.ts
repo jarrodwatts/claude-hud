@@ -1,4 +1,4 @@
-import type { StdinData } from './types.js';
+import type { StdinData, BurnRate } from './types.js';
 
 export interface CostEstimate {
   sessionCost: number;     // USD
@@ -50,4 +50,27 @@ export function formatCost(cost: number): string {
   if (cost < 0.01) return `$${cost.toFixed(4)}`;
   if (cost < 1) return `$${cost.toFixed(2)}`;
   return `$${cost.toFixed(2)}`;
+}
+
+export function predictSessionCost(
+  currentCost: number,
+  burnRate: BurnRate | null,
+  contextWindowSize: number,
+  inputTokens: number,
+): string | null {
+  if (!burnRate || burnRate.tokensPerMinute <= 0) return null;
+
+  const remaining = contextWindowSize - inputTokens;
+  if (remaining <= 0) return null;
+
+  const minsLeft = remaining / burnRate.tokensPerMinute;
+  // Rough projection: current cost + (cost rate * time remaining)
+  const costPerMin = currentCost > 0 && inputTokens > 0
+    ? (currentCost / inputTokens) * burnRate.tokensPerMinute
+    : 0;
+
+  if (costPerMin <= 0) return null;
+
+  const projectedTotal = currentCost + (costPerMin * minsLeft);
+  return formatCost(projectedTotal);
 }
