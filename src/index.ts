@@ -12,7 +12,7 @@ import { fileURLToPath } from 'node:url';
 import { realpathSync } from 'node:fs';
 import { getDefaultCacheDir, readCache, writeCache, readLatency, writeLatency } from './cache.js';
 import { loadProviders, fetchAllProviders } from './providers/index.js';
-import { evaluateAlerts, shouldBell, sendNotification, recordAlertHistory, runAlertHook, predictRateLimitHit } from './alert.js';
+import { evaluateAlerts, shouldBell, sendNotification, recordAlertHistory, runAlertHook, predictRateLimitHit, sendWebhook } from './alert.js';
 import { calculateBurnRate, recordTokenSnapshot } from './burn-rate.js';
 import { updateSessionStats, getSessionStats, getSparkline, updatePromptStats, updateAgentStats } from './session-stats.js';
 import { getTerminalWidth } from './utils/terminal.js';
@@ -202,6 +202,12 @@ export async function main(overrides: Partial<MainDeps> = {}): Promise<void> {
       if (config.alerts.hook) {
         for (const alert of alerts.filter(a => a.type.includes('critical'))) {
           runAlertHook(config.alerts.hook as string, alert);
+        }
+      }
+
+      if (config.alerts.webhook) {
+        for (const alert of alerts.filter(a => a.type.includes('critical'))) {
+          sendWebhook(config.alerts.webhook, alert);
         }
       }
     }

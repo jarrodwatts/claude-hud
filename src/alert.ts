@@ -129,6 +129,29 @@ export function predictRateLimitHit(
   return `~${hours}h ${mins}m`;
 }
 
+export function sendWebhook(url: string, alert: Alert): void {
+  try {
+    const payload = JSON.stringify({
+      type: alert.type,
+      message: alert.message,
+      timestamp: new Date().toISOString(),
+      source: 'claude-hud',
+    });
+
+    // Fire and forget — don't block HUD rendering
+    fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: payload,
+      signal: AbortSignal.timeout(3000),
+    }).catch(() => {
+      if (DEBUG) console.error('[claude-hud:alert] webhook failed');
+    });
+  } catch {
+    if (DEBUG) console.error('[claude-hud:alert] webhook error');
+  }
+}
+
 export function runAlertHook(hook: string, alert: Alert): void {
   try {
     const env = {

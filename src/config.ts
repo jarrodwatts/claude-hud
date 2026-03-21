@@ -94,7 +94,8 @@ export interface HudConfig {
     context: { warningThreshold: number; criticalThreshold: number; actions: AlertAction };
     usage5h: { warningThreshold: number; criticalThreshold: number; actions: AlertAction };
     usage7d: { warningThreshold: number; actions: AlertAction };
-    hook?: string;  // shell command to run on any alert trigger
+    hook?: string;     // shell command to run on any alert trigger
+    webhook?: string;  // URL to POST alert data as JSON
   };
   locale: Locale;
   schemaVersion: number;
@@ -501,6 +502,7 @@ export function mergeConfig(userConfig: Partial<HudConfig>): HudConfig {
       actions: mergeAlertActions(migrated.alerts?.usage7d?.actions, DEFAULT_CONFIG.alerts.usage7d.actions),
     },
     hook: typeof migrated.alerts?.hook === 'string' ? migrated.alerts.hook : undefined,
+    webhook: typeof migrated.alerts?.webhook === 'string' ? migrated.alerts.webhook : undefined,
   };
 
   const locale = (migrated.locale === 'en' || migrated.locale === 'zh' || migrated.locale === 'ja')
