@@ -557,27 +557,45 @@ export function validateConfigWithWarnings(userConfig: Record<string, unknown>):
   return warnings;
 }
 
-export async function loadConfig(): Promise<HudConfig> {
+export async function loadConfig(cwd?: string): Promise<HudConfig> {
   const configPath = getConfigPath();
   const DEBUG = process.env.DEBUG?.includes('claude-hud') || process.env.DEBUG === '*';
 
-  try {
-    if (!fs.existsSync(configPath)) {
-      return DEFAULT_CONFIG;
-    }
+  let projectConfig: Partial<HudConfig> = {};
+  let userConfig: Partial<HudConfig> = {};
 
-    const content = fs.readFileSync(configPath, 'utf-8');
-    const userConfig = JSON.parse(content) as Partial<HudConfig>;
-
-    const warnings = validateConfigWithWarnings(userConfig as Record<string, unknown>);
-    if (DEBUG && warnings.length > 0) {
-      for (const w of warnings) {
-        console.error(`[claude-hud:config] ⚠ ${w}`);
+  // 1. Read project-level config (.claude-hud.json in project root)
+  if (cwd) {
+    try {
+      const projectPath = path.join(cwd, '.claude-hud.json');
+      if (fs.existsSync(projectPath)) {
+        projectConfig = JSON.parse(fs.readFileSync(projectPath, 'utf-8'));
+        if (DEBUG) console.error('[claude-hud:config] loaded project config from .claude-hud.json');
       }
+    } catch {
+      if (DEBUG) console.error('[claude-hud:config] error reading .claude-hud.json');
     }
-
-    return mergeConfig(userConfig);
-  } catch {
-    return DEFAULT_CONFIG;
   }
+
+  // 2. Read user config (existing logic)
+  try {
+    if (fs.existsSync(configPath)) {
+      const content = fs.readFileSync(configPath, 'utf-8');
+      userConfig = JSON.parse(content) as Partial<HudConfig>;
+    }
+  } catch {
+    // ignore
+  }
+
+  // 3. Merge: defaults <- project <- user (user overrides project)
+  const merged = { ...projectConfig, ...userConfig };
+
+  const warnings = validateConfigWithWarnings(merged as Record<string, unknown>);
+  if (DEBUG && warnings.length > 0) {
+    for (const w of warnings) {
+      console.error(`[claude-hud:config] ⚠ ${w}`);
+    }
+  }
+
+  return mergeConfig(merged);
 }

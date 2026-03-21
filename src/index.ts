@@ -5,6 +5,7 @@ import { countConfigs } from './config-reader.js';
 import { getGitStatus } from './git.js';
 import { getUsage } from './usage-api.js';
 import { loadConfig } from './config.js';
+import type { HudConfig } from './config.js';
 import { parseExtraCmdArg, runExtraCmd } from './extra-cmd.js';
 import type { RenderContext } from './types.js';
 import { fileURLToPath } from 'node:url';
@@ -32,7 +33,7 @@ export type MainDeps = {
   countConfigs: typeof countConfigs;
   getGitStatus: typeof getGitStatus;
   getUsage: typeof getUsage;
-  loadConfig: typeof loadConfig;
+  loadConfig: (cwd?: string) => Promise<HudConfig>;
   parseExtraCmdArg: typeof parseExtraCmdArg;
   runExtraCmd: typeof runExtraCmd;
   render: typeof render;
@@ -55,7 +56,7 @@ export async function main(overrides: Partial<MainDeps> = {}): Promise<void> {
     countConfigs,
     getGitStatus,
     getUsage,
-    loadConfig,
+    loadConfig: (cwd?: string) => loadConfig(cwd),
     parseExtraCmdArg,
     runExtraCmd,
     render,
@@ -90,7 +91,7 @@ export async function main(overrides: Partial<MainDeps> = {}): Promise<void> {
     const cacheDir = getDefaultCacheDir();
 
     const t3 = timer();
-    let config = await deps.loadConfig();
+    let config = await deps.loadConfig(stdin.cwd);
     if (DEBUG) console.error(`[claude-hud:timing] loadConfig: ${t3()}ms`);
     config = autoTuneConfig(config, getTerminalWidth(), cacheDir);
     const t4 = timer();
