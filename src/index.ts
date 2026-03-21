@@ -22,6 +22,7 @@ import { formatResetTime } from './utils/format.js';
 import { getMcpServers } from './mcp-monitor.js';
 import { detectLocale } from './i18n.js';
 import { loadCustomWidgets } from './custom-widgets.js';
+import { updateTokenAnalytics } from './token-analytics.js';
 
 export type MainDeps = {
   readStdin: typeof readStdin;
@@ -106,9 +107,14 @@ export async function main(overrides: Partial<MainDeps> = {}): Promise<void> {
       frameworkStatus = await fetchAllProviders(providers);
     }
 
+    // Token analytics (data collection only, no HUD display)
+    const inputTokens = stdin.context_window?.current_usage?.input_tokens;
+    if (inputTokens) {
+      updateTokenAnalytics(inputTokens, transcript.tools, cacheDir);
+    }
+
     // Burn rate
     let burnRate: RenderContext['burnRate'] = null;
-    const inputTokens = stdin.context_window?.current_usage?.input_tokens;
     const contextSize = stdin.context_window?.context_window_size;
     if (config.display.showBurnRate && inputTokens != null && contextSize != null) {
       recordTokenSnapshot(inputTokens, cacheDir);
