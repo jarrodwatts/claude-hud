@@ -73,9 +73,17 @@ export function renderUsageLine(ctx: RenderContext): string | null {
       : (sevenDayReset
           ? `7d: ${sevenDayDisplay} (resets in ${sevenDayReset})`
           : `7d: ${sevenDayDisplay}`);
-    return `${label} ${fiveHourPart} ${dim('│')} ${sevenDayPart}${syncingSuffix}`;
+    let result = `${label} ${fiveHourPart} ${dim('│')} ${sevenDayPart}${syncingSuffix}`;
+    if (ctx.rateLimitEta) {
+      result += ` ${dim(`→limit ${ctx.rateLimitEta}`)}`;
+    }
+    return result;
   }
 
-  return `${label} ${fiveHourPart}${syncingSuffix}`;
+  let result = `${label} ${fiveHourPart}${syncingSuffix}`;
+  if (ctx.rateLimitEta) {
+    result += ` ${dim(`→limit ${ctx.rateLimitEta}`)}`;
+  }
+  return result;
 }
 

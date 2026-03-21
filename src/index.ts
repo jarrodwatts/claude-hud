@@ -11,7 +11,7 @@ import { fileURLToPath } from 'node:url';
 import { realpathSync } from 'node:fs';
 import { getDefaultCacheDir, readCache, writeCache, readLatency, writeLatency } from './cache.js';
 import { loadProviders, fetchAllProviders } from './providers/index.js';
-import { evaluateAlerts, shouldBell, sendNotification, recordAlertHistory, runAlertHook } from './alert.js';
+import { evaluateAlerts, shouldBell, sendNotification, recordAlertHistory, runAlertHook, predictRateLimitHit } from './alert.js';
 import { calculateBurnRate, recordTokenSnapshot } from './burn-rate.js';
 import { updateSessionStats, getSessionStats, getSparkline, updatePromptStats } from './session-stats.js';
 import { getTerminalWidth } from './utils/terminal.js';
@@ -182,6 +182,16 @@ export async function main(overrides: Partial<MainDeps> = {}): Promise<void> {
       }
     }
 
+    // Rate limit prediction
+    const sessionMins = transcript.sessionStart
+      ? Math.floor((Date.now() - transcript.sessionStart.getTime()) / 60000)
+      : 0;
+    const rateLimitEta = predictRateLimitHit(
+      usageData?.fiveHour ?? 0,
+      usageData?.fiveHourResetAt ?? null,
+      sessionMins,
+    );
+
     const costEstimate = config.display.showCost ? estimateCost(stdin, cacheDir) : null;
 
     const mcpServers = getMcpServers(cacheDir);
@@ -238,6 +248,7 @@ export async function main(overrides: Partial<MainDeps> = {}): Promise<void> {
       mcpServers,
       locale: config.locale ?? detectLocale(),
       customWidgets,
+      rateLimitEta,
     };
     const suggestions = config.display.showAlerts
       ? getSuggestions(suggestionInput as RenderContext)

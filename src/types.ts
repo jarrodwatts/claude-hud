@@ -152,4 +152,5 @@ export interface RenderContext {
   locale: Locale;
   customWidgets: CustomWidget[];
   suggestions: Suggestion[];
+  rateLimitEta: string | null;
 }

@@ -106,6 +106,29 @@ export function shouldBell(alerts: Alert[], cacheDir: string): boolean {
 
 const DEBUG = process.env.DEBUG?.includes('claude-hud') || process.env.DEBUG === '*';
 
+export function predictRateLimitHit(
+  currentUsagePercent: number,
+  resetAt: Date | null,
+  sessionDurationMins: number,
+): string | null {
+  if (currentUsagePercent <= 0 || sessionDurationMins <= 0) return null;
+  if (currentUsagePercent >= 95) return 'imminent';
+
+  // Usage rate per minute
+  const usagePerMin = currentUsagePercent / sessionDurationMins;
+  if (usagePerMin <= 0) return null;
+
+  const remaining = 100 - currentUsagePercent;
+  const minsUntilLimit = Math.round(remaining / usagePerMin);
+
+  if (minsUntilLimit > 300) return null; // > 5h away, not worth showing
+
+  if (minsUntilLimit < 60) return `~${minsUntilLimit}m`;
+  const hours = Math.floor(minsUntilLimit / 60);
+  const mins = minsUntilLimit % 60;
+  return `~${hours}h ${mins}m`;
+}
+
 export function runAlertHook(hook: string, alert: Alert): void {
   try {
     const env = {

@@ -90,6 +90,7 @@ function baseContext() {
     mcpServers: [],
     locale: 'en',
     customWidgets: [],
+    rateLimitEta: null,
   };
 }
 

@@ -50,6 +50,7 @@ function baseContext() {
     mcpServers: [],
     locale: 'en',
     customWidgets: [],
+    rateLimitEta: null,
     config: {
       lineLayout: 'compact',
       showSeparators: false,
