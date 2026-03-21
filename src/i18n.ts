@@ -11,6 +11,12 @@ interface Labels {
   resets: string;
   compact: string;
   tokPerMin: string;
+  resetsIn: string;
+  syncing: string;
+  err: string;
+  total: string;
+  limit: string;
+  warn: string;
 }
 
 const LABELS: Record<Locale, Labels> = {
@@ -25,6 +31,12 @@ const LABELS: Record<Locale, Labels> = {
     resets: 'resets in',
     compact: 'compact',
     tokPerMin: 'tok/m',
+    resetsIn: 'resets in',
+    syncing: 'syncing...',
+    err: 'err',
+    total: 'total',
+    limit: 'limit',
+    warn: 'Warning',
   },
   zh: {
     context: '上下文',
@@ -37,6 +49,12 @@ const LABELS: Record<Locale, Labels> = {
     resets: '重置於',
     compact: '壓縮',
     tokPerMin: 'tok/m',
+    resetsIn: '重置於',
+    syncing: '同步中...',
+    err: '錯誤',
+    total: '總計',
+    limit: '上限',
+    warn: '警告',
   },
   ja: {
     context: 'コンテキスト',
@@ -49,6 +67,12 @@ const LABELS: Record<Locale, Labels> = {
     resets: 'リセット',
     compact: 'コンパクト',
     tokPerMin: 'tok/m',
+    resetsIn: 'リセット',
+    syncing: '同期中...',
+    err: 'エラー',
+    total: '合計',
+    limit: '制限',
+    warn: '警告',
   },
 };
 

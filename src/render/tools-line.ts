@@ -1,8 +1,10 @@
 import type { RenderContext } from '../types.js';
 import { yellow, green, cyan, dim, magenta, red } from './colors.js';
 import { truncatePath } from '../utils/format.js';
+import { getLabels } from '../i18n.js';
 
 export function renderToolsLine(ctx: RenderContext): string | null {
+  const labels = getLabels(ctx.locale || 'en');
   const { tools } = ctx.transcript;
 
   if (tools.length === 0) {
@@ -36,7 +38,7 @@ export function renderToolsLine(ctx: RenderContext): string | null {
   // Show error count if any tools failed
   const errorCount = ctx.transcript.tools.filter(t => t.status === 'error').length;
   if (errorCount > 0) {
-    parts.push(`${red('✘')} ${errorCount} err`);
+    parts.push(`${red('✘')} ${errorCount} ${labels.err}`);
   }
 
   if (ctx.config.display.mergeToolsAgents && ctx.transcript.agents.length > 0) {

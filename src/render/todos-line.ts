@@ -1,8 +1,10 @@
 import type { RenderContext } from '../types.js';
 import { yellow, green, dim, claudeOrange } from './colors.js';
 import { truncateString } from '../utils/format.js';
+import { getLabels } from '../i18n.js';
 
 export function renderTodosLine(ctx: RenderContext): string | null {
+  const labels = getLabels(ctx.locale || 'en');
   const { todos } = ctx.transcript;
 
   if (!todos || todos.length === 0) {
@@ -15,7 +17,7 @@ export function renderTodosLine(ctx: RenderContext): string | null {
 
   if (!inProgress) {
     if (completed === total && total > 0) {
-      return `${green('✓')} All todos complete ${dim(`(${completed}/${total})`)}`;
+      return `${green('✓')} ${labels.allComplete} ${dim(`(${completed}/${total})`)}`;
     }
     return null;
   }
