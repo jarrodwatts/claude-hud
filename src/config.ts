@@ -78,6 +78,7 @@ export interface HudConfig {
     showCost: boolean;
     showNotifications: boolean;
     autoCompactSwitch: boolean;
+    autoTune: boolean;
   };
   theme: string;
   usage: {
@@ -139,6 +140,7 @@ export const DEFAULT_CONFIG: HudConfig = {
     showCost: false,
     showNotifications: false,
     autoCompactSwitch: true,
+    autoTune: false,
   },
   theme: 'default',
   usage: {
@@ -383,6 +385,9 @@ export function mergeConfig(userConfig: Partial<HudConfig>): HudConfig {
     autoCompactSwitch: typeof migrated.display?.autoCompactSwitch === 'boolean'
       ? migrated.display.autoCompactSwitch
       : DEFAULT_CONFIG.display.autoCompactSwitch,
+    autoTune: typeof migrated.display?.autoTune === 'boolean'
+      ? migrated.display.autoTune
+      : DEFAULT_CONFIG.display.autoTune,
   };
 
   const usage = {

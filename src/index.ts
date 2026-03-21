@@ -24,6 +24,7 @@ import { detectLocale } from './i18n.js';
 import { loadCustomWidgets } from './custom-widgets.js';
 import { updateTokenAnalytics } from './token-analytics.js';
 import { getSuggestions } from './suggestions.js';
+import { autoTuneConfig } from './auto-tune.js';
 
 export type MainDeps = {
   readStdin: typeof readStdin;
@@ -74,12 +75,13 @@ export async function main(overrides: Partial<MainDeps> = {}): Promise<void> {
 
     const { claudeMdCount, rulesCount, mcpCount, hooksCount } = await deps.countConfigs(stdin.cwd);
 
-    const config = await deps.loadConfig();
+    const cacheDir = getDefaultCacheDir();
+
+    let config = await deps.loadConfig();
+    config = autoTuneConfig(config, getTerminalWidth(), cacheDir);
     const gitStatus = config.gitStatus.enabled
       ? await deps.getGitStatus(stdin.cwd)
       : null;
-
-    const cacheDir = getDefaultCacheDir();
 
     // Only fetch usage if enabled in config (replaces env var requirement)
     const usageStart = Date.now();
