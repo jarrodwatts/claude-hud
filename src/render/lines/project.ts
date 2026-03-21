@@ -105,6 +105,10 @@ export function renderProjectLine(ctx: RenderContext): string | null {
     parts.push(claudeOrange(customLine));
   }
 
+  if (ctx.sessionCount > 1) {
+    parts.push(dim(`⊕${ctx.sessionCount}`));
+  }
+
   if (parts.length === 0) {
     return null;
   }

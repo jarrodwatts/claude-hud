@@ -143,4 +143,5 @@ export interface RenderContext {
   terminalWidth: number | null;
   costEstimate: CostEstimate | null;
   apiLatency: number | null;
+  sessionCount: number;
 }

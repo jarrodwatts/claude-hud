@@ -17,6 +17,7 @@ import { updateSessionStats, getSessionStats, getSparkline } from './session-sta
 import { getTerminalWidth } from './utils/terminal.js';
 import { estimateCost } from './cost-tracker.js';
 import { saveCurrentSession, getLastSession, formatSessionSummary } from './session-history.js';
+import { registerSession, getSessionCount } from './session-lock.js';
 import { formatResetTime } from './utils/format.js';
 
 export type MainDeps = {
@@ -62,6 +63,7 @@ export async function main(overrides: Partial<MainDeps> = {}): Promise<void> {
       return;
     }
 
+    registerSession(stdin.cwd);
     const transcriptPath = stdin.transcript_path ?? '';
     const transcript = await deps.parseTranscript(transcriptPath);
 
@@ -206,6 +208,7 @@ export async function main(overrides: Partial<MainDeps> = {}): Promise<void> {
       terminalWidth: getTerminalWidth(),
       costEstimate,
       apiLatency,
+      sessionCount: getSessionCount(),
     };
 
     deps.render(ctx);

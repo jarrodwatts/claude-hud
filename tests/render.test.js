@@ -46,6 +46,7 @@ function baseContext() {
     terminalWidth: null,
     costEstimate: null,
     apiLatency: null,
+    sessionCount: 1,
     config: {
       lineLayout: 'compact',
       showSeparators: false,
