@@ -55,3 +55,16 @@ export function getTheme(name: string): ColorTheme | undefined {
 export function getThemeNames(): string[] {
   return Object.keys(THEMES);
 }
+
+export function detectTerminalTheme(): 'dark' | 'light' | null {
+  // COLORFGBG format: "foreground;background" (e.g., "15;0" = white on black = dark)
+  const colorfgbg = process.env.COLORFGBG;
+  if (!colorfgbg) return null;
+
+  const parts = colorfgbg.split(';');
+  const bg = parseInt(parts[parts.length - 1], 10);
+  if (isNaN(bg)) return null;
+
+  // Low background color = dark theme, high = light theme
+  return bg < 8 ? 'dark' : 'light';
+}

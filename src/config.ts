@@ -75,6 +75,7 @@ export interface HudConfig {
     mergeToolsAgents: boolean;
     barStyle: 'classic' | 'modern';
     showCost: boolean;
+    showNotifications: boolean;
   };
   theme: string;
   usage: {
@@ -132,6 +133,7 @@ export const DEFAULT_CONFIG: HudConfig = {
     mergeToolsAgents: true,
     barStyle: 'classic' as const,
     showCost: false,
+    showNotifications: false,
   },
   theme: 'default',
   usage: {
@@ -369,6 +371,9 @@ export function mergeConfig(userConfig: Partial<HudConfig>): HudConfig {
     showCost: typeof migrated.display?.showCost === 'boolean'
       ? migrated.display.showCost
       : DEFAULT_CONFIG.display.showCost,
+    showNotifications: typeof migrated.display?.showNotifications === 'boolean'
+      ? migrated.display.showNotifications
+      : DEFAULT_CONFIG.display.showNotifications,
   };
 
   const usage = {

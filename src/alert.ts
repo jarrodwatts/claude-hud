@@ -1,3 +1,4 @@
+import { execFile } from 'node:child_process';
 import { readCache, writeCache } from './cache.js';
 import type { Alert, AlertAction } from './types.js';
 
@@ -44,6 +45,18 @@ export function evaluateAlerts(input: EvaluateInput): Alert[] {
   }
 
   return alerts;
+}
+
+export function sendNotification(title: string, message: string): void {
+  if (process.platform !== 'darwin') return;
+
+  try {
+    execFile('osascript', [
+      '-e', `display notification "${message.replace(/"/g, '\\"')}" with title "${title.replace(/"/g, '\\"')}"`
+    ], { timeout: 2000 });
+  } catch {
+    // Silent fail — notification is best-effort
+  }
 }
 
 export function shouldBell(alerts: Alert[], cacheDir: string): boolean {

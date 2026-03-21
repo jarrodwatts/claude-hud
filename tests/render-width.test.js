@@ -63,6 +63,7 @@ function baseContext() {
         barStyle: 'classic',
         customLine: '',
         showCost: false,
+        showNotifications: false,
       },
       colors: {
         context: 'green',
