@@ -2,6 +2,7 @@ import type { HudConfig } from './config.js';
 import type { GitStatus } from './git.js';
 import type { CostEstimate } from './cost-tracker.js';
 import type { McpServerInfo } from './mcp-monitor.js';
+import type { Locale } from './i18n.js';
 
 export interface StdinData {
   transcript_path?: string;
@@ -146,4 +147,5 @@ export interface RenderContext {
   apiLatency: number | null;
   sessionCount: number;
   mcpServers: McpServerInfo[];
+  locale: Locale;
 }

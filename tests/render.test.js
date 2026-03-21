@@ -48,6 +48,7 @@ function baseContext() {
     apiLatency: null,
     sessionCount: 1,
     mcpServers: [],
+    locale: 'en',
     config: {
       lineLayout: 'compact',
       showSeparators: false,

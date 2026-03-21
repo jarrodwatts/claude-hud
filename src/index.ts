@@ -20,6 +20,7 @@ import { saveCurrentSession, getLastSession, formatSessionSummary } from './sess
 import { registerSession, getSessionCount } from './session-lock.js';
 import { formatResetTime } from './utils/format.js';
 import { getMcpServers } from './mcp-monitor.js';
+import { detectLocale } from './i18n.js';
 
 export type MainDeps = {
   readStdin: typeof readStdin;
@@ -213,6 +214,7 @@ export async function main(overrides: Partial<MainDeps> = {}): Promise<void> {
       apiLatency,
       sessionCount: getSessionCount(),
       mcpServers,
+      locale: config.locale ?? detectLocale(),
     };
 
     deps.render(ctx);

@@ -4,6 +4,7 @@ import * as os from 'node:os';
 import { getHudPluginDir } from './claude-config-dir.js';
 import type { AlertAction } from './types.js';
 import { getTheme } from './themes.js';
+import type { Locale } from './i18n.js';
 
 export type LineLayoutType = 'compact' | 'expanded';
 
@@ -94,6 +95,7 @@ export interface HudConfig {
     usage7d: { warningThreshold: number; actions: AlertAction };
     hook?: string;  // shell command to run on any alert trigger
   };
+  locale: Locale;
 }
 
 export const DEFAULT_CONFIG: HudConfig = {
@@ -159,6 +161,7 @@ export const DEFAULT_CONFIG: HudConfig = {
     usage5h: { warningThreshold: 70, criticalThreshold: 90, actions: { visual: true, bell: true, predict: true } },
     usage7d: { warningThreshold: 80, actions: { visual: true, bell: false, predict: true } },
   },
+  locale: 'en' as Locale,
 };
 
 export function getConfigPath(): string {
@@ -483,7 +486,11 @@ export function mergeConfig(userConfig: Partial<HudConfig>): HudConfig {
     hook: typeof migrated.alerts?.hook === 'string' ? migrated.alerts.hook : undefined,
   };
 
-  return { lineLayout, showSeparators, pathLevels, elementOrder, gitStatus, display, theme, usage, colors, frameworks, alerts };
+  const locale = (migrated.locale === 'en' || migrated.locale === 'zh' || migrated.locale === 'ja')
+    ? migrated.locale
+    : DEFAULT_CONFIG.locale;
+
+  return { lineLayout, showSeparators, pathLevels, elementOrder, gitStatus, display, theme, usage, colors, frameworks, alerts, locale };
 }
 
 export async function loadConfig(): Promise<HudConfig> {

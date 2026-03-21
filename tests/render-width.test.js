@@ -88,6 +88,7 @@ function baseContext() {
     apiLatency: null,
     sessionCount: 1,
     mcpServers: [],
+    locale: 'en',
   };
 }
 

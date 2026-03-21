@@ -4,8 +4,10 @@ import { getProviderLabel } from '../../stdin.js';
 import { critical, warning, dim, quotaBar } from '../colors.js';
 import { getAdaptiveBarWidth } from '../../utils/terminal.js';
 import { formatResetTime, formatUsageError, formatUsagePercent } from '../../utils/format.js';
+import { getLabels } from '../../i18n.js';
 
 export function renderUsageLine(ctx: RenderContext): string | null {
+  const labels = getLabels(ctx.locale || 'en');
   const display = ctx.config?.display;
   const colors = ctx.config?.colors;
 
@@ -21,7 +23,7 @@ export function renderUsageLine(ctx: RenderContext): string | null {
     return null;
   }
 
-  const label = dim('Usage');
+  const label = dim(labels.usage);
 
   if (ctx.usageData.apiUnavailable) {
     const errorHint = formatUsageError(ctx.usageData.apiError);

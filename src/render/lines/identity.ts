@@ -1,6 +1,7 @@
 import type { RenderContext } from '../../types.js';
 import { getContextPercent, getBufferedPercent } from '../../stdin.js';
 import { coloredBar, dim, getContextColor, RESET, red, warning } from '../colors.js';
+import { getLabels } from '../../i18n.js';
 import { getAdaptiveBarWidth, isNarrowTerminal, isVeryNarrowTerminal } from '../../utils/terminal.js';
 import { formatCost, predictSessionCost } from '../../cost-tracker.js';
 import { formatTokens, formatContextValue } from '../../utils/format.js';
@@ -28,6 +29,7 @@ function ordinal(n: number): string {
 }
 
 export function renderIdentityLine(ctx: RenderContext): string {
+  const labels = getLabels(ctx.locale || 'en');
   const rawPercent = getContextPercent(ctx.stdin);
   const bufferedPercent = getBufferedPercent(ctx.stdin);
   const autocompactMode = ctx.config?.display?.autocompactBuffer ?? 'enabled';
@@ -50,8 +52,8 @@ export function renderIdentityLine(ctx: RenderContext): string {
 
   const barStyle = display?.barStyle ?? 'classic';
   let line = display?.showContextBar !== false
-    ? `${dim('Context')} ${coloredBar(percent, getAdaptiveBarWidth(), colors, barStyle, alertThresholds)} ${contextValueDisplay}`
-    : `${dim('Context')} ${contextValueDisplay}`;
+    ? `${dim(labels.context)} ${coloredBar(percent, getAdaptiveBarWidth(), colors, barStyle, alertThresholds)} ${contextValueDisplay}`
+    : `${dim(labels.context)} ${contextValueDisplay}`;
 
   // Progressive content reduction based on terminal width
   const tw = ctx.terminalWidth;
