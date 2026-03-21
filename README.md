@@ -257,6 +257,97 @@ To disable, set `display.showUsage` to `false`.
 
 ---
 
+## Enhanced Features
+
+These features were added in the enhancement fork. All are opt-in and backward-compatible.
+
+### Dashboard Rich Mode
+
+Enable all visual enhancements:
+
+```json
+{
+  "display": {
+    "activityIndicator": true,
+    "treePrefixes": true,
+    "mergeToolsAgents": true,
+    "barStyle": "modern"
+  }
+}
+```
+
+Features:
+- **Activity indicator** (`◉`) — Red when tools running, green when idle
+- **Tree prefixes** (`├─` / `└─`) — Hierarchical connectors for activity lines
+- **Merged tools+agents** — Combined on one line for density
+- **Modern bar chars** (`▰▱`) — Cleaner alternative to `█░`
+- **Todo mini progress bar** (`▪▪▪▪▪`) — Per-item colored squares
+- **Context sparkline** — Mini trend chart of recent context usage
+
+### Alerts
+
+Configurable threshold alerts with visual, bell, and prediction text:
+
+```json
+{
+  "display": { "showAlerts": true },
+  "alerts": {
+    "context": { "warningThreshold": 70, "criticalThreshold": 85 },
+    "usage5h": { "warningThreshold": 70, "criticalThreshold": 90 },
+    "usage7d": { "warningThreshold": 80 }
+  }
+}
+```
+
+### Framework Integration
+
+Monitor AGW combos and Agent Teams worktrees:
+
+```json
+{
+  "display": { "showFrameworks": true },
+  "frameworks": {
+    "agw": { "enabled": true, "endpoint": "http://localhost:3000" },
+    "agentTeams": { "enabled": true }
+  }
+}
+```
+
+### Color Themes
+
+One-key theme switching: Default, Catppuccin Mocha, Dracula, Nord.
+
+```json
+{ "theme": "catppuccin" }
+```
+
+Or use the command: `/claude-hud:theme`
+
+### Cost Estimation
+
+Session cost tracking based on model pricing:
+
+```json
+{ "display": { "showCost": true } }
+```
+
+### Performance
+
+- **File-based cache** with TTL reduces I/O on the 300ms polling cycle
+- **Transcript mtime caching** skips re-parsing when file hasn't changed
+- **Git status caching** (2s TTL) eliminates redundant git commands
+- **Responsive layout** adapts to terminal width without truncating content
+
+### Additional Commands
+
+| Command | Description |
+|---------|-------------|
+| `/claude-hud:health` | Diagnostic health check |
+| `/claude-hud:export` | Export/import/reset config |
+| `/claude-hud:theme` | Switch color theme |
+
+---
+
 ## Requirements
 
 - Claude Code v1.0.80+
