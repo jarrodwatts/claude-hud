@@ -1,7 +1,7 @@
 import { isLimitReached } from '../types.js';
 import { getContextPercent, getBufferedPercent, getModelName, getProviderLabel, getTotalTokens } from '../stdin.js';
 import { getOutputSpeed } from '../speed-tracker.js';
-import { coloredBar, critical, cyan, dim, magenta, red, warning, yellow, getContextColor, getQuotaColor, quotaBar, claudeOrange, RESET } from './colors.js';
+import { coloredBar, colorize, critical, cyan, dim, green, magenta, red, warning, yellow, getContextColor, getQuotaColor, quotaBar, claudeOrange, RESET } from './colors.js';
 import { getAdaptiveBarWidth } from '../utils/terminal.js';
 const DEBUG = process.env.DEBUG?.includes('claude-hud') || process.env.DEBUG === '*';
 /**
@@ -46,6 +46,17 @@ export function renderSessionLine(ctx) {
     }
     else {
         parts.push(contextValueDisplay);
+    }
+    if (display?.activityIndicator) {
+        const hasRunning = ctx.transcript.tools.some(t => t.status === 'running');
+        const indicator = hasRunning ? colorize('◉', '\x1b[31m') : green('◉');
+        parts.unshift(indicator);
+    }
+    if (ctx.burnRate && display?.showBurnRate) {
+        const formatted = ctx.burnRate.tokensPerMinute >= 1000
+            ? `${(ctx.burnRate.tokensPerMinute / 1000).toFixed(1)}k`
+            : `${ctx.burnRate.tokensPerMinute}`;
+        parts.push(dim(`${formatted} tok/m`));
     }
     // Project path + git status (SECOND)
     let projectPart = null;
@@ -193,6 +204,12 @@ export function renderSessionLine(ctx) {
     const customLine = display?.customLine;
     if (customLine) {
         parts.push(claudeOrange(customLine));
+    }
+    if (ctx.alerts && ctx.alerts.length > 0) {
+        const criticalAlert = ctx.alerts.find(a => a.type.includes('critical'));
+        if (criticalAlert) {
+            parts.push(red(`⚠ ${criticalAlert.message}`));
+        }
     }
     let line = parts.join(' | ');
     // Token breakdown at high context

@@ -138,4 +138,5 @@ export interface RenderContext {
   alerts: Alert[];
   burnRate: BurnRate | null;
   sessionStats: SessionStats;
+  sparkline: number[];
 }

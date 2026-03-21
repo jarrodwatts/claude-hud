@@ -42,6 +42,7 @@ function baseContext() {
     alerts: [],
     burnRate: null,
     sessionStats: { totalToolCalls: 0, totalAgentRuns: 0, peakContextPercent: 0, autocompactCount: 0 },
+    sparkline: [],
     config: {
       lineLayout: 'compact',
       showSeparators: false,

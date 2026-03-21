@@ -13,7 +13,7 @@ import { getDefaultCacheDir } from './cache.js';
 import { loadProviders, fetchAllProviders } from './providers/index.js';
 import { evaluateAlerts, shouldBell } from './alert.js';
 import { calculateBurnRate, recordTokenSnapshot } from './burn-rate.js';
-import { updateSessionStats, getSessionStats } from './session-stats.js';
+import { updateSessionStats, getSessionStats, getSparkline } from './session-stats.js';
 
 export type MainDeps = {
   readStdin: typeof readStdin;
@@ -111,6 +111,7 @@ export async function main(overrides: Partial<MainDeps> = {}): Promise<void> {
       agentCount: transcript.agents.length,
     });
     const sessionStats = getSessionStats(cacheDir);
+    const sparkline = getSparkline(cacheDir);
 
     // Alerts
     let alerts: RenderContext['alerts'] = [];
@@ -148,6 +149,7 @@ export async function main(overrides: Partial<MainDeps> = {}): Promise<void> {
       alerts,
       burnRate,
       sessionStats,
+      sparkline,
     };
 
     deps.render(ctx);

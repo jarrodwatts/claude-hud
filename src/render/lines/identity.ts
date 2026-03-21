@@ -5,6 +5,19 @@ import { getAdaptiveBarWidth } from '../../utils/terminal.js';
 
 const DEBUG = process.env.DEBUG?.includes('claude-hud') || process.env.DEBUG === '*';
 
+const SPARK_CHARS = '▁▂▃▄▅▆▇█';
+
+function renderSparkline(values: number[]): string {
+  if (values.length < 2) return '';
+  const min = Math.min(...values);
+  const max = Math.max(...values);
+  const range = max - min || 1;
+  return values.map(v => {
+    const idx = Math.round(((v - min) / range) * (SPARK_CHARS.length - 1));
+    return SPARK_CHARS[idx];
+  }).join('');
+}
+
 function ordinal(n: number): string {
   if (n === 1) return '1st';
   if (n === 2) return '2nd';
@@ -54,8 +67,23 @@ export function renderIdentityLine(ctx: RenderContext): string {
     line += ` ${dim('│')} ${dim(`${formatted} tok/m`)}`;
   }
 
+  if (ctx.burnRate && ctx.burnRate.tokensPerMinute > 0 && percent >= (alertThresholds?.warningThreshold ?? 70)) {
+    const remaining = ctx.stdin.context_window?.context_window_size
+      ? ctx.stdin.context_window.context_window_size - (ctx.stdin.context_window?.current_usage?.input_tokens ?? 0)
+      : 0;
+    if (remaining > 0) {
+      const minsLeft = Math.round(remaining / ctx.burnRate.tokensPerMinute);
+      const timeStr = minsLeft >= 60 ? `${Math.floor(minsLeft / 60)}h ${minsLeft % 60}m` : `${minsLeft}m`;
+      line += dim(` ~${timeStr}`);
+    }
+  }
+
   if (ctx.sessionStats.autocompactCount > 0) {
     line += dim(` (${ordinal(ctx.sessionStats.autocompactCount)} compact)`);
+  }
+
+  if (ctx.sparkline && ctx.sparkline.length >= 3) {
+    line += ` ${dim(renderSparkline(ctx.sparkline))}`;
   }
 
   return line;

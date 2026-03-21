@@ -12,7 +12,7 @@ import { getDefaultCacheDir } from './cache.js';
 import { loadProviders, fetchAllProviders } from './providers/index.js';
 import { evaluateAlerts, shouldBell } from './alert.js';
 import { calculateBurnRate, recordTokenSnapshot } from './burn-rate.js';
-import { updateSessionStats, getSessionStats } from './session-stats.js';
+import { updateSessionStats, getSessionStats, getSparkline } from './session-stats.js';
 export async function main(overrides = {}) {
     const deps = {
         readStdin,
@@ -82,6 +82,7 @@ export async function main(overrides = {}) {
             agentCount: transcript.agents.length,
         });
         const sessionStats = getSessionStats(cacheDir);
+        const sparkline = getSparkline(cacheDir);
         // Alerts
         let alerts = [];
         if (config.display.showAlerts) {
@@ -116,6 +117,7 @@ export async function main(overrides = {}) {
             alerts,
             burnRate,
             sessionStats,
+            sparkline,
         };
         deps.render(ctx);
     }
