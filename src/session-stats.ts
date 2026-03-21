@@ -85,6 +85,48 @@ export function updatePromptStats(tokensDelta: number, cacheDir: string): void {
   writeCache(PROMPT_STATS_KEY, stats, cacheDir);
 }
 
+export interface AgentEfficiency {
+  type: string;
+  count: number;
+  avgDurationSecs: number;
+}
+
+const AGENT_STATS_KEY = 'agent-efficiency';
+
+export function updateAgentStats(agents: Array<{ type: string; status: string; startTime: Date; endTime?: Date }>, cacheDir: string): void {
+  const stats = readCache<Record<string, { count: number; totalDuration: number }>>(
+    AGENT_STATS_KEY, TTL, cacheDir
+  ) ?? {};
+
+  for (const agent of agents) {
+    if (agent.status !== 'completed' || !agent.endTime) continue;
+    const duration = (agent.endTime.getTime() - agent.startTime.getTime()) / 1000;
+    if (duration <= 0) continue;
+
+    const key = agent.type || 'unknown';
+    if (!stats[key]) stats[key] = { count: 0, totalDuration: 0 };
+    stats[key].count++;
+    stats[key].totalDuration += duration;
+  }
+
+  writeCache(AGENT_STATS_KEY, stats, cacheDir);
+}
+
+export function getAgentEfficiency(cacheDir: string): AgentEfficiency[] {
+  const stats = readCache<Record<string, { count: number; totalDuration: number }>>(
+    AGENT_STATS_KEY, TTL, cacheDir
+  );
+  if (!stats) return [];
+
+  return Object.entries(stats)
+    .map(([type, data]) => ({
+      type,
+      count: data.count,
+      avgDurationSecs: Math.round(data.totalDuration / data.count),
+    }))
+    .sort((a, b) => b.count - a.count);
+}
+
 export function getPromptStats(cacheDir: string): PromptStats | null {
   const stats = readCache<{ count: number; totalTokens: number; maxTokens: number }>(
     PROMPT_STATS_KEY, TTL, cacheDir
