@@ -87,6 +87,35 @@ export function compareWithLastSession(
   };
 }
 
+export interface DashboardExport {
+  exportTime: string;
+  sessions: SessionRecord[];
+  summary: {
+    totalSessions: number;
+    totalToolCalls: number;
+    avgDurationMins: number;
+    totalAutocompacts: number;
+  };
+}
+
+export function exportDashboard(): DashboardExport {
+  const sessions = loadHistory();
+  const totalToolCalls = sessions.reduce((sum, s) => sum + s.totalToolCalls, 0);
+  const totalAutocompacts = sessions.reduce((sum, s) => sum + s.autocompactCount, 0);
+  const totalMins = sessions.reduce((sum, s) => sum + parseDurationToMins(s.duration), 0);
+
+  return {
+    exportTime: new Date().toISOString(),
+    sessions,
+    summary: {
+      totalSessions: sessions.length,
+      totalToolCalls,
+      avgDurationMins: sessions.length > 0 ? Math.round(totalMins / sessions.length) : 0,
+      totalAutocompacts,
+    },
+  };
+}
+
 export function parseDurationToMins(duration: string): number {
   const hourMatch = duration.match(/(\d+)h/);
   const minMatch = duration.match(/(\d+)m/);
