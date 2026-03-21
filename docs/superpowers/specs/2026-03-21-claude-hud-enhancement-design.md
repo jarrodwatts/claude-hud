@@ -25,11 +25,13 @@ src/cache.ts
 └── cacheDir: ~/.claude/plugins/claude-hud/.cache/
 ```
 
+**Design note**: Since each invocation is a new process (no shared memory), file-based caching is the only option. To minimize syscalls, all cache entries are stored in a single JSON file (`cache.json`) with per-key timestamps, reducing the overhead to one `stat` + one `readFile` per invocation.
+
 #### Cache Strategy
 
 | Data Source | Cache Key | TTL | Invalidation |
 |------------|-----------|-----|--------------|
-| Transcript parse | `transcript-{hash}` | 500ms | File mtime change |
+| Transcript parse | `transcript` | 500ms | File mtime change |
 | Git status | `git-status` | 2s | Fixed TTL |
 | Git ahead/behind | `git-remote` | 10s | Fixed TTL |
 | Config | `config` | 5s | Fixed TTL |
@@ -40,12 +42,16 @@ src/cache.ts
 - Record last-read byte offset in cache
 - On next invocation, only read bytes after the offset
 - Merge new tool/agent/todo entries into cached `TranscriptData`
-- Full re-parse only when file mtime indicates truncation (offset > file size)
+- Full re-parse triggers:
+  - Offset > current file size (file was truncated/rotated)
+  - Content at previous offset doesn't match expected continuation
+- **Partial line handling**: Buffer the last incomplete line (no trailing `\n`) and prepend it to the next read
+- **Assumption**: Transcript file is append-only during normal operation; autocompact may cause truncation, which triggers full re-parse
 
 #### Expected Performance
 
-- Cold start: ~50ms
-- Hot path (all caches valid): <5ms
+- Cold start: ~50ms (single cache file read + parse)
+- Hot path (all caches valid): ~5-10ms (one file read, JSON.parse, validity checks)
 - Git operations reduced from 3 execFile per invocation to 0 (cache hit)
 
 ## 2. Display Content — Framework Provider System
@@ -85,10 +91,11 @@ interface FrameworkEntry {
 
 ### AGW Provider
 
-- **Detection**: `GET http://localhost:<port>/health` (500ms timeout)
+- **Detection**: `GET http://localhost:<port>/health` (200ms timeout)
 - **Data**: `GET /combos` for active combo list
-- **Cache TTL**: 3s
+- **Cache TTL**: 3s (success), 10s (failure — prevents repeated slow requests)
 - **Failure**: Silent skip (no error display)
+- **Error boundary**: All provider fetch/render calls wrapped in try/catch; malformed data returns null
 
 ### Agent Teams Provider
 
@@ -190,6 +197,19 @@ None:      (line hidden)
 
 ## 4. Visual System — Dashboard Rich
 
+### Render Pipeline Restructuring
+
+The existing render pipeline produces lines via separate functions:
+- `renderProjectLine()` → `[Opus | Max] │ my-project git:(main*)`
+- `renderIdentityLine()` → `Context █████░░░░░ 45%`
+- `renderUsageLine()` → `Usage ██░░░░░░░░ 25%`
+
+The Dashboard Rich layout merges these into two consolidated lines:
+- **Line 1**: Combines `renderProjectLine` output + duration display into a single identity line
+- **Line 2**: Combines `renderIdentityLine` + `renderUsageLine` + burn rate into a single metrics line
+
+Implementation: Refactor `src/render/lines/project.ts` to accept duration/activity indicator params. Refactor `src/render/lines/identity.ts` to accept usage data and render both bars. The individual render functions remain callable for `compact` layout backward compatibility — only `expanded` layout uses the merged renderers.
+
 ### Line Layout
 
 | Line | Content | Visibility |
@@ -210,9 +230,9 @@ None:      (line hidden)
 
 ### Bar Characters
 
-- `modern` (default): `▰` (filled) + `▱` (empty)
-- `classic`: `█` (filled) + `░` (empty)
-- Configurable via `barStyle: 'classic' | 'modern'`
+- `classic` (default): `█` (filled) + `░` (empty) — preserves existing visual behavior
+- `modern`: `▰` (filled) + `▱` (empty) — cleaner aesthetic
+- Configurable via `display.barStyle: 'classic' | 'modern'`
 
 ### Activity Indicator
 
@@ -249,18 +269,26 @@ Tools and agents rendered on one line (Line 4) instead of separate lines:
 
 All colors overridable via `colors.*` config (named / 256-index / hex).
 
+**Threshold unification**: The alert thresholds (Section 3) drive both the bar color changes AND the alert line. The existing hardcoded 70/85% thresholds in `getContextColor` (`src/render/colors.ts`) will be replaced by reading from alert config, ensuring visual state and alert state always agree.
+
 ### Todo Mini Progress Bar
 
 ```
 ▸ Fix auth bug (2/5) │ ▪▪▪▪▪
-                        ^^--- green=done, orange=in_progress, dim=pending
 ```
+
+Each `▪` represents one todo item from the `todos` array. Color is based on that item's individual status:
+- Green (`▪`): `completed`
+- Orange (`▪`): `in_progress`
+- Dim (`▪`): `pending`
+
+Order follows the todo array order. If there are more than 10 todos, show the first 10 with `…` suffix.
 
 ## 5. Feature Expansion
 
 ### Burn Rate
 
-Extension of existing `src/speed-tracker.ts`:
+New module `src/burn-rate.ts` (separate from the existing `src/speed-tracker.ts` which tracks output token speed; burn-rate tracks input token consumption rate for prediction purposes):
 
 ```typescript
 interface BurnRate {
@@ -287,7 +315,7 @@ interface SessionStats {
 }
 ```
 
-- **Autocompact detection**: Context% drops >20% between consecutive invocations
+- **Autocompact detection**: Context% drops >20% sustained across 2+ consecutive invocations (prevents false positives from model switches or transient glitches)
 - **Persistence**: Written to cache directory
 - **Display integration** (no dedicated line):
   - Tool call total in tools line: `✓ Read ×3 │ total: 47`
@@ -305,6 +333,7 @@ showAlerts: boolean;          // default: true
 activityIndicator: boolean;   // default: true
 treePrefixes: boolean;        // default: true
 mergeToolsAgents: boolean;    // default: true
+barStyle: 'classic' | 'modern';  // default: 'classic' (preserves existing bar chars)
 
 // new top-level sections
 frameworks: {
@@ -317,11 +346,36 @@ alerts: {
   usage5h: { warningThreshold: number; criticalThreshold: number; actions: AlertAction };
   usage7d: { warningThreshold: number; actions: AlertAction };
 };
-
-barStyle: 'classic' | 'modern';  // default: 'modern'
 ```
 
 No existing config fields are removed or changed in meaning. Users who don't set new fields get identical behavior to current version.
+
+### HudElement Extension
+
+The existing `HudElement` type must be extended:
+
+```typescript
+// Before
+type HudElement = 'project' | 'context' | 'usage' | 'environment' | 'tools' | 'agents' | 'todos';
+
+// After
+type HudElement = 'project' | 'context' | 'usage' | 'environment' | 'framework' | 'tools' | 'agents' | 'todos' | 'alert';
+```
+
+`DEFAULT_ELEMENT_ORDER` updated to include `'framework'` (after `'environment'`) and `'alert'` (after `'todos'`). Existing users with custom `elementOrder` will not see new elements unless they add them.
+
+### RenderContext Extension
+
+```typescript
+// New fields added to RenderContext
+interface RenderContext {
+  // ... existing fields ...
+  frameworkStatus: FrameworkStatus[];  // From providers (empty array if none active)
+  alerts: Alert[];                     // From alert engine (empty array if none triggered)
+  burnRate: BurnRate | null;           // From burn-rate module (null if cold start)
+  sessionStats: SessionStats;          // From session-stats module
+}
+```
 
 ## 7. New Files Summary
 
@@ -329,6 +383,7 @@ No existing config fields are removed or changed in meaning. Users who don't set
 |------|---------|
 | `src/cache.ts` | Unified file cache with TTL |
 | `src/alert.ts` | Alert evaluation engine |
+| `src/burn-rate.ts` | Token burn rate calculation (sliding window) |
 | `src/session-stats.ts` | Session statistics tracking |
 | `src/providers/index.ts` | Provider interface + loader |
 | `src/providers/agw-provider.ts` | AGW combo status |
@@ -345,7 +400,6 @@ No existing config fields are removed or changed in meaning. Users who don't set
 | `src/config.ts` | Extend HudConfig with new fields + defaults |
 | `src/transcript.ts` | Incremental parsing with byte offset |
 | `src/git.ts` | Use cache layer instead of direct execFile |
-| `src/speed-tracker.ts` | Extend with burn rate calculation |
 | `src/render/index.ts` | Add framework, alert lines + tree prefix logic |
 | `src/render/lines/project.ts` | Activity indicator `◉` + merged layout |
 | `src/render/lines/identity.ts` | Modern bar chars `▰▱` + barStyle option |
@@ -360,12 +414,13 @@ Each new module gets its own test file:
 
 | Test File | Coverage |
 |-----------|----------|
-| `tests/cache.test.js` | TTL expiry, mtime invalidation, incremental offset |
-| `tests/alert.test.js` | Threshold evaluation, prediction calc, bell anti-spam |
-| `tests/session-stats.test.js` | Autocompact detection, burn rate sliding window |
-| `tests/providers.test.js` | AGW/Agent Teams availability check, data parsing, failure handling |
-| `tests/framework-line.test.js` | Rendering with various provider states |
-| `tests/alert-line.test.js` | Single/multi alert rendering, tree prefix |
+| `tests/cache.test.ts` | TTL expiry, mtime invalidation, incremental offset, single-file consolidation |
+| `tests/alert.test.ts` | Threshold evaluation, prediction calc, bell anti-spam |
+| `tests/burn-rate.test.ts` | Sliding window calculation, cold start behavior |
+| `tests/session-stats.test.ts` | Autocompact detection (sustained drop), peak tracking |
+| `tests/providers.test.ts` | AGW/Agent Teams availability, data parsing, failure cache, error boundary |
+| `tests/framework-line.test.ts` | Rendering with various provider states |
+| `tests/alert-line.test.ts` | Single/multi alert rendering, tree prefix |
 
 Existing tests updated for:
 - New config fields in `config.test.js`
