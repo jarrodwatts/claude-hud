@@ -2,6 +2,36 @@ import { execFile } from 'node:child_process';
 import { readCache, writeCache } from './cache.js';
 import type { Alert, AlertAction } from './types.js';
 
+const ALERT_HISTORY_KEY = 'alert-history';
+
+export interface AlertHistoryEntry {
+  type: string;
+  message: string;
+  timestamp: number;
+}
+
+export function recordAlertHistory(alerts: Alert[], cacheDir: string): void {
+  if (alerts.length === 0) return;
+  const history = readCache<AlertHistoryEntry[]>(ALERT_HISTORY_KEY, 24 * 60 * 60 * 1000, cacheDir) ?? [];
+  const now = Date.now();
+
+  for (const alert of alerts) {
+    // Only add if not already recorded in last 60 seconds (avoid duplicates from 300ms polling)
+    const recent = history.find(h => h.type === alert.type && now - h.timestamp < 60000);
+    if (!recent) {
+      history.push({ type: alert.type, message: alert.message, timestamp: now });
+    }
+  }
+
+  // Keep last 100 entries
+  while (history.length > 100) history.shift();
+  writeCache(ALERT_HISTORY_KEY, history, cacheDir);
+}
+
+export function getAlertHistory(cacheDir: string): AlertHistoryEntry[] {
+  return readCache<AlertHistoryEntry[]>(ALERT_HISTORY_KEY, 24 * 60 * 60 * 1000, cacheDir) ?? [];
+}
+
 interface AlertConfig {
   context: { warningThreshold: number; criticalThreshold: number; actions: AlertAction };
   usage5h: { warningThreshold: number; criticalThreshold: number; actions: AlertAction };

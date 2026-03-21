@@ -11,7 +11,7 @@ import { fileURLToPath } from 'node:url';
 import { realpathSync } from 'node:fs';
 import { getDefaultCacheDir, readCache, writeCache, readLatency, writeLatency } from './cache.js';
 import { loadProviders, fetchAllProviders } from './providers/index.js';
-import { evaluateAlerts, shouldBell, sendNotification } from './alert.js';
+import { evaluateAlerts, shouldBell, sendNotification, recordAlertHistory } from './alert.js';
 import { calculateBurnRate, recordTokenSnapshot } from './burn-rate.js';
 import { updateSessionStats, getSessionStats, getSparkline } from './session-stats.js';
 import { getTerminalWidth } from './utils/terminal.js';
@@ -136,6 +136,10 @@ export async function main(overrides: Partial<MainDeps> = {}): Promise<void> {
         alertConfig: config.alerts,
         cacheDir,
       });
+
+      if (alerts.length > 0) {
+        recordAlertHistory(alerts, cacheDir);
+      }
 
       if (shouldBell(alerts, cacheDir)) {
         process.stderr.write('\x07');
