@@ -97,6 +97,7 @@ export interface HudConfig {
     hook?: string;  // shell command to run on any alert trigger
   };
   locale: Locale;
+  schemaVersion: number;
 }
 
 export const DEFAULT_CONFIG: HudConfig = {
@@ -164,6 +165,7 @@ export const DEFAULT_CONFIG: HudConfig = {
     usage7d: { warningThreshold: 80, actions: { visual: true, bell: false, predict: true } },
   },
   locale: 'en' as Locale,
+  schemaVersion: 1,
 };
 
 export function getConfigPath(): string {
@@ -272,7 +274,17 @@ function validatePositiveInt(value: unknown, defaultValue: number): number {
 }
 
 export function mergeConfig(userConfig: Partial<HudConfig>): HudConfig {
+  const DEBUG = process.env.DEBUG?.includes('claude-hud') || process.env.DEBUG === '*';
   const migrated = migrateConfig(userConfig);
+
+  // Schema version migration
+  const schemaVersion = typeof userConfig.schemaVersion === 'number' ? userConfig.schemaVersion : 0;
+
+  if (schemaVersion < 1) {
+    // Migrate from v0 (no schema version) to v1
+    // Currently no-op — future breaking changes will add migration steps here
+    if (DEBUG) console.error('[claude-hud:config] migrating config from schema v0 to v1');
+  }
 
   const lineLayout = validateLineLayout(migrated.lineLayout)
     ? migrated.lineLayout
@@ -495,7 +507,8 @@ export function mergeConfig(userConfig: Partial<HudConfig>): HudConfig {
     ? migrated.locale
     : DEFAULT_CONFIG.locale;
 
-  return { lineLayout, showSeparators, pathLevels, elementOrder, gitStatus, display, theme, usage, colors, frameworks, alerts, locale };
+  const mergedSchemaVersion = 1; // Always set to current
+  return { lineLayout, showSeparators, pathLevels, elementOrder, gitStatus, display, theme, usage, colors, frameworks, alerts, locale, schemaVersion: mergedSchemaVersion };
 }
 
 export function validateConfigWithWarnings(userConfig: Record<string, unknown>): string[] {
