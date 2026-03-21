@@ -1,5 +1,7 @@
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
+import fs from 'node:fs';
+import path from 'node:path';
 import { readCache, writeCache, getDefaultCacheDir } from './cache.js';
 
 const execFileAsync = promisify(execFile);
@@ -17,6 +19,8 @@ export interface GitStatus {
   ahead: number;
   behind: number;
   fileStats?: FileStats;
+  stashCount: number;
+  state: 'normal' | 'rebasing' | 'merging' | 'cherry-picking' | 'bisecting' | null;
 }
 
 export async function getGitBranch(cwd?: string): Promise<string | null> {
@@ -88,7 +92,29 @@ export async function getGitStatus(cwd?: string): Promise<GitStatus | null> {
       // No upstream or error, keep 0/0
     }
 
-    const result: GitStatus = { branch, isDirty, ahead, behind, fileStats };
+    // Get stash count
+    let stashCount = 0;
+    try {
+      const { stdout: stashOut } = await execFileAsync('git', ['stash', 'list'], { cwd: cwd || undefined, timeout: 1000 });
+      stashCount = stashOut.trim().split('\n').filter(l => l.trim()).length;
+    } catch {}
+
+    // Detect rebase/merge state
+    let state: GitStatus['state'] = 'normal';
+    try {
+      const gitDir = (await execFileAsync('git', ['rev-parse', '--git-dir'], { cwd: cwd || undefined, timeout: 1000 })).stdout.trim();
+      if (fs.existsSync(path.join(gitDir, 'rebase-merge')) || fs.existsSync(path.join(gitDir, 'rebase-apply'))) {
+        state = 'rebasing';
+      } else if (fs.existsSync(path.join(gitDir, 'MERGE_HEAD'))) {
+        state = 'merging';
+      } else if (fs.existsSync(path.join(gitDir, 'CHERRY_PICK_HEAD'))) {
+        state = 'cherry-picking';
+      } else if (fs.existsSync(path.join(gitDir, 'BISECT_LOG'))) {
+        state = 'bisecting';
+      }
+    } catch {}
+
+    const result: GitStatus = { branch, isDirty, ahead, behind, fileStats, stashCount, state };
     writeCache(cacheKey, result, cacheDir);
     return result;
   } catch {

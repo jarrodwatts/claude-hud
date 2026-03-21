@@ -1,7 +1,7 @@
 import type { RenderContext } from '../../types.js';
 import { getModelName, getProviderLabel } from '../../stdin.js';
 import { getOutputSpeed } from '../../speed-tracker.js';
-import { cyan, dim, magenta, yellow, red, claudeOrange, colorize, green } from '../colors.js';
+import { cyan, dim, magenta, yellow, red, claudeOrange, colorize, green, warning } from '../colors.js';
 import { isNarrowTerminal } from '../../utils/terminal.js';
 
 export function renderProjectLine(ctx: RenderContext): string | null {
@@ -67,6 +67,19 @@ export function renderProjectLine(ctx: RenderContext): string | null {
     }
 
     gitPart = `${magenta('git:(')}${cyan(gitParts.join(''))}${magenta(')')}`;
+
+    if (ctx.gitStatus.stashCount > 0) {
+      gitPart += ` ${dim(`⚑${ctx.gitStatus.stashCount}`)}`;
+    }
+    if (ctx.gitStatus.state && ctx.gitStatus.state !== 'normal') {
+      const stateLabels: Record<string, string> = {
+        rebasing: '↻rebase',
+        merging: '⊕merge',
+        'cherry-picking': '⊕cherry',
+        bisecting: '⊕bisect',
+      };
+      gitPart += ` ${warning(stateLabels[ctx.gitStatus.state] || ctx.gitStatus.state)}`;
+    }
   }
 
   if (projectPart && gitPart) {
