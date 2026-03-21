@@ -1,10 +1,11 @@
-import * as fs from 'node:fs';
-import * as path from 'node:path';
 import * as os from 'node:os';
+import * as path from 'node:path';
 import type { StdinData } from './types.js';
+import { readCache, writeCache } from './cache.js';
 import { getHudPluginDir } from './claude-config-dir.js';
 
 const SPEED_WINDOW_MS = 2000;
+const SPEED_CACHE_KEY = 'speed-tracker';
 
 interface SpeedCache {
   outputTokens: number;
@@ -21,36 +22,8 @@ const defaultDeps: SpeedTrackerDeps = {
   now: () => Date.now(),
 };
 
-function getCachePath(homeDir: string): string {
-  return path.join(getHudPluginDir(homeDir), '.speed-cache.json');
-}
-
-function readCache(homeDir: string): SpeedCache | null {
-  try {
-    const cachePath = getCachePath(homeDir);
-    if (!fs.existsSync(cachePath)) return null;
-    const content = fs.readFileSync(cachePath, 'utf8');
-    const parsed = JSON.parse(content) as SpeedCache;
-    if (typeof parsed.outputTokens !== 'number' || typeof parsed.timestamp !== 'number') {
-      return null;
-    }
-    return parsed;
-  } catch {
-    return null;
-  }
-}
-
-function writeCache(homeDir: string, cache: SpeedCache): void {
-  try {
-    const cachePath = getCachePath(homeDir);
-    const cacheDir = path.dirname(cachePath);
-    if (!fs.existsSync(cacheDir)) {
-      fs.mkdirSync(cacheDir, { recursive: true });
-    }
-    fs.writeFileSync(cachePath, JSON.stringify(cache), 'utf8');
-  } catch {
-    // Ignore cache write failures
-  }
+function getCacheDir(homeDir: string): string {
+  return path.join(getHudPluginDir(homeDir), '.cache');
 }
 
 export function getOutputSpeed(stdin: StdinData, overrides: Partial<SpeedTrackerDeps> = {}): number | null {
@@ -61,8 +34,8 @@ export function getOutputSpeed(stdin: StdinData, overrides: Partial<SpeedTracker
 
   const deps = { ...defaultDeps, ...overrides };
   const now = deps.now();
-  const homeDir = deps.homeDir();
-  const previous = readCache(homeDir);
+  const cacheDir = getCacheDir(deps.homeDir());
+  const previous = readCache<SpeedCache>(SPEED_CACHE_KEY, 5000, cacheDir);
 
   let speed: number | null = null;
   if (previous && outputTokens >= previous.outputTokens) {
@@ -73,6 +46,6 @@ export function getOutputSpeed(stdin: StdinData, overrides: Partial<SpeedTracker
     }
   }
 
-  writeCache(homeDir, { outputTokens, timestamp: now });
+  writeCache<SpeedCache>(SPEED_CACHE_KEY, { outputTokens, timestamp: now }, cacheDir);
   return speed;
 }

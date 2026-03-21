@@ -1,6 +1,8 @@
 import type { FrameworkProvider, FrameworkStatus, FrameworkEntry } from '../types.js';
 import { readCache, writeCache } from '../cache.js';
 
+const DEBUG = process.env.DEBUG?.includes('claude-hud') || process.env.DEBUG === '*';
+
 const CACHE_KEY = 'agw-status';
 const SUCCESS_TTL = 3000;
 const FAILURE_TTL = 10000;
@@ -36,7 +38,8 @@ export class AgwProvider implements FrameworkProvider {
       const status: FrameworkStatus = { provider: 'AGW', entries };
       writeCache(CACHE_KEY, status, this.cacheDir);
       return status;
-    } catch {
+    } catch (err) {
+      if (DEBUG) console.error('[claude-hud:agw-provider] connection error:', err);
       writeCache('agw-failure', true, this.cacheDir);
       return null;
     }

@@ -26,7 +26,7 @@ function debug(message: string): void {
   }
 }
 
-export interface ExtraLabel {
+interface ExtraLabel {
   label: string;
 }
 

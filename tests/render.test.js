@@ -90,11 +90,13 @@ async function withDeterministicSpeedCache(fn) {
   const tempConfigDir = await mkdtemp(path.join(tmpdir(), 'claude-hud-render-'));
   const originalConfigDir = process.env.CLAUDE_CONFIG_DIR;
   const originalNow = Date.now;
-  const cachePath = path.join(tempConfigDir, 'plugins', 'claude-hud', '.speed-cache.json');
+  const cachePath = path.join(tempConfigDir, 'plugins', 'claude-hud', '.cache', 'cache.json');
 
   process.env.CLAUDE_CONFIG_DIR = tempConfigDir;
   await mkdir(path.dirname(cachePath), { recursive: true });
-  await writeFile(cachePath, JSON.stringify({ outputTokens: 1000, timestamp: 1000 }), 'utf8');
+  // Cache entry format: { key: { data: SpeedCache, timestamp: <outer_cache_timestamp> } }
+  // outer timestamp=1000 ensures TTL check passes (Date.now()=2000, ttl=5000)
+  await writeFile(cachePath, JSON.stringify({ 'speed-tracker': { data: { outputTokens: 1000, timestamp: 1000 }, timestamp: 1000 } }), 'utf8');
   Date.now = () => 2000;
 
   try {

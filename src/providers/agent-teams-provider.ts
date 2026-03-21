@@ -3,6 +3,8 @@ import { promisify } from 'node:util';
 import type { FrameworkProvider, FrameworkStatus, FrameworkEntry } from '../types.js';
 import { readCache, writeCache } from '../cache.js';
 
+const DEBUG = process.env.DEBUG?.includes('claude-hud') || process.env.DEBUG === '*';
+
 const execFileAsync = promisify(execFile);
 const CACHE_KEY = 'agent-teams-status';
 const SUCCESS_TTL = 5000;
@@ -31,7 +33,10 @@ export class AgentTeamsProvider implements FrameworkProvider {
       const status: FrameworkStatus = { provider: 'Teams', entries };
       writeCache(CACHE_KEY, status, this.cacheDir);
       return status;
-    } catch { return null; }
+    } catch (err) {
+      if (DEBUG) console.error('[claude-hud:agent-teams-provider] git worktree error:', err);
+      return null;
+    }
   }
 
   private parseWorktrees(output: string): Array<{ path: string; branch?: string }> {

@@ -86,8 +86,8 @@ test('getOutputSpeed writes cache under CLAUDE_CONFIG_DIR by default', async () 
     );
     assert.ok(second !== null);
 
-    const customCachePath = path.join(customConfigDir, 'plugins', 'claude-hud', '.speed-cache.json');
-    const defaultCachePath = path.join(tempHome, '.claude', 'plugins', 'claude-hud', '.speed-cache.json');
+    const customCachePath = path.join(customConfigDir, 'plugins', 'claude-hud', '.cache', 'cache.json');
+    const defaultCachePath = path.join(tempHome, '.claude', 'plugins', 'claude-hud', '.cache', 'cache.json');
     assert.equal(existsSync(customCachePath), true);
     assert.equal(existsSync(defaultCachePath), false);
   } finally {

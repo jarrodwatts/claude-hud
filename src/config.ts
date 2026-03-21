@@ -243,9 +243,9 @@ function migrateConfig(userConfig: Partial<HudConfig> & LegacyConfig): Partial<H
     } else if (typeof userConfig.layout === 'object' && userConfig.layout !== null) {
       // Object layout written by third-party tools — extract nested fields
       const obj = userConfig.layout as Record<string, unknown>;
-      if (typeof obj.lineLayout === 'string') migrated.lineLayout = obj.lineLayout as any;
+      if (typeof obj.lineLayout === 'string') migrated.lineLayout = obj.lineLayout as LineLayoutType;
       if (typeof obj.showSeparators === 'boolean') migrated.showSeparators = obj.showSeparators;
-      if (typeof obj.pathLevels === 'number') migrated.pathLevels = obj.pathLevels as any;
+      if (typeof obj.pathLevels === 'number') migrated.pathLevels = obj.pathLevels as 1 | 2 | 3;
     }
     delete migrated.layout;
   }

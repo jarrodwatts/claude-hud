@@ -65,3 +65,15 @@ export function formatUsagePercent(percent: number | null, colors?: RenderContex
   const color = getQuotaColor(percent, colors);
   return `${color}${percent}%${RESET}`;
 }
+
+export function truncateString(str: string, maxLen: number, suffix = '...'): string {
+  if (str.length <= maxLen) return str;
+  return str.slice(0, maxLen - suffix.length) + suffix;
+}
+
+export function truncatePath(filePath: string, maxLen = 20): string {
+  if (filePath.length <= maxLen) return filePath;
+  const parts = filePath.split('/');
+  const filename = parts[parts.length - 1];
+  return `.../${filename}`;
+}

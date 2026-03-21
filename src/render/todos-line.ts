@@ -1,5 +1,6 @@
 import type { RenderContext } from '../types.js';
 import { yellow, green, dim, claudeOrange } from './colors.js';
+import { truncateString } from '../utils/format.js';
 
 export function renderTodosLine(ctx: RenderContext): string | null {
   const { todos } = ctx.transcript;
@@ -19,7 +20,7 @@ export function renderTodosLine(ctx: RenderContext): string | null {
     return null;
   }
 
-  const content = truncateContent(inProgress.content);
+  const content = truncateString(inProgress.content, 50);
   const progress = dim(`(${completed}/${total})`);
 
   const miniBar = ctx.transcript.todos.slice(0, 10).map(todo => {
@@ -32,7 +33,3 @@ export function renderTodosLine(ctx: RenderContext): string | null {
   return `${yellow('▸')} ${content} ${progress} │ ${miniBar}${suffix}`;
 }
 
-function truncateContent(content: string, maxLen: number = 50): string {
-  if (content.length <= maxLen) return content;
-  return content.slice(0, maxLen - 3) + '...';
-}

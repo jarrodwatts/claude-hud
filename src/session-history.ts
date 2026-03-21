@@ -1,6 +1,8 @@
 import fs from 'node:fs';
 import path from 'node:path';
 
+const DEBUG = process.env.DEBUG?.includes('claude-hud') || process.env.DEBUG === '*';
+
 export interface SessionRecord {
   startTime: string;        // ISO string
   endTime: string;          // ISO string (when last seen)
@@ -21,7 +23,8 @@ export function loadHistory(): SessionRecord[] {
   try {
     const data = fs.readFileSync(getHistoryPath(), 'utf-8');
     return JSON.parse(data);
-  } catch {
+  } catch (err) {
+    if (DEBUG) console.error('[claude-hud:session-history] file read error:', err);
     return [];
   }
 }

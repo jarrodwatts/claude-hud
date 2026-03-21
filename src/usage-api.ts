@@ -145,7 +145,7 @@ function withRateLimitedSyncing(data: UsageData): UsageData {
   };
 }
 
-function readCacheState(homeDir: string, now: number, ttls: CacheTtls): CacheState | null {
+function readUsageCacheState(homeDir: string, now: number, ttls: CacheTtls): CacheState | null {
   try {
     const cachePath = getCachePath(homeDir);
     if (!fs.existsSync(cachePath)) return null;
@@ -199,8 +199,8 @@ function readLastGoodData(homeDir: string): UsageData | null {
   }
 }
 
-function readCache(homeDir: string, now: number, ttls: CacheTtls): UsageData | null {
-  const cache = readCacheState(homeDir, now, ttls);
+function readUsageCache(homeDir: string, now: number, ttls: CacheTtls): UsageData | null {
+  const cache = readUsageCacheState(homeDir, now, ttls);
   return cache?.isFresh ? cache.data : null;
 }
 
@@ -210,7 +210,7 @@ interface WriteCacheOpts {
   lastGoodData?: UsageData;
 }
 
-function writeCache(homeDir: string, data: UsageData, timestamp: number, opts?: WriteCacheOpts): void {
+function writeUsageCache(homeDir: string, data: UsageData, timestamp: number, opts?: WriteCacheOpts): void {
   try {
     const cachePath = getCachePath(homeDir);
     const cacheDir = path.dirname(cachePath);
@@ -322,7 +322,7 @@ async function waitForFreshCache(
 
   while (Date.now() < deadline) {
     await new Promise((resolve) => setTimeout(resolve, CACHE_LOCK_POLL_MS));
-    const cached = readCache(homeDir, now(), ttls);
+    const cached = readUsageCache(homeDir, now(), ttls);
     if (cached) {
       return cached;
     }
@@ -332,7 +332,7 @@ async function waitForFreshCache(
     }
   }
 
-  return readCache(homeDir, now(), ttls);
+  return readUsageCache(homeDir, now(), ttls);
 }
 
 // Dependency injection for testing
@@ -372,7 +372,7 @@ export async function getUsage(overrides: Partial<UsageApiDeps> = {}): Promise<U
     return null;
   }
   // Check file-based cache first
-  const cacheState = readCacheState(homeDir, now, deps.ttls);
+  const cacheState = readUsageCacheState(homeDir, now, deps.ttls);
   if (cacheState?.isFresh) {
     return cacheState.data;
   }
@@ -388,7 +388,7 @@ export async function getUsage(overrides: Partial<UsageApiDeps> = {}): Promise<U
   holdsCacheLock = lockStatus === 'acquired';
 
   try {
-    const refreshedCache = readCache(homeDir, deps.now(), deps.ttls);
+    const refreshedCache = readUsageCache(homeDir, deps.now(), deps.ttls);
     if (refreshedCache) {
       return refreshedCache;
     }
@@ -432,7 +432,7 @@ export async function getUsage(overrides: Partial<UsageApiDeps> = {}): Promise<U
       };
 
       if (isRateLimited) {
-        const staleCache = readCacheState(homeDir, now, deps.ttls);
+        const staleCache = readUsageCacheState(homeDir, now, deps.ttls);
         const lastGood = readLastGoodData(homeDir);
         const goodData = (staleCache && !staleCache.data.apiUnavailable)
           ? staleCache.data
@@ -441,12 +441,12 @@ export async function getUsage(overrides: Partial<UsageApiDeps> = {}): Promise<U
         if (goodData) {
           // Preserve the backoff state in cache, but keep rendering the last successful values
           // with a syncing hint so stale data is visible to the user.
-          writeCache(homeDir, failureResult, now, { ...backoffOpts, lastGoodData: goodData });
+          writeUsageCache(homeDir, failureResult, now, { ...backoffOpts, lastGoodData: goodData });
           return withRateLimitedSyncing(goodData);
         }
       }
 
-      writeCache(homeDir, failureResult, now, backoffOpts);
+      writeUsageCache(homeDir, failureResult, now, backoffOpts);
       return failureResult;
     }
 
@@ -467,7 +467,7 @@ export async function getUsage(overrides: Partial<UsageApiDeps> = {}): Promise<U
     };
 
     // Write to file cache — also store as lastGoodData for rate-limit resilience
-    writeCache(homeDir, result, now, { lastGoodData: result });
+    writeUsageCache(homeDir, result, now, { lastGoodData: result });
 
     return result;
   } catch (error) {
