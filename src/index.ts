@@ -15,6 +15,7 @@ import { evaluateAlerts, shouldBell } from './alert.js';
 import { calculateBurnRate, recordTokenSnapshot } from './burn-rate.js';
 import { updateSessionStats, getSessionStats, getSparkline } from './session-stats.js';
 import { getTerminalWidth } from './utils/terminal.js';
+import { estimateCost } from './cost-tracker.js';
 
 export type MainDeps = {
   readStdin: typeof readStdin;
@@ -134,6 +135,8 @@ export async function main(overrides: Partial<MainDeps> = {}): Promise<void> {
       }
     }
 
+    const costEstimate = config.display.showCost ? estimateCost(stdin, cacheDir) : null;
+
     const ctx: RenderContext = {
       stdin,
       transcript,
@@ -152,6 +155,7 @@ export async function main(overrides: Partial<MainDeps> = {}): Promise<void> {
       sessionStats,
       sparkline,
       terminalWidth: getTerminalWidth(),
+      costEstimate,
     };
 
     deps.render(ctx);

@@ -62,6 +62,7 @@ function baseContext() {
         mergeToolsAgents: false,
         barStyle: 'classic',
         customLine: '',
+        showCost: false,
       },
       colors: {
         context: 'green',
@@ -82,6 +83,7 @@ function baseContext() {
       usage: { cacheTtlSeconds: 60, failureCacheTtlSeconds: 15 },
     },
     extraLabel: null,
+    costEstimate: null,
   };
 }
 

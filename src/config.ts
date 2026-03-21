@@ -73,6 +73,7 @@ export interface HudConfig {
     treePrefixes: boolean;
     mergeToolsAgents: boolean;
     barStyle: 'classic' | 'modern';
+    showCost: boolean;
   };
   usage: {
     cacheTtlSeconds: number;
@@ -128,6 +129,7 @@ export const DEFAULT_CONFIG: HudConfig = {
     treePrefixes: true,
     mergeToolsAgents: true,
     barStyle: 'classic' as const,
+    showCost: false,
   },
   usage: {
     cacheTtlSeconds: 60,
@@ -361,6 +363,9 @@ export function mergeConfig(userConfig: Partial<HudConfig>): HudConfig {
     barStyle: (migrated.display?.barStyle === 'classic' || migrated.display?.barStyle === 'modern')
       ? migrated.display.barStyle
       : DEFAULT_CONFIG.display.barStyle,
+    showCost: typeof migrated.display?.showCost === 'boolean'
+      ? migrated.display.showCost
+      : DEFAULT_CONFIG.display.showCost,
   };
 
   const usage = {

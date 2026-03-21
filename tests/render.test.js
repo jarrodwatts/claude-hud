@@ -44,13 +44,14 @@ function baseContext() {
     sessionStats: { totalToolCalls: 0, totalAgentRuns: 0, peakContextPercent: 0, autocompactCount: 0 },
     sparkline: [],
     terminalWidth: null,
+    costEstimate: null,
     config: {
       lineLayout: 'compact',
       showSeparators: false,
       pathLevels: 1,
       elementOrder: ['project', 'context', 'usage', 'environment', 'framework', 'tools', 'agents', 'todos', 'alert'],
       gitStatus: { enabled: true, showDirty: true, showAheadBehind: false, showFileStats: false },
-      display: { showModel: true, showProject: true, showContextBar: true, contextValue: 'percent', showConfigCounts: true, showDuration: true, showSpeed: false, showTokenBreakdown: true, showUsage: true, usageBarEnabled: false, showTools: true, showAgents: true, showTodos: true, showSessionName: false, autocompactBuffer: 'enabled', usageThreshold: 0, sevenDayThreshold: 80, environmentThreshold: 0, showFrameworks: false, showBurnRate: false, showAlerts: true, activityIndicator: true, treePrefixes: true, mergeToolsAgents: false, barStyle: 'classic', customLine: '' },
+      display: { showModel: true, showProject: true, showContextBar: true, contextValue: 'percent', showConfigCounts: true, showDuration: true, showSpeed: false, showTokenBreakdown: true, showUsage: true, usageBarEnabled: false, showTools: true, showAgents: true, showTodos: true, showSessionName: false, autocompactBuffer: 'enabled', usageThreshold: 0, sevenDayThreshold: 80, environmentThreshold: 0, showFrameworks: false, showBurnRate: false, showAlerts: true, activityIndicator: true, treePrefixes: true, mergeToolsAgents: false, barStyle: 'classic', customLine: '', showCost: false },
       colors: {
         context: 'green',
         usage: 'brightBlue',

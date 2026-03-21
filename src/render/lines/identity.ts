@@ -2,6 +2,7 @@ import type { RenderContext } from '../../types.js';
 import { getContextPercent, getBufferedPercent, getTotalTokens } from '../../stdin.js';
 import { coloredBar, dim, getContextColor, RESET } from '../colors.js';
 import { getAdaptiveBarWidth } from '../../utils/terminal.js';
+import { formatCost } from '../../cost-tracker.js';
 
 const DEBUG = process.env.DEBUG?.includes('claude-hud') || process.env.DEBUG === '*';
 
@@ -62,6 +63,12 @@ export function renderIdentityLine(ctx: RenderContext): string {
       const input = formatTokens(usage.input_tokens ?? 0);
       const cache = formatTokens((usage.cache_creation_input_tokens ?? 0) + (usage.cache_read_input_tokens ?? 0));
       line += dim(` (in: ${input}, cache: ${cache})`);
+    }
+  }
+
+  if (ctx.costEstimate && ctx.config.display.showCost) {
+    if (!isNarrow) {
+      line += ` ${dim('│')} ${dim(formatCost(ctx.costEstimate.sessionCost))}`;
     }
   }
 

@@ -1,5 +1,6 @@
 import type { HudConfig } from './config.js';
 import type { GitStatus } from './git.js';
+import type { CostEstimate } from './cost-tracker.js';
 
 export interface StdinData {
   transcript_path?: string;
@@ -140,4 +141,5 @@ export interface RenderContext {
   sessionStats: SessionStats;
   sparkline: number[];
   terminalWidth: number | null;
+  costEstimate: CostEstimate | null;
 }
