@@ -121,3 +121,65 @@ export function parseDurationToMins(duration: string): number {
   const minMatch = duration.match(/(\d+)m/);
   return (hourMatch ? parseInt(hourMatch[1]) * 60 : 0) + (minMatch ? parseInt(minMatch[1]) : 0);
 }
+
+export interface WeeklySummary {
+  weekStart: string;
+  weekEnd: string;
+  sessionsCount: number;
+  totalToolCalls: number;
+  totalAgentRuns: number;
+  totalAutocompacts: number;
+  avgDurationMins: number;
+  mostUsedModel: string;
+  peakContextPercent: number;
+}
+
+export function generateWeeklySummary(): WeeklySummary | null {
+  const sessions = loadHistory();
+  if (sessions.length === 0) return null;
+
+  const now = new Date();
+  const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+
+  const thisWeek = sessions.filter(s => new Date(s.startTime) >= weekAgo);
+  if (thisWeek.length === 0) return null;
+
+  const modelCounts: Record<string, number> = {};
+  let totalToolCalls = 0;
+  let totalAgentRuns = 0;
+  let totalAutocompacts = 0;
+  let totalMins = 0;
+  let peakContext = 0;
+
+  for (const s of thisWeek) {
+    totalToolCalls += s.totalToolCalls;
+    totalAgentRuns += s.totalAgentRuns;
+    totalAutocompacts += s.autocompactCount;
+    totalMins += parseDurationToMins(s.duration);
+    if (s.peakContextPercent > peakContext) peakContext = s.peakContextPercent;
+    modelCounts[s.model] = (modelCounts[s.model] || 0) + 1;
+  }
+
+  const mostUsedModel = Object.entries(modelCounts).sort((a, b) => b[1] - a[1])[0]?.[0] || 'unknown';
+
+  return {
+    weekStart: weekAgo.toISOString().slice(0, 10),
+    weekEnd: now.toISOString().slice(0, 10),
+    sessionsCount: thisWeek.length,
+    totalToolCalls,
+    totalAgentRuns,
+    totalAutocompacts,
+    avgDurationMins: Math.round(totalMins / thisWeek.length),
+    mostUsedModel,
+    peakContextPercent: peakContext,
+  };
+}
+
+export function formatWeeklySummary(summary: WeeklySummary): string {
+  return [
+    `Week: ${summary.weekStart} — ${summary.weekEnd}`,
+    `Sessions: ${summary.sessionsCount} | Avg: ${summary.avgDurationMins}m`,
+    `Tools: ${summary.totalToolCalls} | Agents: ${summary.totalAgentRuns} | Compacts: ${summary.totalAutocompacts}`,
+    `Model: ${summary.mostUsedModel} | Peak context: ${summary.peakContextPercent}%`,
+  ].join('\n');
+}
