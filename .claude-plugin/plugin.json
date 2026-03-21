@@ -17,7 +17,8 @@
     "./commands/report.md",
     "./commands/update.md",
     "./commands/preset.md",
-    "./commands/tag.md"
+    "./commands/tag.md",
+    "./commands/diff.md"
   ],
   "homepage": "https://github.com/jarrodwatts/claude-hud",
   "repository": "https://github.com/jarrodwatts/claude-hud",
