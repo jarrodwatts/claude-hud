@@ -100,7 +100,9 @@ export async function parseTranscript(transcriptPath: string): Promise<Transcrip
   if (!stats) return result;
 
   const mtime = stats.mtimeMs;
-  const cacheKey = 'transcript-full';
+  // Include a path-derived suffix so different transcript files use separate cache slots
+  const pathSuffix = transcriptPath.replace(/[^a-zA-Z0-9]/g, '_').slice(-40);
+  const cacheKey = `transcript-full-${pathSuffix}`;
 
   // Check mtime cache — if hit, return cached data unchanged
   const cachedEntry = readCache<TranscriptCacheEntry>(cacheKey, 86400000, cacheDir, mtime);

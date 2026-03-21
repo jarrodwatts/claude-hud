@@ -4,6 +4,15 @@ All notable changes to Claude HUD will be documented in this file.
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-03-21
+
+### Added
+- Byte-offset incremental transcript parsing — subsequent parses only read new bytes appended since last parse, reducing I/O on large transcripts (`src/transcript.ts`)
+- Smart compact auto-switch — automatically switches from expanded to compact layout when context usage reaches ≥85%; gated by `display.autoCompactSwitch` config option (default: `true`) (`src/render/index.ts`, `src/config.ts`)
+- Alert history tracking — all triggered alerts recorded in a rolling 100-entry session log, deduped per type within 60-second windows; accessible via `getAlertHistory()` (`src/alert.ts`)
+- Session cost prediction — projects total session cost at current burn rate, displayed inline after current cost when `showCost` and `showBurnRate` are enabled (`src/cost-tracker.ts`, `src/render/lines/identity.ts`)
+- Alert hook — run a custom shell command on critical alert triggers via `alerts.hook` config; receives `CLAUDE_HUD_ALERT_TYPE` and `CLAUDE_HUD_ALERT_MESSAGE` environment variables (`src/alert.ts`, `src/config.ts`)
+
 ## [0.1.0] - 2026-03-21
 
 ### Added
