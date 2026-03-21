@@ -4,6 +4,15 @@ All notable changes to Claude HUD will be documented in this file.
 
 ## [Unreleased]
 
+## [0.6.0] - 2026-03-22
+
+### Added
+- `/claude-hud:stats` command — interactive session analytics view showing tool calls, agent runs, peak context, autocompacts, cost, prompt stats, and alert history; offers export as JSON and side-by-side comparison with last session (`commands/stats.md`)
+- Context heatmap — replaces the flat sparkline with an ANSI 256-color gradient heatmap: green (low) → yellow (mid) → orange → red (high), using absolute context percentages for color mapping instead of relative min/max normalization (`src/render/lines/identity.ts`)
+- Rate limit prediction — `predictRateLimitHit()` computes estimated time until 5h usage cap is hit based on the session's usage-per-minute rate; result appended to usage line as `→limit ~Xh Ym` when within 5 hours (`src/alert.ts`, `src/render/lines/usage.ts`, `src/types.ts`)
+- Agent efficiency tracking — `updateAgentStats()` and `getAgentEfficiency()` accumulate per-type duration totals for completed agents in a persistent cache; feeds into stats, dashboard, and report commands (`src/session-stats.ts`)
+- `/claude-hud:report` command — generates a markdown weekly usage report from session history covering the past 7 days with summary table, model breakdown, and per-session detail; supports display, file save, or clipboard copy (`commands/report.md`)
+
 ## [0.5.0] - 2026-03-21
 
 ### Added
