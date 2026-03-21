@@ -13,7 +13,8 @@
     "./commands/export.md",
     "./commands/theme.md",
     "./commands/dashboard.md",
-    "./commands/stats.md"
+    "./commands/stats.md",
+    "./commands/report.md"
   ],
   "homepage": "https://github.com/jarrodwatts/claude-hud",
   "repository": "https://github.com/jarrodwatts/claude-hud",
