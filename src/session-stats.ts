@@ -1,9 +1,16 @@
 import { readCache, writeCache } from './cache.js';
 import type { SessionStats } from './types.js';
 
+export interface PromptStats {
+  count: number;
+  avgTokens: number;
+  maxTokens: number;
+}
+
 const CACHE_KEY = 'session-stats';
 const HISTORY_KEY = 'context-history';
 const SPARKLINE_KEY = 'context-sparkline';
+const PROMPT_STATS_KEY = 'prompt-stats';
 const TTL = 24 * 60 * 60 * 1000;
 const DROP_THRESHOLD = 20;
 const SPARKLINE_MAX = 20;
@@ -62,4 +69,31 @@ export function updateSessionStats(cacheDir: string, input: UpdateInput): void {
 
   writeCache(CACHE_KEY, stats, cacheDir);
   writeCache(HISTORY_KEY, history, cacheDir);
+}
+
+export function updatePromptStats(tokensDelta: number, cacheDir: string): void {
+  if (tokensDelta <= 0) return;
+
+  const stats = readCache<{ count: number; totalTokens: number; maxTokens: number }>(
+    PROMPT_STATS_KEY, TTL, cacheDir
+  ) ?? { count: 0, totalTokens: 0, maxTokens: 0 };
+
+  stats.count++;
+  stats.totalTokens += tokensDelta;
+  if (tokensDelta > stats.maxTokens) stats.maxTokens = tokensDelta;
+
+  writeCache(PROMPT_STATS_KEY, stats, cacheDir);
+}
+
+export function getPromptStats(cacheDir: string): PromptStats | null {
+  const stats = readCache<{ count: number; totalTokens: number; maxTokens: number }>(
+    PROMPT_STATS_KEY, TTL, cacheDir
+  );
+  if (!stats || stats.count === 0) return null;
+
+  return {
+    count: stats.count,
+    avgTokens: Math.round(stats.totalTokens / stats.count),
+    maxTokens: stats.maxTokens,
+  };
 }

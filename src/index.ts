@@ -13,7 +13,7 @@ import { getDefaultCacheDir, readCache, writeCache, readLatency, writeLatency } 
 import { loadProviders, fetchAllProviders } from './providers/index.js';
 import { evaluateAlerts, shouldBell, sendNotification, recordAlertHistory, runAlertHook } from './alert.js';
 import { calculateBurnRate, recordTokenSnapshot } from './burn-rate.js';
-import { updateSessionStats, getSessionStats, getSparkline } from './session-stats.js';
+import { updateSessionStats, getSessionStats, getSparkline, updatePromptStats } from './session-stats.js';
 import { getTerminalWidth } from './utils/terminal.js';
 import { estimateCost } from './cost-tracker.js';
 import { saveCurrentSession, getLastSession, formatSessionSummary } from './session-history.js';
@@ -113,6 +113,16 @@ export async function main(overrides: Partial<MainDeps> = {}): Promise<void> {
     if (inputTokens) {
       updateTokenAnalytics(inputTokens, transcript.tools, cacheDir);
     }
+
+    // Prompt length tracking — measure token deltas between invocations
+    const prevTokens = readCache<number>('prev-input-tokens', 86400000, cacheDir);
+    if (prevTokens !== null && inputTokens != null && inputTokens > prevTokens) {
+      const delta = inputTokens - prevTokens;
+      if (delta > 100) { // Ignore tiny deltas (tool overhead)
+        updatePromptStats(delta, cacheDir);
+      }
+    }
+    if (inputTokens != null) writeCache('prev-input-tokens', inputTokens, cacheDir);
 
     // Burn rate
     let burnRate: RenderContext['burnRate'] = null;
