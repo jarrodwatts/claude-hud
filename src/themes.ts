@@ -46,6 +46,26 @@ export const THEMES: Record<string, ColorTheme> = {
       critical: '#bf616a',     // red
     },
   },
+  catppuccin_latte: {
+    name: 'Catppuccin Latte',
+    colors: {
+      context: '#40a02b',      // green
+      usage: '#1e66f5',        // blue
+      warning: '#df8e1d',      // yellow
+      usageWarning: '#8839ef', // mauve
+      critical: '#d20f39',     // red
+    },
+  },
+  nord_light: {
+    name: 'Nord Light',
+    colors: {
+      context: '#a3be8c',      // green (same as dark)
+      usage: '#5e81ac',        // blue
+      warning: '#ebcb8b',      // yellow (same as dark)
+      usageWarning: '#b48ead', // purple (same as dark)
+      critical: '#bf616a',     // red (same as dark)
+    },
+  },
 };
 
 export function getTheme(name: string): ColorTheme | undefined {
