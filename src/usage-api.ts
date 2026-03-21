@@ -199,6 +199,16 @@ function readLastGoodData(homeDir: string): UsageData | null {
   }
 }
 
+function readCachedPlanName(homeDir: string, now: number, ttls: CacheTtls): string | null {
+  const cacheState = readCacheState(homeDir, now, ttls);
+  if (cacheState?.data.planName) {
+    return cacheState.data.planName;
+  }
+
+  const lastGoodData = readLastGoodData(homeDir);
+  return lastGoodData?.planName ?? null;
+}
+
 function readCache(homeDir: string, now: number, ttls: CacheTtls): UsageData | null {
   const cache = readCacheState(homeDir, now, ttls);
   return cache?.isFresh ? cache.data : null;
@@ -401,7 +411,7 @@ export async function getUsage(overrides: Partial<UsageApiDeps> = {}): Promise<U
     const { accessToken, subscriptionType } = credentials;
 
     // Determine plan name from subscriptionType
-    const planName = getPlanName(subscriptionType);
+    const planName = getPlanName(subscriptionType) ?? readCachedPlanName(homeDir, now, deps.ttls);
     if (!planName) {
       // API user, no usage limits to show
       return null;

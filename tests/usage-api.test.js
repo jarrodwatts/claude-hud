@@ -550,6 +550,61 @@ describe('getUsage', () => {
     assert.equal(fetchCalls, 0);
   });
 
+  test('falls back to cached plan when credentials subscriptionType becomes null', async () => {
+    await writeCredentials(tempHome, buildCredentials({ subscriptionType: null }));
+
+    const pluginDir = path.join(tempHome, '.claude', 'plugins', 'claude-hud');
+    await mkdir(pluginDir, { recursive: true });
+    await writeFile(
+      path.join(pluginDir, '.usage-cache.json'),
+      JSON.stringify({
+        data: {
+          planName: 'Max',
+          fiveHour: 62,
+          sevenDay: 18,
+          fiveHourResetAt: '2026-01-06T15:00:00Z',
+          sevenDayResetAt: '2026-01-13T00:00:00Z',
+        },
+        timestamp: 1,
+        lastGoodData: {
+          planName: 'Max',
+          fiveHour: 62,
+          sevenDay: 18,
+          fiveHourResetAt: '2026-01-06T15:00:00Z',
+          sevenDayResetAt: '2026-01-13T00:00:00Z',
+        },
+      }),
+      'utf8'
+    );
+
+    let usedToken = null;
+    const result = await getUsage({
+      homeDir: () => tempHome,
+      fetchApi: async (token) => {
+        usedToken = token;
+        return buildApiResult({
+          data: buildApiResponse({
+            five_hour: {
+              utilization: 25,
+              resets_at: '2026-01-06T15:00:00Z',
+            },
+            seven_day: {
+              utilization: 10,
+              resets_at: '2026-01-13T00:00:00Z',
+            },
+          }),
+        });
+      },
+      now: () => 301_000,
+      readKeychain: () => null,
+    });
+
+    assert.equal(usedToken, 'test-token');
+    assert.equal(result?.planName, 'Max');
+    assert.equal(result?.fiveHour, 25);
+    assert.equal(result?.sevenDay, 10);
+  });
+
   test('parses plan name and usage data', async () => {
     await writeCredentials(tempHome, buildCredentials({ subscriptionType: 'claude_pro_2024' }));
     let fetchCalls = 0;
