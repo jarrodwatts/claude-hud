@@ -4,6 +4,15 @@ All notable changes to Claude HUD will be documented in this file.
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-03-21
+
+### Added
+- Token efficiency analytics — tracks per-tool-type call counts and token consumption in a rolling 50-snapshot cache; `getTopExpensiveTools()` returns ranked stats for dashboard/weekly report use (`src/token-analytics.ts`)
+- Smart suggestions — `getSuggestions()` generates contextual hints based on session state (high context usage, high burn rate, excessive autocompacts, high tool error rate); top suggestion appended to the alert line when no critical alerts are active (`src/suggestions.ts`, `src/render/alert-line.ts`)
+- Prompt length tracking — `updatePromptStats()` and `getPromptStats()` measure per-prompt token delta sizes (count, avg, max) by comparing consecutive input token counts; ignores deltas ≤100 tokens (tool overhead) (`src/session-stats.ts`)
+- Auto config tuning — `autoTuneConfig()` adjusts `pathLevels` and `barStyle` based on terminal width when `display.autoTune` is enabled (default: false); wide terminals (≥120 cols) get `pathLevels: 2`, very wide (≥100 cols) get `barStyle: 'modern'` (`src/auto-tune.ts`, `src/config.ts`)
+- Spinning activity indicator — replaces the static red `◉` with a rotating spinner (`◐◓◑◒`) that cycles every ~300ms when tools are running; applied in both expanded and compact layouts (`src/render/lines/project.ts`, `src/render/session-line.ts`)
+
 ## [0.4.0] - 2026-03-21
 
 ### Added
