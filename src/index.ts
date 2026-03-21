@@ -26,6 +26,7 @@ import { loadCustomWidgets } from './custom-widgets.js';
 import { updateTokenAnalytics } from './token-analytics.js';
 import { getSuggestions } from './suggestions.js';
 import { autoTuneConfig } from './auto-tune.js';
+import { shouldDegrade, recordExecutionTime } from './perf-guard.js';
 
 export type MainDeps = {
   readStdin: typeof readStdin;
@@ -49,6 +50,7 @@ function timer() {
 export async function main(overrides: Partial<MainDeps> = {}): Promise<void> {
   const DEBUG = process.env.DEBUG?.includes('claude-hud') || process.env.DEBUG === '*';
   const tTotal = timer();
+  const perfStart = Date.now();
 
   const deps: MainDeps = {
     readStdin,
@@ -90,6 +92,9 @@ export async function main(overrides: Partial<MainDeps> = {}): Promise<void> {
 
     const cacheDir = getDefaultCacheDir();
 
+    const degradeMode = shouldDegrade(cacheDir);
+    if (DEBUG && degradeMode) console.error('[claude-hud:perf] running in degrade mode');
+
     const t3 = timer();
     let config = await deps.loadConfig(stdin.cwd);
     if (DEBUG) console.error(`[claude-hud:timing] loadConfig: ${t3()}ms`);
@@ -122,16 +127,16 @@ export async function main(overrides: Partial<MainDeps> = {}): Promise<void> {
 
     const sessionDuration = formatSessionDuration(transcript.sessionStart, deps.now);
 
-    // Framework providers
+    // Framework providers — skip if degrading
     let frameworkStatus: RenderContext['frameworkStatus'] = [];
-    if (config.display.showFrameworks) {
+    if (config.display.showFrameworks && !degradeMode) {
       const providers = loadProviders(config.frameworks, cacheDir);
       frameworkStatus = await fetchAllProviders(providers);
     }
 
-    // Token analytics (data collection only, no HUD display)
+    // Token analytics (data collection only, no HUD display) — skip if degrading
     const inputTokens = stdin.context_window?.current_usage?.input_tokens;
-    if (inputTokens) {
+    if (inputTokens && !degradeMode) {
       updateTokenAnalytics(inputTokens, transcript.tools, cacheDir);
     }
 
@@ -293,6 +298,8 @@ export async function main(overrides: Partial<MainDeps> = {}): Promise<void> {
     deps.render(ctx);
     if (DEBUG) console.error(`[claude-hud:timing] render: ${t6()}ms`);
     if (DEBUG) console.error(`[claude-hud:timing] total: ${tTotal()}ms`);
+
+    recordExecutionTime(Date.now() - perfStart, cacheDir);
   } catch (error) {
     deps.log('[claude-hud] Error:', error instanceof Error ? error.message : 'Unknown error');
   }
