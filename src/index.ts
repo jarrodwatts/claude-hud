@@ -19,6 +19,7 @@ import { estimateCost } from './cost-tracker.js';
 import { saveCurrentSession, getLastSession, formatSessionSummary } from './session-history.js';
 import { registerSession, getSessionCount } from './session-lock.js';
 import { formatResetTime } from './utils/format.js';
+import { getMcpServers } from './mcp-monitor.js';
 
 export type MainDeps = {
   readStdin: typeof readStdin;
@@ -162,6 +163,8 @@ export async function main(overrides: Partial<MainDeps> = {}): Promise<void> {
 
     const costEstimate = config.display.showCost ? estimateCost(stdin, cacheDir) : null;
 
+    const mcpServers = getMcpServers(cacheDir);
+
     // Session history — only save when stats have changed
     const prevStatsHash = readCache<string>('prev-session-hash', 60000, cacheDir);
     const currentHash = `${sessionStats.totalToolCalls}-${sessionStats.autocompactCount}-${sessionStats.peakContextPercent}`;
@@ -209,6 +212,7 @@ export async function main(overrides: Partial<MainDeps> = {}): Promise<void> {
       costEstimate,
       apiLatency,
       sessionCount: getSessionCount(),
+      mcpServers,
     };
 
     deps.render(ctx);

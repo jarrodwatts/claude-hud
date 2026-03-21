@@ -47,6 +47,7 @@ function baseContext() {
     costEstimate: null,
     apiLatency: null,
     sessionCount: 1,
+    mcpServers: [],
     config: {
       lineLayout: 'compact',
       showSeparators: false,

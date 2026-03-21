@@ -87,6 +87,7 @@ function baseContext() {
     costEstimate: null,
     apiLatency: null,
     sessionCount: 1,
+    mcpServers: [],
   };
 }
 

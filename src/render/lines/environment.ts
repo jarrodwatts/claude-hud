@@ -37,5 +37,13 @@ export function renderEnvironmentLine(ctx: RenderContext): string | null {
     return null;
   }
 
-  return dim(parts.join(' | '));
+  let line = dim(parts.join(' | '));
+
+  if (ctx.mcpServers && ctx.mcpServers.length > 0) {
+    const names = ctx.mcpServers.slice(0, 3).map(s => s.name).join(', ');
+    const suffix = ctx.mcpServers.length > 3 ? ` +${ctx.mcpServers.length - 3}` : '';
+    line += dim(` | MCP: ${names}${suffix}`);
+  }
+
+  return line;
 }
