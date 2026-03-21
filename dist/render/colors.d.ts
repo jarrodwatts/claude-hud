@@ -1,5 +1,6 @@
 import type { HudColorOverrides } from '../config.js';
 export declare const RESET = "\u001B[0m";
+export declare function colorize(text: string, color: string): string;
 export declare function green(text: string): string;
 export declare function yellow(text: string): string;
 export declare function red(text: string): string;

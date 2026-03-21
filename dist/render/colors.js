@@ -40,7 +40,7 @@ function resolveAnsi(value, fallback) {
     }
     return ANSI_BY_NAME[value] ?? fallback;
 }
-function colorize(text, color) {
+export function colorize(text, color) {
     return `${color}${text}${RESET}`;
 }
 export function green(text) {

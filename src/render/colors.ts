@@ -47,7 +47,7 @@ function resolveAnsi(value: HudColorValue | undefined, fallback: string): string
   return ANSI_BY_NAME[value as HudColorName] ?? fallback;
 }
 
-function colorize(text: string, color: string): string {
+export function colorize(text: string, color: string): string {
   return `${color}${text}${RESET}`;
 }
 
