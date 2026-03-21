@@ -1,4 +1,4 @@
-import { readStdin } from './stdin.js';
+import { readStdin, getContextPercent } from './stdin.js';
 import { parseTranscript } from './transcript.js';
 import { render } from './render/index.js';
 import { countConfigs } from './config-reader.js';
@@ -9,6 +9,11 @@ import { parseExtraCmdArg, runExtraCmd } from './extra-cmd.js';
 import type { RenderContext } from './types.js';
 import { fileURLToPath } from 'node:url';
 import { realpathSync } from 'node:fs';
+import { getDefaultCacheDir } from './cache.js';
+import { loadProviders, fetchAllProviders } from './providers/index.js';
+import { evaluateAlerts, shouldBell } from './alert.js';
+import { calculateBurnRate, recordTokenSnapshot } from './burn-rate.js';
+import { updateSessionStats, getSessionStats } from './session-stats.js';
 
 export type MainDeps = {
   readStdin: typeof readStdin;
@@ -78,6 +83,53 @@ export async function main(overrides: Partial<MainDeps> = {}): Promise<void> {
 
     const sessionDuration = formatSessionDuration(transcript.sessionStart, deps.now);
 
+    const cacheDir = getDefaultCacheDir();
+
+    // Framework providers
+    let frameworkStatus: RenderContext['frameworkStatus'] = [];
+    if (config.display.showFrameworks) {
+      const providers = loadProviders(config.frameworks, cacheDir);
+      frameworkStatus = await fetchAllProviders(providers);
+    }
+
+    // Burn rate
+    let burnRate: RenderContext['burnRate'] = null;
+    const inputTokens = stdin.context_window?.current_usage?.input_tokens;
+    const contextSize = stdin.context_window?.context_window_size;
+    if (config.display.showBurnRate && inputTokens != null && contextSize != null) {
+      recordTokenSnapshot(inputTokens, cacheDir);
+      burnRate = calculateBurnRate(inputTokens, contextSize, cacheDir);
+    }
+
+    // Context percent
+    const contextPercent = getContextPercent(stdin);
+
+    // Session stats
+    updateSessionStats(cacheDir, {
+      contextPercent,
+      toolCount: transcript.tools.length,
+      agentCount: transcript.agents.length,
+    });
+    const sessionStats = getSessionStats(cacheDir);
+
+    // Alerts
+    let alerts: RenderContext['alerts'] = [];
+    if (config.display.showAlerts) {
+      alerts = evaluateAlerts({
+        contextPercent,
+        usage5hPercent: usageData?.fiveHour ?? 0,
+        usage7dPercent: usageData?.sevenDay ?? 0,
+        estimatedCallsRemaining: burnRate?.estimatedCallsRemaining ?? null,
+        usageResetTime: null,
+        alertConfig: config.alerts,
+        cacheDir,
+      });
+
+      if (shouldBell(alerts, cacheDir)) {
+        process.stderr.write('\x07');
+      }
+    }
+
     const ctx: RenderContext = {
       stdin,
       transcript,
@@ -90,15 +142,10 @@ export async function main(overrides: Partial<MainDeps> = {}): Promise<void> {
       usageData,
       config,
       extraLabel,
-      frameworkStatus: [],
-      alerts: [],
-      burnRate: null,
-      sessionStats: {
-        totalToolCalls: 0,
-        totalAgentRuns: 0,
-        peakContextPercent: 0,
-        autocompactCount: 0,
-      },
+      frameworkStatus,
+      alerts,
+      burnRate,
+      sessionStats,
     };
 
     deps.render(ctx);
