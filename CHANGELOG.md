@@ -4,6 +4,15 @@ All notable changes to Claude HUD will be documented in this file.
 
 ## [Unreleased]
 
+## [0.8.0] - 2026-03-22
+
+### Added
+- Config presets — `savePreset()`, `loadPresets()`, `getPreset()`, `deletePreset()`, `exportPresetAsJson()` let users persist, share, and import named config snapshots stored in `~/.claude/plugins/claude-hud/presets.json`; `/claude-hud:preset` command covers save, load, list, delete, and JSON import flows (`src/presets.ts`, `commands/preset.md`)
+- Team config — `loadConfig()` now accepts an optional `cwd` parameter and reads `.claude-hud.json` from the project root before merging user config; project settings are overridden by per-user config, enabling shared team defaults committed to the repo (`src/config.ts`, `src/index.ts`)
+- Session tagging — `tags?: string[]` field added to `SessionRecord`; `tagCurrentSession()` appends de-duplicated tags to the most recent session; `getSessionsByTag()` filters history by tag; weekly report now includes a "By Tag" breakdown table; `/claude-hud:tag` command provides a multi-select UI for common tag categories (`src/session-history.ts`, `commands/tag.md`, `commands/report.md`)
+- Webhook notifications — `sendWebhook()` fire-and-forgets a JSON POST to a configurable URL (`alerts.webhook` config key) for every critical alert, with a 3-second timeout; does not block HUD rendering (`src/alert.ts`, `src/config.ts`, `src/index.ts`)
+- Performance guard — `shouldDegrade()` reads a rolling average of the last 5 execution times from cache; when the average exceeds 250ms (50ms below the 300ms budget) `degradeMode` is set and expensive optional operations (framework provider fetches, token analytics) are skipped; `recordExecutionTime()` updates the history at the end of each invocation and logs recovery when the average drops back below budget (`src/perf-guard.ts`, `src/index.ts`)
+
 ## [0.7.0] - 2026-03-22
 
 ### Added
