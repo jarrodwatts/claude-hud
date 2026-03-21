@@ -4,6 +4,38 @@ All notable changes to Claude HUD will be documented in this file.
 
 ## [Unreleased]
 
+## [1.0.0] - 2026-03-22
+
+### 🎉 First Major Release
+
+claude-hud v1.0.0 is a comprehensive enhancement of the original claude-hud plugin, adding 53 features across 9 iterative releases while maintaining full backward compatibility.
+
+#### Highlights
+- **Performance**: File-based cache layer with TTL, incremental transcript parsing, git status caching — steady-state ~94ms (300ms budget)
+- **Visual**: Dashboard Rich mode with activity indicator, tree prefixes, modern bars, context heatmap, spinning spinner
+- **Intelligence**: Alert engine with configurable thresholds, smart suggestions, burn rate tracking, cost estimation, rate limit prediction
+- **Ecosystem**: Framework providers (AGW + Agent Teams), MCP server monitoring, git stash/rebase detection
+- **Customization**: 6 color themes, i18n (en/zh/ja), custom widgets, config presets, team config
+- **Analytics**: Token efficiency tracking, session history, weekly reports, dashboard export
+- **Reliability**: Performance guard with auto-degrade, config schema validation, 368 tests
+
+#### All Commands
+| Command | Description |
+|---------|-------------|
+| `/claude-hud:setup` | Initial setup |
+| `/claude-hud:configure` | Customize display |
+| `/claude-hud:theme` | Switch color theme |
+| `/claude-hud:health` | Diagnostic check |
+| `/claude-hud:stats` | Session statistics |
+| `/claude-hud:report` | Weekly markdown report |
+| `/claude-hud:dashboard` | Export session data |
+| `/claude-hud:export` | Import/export config |
+| `/claude-hud:preset` | Manage config presets |
+| `/claude-hud:tag` | Tag current session |
+| `/claude-hud:diff` | Config vs defaults |
+| `/claude-hud:update` | Check for updates |
+| `/claude-hud:shortcuts` | Command reference |
+
 ## [0.9.0] - 2026-03-22
 
 ### Added
