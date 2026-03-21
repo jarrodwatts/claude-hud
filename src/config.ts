@@ -3,6 +3,7 @@ import * as path from 'node:path';
 import * as os from 'node:os';
 import { getHudPluginDir } from './claude-config-dir.js';
 import type { AlertAction } from './types.js';
+import { getTheme } from './themes.js';
 
 export type LineLayoutType = 'compact' | 'expanded';
 
@@ -75,6 +76,7 @@ export interface HudConfig {
     barStyle: 'classic' | 'modern';
     showCost: boolean;
   };
+  theme: string;
   usage: {
     cacheTtlSeconds: number;
     failureCacheTtlSeconds: number;
@@ -131,6 +133,7 @@ export const DEFAULT_CONFIG: HudConfig = {
     barStyle: 'classic' as const,
     showCost: false,
   },
+  theme: 'default',
   usage: {
     cacheTtlSeconds: 60,
     failureCacheTtlSeconds: 15,
@@ -379,22 +382,32 @@ export function mergeConfig(userConfig: Partial<HudConfig>): HudConfig {
     ),
   };
 
+  const theme = typeof migrated.theme === 'string' ? migrated.theme : DEFAULT_CONFIG.theme;
+
+  // Start with default colors
+  const defaultColors = { ...DEFAULT_CONFIG.colors };
+
+  // Apply theme colors as base (if a valid theme is set)
+  const resolvedTheme = getTheme(theme);
+  const themeColors = resolvedTheme ? { ...resolvedTheme.colors } : defaultColors;
+
+  // User's explicit color overrides take precedence over theme
   const colors = {
     context: validateColorValue(migrated.colors?.context)
       ? migrated.colors.context
-      : DEFAULT_CONFIG.colors.context,
+      : themeColors.context,
     usage: validateColorValue(migrated.colors?.usage)
       ? migrated.colors.usage
-      : DEFAULT_CONFIG.colors.usage,
+      : themeColors.usage,
     warning: validateColorValue(migrated.colors?.warning)
       ? migrated.colors.warning
-      : DEFAULT_CONFIG.colors.warning,
+      : themeColors.warning,
     usageWarning: validateColorValue(migrated.colors?.usageWarning)
       ? migrated.colors.usageWarning
-      : DEFAULT_CONFIG.colors.usageWarning,
+      : themeColors.usageWarning,
     critical: validateColorValue(migrated.colors?.critical)
       ? migrated.colors.critical
-      : DEFAULT_CONFIG.colors.critical,
+      : themeColors.critical,
   };
 
   const frameworks = {
@@ -458,7 +471,7 @@ export function mergeConfig(userConfig: Partial<HudConfig>): HudConfig {
     },
   };
 
-  return { lineLayout, showSeparators, pathLevels, elementOrder, gitStatus, display, usage, colors, frameworks, alerts };
+  return { lineLayout, showSeparators, pathLevels, elementOrder, gitStatus, display, theme, usage, colors, frameworks, alerts };
 }
 
 export async function loadConfig(): Promise<HudConfig> {
