@@ -22,6 +22,11 @@ interface ContentBlock {
   is_error?: boolean;
 }
 
+interface TranscriptCacheEntry {
+  data: TranscriptData;
+  offset: number;
+}
+
 function restoreDates(data: TranscriptData): TranscriptData {
   return {
     ...data,
@@ -40,6 +45,45 @@ function restoreDates(data: TranscriptData): TranscriptData {
   };
 }
 
+function mergeNewLines(existing: TranscriptData, newLines: string[]): TranscriptData {
+  // Rebuild maps from existing data so we can update in-place
+  const toolMap = new Map<string, ToolEntry>(existing.tools.map(t => [t.id, t]));
+  const agentMap = new Map<string, AgentEntry>(existing.agents.map(a => [a.id, a]));
+  const latestTodos: TodoItem[] = [...existing.todos];
+  const taskIdToIndex = new Map<string, number>();
+
+  // Re-index existing todos by position
+  latestTodos.forEach((_, i) => taskIdToIndex.set(String(i + 1), i));
+
+  const merged: TranscriptData = {
+    tools: existing.tools,
+    agents: existing.agents,
+    todos: latestTodos,
+    sessionStart: existing.sessionStart,
+    sessionName: existing.sessionName,
+  };
+
+  for (const line of newLines) {
+    try {
+      const entry = JSON.parse(line) as TranscriptLine;
+      if (entry.type === 'custom-title' && typeof entry.customTitle === 'string') {
+        merged.sessionName = entry.customTitle;
+      } else if (typeof entry.slug === 'string') {
+        merged.sessionName = merged.sessionName ?? entry.slug;
+      }
+      processEntry(entry, toolMap, agentMap, taskIdToIndex, latestTodos, merged);
+    } catch {
+      // Skip malformed lines
+    }
+  }
+
+  merged.tools = Array.from(toolMap.values()).slice(-20);
+  merged.agents = Array.from(agentMap.values()).slice(-10);
+  merged.todos = latestTodos;
+
+  return merged;
+}
+
 export async function parseTranscript(transcriptPath: string): Promise<TranscriptData> {
   const result: TranscriptData = {
     tools: [],
@@ -56,17 +100,48 @@ export async function parseTranscript(transcriptPath: string): Promise<Transcrip
   if (!stats) return result;
 
   const mtime = stats.mtimeMs;
-  const cacheKey = 'transcript-parsed';
+  const cacheKey = 'transcript-full';
 
-  const cached = readCache<TranscriptData>(cacheKey, 500, cacheDir, mtime);
-  if (cached) {
-    return restoreDates(cached);
+  // Check mtime cache — if hit, return cached data unchanged
+  const cachedEntry = readCache<TranscriptCacheEntry>(cacheKey, 86400000, cacheDir, mtime);
+  if (cachedEntry) {
+    return restoreDates(cachedEntry.data);
   }
 
   if (!fs.existsSync(transcriptPath)) {
     return result;
   }
 
+  // mtime changed — check if we have a previous parse with byte offset
+  const prevEntry = readCache<TranscriptCacheEntry>(cacheKey, 86400000, cacheDir);
+  if (prevEntry && prevEntry.offset <= stats.size) {
+    const newByteCount = stats.size - prevEntry.offset;
+
+    if (newByteCount > 0) {
+      // Incremental: read only new bytes from offset
+      const fd = fs.openSync(transcriptPath, 'r');
+      const newBytes = Buffer.alloc(newByteCount);
+      fs.readSync(fd, newBytes, 0, newByteCount, prevEntry.offset);
+      fs.closeSync(fd);
+
+      const newContent = newBytes.toString('utf-8');
+      const newLines = newContent.split('\n').filter(l => l.trim());
+
+      if (newLines.length > 0) {
+        const merged = mergeNewLines(prevEntry.data, newLines);
+        const entry: TranscriptCacheEntry = { data: merged, offset: stats.size };
+        writeCache(cacheKey, entry, cacheDir, mtime);
+        return restoreDates(merged);
+      }
+    }
+
+    // No new content (or empty new lines)
+    const entry: TranscriptCacheEntry = { data: prevEntry.data, offset: stats.size };
+    writeCache(cacheKey, entry, cacheDir, mtime);
+    return restoreDates(prevEntry.data);
+  }
+
+  // Full parse fallback (no previous offset or file was truncated)
   const toolMap = new Map<string, ToolEntry>();
   const agentMap = new Map<string, AgentEntry>();
   let latestTodos: TodoItem[] = [];
@@ -105,7 +180,8 @@ export async function parseTranscript(transcriptPath: string): Promise<Transcrip
   result.todos = latestTodos;
   result.sessionName = customTitle ?? latestSlug;
 
-  writeCache(cacheKey, result, cacheDir, mtime);
+  const fullEntry: TranscriptCacheEntry = { data: result, offset: stats.size };
+  writeCache(cacheKey, fullEntry, cacheDir, mtime);
   return result;
 }
 
