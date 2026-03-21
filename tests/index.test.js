@@ -128,9 +128,13 @@ test('main includes git status in render context', async () => {
       lineLayout: 'compact',
       showSeparators: false,
       pathLevels: 1,
+      elementOrder: ['project', 'context', 'usage', 'environment', 'framework', 'tools', 'agents', 'todos', 'alert'],
       gitStatus: { enabled: true, showDirty: true, showAheadBehind: false, showFileStats: false },
-      display: { showModel: true, showContextBar: true, contextValue: 'percent', showConfigCounts: true, showDuration: true, showSpeed: false, showTokenBreakdown: true, showUsage: true, showTools: true, showAgents: true, showTodos: true, autocompactBuffer: 'enabled', usageThreshold: 0, sevenDayThreshold: 80, environmentThreshold: 0 },
+      display: { showModel: true, showProject: true, showContextBar: true, contextValue: 'percent', showConfigCounts: true, showDuration: true, showSpeed: false, showTokenBreakdown: true, showUsage: true, usageBarEnabled: false, showTools: true, showAgents: true, showTodos: true, showSessionName: false, autocompactBuffer: 'enabled', usageThreshold: 0, sevenDayThreshold: 80, environmentThreshold: 0, showFrameworks: false, showBurnRate: false, showAlerts: true, activityIndicator: true, treePrefixes: true, mergeToolsAgents: true, barStyle: 'classic', customLine: '' },
       usage: { cacheTtlSeconds: 60, failureCacheTtlSeconds: 15 },
+      colors: { context: 'green', usage: 'brightBlue', warning: 'yellow', usageWarning: 'brightMagenta', critical: 'red' },
+      frameworks: { agw: { enabled: false, endpoint: 'http://localhost:3000' }, agentTeams: { enabled: false } },
+      alerts: { context: { warningThreshold: 70, criticalThreshold: 85, actions: { visual: true, bell: false, predict: true } }, usage5h: { warningThreshold: 70, criticalThreshold: 90, actions: { visual: true, bell: true, predict: true } }, usage7d: { warningThreshold: 80, actions: { visual: true, bell: false, predict: true } } },
     }),
     render: (ctx) => {
       renderedContext = ctx;

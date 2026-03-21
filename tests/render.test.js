@@ -38,13 +38,17 @@ function baseContext() {
     sessionDuration: '',
     gitStatus: null,
     usageData: null,
+    frameworkStatus: [],
+    alerts: [],
+    burnRate: null,
+    sessionStats: { totalToolCalls: 0, totalAgentRuns: 0, peakContextPercent: 0, autocompactCount: 0 },
     config: {
       lineLayout: 'compact',
       showSeparators: false,
       pathLevels: 1,
-      elementOrder: ['project', 'context', 'usage', 'environment', 'tools', 'agents', 'todos'],
+      elementOrder: ['project', 'context', 'usage', 'environment', 'framework', 'tools', 'agents', 'todos', 'alert'],
       gitStatus: { enabled: true, showDirty: true, showAheadBehind: false, showFileStats: false },
-      display: { showModel: true, showProject: true, showContextBar: true, contextValue: 'percent', showConfigCounts: true, showDuration: true, showSpeed: false, showTokenBreakdown: true, showUsage: true, usageBarEnabled: false, showTools: true, showAgents: true, showTodos: true, showSessionName: false, autocompactBuffer: 'enabled', usageThreshold: 0, sevenDayThreshold: 80, environmentThreshold: 0 },
+      display: { showModel: true, showProject: true, showContextBar: true, contextValue: 'percent', showConfigCounts: true, showDuration: true, showSpeed: false, showTokenBreakdown: true, showUsage: true, usageBarEnabled: false, showTools: true, showAgents: true, showTodos: true, showSessionName: false, autocompactBuffer: 'enabled', usageThreshold: 0, sevenDayThreshold: 80, environmentThreshold: 0, showFrameworks: false, showBurnRate: false, showAlerts: true, activityIndicator: true, treePrefixes: true, mergeToolsAgents: false, barStyle: 'classic', customLine: '' },
       colors: {
         context: 'green',
         usage: 'brightBlue',
@@ -52,6 +56,16 @@ function baseContext() {
         usageWarning: 'brightMagenta',
         critical: 'red',
       },
+      frameworks: {
+        agw: { enabled: true, endpoint: 'http://localhost:3000' },
+        agentTeams: { enabled: true },
+      },
+      alerts: {
+        context: { warningThreshold: 70, criticalThreshold: 85, actions: { visual: true, bell: false, predict: true } },
+        usage5h: { warningThreshold: 70, criticalThreshold: 90, actions: { visual: true, bell: true, predict: true } },
+        usage7d: { warningThreshold: 80, actions: { visual: true, bell: false, predict: true } },
+      },
+      usage: { cacheTtlSeconds: 60, failureCacheTtlSeconds: 15 },
     },
   };
 }
