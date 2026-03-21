@@ -4,6 +4,15 @@ All notable changes to Claude HUD will be documented in this file.
 
 ## [Unreleased]
 
+## [0.9.0] - 2026-03-22
+
+### Added
+- Session resume detection — `detectResume()` identifies autocompact events by detecting context percentage drops ≥20%; stores a `ResumeInfo` record (pre/post percent, tokens recovered) in cache for 60 seconds; identity line displays a `↓pre→post%` indicator briefly after compact so users can see how much context was recovered (`src/session-stats.ts`, `src/render/lines/identity.ts`, `src/index.ts`)
+- `/claude-hud:diff` command — compares current `~/.claude/plugins/claude-hud/config.json` against defaults using recursive field comparison; displays only changed fields with current and default values; offers options to reset individual fields or all config to defaults (`commands/diff.md`)
+- Complete i18n coverage — extended `Labels` interface with `resetsIn`, `syncing`, `err`, `total`, `limit`, `warn`; added translations for all three locales (en/zh/ja); updated `tools-line.ts`, `todos-line.ts`, and `usage.ts` to use locale-aware labels instead of hardcoded English strings (`src/i18n.ts`)
+- Integration test suite — `tests/integration-full.test.js` covers the full pipeline via `main()`, cache layer correctness under rapid writes, export surface for all 14 dist modules, theme color completeness across all themes, and i18n label coverage for all locales
+- `/claude-hud:shortcuts` command — displays a quick-reference card of Claude Code keyboard shortcuts and all `/claude-hud:` commands via `AskUserQuestion` (`commands/shortcuts.md`)
+
 ## [0.8.0] - 2026-03-22
 
 ### Added
