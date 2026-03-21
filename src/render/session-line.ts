@@ -25,7 +25,8 @@ export function renderSessionLine(ctx: RenderContext): string {
 
   const colors = ctx.config?.colors;
   const barWidth = getAdaptiveBarWidth();
-  const bar = coloredBar(percent, barWidth, colors);
+  const barStyle = ctx.config?.display?.barStyle ?? 'classic';
+  const bar = coloredBar(percent, barWidth, colors, barStyle);
 
   const parts: string[] = [];
   const display = ctx.config?.display;
@@ -166,8 +167,8 @@ export function renderSessionLine(ctx: RenderContext): string {
         const usageBarEnabled = display?.usageBarEnabled ?? true;
         const fiveHourPart = usageBarEnabled
           ? (fiveHourReset
-              ? `${quotaBar(fiveHour ?? 0, barWidth, colors)} ${fiveHourDisplay} (${fiveHourReset} / 5h)`
-              : `${quotaBar(fiveHour ?? 0, barWidth, colors)} ${fiveHourDisplay}`)
+              ? `${quotaBar(fiveHour ?? 0, barWidth, colors, barStyle)} ${fiveHourDisplay} (${fiveHourReset} / 5h)`
+              : `${quotaBar(fiveHour ?? 0, barWidth, colors, barStyle)} ${fiveHourDisplay}`)
           : (fiveHourReset
               ? `5h: ${fiveHourDisplay} (${fiveHourReset})`
               : `5h: ${fiveHourDisplay}`);
@@ -178,12 +179,12 @@ export function renderSessionLine(ctx: RenderContext): string {
           const sevenDayReset = formatResetTime(ctx.usageData.sevenDayResetAt);
           const sevenDayPart = usageBarEnabled
             ? (sevenDayReset
-                ? `${quotaBar(sevenDay, barWidth, colors)} ${sevenDayDisplay} (${sevenDayReset} / 7d)`
-                : `${quotaBar(sevenDay, barWidth, colors)} ${sevenDayDisplay}`)
+                ? `${quotaBar(sevenDay, barWidth, colors, barStyle)} ${sevenDayDisplay} (${sevenDayReset} / 7d)`
+                : `${quotaBar(sevenDay, barWidth, colors, barStyle)} ${sevenDayDisplay}`)
             : (sevenDayReset
                 ? `7d: ${sevenDayDisplay} (${sevenDayReset})`
                 : `7d: ${sevenDayDisplay}`);
-          parts.push(`${fiveHourPart} | ${sevenDayPart}${syncingSuffix}`);
+          parts.push(`${fiveHourPart} ${dim('│')} ${sevenDayPart}${syncingSuffix}`);
         } else {
           parts.push(`${fiveHourPart}${syncingSuffix}`);
         }

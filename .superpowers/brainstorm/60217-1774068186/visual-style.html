@@ -1,0 +1,69 @@
+<h2>HUD Visual Style Direction</h2>
+<p class="subtitle">Which aesthetic fits your terminal workflow best?</p>
+
+<div class="options">
+  <div class="option" data-choice="a" onclick="toggleSelect(this)">
+    <div class="letter">A</div>
+    <div class="content">
+      <h3>Minimal Clean</h3>
+      <div class="mockup" style="margin-top:12px">
+        <div class="mockup-header">Terminal — Current Style Enhanced</div>
+        <div class="mockup-body" style="background:#1a1a2e;color:#e0e0e0;font-family:monospace;font-size:13px;padding:16px;line-height:1.8">
+          <div><span style="color:#00d4aa">[Opus 4.6 | Max]</span> <span style="color:#555">│</span> cchub <span style="color:#c678dd">git:(main</span><span style="color:#e5c07b">*</span><span style="color:#c678dd">)</span></div>
+          <div><span style="color:#666">Context</span> <span style="color:#50fa7b">█████</span><span style="color:#444">░░░░░</span> <span style="color:#50fa7b">45%</span> <span style="color:#555">│</span> <span style="color:#666">Usage</span> <span style="color:#61afef">██</span><span style="color:#444">░░░░░░░░</span> <span style="color:#61afef">25%</span></div>
+          <div><span style="color:#e5c07b">◐</span> Edit: auth.ts <span style="color:#555">|</span> <span style="color:#50fa7b">✓</span> Read ×3</div>
+        </div>
+      </div>
+      <p style="margin-top:8px;color:#999">保持現有風格，微調配色和間距。乾淨、不搶注意力。</p>
+    </div>
+  </div>
+
+  <div class="option" data-choice="b" onclick="toggleSelect(this)">
+    <div class="letter">B</div>
+    <div class="content">
+      <h3>Dashboard Rich</h3>
+      <div class="mockup" style="margin-top:12px">
+        <div class="mockup-header">Terminal — Information Dense</div>
+        <div class="mockup-body" style="background:#0d1117;color:#e0e0e0;font-family:monospace;font-size:13px;padding:16px;line-height:1.8">
+          <div><span style="color:#ff7b72">◉</span> <span style="color:#79c0ff">Opus 4.6</span> <span style="color:#484f58">│</span> <span style="color:#7ee787">Max</span> <span style="color:#484f58">│</span> cchub <span style="color:#d2a8ff">main</span><span style="color:#e5c07b">*</span> <span style="color:#484f58">│</span> <span style="color:#8b949e">↑2 ↓0</span> <span style="color:#484f58">│</span> <span style="color:#8b949e">⏱ 1h 23m</span></div>
+          <div><span style="color:#7ee787">▰▰▰▰▰</span><span style="color:#484f58">▱▱▱▱▱</span> <span style="color:#7ee787">45%</span> ctx <span style="color:#484f58">│</span> <span style="color:#79c0ff">▰▰</span><span style="color:#484f58">▱▱▱▱▱▱▱▱</span> <span style="color:#79c0ff">25%</span> use <span style="color:#484f58">│</span> <span style="color:#ffa657">$0.42</span> <span style="color:#484f58">│</span> <span style="color:#8b949e">1.2k tok/m</span></div>
+          <div><span style="color:#484f58">├─</span> <span style="color:#ffa657">⟳</span> AGW: review-loop <span style="color:#8b949e">(step 3/5)</span> <span style="color:#484f58">│</span> <span style="color:#7ee787">⬡</span> Teams: 2 active <span style="color:#8b949e">[fe:✓ be:◐]</span></div>
+          <div><span style="color:#484f58">├─</span> <span style="color:#ffa657">◐</span> Edit: auth.ts <span style="color:#484f58">│</span> <span style="color:#7ee787">✓</span> Read ×3 <span style="color:#484f58">│</span> <span style="color:#7ee787">✓</span> Grep ×2</div>
+          <div><span style="color:#484f58">└─</span> <span style="color:#d2a8ff">◐</span> explore <span style="color:#8b949e">[haiku]</span>: Finding auth code <span style="color:#8b949e">(2m 15s)</span></div>
+        </div>
+      </div>
+      <p style="margin-top:8px;color:#999">資訊密度最高。框架狀態、費用、burn rate 全部可見。用樹狀結構組織層級。</p>
+    </div>
+  </div>
+
+  <div class="option" data-choice="c" onclick="toggleSelect(this)">
+    <div class="letter">C</div>
+    <div class="content">
+      <h3>Adaptive Smart</h3>
+      <div class="mockup" style="margin-top:12px">
+        <div class="mockup-header">Terminal — Context-Aware (Normal State)</div>
+        <div class="mockup-body" style="background:#1e1e2e;color:#cdd6f4;font-family:monospace;font-size:13px;padding:16px;line-height:1.8">
+          <div><span style="color:#89b4fa">[Opus 4.6 | Max]</span> <span style="color:#585b70">│</span> cchub <span style="color:#cba6f7">main</span><span style="color:#f9e2af">*</span> <span style="color:#585b70">│</span> <span style="color:#a6e3a1">45%</span> ctx <span style="color:#585b70">│</span> <span style="color:#89b4fa">25%</span> use</div>
+        </div>
+      </div>
+      <div class="mockup" style="margin-top:8px">
+        <div class="mockup-header">Terminal — Context-Aware (Busy State)</div>
+        <div class="mockup-body" style="background:#1e1e2e;color:#cdd6f4;font-family:monospace;font-size:13px;padding:16px;line-height:1.8">
+          <div><span style="color:#89b4fa">[Opus 4.6 | Max]</span> <span style="color:#585b70">│</span> cchub <span style="color:#cba6f7">main</span><span style="color:#f9e2af">*</span> <span style="color:#585b70">│</span> <span style="color:#f9e2af">72%</span> ctx <span style="color:#585b70">│</span> <span style="color:#89b4fa">25%</span> use <span style="color:#585b70">│</span> <span style="color:#fab387">$0.42</span></div>
+          <div><span style="color:#585b70">──</span> <span style="color:#fab387">⟳</span> AGW: review-loop <span style="color:#6c7086">(3/5)</span> <span style="color:#585b70">│</span> <span style="color:#a6e3a1">⬡</span> Teams: <span style="color:#a6e3a1">fe✓</span> <span style="color:#f9e2af">be◐</span> <span style="color:#6c7086">test⏳</span></div>
+          <div><span style="color:#585b70">──</span> <span style="color:#fab387">◐</span> Edit: auth.ts <span style="color:#585b70">│</span> <span style="color:#a6e3a1">✓</span> Read ×3 <span style="color:#585b70">│</span> <span style="color:#cba6f7">◐</span> explore <span style="color:#6c7086">[haiku]</span> <span style="color:#6c7086">(2m)</span></div>
+        </div>
+      </div>
+      <div class="mockup" style="margin-top:8px">
+        <div class="mockup-header">Terminal — Context-Aware (Critical State)</div>
+        <div class="mockup-body" style="background:#1e1e2e;color:#cdd6f4;font-family:monospace;font-size:13px;padding:16px;line-height:1.8">
+          <div><span style="color:#89b4fa">[Opus 4.6 | Max]</span> <span style="color:#585b70">│</span> cchub <span style="color:#cba6f7">main</span><span style="color:#f9e2af">*</span> <span style="color:#585b70">│</span> <span style="color:#f38ba8">██████████ 92%</span> ctx <span style="color:#f38ba8">⚠</span> <span style="color:#585b70">│</span> <span style="color:#f38ba8">89%</span> use</div>
+          <div><span style="color:#f38ba8">⚠ Context 接近上限 (in: 184k, cache: 12k) — 預計 ~8 次 tool call 後觸發 autocompact</span></div>
+          <div><span style="color:#f38ba8">⚠ 5h Usage 89% — 重置於 14:32 (1h 8m)</span></div>
+          <div><span style="color:#585b70">──</span> <span style="color:#fab387">◐</span> Edit: auth.ts <span style="color:#585b70">│</span> <span style="color:#a6e3a1">✓</span> Read ×3</div>
+        </div>
+      </div>
+      <p style="margin-top:8px;color:#999">智能自適應：平時極簡 1 行，有活動時展開，接近極限時主動警告。根據狀態動態調整顯示密度。</p>
+    </div>
+  </div>
+</div>

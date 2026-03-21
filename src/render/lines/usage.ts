@@ -47,10 +47,11 @@ export function renderUsageLine(ctx: RenderContext): string | null {
   const fiveHourReset = formatResetTime(ctx.usageData.fiveHourResetAt);
 
   const usageBarEnabled = display?.usageBarEnabled ?? true;
+  const barStyle = display?.barStyle ?? 'classic';
   const fiveHourPart = usageBarEnabled
     ? (fiveHourReset
-        ? `${quotaBar(fiveHour ?? 0, getAdaptiveBarWidth(), colors)} ${fiveHourDisplay} (resets in ${fiveHourReset})`
-        : `${quotaBar(fiveHour ?? 0, getAdaptiveBarWidth(), colors)} ${fiveHourDisplay}`)
+        ? `${quotaBar(fiveHour ?? 0, getAdaptiveBarWidth(), colors, barStyle)} ${fiveHourDisplay} (resets in ${fiveHourReset})`
+        : `${quotaBar(fiveHour ?? 0, getAdaptiveBarWidth(), colors, barStyle)} ${fiveHourDisplay}`)
     : (fiveHourReset
         ? `5h: ${fiveHourDisplay} (resets in ${fiveHourReset})`
         : `5h: ${fiveHourDisplay}`);
@@ -64,12 +65,12 @@ export function renderUsageLine(ctx: RenderContext): string | null {
     const sevenDayReset = formatResetTime(ctx.usageData.sevenDayResetAt);
     const sevenDayPart = usageBarEnabled
       ? (sevenDayReset
-          ? `${quotaBar(sevenDay, getAdaptiveBarWidth(), colors)} ${sevenDayDisplay} (resets in ${sevenDayReset})`
-          : `${quotaBar(sevenDay, getAdaptiveBarWidth(), colors)} ${sevenDayDisplay}`)
+          ? `${quotaBar(sevenDay, getAdaptiveBarWidth(), colors, barStyle)} ${sevenDayDisplay} (resets in ${sevenDayReset})`
+          : `${quotaBar(sevenDay, getAdaptiveBarWidth(), colors, barStyle)} ${sevenDayDisplay}`)
       : (sevenDayReset
           ? `7d: ${sevenDayDisplay} (resets in ${sevenDayReset})`
           : `7d: ${sevenDayDisplay}`);
-    return `${label} ${fiveHourPart} | ${sevenDayPart}${syncingSuffix}`;
+    return `${label} ${fiveHourPart} ${dim('│')} ${sevenDayPart}${syncingSuffix}`;
   }
 
   return `${label} ${fiveHourPart}${syncingSuffix}`;

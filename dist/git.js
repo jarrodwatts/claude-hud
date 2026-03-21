@@ -1,5 +1,6 @@
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
+import { readCache, writeCache, getDefaultCacheDir } from './cache.js';
 const execFileAsync = promisify(execFile);
 export async function getGitBranch(cwd) {
     if (!cwd)
@@ -15,6 +16,11 @@ export async function getGitBranch(cwd) {
 export async function getGitStatus(cwd) {
     if (!cwd)
         return null;
+    const cacheDir = getDefaultCacheDir();
+    const cacheKey = `git-status:${cwd}`;
+    const cached = readCache(cacheKey, 2000, cacheDir);
+    if (cached)
+        return cached;
     try {
         // Get branch name
         const { stdout: branchOut } = await execFileAsync('git', ['rev-parse', '--abbrev-ref', 'HEAD'], { cwd, timeout: 1000, encoding: 'utf8' });
@@ -49,7 +55,9 @@ export async function getGitStatus(cwd) {
         catch {
             // No upstream or error, keep 0/0
         }
-        return { branch, isDirty, ahead, behind, fileStats };
+        const result = { branch, isDirty, ahead, behind, fileStats };
+        writeCache(cacheKey, result, cacheDir);
+        return result;
     }
     catch {
         return null;

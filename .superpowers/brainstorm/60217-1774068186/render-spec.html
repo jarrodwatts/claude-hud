@@ -1,0 +1,139 @@
+<h2>Dashboard Rich — Render Specification</h2>
+<p class="subtitle">完整的 HUD 渲染規範，涵蓋所有狀態</p>
+
+<div class="section">
+  <h3>Line 1：Identity Line</h3>
+  <div class="mockup">
+    <div class="mockup-header">固定顯示 — 模型 + 計劃 + 專案 + Git + 時間</div>
+    <div class="mockup-body" style="background:#0d1117;color:#e0e0e0;font-family:monospace;font-size:14px;padding:16px;line-height:2">
+      <div><span style="color:#ff7b72">◉</span> <span style="color:#79c0ff">Opus 4.6</span> <span style="color:#484f58">│</span> <span style="color:#7ee787">Max</span> <span style="color:#484f58">│</span> cchub <span style="color:#d2a8ff">main</span><span style="color:#e5c07b">*</span> <span style="color:#8b949e">↑2</span> <span style="color:#484f58">│</span> <span style="color:#8b949e">⏱ 1h 23m</span></div>
+    </div>
+  </div>
+  <p style="color:#999;margin-top:8px">
+    <code>◉</code> 活動指示燈（紅=有 tool 在跑，綠=閒置）<br>
+    <code>Opus 4.6</code> 模型名（cyan）<br>
+    <code>Max</code> 訂閱計劃（green）<br>
+    <code>main*</code> 分支 + dirty（purple + yellow）<br>
+    <code>↑2</code> ahead commits（dim）<br>
+    <code>⏱ 1h 23m</code> session 時長（dim）
+  </p>
+</div>
+
+<div class="section">
+  <h3>Line 2：Metrics Line</h3>
+  <div class="mockup">
+    <div class="mockup-header">固定顯示 — Context bar + Usage bar + Burn rate</div>
+    <div class="mockup-body" style="background:#0d1117;color:#e0e0e0;font-family:monospace;font-size:14px;padding:16px;line-height:2">
+      <div><span style="color:#7ee787">▰▰▰▰▰</span><span style="color:#484f58">▱▱▱▱▱</span> <span style="color:#7ee787">45%</span> ctx <span style="color:#484f58">│</span> <span style="color:#79c0ff">▰▰</span><span style="color:#484f58">▱▱▱▱▱▱▱▱</span> <span style="color:#79c0ff">25%</span> use <span style="color:#484f58">│</span> <span style="color:#8b949e">1.2k tok/m</span></div>
+    </div>
+  </div>
+  <p style="color:#999;margin-top:8px">
+    <code>▰▱</code> 新 bar 字元（比 █░ 更精緻）<br>
+    <code>ctx</code> context 百分比（green→yellow→red）<br>
+    <code>use</code> 5h usage 百分比（blue→magenta→red）<br>
+    <code>tok/m</code> token burn rate（每分鐘消耗，dim）
+  </p>
+</div>
+
+<div class="section">
+  <h3>Line 3：Framework Line（條件顯示）</h3>
+  <div class="mockup">
+    <div class="mockup-header">有 AGW/Agent Teams 活動時顯示</div>
+    <div class="mockup-body" style="background:#0d1117;color:#e0e0e0;font-family:monospace;font-size:14px;padding:16px;line-height:2">
+      <div><span style="color:#484f58">├─</span> <span style="color:#ffa657">⟳</span> AGW: review-loop <span style="color:#8b949e">(step 3/5)</span> <span style="color:#484f58">│</span> <span style="color:#7ee787">⬡</span> Teams: <span style="color:#7ee787">fe✓</span> <span style="color:#ffa657">be◐</span> <span style="color:#8b949e">test⏳</span></div>
+    </div>
+  </div>
+  <p style="color:#999;margin-top:8px">
+    <code>├─</code> 樹狀前綴（dim）<br>
+    <code>⟳</code> AGW 圖示（orange）+ combo 名稱 + 進度<br>
+    <code>⬡</code> Teams 圖示（green）+ 各 agent 縮寫狀態<br>
+    無活動時整行隱藏
+  </p>
+</div>
+
+<div class="section">
+  <h3>Line 4：Tools Line（條件顯示）</h3>
+  <div class="mockup">
+    <div class="mockup-header">有 tool 活動時顯示</div>
+    <div class="mockup-body" style="background:#0d1117;color:#e0e0e0;font-family:monospace;font-size:14px;padding:16px;line-height:2">
+      <div><span style="color:#484f58">├─</span> <span style="color:#ffa657">◐</span> Edit: auth.ts <span style="color:#484f58">│</span> <span style="color:#7ee787">✓</span> Read ×3 <span style="color:#484f58">│</span> <span style="color:#7ee787">✓</span> Grep ×2 <span style="color:#484f58">│</span> <span style="color:#d2a8ff">◐</span> explore <span style="color:#8b949e">[haiku]</span> <span style="color:#8b949e">(2m)</span></div>
+    </div>
+  </div>
+  <p style="color:#999;margin-top:8px">
+    Tools 和 agents 合併到同一行（原本分開兩行）<br>
+    <code>◐</code> = 進行中（orange/purple）<br>
+    <code>✓</code> = 已完成（green）<br>
+    agents 追加在 tools 後面，用圖示區分
+  </p>
+</div>
+
+<div class="section">
+  <h3>Line 5：Alert Line（條件顯示）</h3>
+  <div class="mockup">
+    <div class="mockup-header">觸發警告閾值時顯示</div>
+    <div class="mockup-body" style="background:#0d1117;color:#e0e0e0;font-family:monospace;font-size:14px;padding:16px;line-height:2">
+      <div><span style="color:#484f58">└─</span> <span style="color:#f85149">⚠ Context 92% — ~8 calls</span> <span style="color:#484f58">│</span> <span style="color:#f85149">Usage 89% — resets 14:32 (28m)</span></div>
+    </div>
+  </div>
+</div>
+
+<div class="section">
+  <h3>Line 6：Todos Line（條件顯示）</h3>
+  <div class="mockup">
+    <div class="mockup-header">有 TodoWrite 任務時顯示</div>
+    <div class="mockup-body" style="background:#0d1117;color:#e0e0e0;font-family:monospace;font-size:14px;padding:16px;line-height:2">
+      <div><span style="color:#484f58">└─</span> <span style="color:#d2a8ff">▸</span> Fix authentication bug <span style="color:#8b949e">(2/5)</span> <span style="color:#484f58">│</span> <span style="color:#7ee787">▪</span><span style="color:#7ee787">▪</span><span style="color:#ffa657">▪</span><span style="color:#484f58">▪▪</span></div>
+    </div>
+  </div>
+  <p style="color:#999;margin-top:8px">
+    <code>▸</code> 當前任務名稱<br>
+    <code>(2/5)</code> 完成進度<br>
+    <code>▪▪▪▪▪</code> 微型進度條（green=done, orange=in_progress, dim=pending）
+  </p>
+</div>
+
+<div class="section">
+  <h3>樹狀前綴規則</h3>
+  <div class="mockup">
+    <div class="mockup-header">完整範例 — 所有行都有活動</div>
+    <div class="mockup-body" style="background:#0d1117;color:#e0e0e0;font-family:monospace;font-size:14px;padding:16px;line-height:1.9">
+      <div><span style="color:#ff7b72">◉</span> <span style="color:#79c0ff">Opus 4.6</span> <span style="color:#484f58">│</span> <span style="color:#7ee787">Max</span> <span style="color:#484f58">│</span> cchub <span style="color:#d2a8ff">main</span><span style="color:#e5c07b">*</span> <span style="color:#8b949e">↑2</span> <span style="color:#484f58">│</span> <span style="color:#8b949e">⏱ 1h 23m</span></div>
+      <div><span style="color:#7ee787">▰▰▰▰▰▰▰▰▰</span><span style="color:#484f58">▱</span> <span style="color:#f85149">92%</span> ctx <span style="color:#484f58">│</span> <span style="color:#f0883e">▰▰▰▰▰▰▰▰▰</span><span style="color:#484f58">▱</span> <span style="color:#f0883e">89%</span> use <span style="color:#484f58">│</span> <span style="color:#8b949e">3.4k tok/m</span></div>
+      <div><span style="color:#484f58">├─</span> <span style="color:#ffa657">⟳</span> AGW: review-loop <span style="color:#8b949e">(3/5)</span> <span style="color:#484f58">│</span> <span style="color:#7ee787">⬡</span> Teams: <span style="color:#7ee787">fe✓</span> <span style="color:#ffa657">be◐</span> <span style="color:#8b949e">test⏳</span></div>
+      <div><span style="color:#484f58">├─</span> <span style="color:#ffa657">◐</span> Edit: auth.ts <span style="color:#484f58">│</span> <span style="color:#7ee787">✓</span> Read ×3 <span style="color:#484f58">│</span> <span style="color:#d2a8ff">◐</span> explore <span style="color:#8b949e">[haiku]</span> <span style="color:#8b949e">(2m)</span></div>
+      <div><span style="color:#484f58">├─</span> <span style="color:#f85149">⚠ Context 92% — ~8 calls</span> <span style="color:#484f58">│</span> <span style="color:#f85149">Usage 89% — resets 14:32</span></div>
+      <div><span style="color:#484f58">└─</span> <span style="color:#d2a8ff">▸</span> Fix auth bug <span style="color:#8b949e">(2/5)</span> <span style="color:#484f58">│</span> <span style="color:#7ee787">▪▪</span><span style="color:#ffa657">▪</span><span style="color:#484f58">▪▪</span></div>
+    </div>
+  </div>
+  <p style="color:#999;margin-top:8px">
+    Line 1-2 無前綴（固定顯示）<br>
+    Line 3+ 用 <code>├─</code>（中間行）和 <code>└─</code>（最後行）<br>
+    前綴自動計算：根據實際顯示的行數決定哪個是最後一行
+  </p>
+</div>
+
+<div class="section">
+  <h3>顏色規範</h3>
+  <table style="width:100%;border-collapse:collapse;font-size:14px">
+    <tr style="border-bottom:1px solid #333">
+      <th style="text-align:left;padding:8px">元素</th>
+      <th style="text-align:left;padding:8px">顏色</th>
+      <th style="text-align:left;padding:8px">用途</th>
+    </tr>
+    <tr style="border-bottom:1px solid #222"><td style="padding:8px">Model name</td><td style="padding:8px"><span style="color:#79c0ff">cyan/brightBlue</span></td><td style="padding:8px">識別度高</td></tr>
+    <tr style="border-bottom:1px solid #222"><td style="padding:8px">Plan name</td><td style="padding:8px"><span style="color:#7ee787">green</span></td><td style="padding:8px">正面狀態</td></tr>
+    <tr style="border-bottom:1px solid #222"><td style="padding:8px">Branch</td><td style="padding:8px"><span style="color:#d2a8ff">purple</span></td><td style="padding:8px">Git 標準色</td></tr>
+    <tr style="border-bottom:1px solid #222"><td style="padding:8px">Dirty *</td><td style="padding:8px"><span style="color:#e5c07b">yellow</span></td><td style="padding:8px">注意</td></tr>
+    <tr style="border-bottom:1px solid #222"><td style="padding:8px">Context safe</td><td style="padding:8px"><span style="color:#7ee787">green</span></td><td style="padding:8px">&lt;70%</td></tr>
+    <tr style="border-bottom:1px solid #222"><td style="padding:8px">Context warning</td><td style="padding:8px"><span style="color:#e5c07b">yellow</span></td><td style="padding:8px">70-85%</td></tr>
+    <tr style="border-bottom:1px solid #222"><td style="padding:8px">Context critical</td><td style="padding:8px"><span style="color:#f85149">red</span></td><td style="padding:8px">&gt;85%</td></tr>
+    <tr style="border-bottom:1px solid #222"><td style="padding:8px">Usage normal</td><td style="padding:8px"><span style="color:#79c0ff">brightBlue</span></td><td style="padding:8px">&lt;70%</td></tr>
+    <tr style="border-bottom:1px solid #222"><td style="padding:8px">Usage warning</td><td style="padding:8px"><span style="color:#f0883e">orange/brightMagenta</span></td><td style="padding:8px">70-90%</td></tr>
+    <tr style="border-bottom:1px solid #222"><td style="padding:8px">Usage critical</td><td style="padding:8px"><span style="color:#f85149">red</span></td><td style="padding:8px">&gt;90%</td></tr>
+    <tr style="border-bottom:1px solid #222"><td style="padding:8px">AGW</td><td style="padding:8px"><span style="color:#ffa657">orange</span></td><td style="padding:8px">框架活動</td></tr>
+    <tr style="border-bottom:1px solid #222"><td style="padding:8px">Agent Teams</td><td style="padding:8px"><span style="color:#7ee787">green</span></td><td style="padding:8px">框架活動</td></tr>
+    <tr style="border-bottom:1px solid #222"><td style="padding:8px">Separators</td><td style="padding:8px"><span style="color:#484f58">dim gray</span></td><td style="padding:8px">視覺分隔</td></tr>
+    <tr><td style="padding:8px">Dim text</td><td style="padding:8px"><span style="color:#8b949e">gray</span></td><td style="padding:8px">次要資訊</td></tr>
+  </table>
+  <p style="color:#999;margin-top:8px">所有顏色可透過 config <code>colors.*</code> 覆蓋（支援 named / 256 / hex）</p>
+</div>
