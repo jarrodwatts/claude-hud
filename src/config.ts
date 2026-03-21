@@ -498,8 +498,55 @@ export function mergeConfig(userConfig: Partial<HudConfig>): HudConfig {
   return { lineLayout, showSeparators, pathLevels, elementOrder, gitStatus, display, theme, usage, colors, frameworks, alerts, locale };
 }
 
+export function validateConfigWithWarnings(userConfig: Record<string, unknown>): string[] {
+  const warnings: string[] = [];
+
+  const knownTopLevel = new Set([
+    'lineLayout', 'showSeparators', 'pathLevels', 'elementOrder',
+    'gitStatus', 'display', 'usage', 'colors', 'frameworks', 'alerts', 'theme', 'locale',
+    'schemaVersion',
+  ]);
+
+  for (const key of Object.keys(userConfig)) {
+    if (!knownTopLevel.has(key)) {
+      warnings.push(`Unknown config key: "${key}" — will be ignored`);
+    }
+  }
+
+  // Type checks
+  if (userConfig.theme !== undefined && typeof userConfig.theme !== 'string') {
+    warnings.push(`"theme" should be a string, got ${typeof userConfig.theme}`);
+  }
+
+  if (userConfig.locale !== undefined && !['en', 'zh', 'ja'].includes(userConfig.locale as string)) {
+    warnings.push(`"locale" should be "en", "zh", or "ja", got "${userConfig.locale}"`);
+  }
+
+  const display = userConfig.display;
+  if (display && typeof display === 'object') {
+    const knownDisplay = new Set([
+      'showModel', 'showProject', 'showContextBar', 'contextValue',
+      'showConfigCounts', 'showDuration', 'showSpeed', 'showUsage',
+      'usageBarEnabled', 'showTools', 'showAgents', 'showTodos',
+      'showSessionName', 'showTokenBreakdown', 'autocompactBuffer',
+      'usageThreshold', 'sevenDayThreshold', 'environmentThreshold',
+      'customLine', 'showFrameworks', 'showBurnRate', 'showAlerts',
+      'activityIndicator', 'treePrefixes', 'mergeToolsAgents', 'barStyle',
+      'showCost', 'showNotifications', 'autoCompactSwitch', 'autoTune',
+    ]);
+    for (const key of Object.keys(display as Record<string, unknown>)) {
+      if (!knownDisplay.has(key)) {
+        warnings.push(`Unknown display key: "display.${key}" — will be ignored`);
+      }
+    }
+  }
+
+  return warnings;
+}
+
 export async function loadConfig(): Promise<HudConfig> {
   const configPath = getConfigPath();
+  const DEBUG = process.env.DEBUG?.includes('claude-hud') || process.env.DEBUG === '*';
 
   try {
     if (!fs.existsSync(configPath)) {
@@ -508,6 +555,14 @@ export async function loadConfig(): Promise<HudConfig> {
 
     const content = fs.readFileSync(configPath, 'utf-8');
     const userConfig = JSON.parse(content) as Partial<HudConfig>;
+
+    const warnings = validateConfigWithWarnings(userConfig as Record<string, unknown>);
+    if (DEBUG && warnings.length > 0) {
+      for (const w of warnings) {
+        console.error(`[claude-hud:config] ⚠ ${w}`);
+      }
+    }
+
     return mergeConfig(userConfig);
   } catch {
     return DEFAULT_CONFIG;
