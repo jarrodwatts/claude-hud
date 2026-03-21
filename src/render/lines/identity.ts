@@ -8,16 +8,30 @@ import { formatTokens, formatContextValue } from '../../utils/format.js';
 
 const DEBUG = process.env.DEBUG?.includes('claude-hud') || process.env.DEBUG === '*';
 
-const SPARK_CHARS = '▁▂▃▄▅▆▇█';
+const HEATMAP_CHARS = '▁▂▃▄▅▆▇█';
 
-function renderSparkline(values: number[]): string {
+function renderHeatmap(values: number[]): string {
   if (values.length < 2) return '';
-  const min = Math.min(...values);
-  const max = Math.max(...values);
-  const range = max - min || 1;
+
+  // Color gradient: green (low) → yellow (mid) → red (high)
   return values.map(v => {
-    const idx = Math.round(((v - min) / range) * (SPARK_CHARS.length - 1));
-    return SPARK_CHARS[idx];
+    const idx = Math.min(Math.round((v / 100) * (HEATMAP_CHARS.length - 1)), HEATMAP_CHARS.length - 1);
+    const char = HEATMAP_CHARS[idx];
+
+    // ANSI 256-color: green(34) → yellow(226) → red(196)
+    let colorCode: number;
+    if (v < 50) {
+      // Green to yellow gradient (ANSI 256: 34 → 226)
+      colorCode = v < 25 ? 34 : v < 40 ? 70 : 226;
+    } else if (v < 80) {
+      // Yellow to orange (226 → 208)
+      colorCode = v < 65 ? 226 : 208;
+    } else {
+      // Orange to red (208 → 196)
+      colorCode = v < 90 ? 208 : 196;
+    }
+
+    return `\x1b[38;5;${colorCode}m${char}\x1b[0m`;
   }).join('');
 }
 
@@ -104,7 +118,7 @@ export function renderIdentityLine(ctx: RenderContext): string {
   }
 
   if (!isNarrow && ctx.sparkline && ctx.sparkline.length >= 3) {
-    line += ` ${dim(renderSparkline(ctx.sparkline))}`;
+    line += ` ${renderHeatmap(ctx.sparkline)}`;
   }
 
   if (!isNarrow && ctx.apiLatency !== null && ctx.apiLatency !== undefined && ctx.apiLatency > 0) {
