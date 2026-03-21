@@ -92,6 +92,7 @@ export interface HudConfig {
     context: { warningThreshold: number; criticalThreshold: number; actions: AlertAction };
     usage5h: { warningThreshold: number; criticalThreshold: number; actions: AlertAction };
     usage7d: { warningThreshold: number; actions: AlertAction };
+    hook?: string;  // shell command to run on any alert trigger
   };
 }
 
@@ -479,6 +480,7 @@ export function mergeConfig(userConfig: Partial<HudConfig>): HudConfig {
       ),
       actions: mergeAlertActions(migrated.alerts?.usage7d?.actions, DEFAULT_CONFIG.alerts.usage7d.actions),
     },
+    hook: typeof migrated.alerts?.hook === 'string' ? migrated.alerts.hook : undefined,
   };
 
   return { lineLayout, showSeparators, pathLevels, elementOrder, gitStatus, display, theme, usage, colors, frameworks, alerts };

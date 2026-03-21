@@ -103,3 +103,18 @@ export function shouldBell(alerts: Alert[], cacheDir: string): boolean {
   }
   return false;
 }
+
+const DEBUG = process.env.DEBUG?.includes('claude-hud') || process.env.DEBUG === '*';
+
+export function runAlertHook(hook: string, alert: Alert): void {
+  try {
+    const env = {
+      ...process.env,
+      CLAUDE_HUD_ALERT_TYPE: alert.type,
+      CLAUDE_HUD_ALERT_MESSAGE: alert.message,
+    };
+    execFile('bash', ['-c', hook], { env, timeout: 3000 }, () => {});
+  } catch {
+    if (DEBUG) console.error('[claude-hud:alert] hook error');
+  }
+}
