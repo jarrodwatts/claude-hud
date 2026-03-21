@@ -4,6 +4,7 @@ import type { CostEstimate } from './cost-tracker.js';
 import type { McpServerInfo } from './mcp-monitor.js';
 import type { Locale } from './i18n.js';
 import type { CustomWidget } from './custom-widgets.js';
+import type { Suggestion } from './suggestions.js';
 
 export interface StdinData {
   transcript_path?: string;
@@ -150,4 +151,5 @@ export interface RenderContext {
   mcpServers: McpServerInfo[];
   locale: Locale;
   customWidgets: CustomWidget[];
+  suggestions: Suggestion[];
 }

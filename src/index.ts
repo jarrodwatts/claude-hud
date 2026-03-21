@@ -23,6 +23,7 @@ import { getMcpServers } from './mcp-monitor.js';
 import { detectLocale } from './i18n.js';
 import { loadCustomWidgets } from './custom-widgets.js';
 import { updateTokenAnalytics } from './token-analytics.js';
+import { getSuggestions } from './suggestions.js';
 
 export type MainDeps = {
   readStdin: typeof readStdin;
@@ -200,9 +201,12 @@ export async function main(overrides: Partial<MainDeps> = {}): Promise<void> {
       }
     }
 
-    const ctx: RenderContext = {
+    // Smart suggestions based on session state
+    const suggestionInput = {
       stdin,
       transcript,
+      burnRate,
+      sessionStats,
       claudeMdCount,
       rulesCount,
       mcpCount,
@@ -214,8 +218,6 @@ export async function main(overrides: Partial<MainDeps> = {}): Promise<void> {
       extraLabel,
       frameworkStatus,
       alerts,
-      burnRate,
-      sessionStats,
       sparkline,
       terminalWidth: getTerminalWidth(),
       costEstimate,
@@ -224,6 +226,14 @@ export async function main(overrides: Partial<MainDeps> = {}): Promise<void> {
       mcpServers,
       locale: config.locale ?? detectLocale(),
       customWidgets,
+    };
+    const suggestions = config.display.showAlerts
+      ? getSuggestions(suggestionInput as RenderContext)
+      : [];
+
+    const ctx: RenderContext = {
+      ...suggestionInput,
+      suggestions,
     };
 
     deps.render(ctx);

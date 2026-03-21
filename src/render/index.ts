@@ -380,8 +380,8 @@ function renderElementLine(ctx: RenderContext, element: HudElement): string | nu
       }
       return null;
     case 'alert':
-      if (ctx.config.display.showAlerts && ctx.alerts.length > 0) {
-        const line = renderAlertLine(ctx.alerts);
+      if (ctx.config.display.showAlerts) {
+        const line = renderAlertLine(ctx.alerts, ctx.suggestions);
         if (line) return line;
       }
       return null;
