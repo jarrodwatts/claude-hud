@@ -40,7 +40,15 @@ export type MainDeps = {
   log: (...args: unknown[]) => void;
 };
 
+function timer() {
+  const start = Date.now();
+  return () => Date.now() - start;
+}
+
 export async function main(overrides: Partial<MainDeps> = {}): Promise<void> {
+  const DEBUG = process.env.DEBUG?.includes('claude-hud') || process.env.DEBUG === '*';
+  const tTotal = timer();
+
   const deps: MainDeps = {
     readStdin,
     parseTranscript,
@@ -57,7 +65,9 @@ export async function main(overrides: Partial<MainDeps> = {}): Promise<void> {
   };
 
   try {
+    const t1 = timer();
     const stdin = await deps.readStdin();
+    if (DEBUG) console.error(`[claude-hud:timing] readStdin: ${t1()}ms`);
 
     if (!stdin) {
       // Running without stdin - this happens during setup verification
@@ -71,20 +81,27 @@ export async function main(overrides: Partial<MainDeps> = {}): Promise<void> {
 
     registerSession(stdin.cwd);
     const transcriptPath = stdin.transcript_path ?? '';
+    const t2 = timer();
     const transcript = await deps.parseTranscript(transcriptPath);
+    if (DEBUG) console.error(`[claude-hud:timing] parseTranscript: ${t2()}ms`);
 
     const { claudeMdCount, rulesCount, mcpCount, hooksCount } = await deps.countConfigs(stdin.cwd);
 
     const cacheDir = getDefaultCacheDir();
 
+    const t3 = timer();
     let config = await deps.loadConfig();
+    if (DEBUG) console.error(`[claude-hud:timing] loadConfig: ${t3()}ms`);
     config = autoTuneConfig(config, getTerminalWidth(), cacheDir);
+    const t4 = timer();
     const gitStatus = config.gitStatus.enabled
       ? await deps.getGitStatus(stdin.cwd)
       : null;
+    if (DEBUG) console.error(`[claude-hud:timing] gitStatus: ${t4()}ms`);
 
     // Only fetch usage if enabled in config (replaces env var requirement)
     const usageStart = Date.now();
+    const t5 = timer();
     const usageData = config.display.showUsage !== false
       ? await deps.getUsage({
           ttls: {
@@ -93,6 +110,7 @@ export async function main(overrides: Partial<MainDeps> = {}): Promise<void> {
           },
         })
       : null;
+    if (DEBUG) console.error(`[claude-hud:timing] usageApi: ${t5()}ms`);
     if (config.display.showUsage !== false && usageData !== null) {
       writeLatency(Date.now() - usageStart, cacheDir);
     }
@@ -264,7 +282,10 @@ export async function main(overrides: Partial<MainDeps> = {}): Promise<void> {
       suggestions,
     };
 
+    const t6 = timer();
     deps.render(ctx);
+    if (DEBUG) console.error(`[claude-hud:timing] render: ${t6()}ms`);
+    if (DEBUG) console.error(`[claude-hud:timing] total: ${tTotal()}ms`);
   } catch (error) {
     deps.log('[claude-hud] Error:', error instanceof Error ? error.message : 'Unknown error');
   }
