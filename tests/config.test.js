@@ -356,3 +356,58 @@ test('mergeConfig rejects invalid hex strings', () => {
   assert.equal(config.colors.usage, DEFAULT_CONFIG.colors.usage);
   assert.equal(config.colors.warning, DEFAULT_CONFIG.colors.warning);
 });
+
+// --- contextSizeOverrides tests ---
+
+test('mergeConfig defaults contextSizeOverrides to empty object', () => {
+  const config = mergeConfig({});
+  assert.deepEqual(config.display.contextSizeOverrides, {});
+});
+
+test('mergeConfig preserves valid contextSizeOverrides', () => {
+  const config = mergeConfig({
+    display: {
+      contextSizeOverrides: { 'Opus': 150000, 'gpt-5.4': 256000 },
+    },
+  });
+  assert.deepEqual(config.display.contextSizeOverrides, { 'Opus': 150000, 'gpt-5.4': 256000 });
+});
+
+test('mergeConfig rejects empty string keys in contextSizeOverrides', () => {
+  const config = mergeConfig({
+    display: {
+      contextSizeOverrides: { '': 400000, 'Opus': 150000 },
+    },
+  });
+  assert.deepEqual(config.display.contextSizeOverrides, { 'Opus': 150000 });
+});
+
+test('mergeConfig trims whitespace-only keys in contextSizeOverrides', () => {
+  const config = mergeConfig({
+    display: {
+      contextSizeOverrides: { '  ': 400000, 'Opus': 150000 },
+    },
+  });
+  assert.deepEqual(config.display.contextSizeOverrides, { 'Opus': 150000 });
+});
+
+test('mergeConfig rejects non-positive and non-integer values in contextSizeOverrides', () => {
+  const config = mergeConfig({
+    display: {
+      contextSizeOverrides: {
+        'negative': -1,
+        'zero': 0,
+        'float': 1.5,
+        'valid': 200000,
+        'string': 'big',
+      },
+    },
+  });
+  assert.deepEqual(config.display.contextSizeOverrides, { 'valid': 200000 });
+});
+
+test('mergeConfig rejects non-object contextSizeOverrides', () => {
+  assert.deepEqual(mergeConfig({ display: { contextSizeOverrides: 'invalid' } }).display.contextSizeOverrides, {});
+  assert.deepEqual(mergeConfig({ display: { contextSizeOverrides: null } }).display.contextSizeOverrides, {});
+  assert.deepEqual(mergeConfig({ display: { contextSizeOverrides: [1, 2] } }).display.contextSizeOverrides, {});
+});

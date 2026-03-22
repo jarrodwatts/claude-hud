@@ -140,6 +140,7 @@ Edit `~/.claude/plugins/claude-hud/config.json` directly for advanced settings s
 | `display.showModel` | boolean | true | Show model name `[Opus]` |
 | `display.showContextBar` | boolean | true | Show visual context bar `████░░░░░░` |
 | `display.contextValue` | `percent` \| `tokens` \| `remaining` | `percent` | Context display format (`45%`, `45k/200k`, or `55%` remaining) |
+| `display.contextSizeOverrides` | object | `{}` | Override max context size per model. Keys are case-insensitive substrings matched against model ID/name (exact match first, then longer patterns). When active, shows token suffix and uses raw percent. Example: `{"Opus": 150000, "gpt-5.4": 256000}` |
 | `display.showConfigCounts` | boolean | false | Show CLAUDE.md, rules, MCPs, hooks counts |
 | `display.showDuration` | boolean | false | Show session duration `⏱️ 5m` |
 | `display.showSpeed` | boolean | false | Show output token speed `out: 42.1 tok/s` |

@@ -36,30 +36,76 @@ function getNativePercent(stdin) {
     }
     return null;
 }
-export function getContextPercent(stdin) {
-    // Prefer native percentage (v2.1.6+) - accurate and matches /context
-    const native = getNativePercent(stdin);
-    if (native !== null) {
-        return native;
+/**
+ * Get the effective context window size, checking for model-based overrides.
+ * Matching order: model.id → model.display_name → getModelName() (normalized).
+ * Priority: exact match first, then longer substring patterns first.
+ */
+export function getEffectiveContextSize(stdin, config) {
+    const stdinSize = stdin.context_window?.context_window_size ?? 0;
+    const overrides = config?.display?.contextSizeOverrides;
+    if (!overrides || Object.keys(overrides).length === 0) {
+        return stdinSize;
     }
-    // Fallback: manual calculation without buffer
-    const size = stdin.context_window?.context_window_size;
-    if (!size || size <= 0) {
+    const candidates = [
+        stdin.model?.id?.trim(),
+        stdin.model?.display_name?.trim(),
+        getModelName(stdin),
+    ].filter((c) => !!c);
+    // Sort patterns by length descending so longer (more specific) patterns match first
+    const sortedEntries = Object.entries(overrides)
+        .sort((a, b) => b[0].length - a[0].length);
+    // Pass 1: exact match (case-insensitive)
+    for (const [pattern, size] of sortedEntries) {
+        const lowerPattern = pattern.toLowerCase();
+        for (const candidate of candidates) {
+            if (candidate.toLowerCase() === lowerPattern) {
+                return size;
+            }
+        }
+    }
+    // Pass 2: substring match, longer patterns first
+    for (const [pattern, size] of sortedEntries) {
+        const lowerPattern = pattern.toLowerCase();
+        for (const candidate of candidates) {
+            if (candidate.toLowerCase().includes(lowerPattern)) {
+                return size;
+            }
+        }
+    }
+    return stdinSize;
+}
+export function getContextPercent(stdin, config) {
+    const overrideSize = config ? getEffectiveContextSize(stdin, config) : 0;
+    const hasOverride = overrideSize > 0 && overrideSize !== (stdin.context_window?.context_window_size ?? 0);
+    // When there is a custom override, always recalculate from tokens
+    if (!hasOverride) {
+        const native = getNativePercent(stdin);
+        if (native !== null) {
+            return native;
+        }
+    }
+    // Manual calculation using effective size
+    const size = hasOverride ? overrideSize : (stdin.context_window?.context_window_size ?? 0);
+    if (size <= 0) {
         return 0;
     }
     const totalTokens = getTotalTokens(stdin);
     return Math.min(100, Math.round((totalTokens / size) * 100));
 }
-export function getBufferedPercent(stdin) {
-    // Prefer native percentage (v2.1.6+) so the HUD matches Claude Code's
-    // own context output. The buffered fallback only approximates older versions.
-    const native = getNativePercent(stdin);
-    if (native !== null) {
-        return native;
+export function getBufferedPercent(stdin, config) {
+    const overrideSize = config ? getEffectiveContextSize(stdin, config) : 0;
+    const hasOverride = overrideSize > 0 && overrideSize !== (stdin.context_window?.context_window_size ?? 0);
+    // When there is a custom override, always recalculate from tokens
+    if (!hasOverride) {
+        const native = getNativePercent(stdin);
+        if (native !== null) {
+            return native;
+        }
     }
-    // Fallback: manual calculation with buffer for older Claude Code versions
-    const size = stdin.context_window?.context_window_size;
-    if (!size || size <= 0) {
+    // Manual calculation with buffer using effective size
+    const size = hasOverride ? overrideSize : (stdin.context_window?.context_window_size ?? 0);
+    if (size <= 0) {
         return 0;
     }
     const totalTokens = getTotalTokens(stdin);

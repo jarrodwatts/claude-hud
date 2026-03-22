@@ -71,6 +71,7 @@ export interface HudConfig {
     sevenDayThreshold: number;
     environmentThreshold: number;
     customLine: string;
+    contextSizeOverrides: Record<string, number>;
   };
   usage: {
     cacheTtlSeconds: number;
@@ -110,6 +111,7 @@ export const DEFAULT_CONFIG: HudConfig = {
     sevenDayThreshold: 80,
     environmentThreshold: 0,
     customLine: '',
+    contextSizeOverrides: {},
   },
   usage: {
     cacheTtlSeconds: 60,
@@ -229,6 +231,20 @@ function validatePositiveInt(value: unknown, defaultValue: number): number {
   return value;
 }
 
+function validateContextSizeOverrides(value: unknown): Record<string, number> {
+  if (typeof value !== 'object' || value === null || Array.isArray(value)) {
+    return {};
+  }
+  const result: Record<string, number> = {};
+  for (const [key, val] of Object.entries(value)) {
+    const trimmedKey = key.trim();
+    if (trimmedKey.length > 0 && typeof val === 'number' && Number.isInteger(val) && val > 0) {
+      result[trimmedKey] = val;
+    }
+  }
+  return result;
+}
+
 export function mergeConfig(userConfig: Partial<HudConfig>): HudConfig {
   const migrated = migrateConfig(userConfig);
 
@@ -313,6 +329,7 @@ export function mergeConfig(userConfig: Partial<HudConfig>): HudConfig {
     customLine: typeof migrated.display?.customLine === 'string'
       ? migrated.display.customLine.slice(0, 80)
       : DEFAULT_CONFIG.display.customLine,
+    contextSizeOverrides: validateContextSizeOverrides(migrated.display?.contextSizeOverrides),
   };
 
   const usage = {

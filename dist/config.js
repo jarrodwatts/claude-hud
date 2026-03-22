@@ -43,6 +43,7 @@ export const DEFAULT_CONFIG = {
         sevenDayThreshold: 80,
         environmentThreshold: 0,
         customLine: '',
+        contextSizeOverrides: {},
     },
     usage: {
         cacheTtlSeconds: 60,
@@ -148,6 +149,19 @@ function validatePositiveInt(value, defaultValue) {
         return defaultValue;
     return value;
 }
+function validateContextSizeOverrides(value) {
+    if (typeof value !== 'object' || value === null || Array.isArray(value)) {
+        return {};
+    }
+    const result = {};
+    for (const [key, val] of Object.entries(value)) {
+        const trimmedKey = key.trim();
+        if (trimmedKey.length > 0 && typeof val === 'number' && Number.isInteger(val) && val > 0) {
+            result[trimmedKey] = val;
+        }
+    }
+    return result;
+}
 export function mergeConfig(userConfig) {
     const migrated = migrateConfig(userConfig);
     const lineLayout = validateLineLayout(migrated.lineLayout)
@@ -226,6 +240,7 @@ export function mergeConfig(userConfig) {
         customLine: typeof migrated.display?.customLine === 'string'
             ? migrated.display.customLine.slice(0, 80)
             : DEFAULT_CONFIG.display.customLine,
+        contextSizeOverrides: validateContextSizeOverrides(migrated.display?.contextSizeOverrides),
     };
     const usage = {
         cacheTtlSeconds: validatePositiveInt(migrated.usage?.cacheTtlSeconds, DEFAULT_CONFIG.usage.cacheTtlSeconds),
