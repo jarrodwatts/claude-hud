@@ -736,7 +736,7 @@ test('renderToolsLine returns null when no tools exist', () => {
 });
 
 // Usage display tests
-test('renderSessionLine displays plan name in model bracket', () => {
+test('renderSessionLine does not add a synthetic subscriber label from usageData', () => {
   const ctx = baseContext();
   ctx.usageData = {
     planName: 'Max',
@@ -747,10 +747,10 @@ test('renderSessionLine displays plan name in model bracket', () => {
   };
   const line = renderSessionLine(ctx);
   assert.ok(line.includes('Opus'), 'should include model name');
-  assert.ok(line.includes('Max'), 'should include plan name');
+  assert.ok(!line.includes('Max'), 'should not include plan name derived outside stdin');
 });
 
-test('renderSessionLine prefers subscription plan over API env var', () => {
+test('renderSessionLine shows API label when API key auth is active', () => {
   const ctx = baseContext();
   ctx.usageData = {
     planName: 'Max',
@@ -764,8 +764,8 @@ test('renderSessionLine prefers subscription plan over API env var', () => {
 
   try {
     const line = renderSessionLine(ctx);
-    assert.ok(line.includes('Max'), 'should include plan label');
-    assert.ok(!line.includes('API'), 'should not include API label when plan is known');
+    assert.ok(line.includes('API'), 'should include API label for API key auth');
+    assert.ok(!line.includes('Max'), 'should not include subscriber plan label');
   } finally {
     if (savedApiKey === undefined) {
       delete process.env.ANTHROPIC_API_KEY;
@@ -775,7 +775,7 @@ test('renderSessionLine prefers subscription plan over API env var', () => {
   }
 });
 
-test('renderProjectLine prefers subscription plan over API env var', () => {
+test('renderProjectLine shows API label when API key auth is active', () => {
   const ctx = baseContext();
   ctx.usageData = {
     planName: 'Pro',
@@ -789,8 +789,8 @@ test('renderProjectLine prefers subscription plan over API env var', () => {
 
   try {
     const line = renderProjectLine(ctx);
-    assert.ok(line?.includes('Pro'), 'should include plan label');
-    assert.ok(!line?.includes('API'), 'should not include API label when plan is known');
+    assert.ok(line?.includes('API'), 'should include API label for API key auth');
+    assert.ok(!line?.includes('Pro'), 'should not include subscriber plan label');
   } finally {
     if (savedApiKey === undefined) {
       delete process.env.ANTHROPIC_API_KEY;
@@ -1044,63 +1044,7 @@ test('renderSessionLine omits usage when usageData is null', () => {
   assert.ok(!line.includes('7d:'), 'should not include 7d label');
 });
 
-test('renderSessionLine displays warning when API is unavailable', () => {
-  const ctx = baseContext();
-  ctx.usageData = {
-    planName: 'Max',
-    fiveHour: null,
-    sevenDay: null,
-    fiveHourResetAt: null,
-    sevenDayResetAt: null,
-    apiUnavailable: true,
-    apiError: 'http-401',
-  };
-  const line = renderSessionLine(ctx);
-  assert.ok(line.includes('usage:'), 'should show usage label');
-  assert.ok(line.includes('⚠'), 'should show warning indicator');
-  assert.ok(line.includes('401'), 'should include error code');
-  assert.ok(!line.includes('5h:'), 'should not show 5h when API unavailable');
-});
-
-test('renderSessionLine shows syncing hint when usage API is rate-limited', () => {
-  const ctx = baseContext();
-  ctx.usageData = {
-    planName: 'Max',
-    fiveHour: null,
-    sevenDay: null,
-    fiveHourResetAt: null,
-    sevenDayResetAt: null,
-    apiUnavailable: true,
-    apiError: 'rate-limited',
-  };
-  const line = renderSessionLine(ctx);
-  assert.ok(line.includes('usage:'), 'should show usage label');
-  assert.ok(line.includes('syncing...'), 'should show syncing hint for rate limiting');
-  assert.ok(!line.includes('rate-limited'), 'should not expose raw rate-limit error key');
-});
-
-test('renderSessionLine keeps stale usage visible while rate-limited', () => {
-  const ctx = baseContext();
-  ctx.usageData = {
-    planName: 'Max',
-    fiveHour: 25,
-    sevenDay: 85,
-    fiveHourResetAt: null,
-    sevenDayResetAt: null,
-    apiError: 'rate-limited',
-  };
-  const compactLine = renderSessionLine(ctx);
-  assert.ok(compactLine.includes('25%'), 'should keep the last successful 5h usage visible');
-  assert.ok(compactLine.includes('85%'), 'should keep the last successful 7d usage visible');
-  assert.ok(compactLine.includes('syncing...'), 'should show syncing hint alongside stale usage');
-
-  const usageLine = renderUsageLine(ctx);
-  assert.ok(usageLine?.includes('25%'), 'expanded usage line should keep stale 5h usage visible');
-  assert.ok(usageLine?.includes('85%'), 'expanded usage line should keep stale 7d usage visible');
-  assert.ok(usageLine?.includes('syncing...'), 'expanded usage line should show syncing hint');
-});
-
-test('renderSessionLine uses custom warning and critical colors for usage states', () => {
+test('renderSessionLine uses custom critical colors for limit-reached usage state', () => {
   const ctx = baseContext();
   ctx.config.colors = {
     context: 'green',
@@ -1109,19 +1053,6 @@ test('renderSessionLine uses custom warning and critical colors for usage states
     usageWarning: 'brightMagenta',
     critical: 'magenta',
   };
-  ctx.usageData = {
-    planName: 'Max',
-    fiveHour: null,
-    sevenDay: null,
-    fiveHourResetAt: null,
-    sevenDayResetAt: null,
-    apiUnavailable: true,
-    apiError: 'http-401',
-  };
-
-  const warningLine = renderSessionLine(ctx);
-  assert.ok(warningLine.includes('\x1b[36musage: ⚠ (401)\x1b[0m'), `expected custom warning color, got: ${JSON.stringify(warningLine)}`);
-
   ctx.usageData = {
     planName: 'Pro',
     fiveHour: 100,

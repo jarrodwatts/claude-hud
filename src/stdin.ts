@@ -134,7 +134,7 @@ function parseRateLimitResetAt(value: number | null | undefined): Date | null {
   return new Date(value * 1000);
 }
 
-export function getUsageFromStdin(stdin: StdinData, planName?: string | null): UsageData | null {
+export function getUsageFromStdin(stdin: StdinData): UsageData | null {
   const rateLimits = stdin.rate_limits;
   if (!rateLimits) {
     return null;
@@ -146,12 +146,7 @@ export function getUsageFromStdin(stdin: StdinData, planName?: string | null): U
     return null;
   }
 
-  const resolvedPlanName = typeof planName === 'string' && planName.trim()
-    ? planName.trim()
-    : 'Claude';
-
   return {
-    planName: resolvedPlanName,
     fiveHour,
     sevenDay,
     fiveHourResetAt: parseRateLimitResetAt(rateLimits.five_hour?.resets_at),

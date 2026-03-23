@@ -4,6 +4,10 @@ All notable changes to Claude HUD will be documented in this file.
 
 ## [Unreleased]
 
+### Changed
+- Simplify usage display to rely only on Claude Code's official stdin `rate_limits` fields.
+- Remove the background OAuth usage API fallback, related cache/lock behavior, and credential-derived subscriber plan labels from the HUD.
+
 ## [0.0.10] - 2026-03-23
 
 ### Added

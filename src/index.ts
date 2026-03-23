@@ -3,7 +3,6 @@ import { parseTranscript } from './transcript.js';
 import { render } from './render/index.js';
 import { countConfigs } from './config-reader.js';
 import { getGitStatus } from './git.js';
-import { getUsage, getUsagePlanNameFallback } from './usage-api.js';
 import { loadConfig } from './config.js';
 import { parseExtraCmdArg, runExtraCmd } from './extra-cmd.js';
 import { getClaudeCodeVersion } from './version.js';
@@ -18,8 +17,6 @@ export type MainDeps = {
   parseTranscript: typeof parseTranscript;
   countConfigs: typeof countConfigs;
   getGitStatus: typeof getGitStatus;
-  getUsage: typeof getUsage;
-  getUsagePlanNameFallback: typeof getUsagePlanNameFallback;
   loadConfig: typeof loadConfig;
   parseExtraCmdArg: typeof parseExtraCmdArg;
   runExtraCmd: typeof runExtraCmd;
@@ -37,8 +34,6 @@ export async function main(overrides: Partial<MainDeps> = {}): Promise<void> {
     parseTranscript,
     countConfigs,
     getGitStatus,
-    getUsage,
-    getUsagePlanNameFallback,
     loadConfig,
     parseExtraCmdArg,
     runExtraCmd,
@@ -73,23 +68,10 @@ export async function main(overrides: Partial<MainDeps> = {}): Promise<void> {
       ? await deps.getGitStatus(stdin.cwd)
       : null;
 
-    // Only fetch usage if enabled in config (replaces env var requirement)
+    // Usage comes only from Claude Code's official stdin rate_limits fields.
     let usageData: RenderContext['usageData'] = null;
     if (config.display.showUsage !== false) {
-      const stdinUsage = deps.getUsageFromStdin(stdin);
-      if (stdinUsage) {
-        const fallbackPlanName = deps.getUsagePlanNameFallback();
-        usageData = fallbackPlanName
-          ? { ...stdinUsage, planName: fallbackPlanName }
-          : stdinUsage;
-      } else {
-        usageData = await deps.getUsage({
-          ttls: {
-            cacheTtlMs: config.usage.cacheTtlSeconds * 1000,
-            failureCacheTtlMs: config.usage.failureCacheTtlSeconds * 1000,
-          },
-        });
-      }
+      usageData = deps.getUsageFromStdin(stdin);
     }
 
     const extraCmd = deps.parseExtraCmdArg();

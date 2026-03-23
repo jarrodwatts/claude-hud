@@ -1,7 +1,7 @@
 import type { RenderContext } from '../../types.js';
 import { isLimitReached } from '../../types.js';
 import { getProviderLabel } from '../../stdin.js';
-import { critical, warning, dim, getQuotaColor, quotaBar, RESET } from '../colors.js';
+import { critical, dim, getQuotaColor, quotaBar, RESET } from '../colors.js';
 import { getAdaptiveBarWidth } from '../../utils/terminal.js';
 
 export function renderUsageLine(ctx: RenderContext): string | null {
@@ -12,7 +12,7 @@ export function renderUsageLine(ctx: RenderContext): string | null {
     return null;
   }
 
-  if (!ctx.usageData?.planName) {
+  if (!ctx.usageData) {
     return null;
   }
 
@@ -21,11 +21,6 @@ export function renderUsageLine(ctx: RenderContext): string | null {
   }
 
   const label = dim('Usage');
-
-  if (ctx.usageData.apiUnavailable) {
-    const errorHint = formatUsageError(ctx.usageData.apiError);
-    return `${label} ${warning(`⚠${errorHint}`, colors)}`;
-  }
 
   if (isLimitReached(ctx.usageData)) {
     const resetTime = ctx.usageData.fiveHour === 100
@@ -45,9 +40,6 @@ export function renderUsageLine(ctx: RenderContext): string | null {
 
   const usageBarEnabled = display?.usageBarEnabled ?? true;
   const sevenDayThreshold = display?.sevenDayThreshold ?? 80;
-  const syncingSuffix = ctx.usageData.apiError === 'rate-limited'
-    ? ` ${dim('(syncing...)')}`
-    : '';
   const barWidth = getAdaptiveBarWidth();
 
   if (fiveHour === null && sevenDay !== null) {
@@ -60,7 +52,7 @@ export function renderUsageLine(ctx: RenderContext): string | null {
       barWidth,
       forceLabel: true,
     });
-    return `${label} ${weeklyOnlyPart}${syncingSuffix}`;
+    return `${label} ${weeklyOnlyPart}`;
   }
 
   const fiveHourPart = formatUsageWindowPart({
@@ -81,10 +73,10 @@ export function renderUsageLine(ctx: RenderContext): string | null {
       usageBarEnabled,
       barWidth,
     });
-    return `${label} ${fiveHourPart} | ${sevenDayPart}${syncingSuffix}`;
+    return `${label} ${fiveHourPart} | ${sevenDayPart}`;
   }
 
-  return `${label} ${fiveHourPart}${syncingSuffix}`;
+  return `${label} ${fiveHourPart}`;
 }
 
 function formatUsagePercent(percent: number | null, colors?: RenderContext['config']['colors']): string {
@@ -125,13 +117,6 @@ function formatUsageWindowPart({
   return reset
     ? `${label}: ${usageDisplay} (resets in ${reset})`
     : `${label}: ${usageDisplay}`;
-}
-
-function formatUsageError(error?: string): string {
-  if (!error) return '';
-  if (error === 'rate-limited') return ' (syncing...)';
-  if (error.startsWith('http-')) return ` (${error.slice(5)})`;
-  return ` (${error})`;
 }
 
 function formatResetTime(resetAt: Date | null): string {

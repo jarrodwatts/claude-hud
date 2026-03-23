@@ -51,13 +51,11 @@ Claude Code → stdin JSON → parse → render lines → stdout → Claude Code
 - Hooks count from `~/.claude/settings.json` (hooks)
 - Rules count from CLAUDE.md files
 
-**From OAuth credentials** (`~/.claude/.credentials.json`, when `display.showUsage` enabled):
-- `claudeAiOauth.accessToken` - OAuth token for API calls
-- `claudeAiOauth.subscriptionType` - User's plan (Pro, Max, Team)
-
-**From Anthropic Usage API** (`api.anthropic.com/api/oauth/usage`):
-- 5-hour and 7-day usage percentages
-- Reset timestamps (cached 60s success, 15s failure)
+**From Claude Code stdin rate limits**:
+- `rate_limits.five_hour.used_percentage` - 5-hour subscriber usage percentage
+- `rate_limits.five_hour.resets_at` - 5-hour reset timestamp
+- `rate_limits.seven_day.used_percentage` - 7-day subscriber usage percentage
+- `rate_limits.seven_day.resets_at` - 7-day reset timestamp
 
 ### File Structure
 
@@ -69,7 +67,6 @@ src/
 ├── config-reader.ts   # Read MCP/rules configs
 ├── config.ts          # Load/validate user config
 ├── git.ts             # Git status (branch, dirty, ahead/behind)
-├── usage-api.ts       # Fetch usage from Anthropic API
 ├── types.ts           # TypeScript interfaces
 └── render/
     ├── index.ts       # Main render coordinator

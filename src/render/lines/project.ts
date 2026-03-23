@@ -11,11 +11,9 @@ export function renderProjectLine(ctx: RenderContext): string | null {
     const model = getModelName(ctx.stdin);
     const providerLabel = getProviderLabel(ctx.stdin);
     const showUsage = display?.showUsage !== false;
-    const planName = showUsage ? ctx.usageData?.planName : undefined;
     const hasApiKey = !!process.env.ANTHROPIC_API_KEY;
-    const billingLabel = showUsage ? (planName ?? (hasApiKey ? red('API') : undefined)) : undefined;
-    const planDisplay = providerLabel ?? billingLabel;
-    const modelDisplay = planDisplay ? `${model} | ${planDisplay}` : model;
+    const modelQualifier = providerLabel ?? (showUsage && hasApiKey ? red('API') : undefined);
+    const modelDisplay = modelQualifier ? `${model} | ${modelQualifier}` : model;
     parts.push(cyan(`[${modelDisplay}]`));
   }
 

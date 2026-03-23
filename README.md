@@ -161,8 +161,6 @@ Edit `~/.claude/plugins/claude-hud/config.json` directly for advanced settings s
 | `display.showSessionName` | boolean | false | Show session slug or custom title from `/rename` |
 | `display.showClaudeCodeVersion` | boolean | false | Show the installed Claude Code version, e.g. `CC v2.1.81` |
 | `display.showMemoryUsage` | boolean | false | Show an approximate system RAM usage line in expanded layout |
-| `usage.cacheTtlSeconds` | number | 60 | How long (seconds) to cache a successful usage API response |
-| `usage.failureCacheTtlSeconds` | number | 15 | How long (seconds) to cache a failed usage API response before retrying |
 | `colors.context` | color name | `green` | Base color for the context bar and context percentage |
 | `colors.usage` | color name | `brightBlue` | Base color for usage bars and percentages below warning thresholds |
 | `colors.warning` | color name | `yellow` | Warning color for context thresholds and usage warning text |
@@ -175,7 +173,7 @@ Supported color names: `red`, `green`, `yellow`, `magenta`, `cyan`, `brightBlue`
 
 ### Usage Limits
 
-Usage display is **enabled by default** for Claude subscribers when Claude Code provides rate-limit data or the HUD can fall back to the Anthropic OAuth usage API. It shows your rate limit consumption on line 2 alongside the context bar.
+Usage display is **enabled by default** when Claude Code provides subscriber `rate_limits` data on stdin. It shows your rate limit consumption on line 2 alongside the context bar.
 
 Free/weekly-only accounts render the weekly window by itself instead of showing a ghost `5h: --` placeholder.
 
@@ -188,7 +186,7 @@ Context █████░░░░░ 45% │ Usage ██░░░░░░░
 To disable, set `display.showUsage` to `false`.
 
 **Requirements:**
-- Claude subscription usage data from Claude Code stdin or the Anthropic OAuth usage API
+- Claude subscription usage data from Claude Code stdin
 - Not available for API-key-only users
 
 **Troubleshooting:** If usage doesn't appear:
@@ -197,10 +195,7 @@ To disable, set `display.showUsage` to `false`.
 - API users see no usage display (they have pay-per-token, not rate limits)
 - AWS Bedrock models display `Bedrock` and hide usage limits (usage is managed in AWS)
 - Claude Code may leave `rate_limits` empty until after the first model response in a session
-- If you only need to route Anthropic traffic through your network, use `HTTPS_PROXY` / `HTTP_PROXY` / `ALL_PROXY` rather than `ANTHROPIC_BASE_URL`
-- Non-default `ANTHROPIC_BASE_URL` / `ANTHROPIC_API_BASE_URL` settings skip usage display, because the Anthropic OAuth usage API may not apply
-- If you are behind a proxy, set `HTTPS_PROXY` (or `HTTP_PROXY`/`ALL_PROXY`) and optional `NO_PROXY`
-- For high-latency environments, increase the usage API timeout with `CLAUDE_HUD_USAGE_TIMEOUT_MS` (milliseconds)
+- Older Claude Code versions that do not emit `rate_limits` will not show subscriber usage
 
 ### Example Configuration
 
@@ -229,10 +224,6 @@ To disable, set `display.showUsage` to `false`.
     "warning": "yellow",
     "usageWarning": "magenta",
     "critical": "red"
-  },
-  "usage": {
-    "cacheTtlSeconds": 120,
-    "failureCacheTtlSeconds": 30
   }
 }
 ```

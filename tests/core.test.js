@@ -232,10 +232,9 @@ test('getUsageFromStdin parses official Claude Code rate_limits payload', () => 
         resets_at: 1710600000,
       },
     },
-  }, 'Max');
+  });
 
   assert.deepEqual(usage, {
-    planName: 'Max',
     fiveHour: 8,
     sevenDay: 100,
     fiveHourResetAt: new Date(1710000000 * 1000),
@@ -243,7 +242,7 @@ test('getUsageFromStdin parses official Claude Code rate_limits payload', () => 
   });
 });
 
-test('getUsageFromStdin falls back to generic label and rejects invalid fields', () => {
+test('getUsageFromStdin rejects invalid fields and keeps only official usage data', () => {
   const usage = getUsageFromStdin({
     rate_limits: {
       five_hour: {
@@ -258,7 +257,6 @@ test('getUsageFromStdin falls back to generic label and rejects invalid fields',
   });
 
   assert.deepEqual(usage, {
-    planName: 'Claude',
     fiveHour: 0,
     sevenDay: null,
     fiveHourResetAt: null,

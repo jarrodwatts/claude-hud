@@ -75,10 +75,6 @@ export interface HudConfig {
     environmentThreshold: number;
     customLine: string;
   };
-  usage: {
-    cacheTtlSeconds: number;
-    failureCacheTtlSeconds: number;
-  };
   colors: HudColorOverrides;
 }
 
@@ -115,10 +111,6 @@ export const DEFAULT_CONFIG: HudConfig = {
     sevenDayThreshold: 80,
     environmentThreshold: 0,
     customLine: '',
-  },
-  usage: {
-    cacheTtlSeconds: 60,
-    failureCacheTtlSeconds: 15,
   },
   colors: {
     context: 'green',
@@ -229,11 +221,6 @@ function validateThreshold(value: unknown, max = 100): number {
   return Math.max(0, Math.min(max, value));
 }
 
-function validatePositiveInt(value: unknown, defaultValue: number): number {
-  if (typeof value !== 'number' || !Number.isInteger(value) || value <= 0) return defaultValue;
-  return value;
-}
-
 export function mergeConfig(userConfig: Partial<HudConfig>): HudConfig {
   const migrated = migrateConfig(userConfig);
 
@@ -326,17 +313,6 @@ export function mergeConfig(userConfig: Partial<HudConfig>): HudConfig {
       : DEFAULT_CONFIG.display.customLine,
   };
 
-  const usage = {
-    cacheTtlSeconds: validatePositiveInt(
-      migrated.usage?.cacheTtlSeconds,
-      DEFAULT_CONFIG.usage.cacheTtlSeconds
-    ),
-    failureCacheTtlSeconds: validatePositiveInt(
-      migrated.usage?.failureCacheTtlSeconds,
-      DEFAULT_CONFIG.usage.failureCacheTtlSeconds
-    ),
-  };
-
   const colors = {
     context: validateColorValue(migrated.colors?.context)
       ? migrated.colors.context
@@ -355,7 +331,7 @@ export function mergeConfig(userConfig: Partial<HudConfig>): HudConfig {
       : DEFAULT_CONFIG.colors.critical,
   };
 
-  return { lineLayout, showSeparators, pathLevels, elementOrder, gitStatus, display, usage, colors };
+  return { lineLayout, showSeparators, pathLevels, elementOrder, gitStatus, display, colors };
 }
 
 export async function loadConfig(): Promise<HudConfig> {
