@@ -167,3 +167,58 @@ test('main includes usageData in render context', async () => {
 
   assert.deepEqual(renderedContext?.usageData, mockUsageData);
 });
+
+test('main uses stdin rate_limits instead of calling getUsage', async () => {
+  let renderedContext;
+  let getUsageCalled = false;
+
+  await main({
+    readStdin: async () => ({
+      model: { display_name: 'Opus' },
+      context_window: { context_window_size: 100, current_usage: { input_tokens: 10 } },
+      rate_limits: {
+        five_hour: { used_percentage: 23.5, resets_at: 1738425600 },
+        seven_day: { used_percentage: 41.2, resets_at: 1738857600 },
+      },
+    }),
+    parseTranscript: async () => ({ tools: [], agents: [], todos: [] }),
+    countConfigs: async () => ({ claudeMdCount: 0, rulesCount: 0, mcpCount: 0, hooksCount: 0 }),
+    getUsage: async () => {
+      getUsageCalled = true;
+      return null;
+    },
+    render: (ctx) => {
+      renderedContext = ctx;
+    },
+  });
+
+  assert.equal(getUsageCalled, false, 'getUsage should not be called when stdin has rate_limits');
+  assert.equal(renderedContext?.usageData?.planName, 'Pro');
+  assert.equal(renderedContext?.usageData?.fiveHour, 23.5);
+  assert.equal(renderedContext?.usageData?.sevenDay, 41.2);
+});
+
+test('main falls back to getUsage when stdin has no rate_limits', async () => {
+  let renderedContext;
+  let getUsageCalled = false;
+  const mockUsage = { planName: 'Max', fiveHour: 10, sevenDay: 5, fiveHourResetAt: null, sevenDayResetAt: null };
+
+  await main({
+    readStdin: async () => ({
+      model: { display_name: 'Opus' },
+      context_window: { context_window_size: 100, current_usage: { input_tokens: 10 } },
+    }),
+    parseTranscript: async () => ({ tools: [], agents: [], todos: [] }),
+    countConfigs: async () => ({ claudeMdCount: 0, rulesCount: 0, mcpCount: 0, hooksCount: 0 }),
+    getUsage: async () => {
+      getUsageCalled = true;
+      return mockUsage;
+    },
+    render: (ctx) => {
+      renderedContext = ctx;
+    },
+  });
+
+  assert.equal(getUsageCalled, true, 'getUsage should be called when stdin has no rate_limits');
+  assert.deepEqual(renderedContext?.usageData, mockUsage);
+});

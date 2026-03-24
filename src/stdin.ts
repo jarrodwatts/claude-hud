@@ -1,4 +1,4 @@
-import type { StdinData } from './types.js';
+import type { StdinData, UsageData } from './types.js';
 import { AUTOCOMPACT_BUFFER_PERCENT } from './constants.js';
 
 export async function readStdin(): Promise<StdinData | null> {
@@ -86,6 +86,24 @@ export function getBufferedPercent(stdin: StdinData): number {
   const buffer = size * AUTOCOMPACT_BUFFER_PERCENT * scale;
 
   return Math.min(100, Math.round(((totalTokens + buffer) / size) * 100));
+}
+
+/**
+ * Convert stdin rate_limits to UsageData format.
+ * Returns null if rate_limits is absent or has no windows.
+ */
+export function parseRateLimits(stdin: StdinData): UsageData | null {
+  const rl = stdin.rate_limits;
+  if (!rl) return null;
+  if (!rl.five_hour && !rl.seven_day) return null;
+
+  return {
+    planName: 'Pro',
+    fiveHour: rl.five_hour?.used_percentage ?? null,
+    sevenDay: rl.seven_day?.used_percentage ?? null,
+    fiveHourResetAt: rl.five_hour?.resets_at ? new Date(rl.five_hour.resets_at * 1000) : null,
+    sevenDayResetAt: rl.seven_day?.resets_at ? new Date(rl.seven_day.resets_at * 1000) : null,
+  };
 }
 
 export function getModelName(stdin: StdinData): string {

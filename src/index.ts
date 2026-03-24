@@ -1,4 +1,4 @@
-import { readStdin } from './stdin.js';
+import { readStdin, parseRateLimits } from './stdin.js';
 import { parseTranscript } from './transcript.js';
 import { render } from './render/index.js';
 import { countConfigs } from './config-reader.js';
@@ -58,9 +58,9 @@ export async function main(overrides: Partial<MainDeps> = {}): Promise<void> {
       ? await deps.getGitStatus(stdin.cwd)
       : null;
 
-    // Only fetch usage if enabled in config (replaces env var requirement)
+    // Prefer stdin rate_limits (Claude Code v2.1.80+), fall back to OAuth API
     const usageData = config.display.showUsage !== false
-      ? await deps.getUsage({
+      ? parseRateLimits(stdin) ?? await deps.getUsage({
           ttls: {
             cacheTtlMs: config.usage.cacheTtlSeconds * 1000,
             failureCacheTtlMs: config.usage.failureCacheTtlSeconds * 1000,

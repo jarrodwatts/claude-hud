@@ -1,6 +1,16 @@
 import type { HudConfig } from './config.js';
 import type { GitStatus } from './git.js';
 
+export interface StdinRateLimitWindow {
+  used_percentage: number;
+  resets_at: number; // Unix epoch seconds
+}
+
+export interface StdinRateLimits {
+  five_hour?: StdinRateLimitWindow;
+  seven_day?: StdinRateLimitWindow;
+}
+
 export interface StdinData {
   transcript_path?: string;
   cwd?: string;
@@ -20,6 +30,7 @@ export interface StdinData {
     used_percentage?: number | null;
     remaining_percentage?: number | null;
   };
+  rate_limits?: StdinRateLimits;
 }
 
 export interface ToolEntry {
