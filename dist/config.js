@@ -11,6 +11,7 @@ export const DEFAULT_ELEMENT_ORDER = [
     'tools',
     'agents',
     'todos',
+    'bash-output',
 ];
 const KNOWN_ELEMENTS = new Set(DEFAULT_ELEMENT_ORDER);
 export const DEFAULT_CONFIG = {
@@ -41,6 +42,8 @@ export const DEFAULT_CONFIG = {
         showSessionName: false,
         showClaudeCodeVersion: false,
         showMemoryUsage: false,
+        showBashOutput: false,
+        bashOutputMaxLines: 5,
         autocompactBuffer: 'enabled',
         usageThreshold: 0,
         sevenDayThreshold: 80,
@@ -224,6 +227,12 @@ export function mergeConfig(userConfig) {
         showMemoryUsage: typeof migrated.display?.showMemoryUsage === 'boolean'
             ? migrated.display.showMemoryUsage
             : DEFAULT_CONFIG.display.showMemoryUsage,
+        showBashOutput: typeof migrated.display?.showBashOutput === 'boolean'
+            ? migrated.display.showBashOutput
+            : DEFAULT_CONFIG.display.showBashOutput,
+        bashOutputMaxLines: typeof migrated.display?.bashOutputMaxLines === 'number'
+            ? Math.max(1, Math.min(20, migrated.display.bashOutputMaxLines))
+            : DEFAULT_CONFIG.display.bashOutputMaxLines,
         autocompactBuffer: validateAutocompactBuffer(migrated.display?.autocompactBuffer)
             ? migrated.display.autocompactBuffer
             : DEFAULT_CONFIG.display.autocompactBuffer,

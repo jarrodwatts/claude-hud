@@ -5,6 +5,7 @@ import { renderSessionLine } from './session-line.js';
 import { renderToolsLine } from './tools-line.js';
 import { renderAgentsLine } from './agents-line.js';
 import { renderTodosLine } from './todos-line.js';
+import { renderBashOutputLine } from './bash-output-line.js';
 import {
   renderIdentityLine,
   renderProjectLine,
@@ -305,7 +306,7 @@ function makeSeparator(length: number): string {
   return dim('─'.repeat(Math.max(length, 1)));
 }
 
-const ACTIVITY_ELEMENTS = new Set<HudElement>(['tools', 'agents', 'todos']);
+const ACTIVITY_ELEMENTS = new Set<HudElement>(['tools', 'agents', 'todos', 'bash-output']);
 
 function collectActivityLines(ctx: RenderContext): string[] {
   const activityLines: string[] = [];
@@ -332,6 +333,13 @@ function collectActivityLines(ctx: RenderContext): string[] {
     }
   }
 
+  if (display?.showBashOutput !== false) {
+    const bashLine = renderBashOutputLine(ctx);
+    if (bashLine) {
+      activityLines.push(bashLine);
+    }
+  }
+
   return activityLines;
 }
 
@@ -355,6 +363,8 @@ function renderElementLine(ctx: RenderContext, element: HudElement): string | nu
       return display?.showAgents === false ? null : renderAgentsLine(ctx);
     case 'todos':
       return display?.showTodos === false ? null : renderTodosLine(ctx);
+    case 'bash-output':
+      return display?.showBashOutput === false ? null : renderBashOutputLine(ctx);
   }
 }
 

@@ -75,10 +75,23 @@ export function isLimitReached(data: UsageData): boolean {
   return data.fiveHour === 100 || data.sevenDay === 100;
 }
 
+export interface BashEntry {
+  id: string;
+  command: string;
+  description: string;
+  is_background: boolean;
+  output: string;
+  is_error: boolean;
+  interrupted: boolean;
+  time: Date;
+  endTime?: Date;
+}
+
 export interface TranscriptData {
   tools: ToolEntry[];
   agents: AgentEntry[];
   todos: TodoItem[];
+  recentBash: BashEntry[];
   sessionStart?: Date;
   sessionName?: string;
 }

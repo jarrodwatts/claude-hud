@@ -37,6 +37,11 @@ function serializeTranscriptData(data) {
             endTime: agent.endTime?.toISOString(),
         })),
         todos: data.todos.map((todo) => ({ ...todo })),
+        recentBash: data.recentBash.map((bash) => ({
+            ...bash,
+            time: bash.time.toISOString(),
+            endTime: bash.endTime?.toISOString(),
+        })),
         sessionStart: data.sessionStart?.toISOString(),
         sessionName: data.sessionName,
     };
@@ -54,6 +59,11 @@ function deserializeTranscriptData(data) {
             endTime: agent.endTime ? new Date(agent.endTime) : undefined,
         })),
         todos: data.todos.map((todo) => ({ ...todo })),
+        recentBash: (data.recentBash ?? []).map((bash) => ({
+            ...bash,
+            time: new Date(bash.time),
+            endTime: bash.endTime ? new Date(bash.endTime) : undefined,
+        })),
         sessionStart: data.sessionStart ? new Date(data.sessionStart) : undefined,
         sessionName: data.sessionName,
     };
@@ -94,6 +104,7 @@ export async function parseTranscript(transcriptPath) {
         tools: [],
         agents: [],
         todos: [],
+        recentBash: [],
     };
     if (!transcriptPath || !fs.existsSync(transcriptPath)) {
         return result;
@@ -108,6 +119,7 @@ export async function parseTranscript(transcriptPath) {
     }
     const toolMap = new Map();
     const agentMap = new Map();
+    const bashMap = new Map();
     let latestTodos = [];
     const taskIdToIndex = new Map();
     let latestSlug;
@@ -130,7 +142,7 @@ export async function parseTranscript(transcriptPath) {
                 else if (typeof entry.slug === 'string') {
                     latestSlug = entry.slug;
                 }
-                processEntry(entry, toolMap, agentMap, taskIdToIndex, latestTodos, result);
+                processEntry(entry, toolMap, agentMap, bashMap, taskIdToIndex, latestTodos, result);
             }
             catch {
                 // Skip malformed lines
@@ -143,6 +155,7 @@ export async function parseTranscript(transcriptPath) {
     }
     result.tools = Array.from(toolMap.values()).slice(-20);
     result.agents = Array.from(agentMap.values()).slice(-10);
+    result.recentBash = Array.from(bashMap.values()).slice(-5);
     result.todos = latestTodos;
     result.sessionName = customTitle ?? latestSlug;
     if (parsedCleanly) {
@@ -153,7 +166,7 @@ export async function parseTranscript(transcriptPath) {
 export function _setCreateReadStreamForTests(impl) {
     createReadStreamImpl = impl ?? fs.createReadStream;
 }
-function processEntry(entry, toolMap, agentMap, taskIdToIndex, latestTodos, result) {
+function processEntry(entry, toolMap, agentMap, bashMap, taskIdToIndex, latestTodos, result) {
     const timestamp = entry.timestamp ? new Date(entry.timestamp) : new Date();
     if (!result.sessionStart && entry.timestamp) {
         result.sessionStart = timestamp;
@@ -170,6 +183,19 @@ function processEntry(entry, toolMap, agentMap, taskIdToIndex, latestTodos, resu
                 status: 'running',
                 startTime: timestamp,
             };
+            if (block.name === 'Bash') {
+                const input = block.input;
+                bashMap.set(block.id, {
+                    id: block.id,
+                    command: input?.command ?? '',
+                    description: input?.description ?? '',
+                    is_background: input?.run_in_background ?? false,
+                    output: '',
+                    is_error: false,
+                    interrupted: false,
+                    time: timestamp,
+                });
+            }
             if (block.name === 'Task') {
                 const input = block.input;
                 const agentEntry = {
@@ -235,6 +261,21 @@ function processEntry(entry, toolMap, agentMap, taskIdToIndex, latestTodos, resu
             if (agent) {
                 agent.status = 'completed';
                 agent.endTime = timestamp;
+            }
+            const bash = bashMap.get(block.tool_use_id);
+            if (bash) {
+                bash.is_error = !!block.is_error;
+                bash.endTime = timestamp;
+                const resultContent = block.content;
+                if (typeof resultContent === 'string') {
+                    bash.output = resultContent;
+                }
+                else if (Array.isArray(resultContent)) {
+                    bash.output = resultContent
+                        .filter((c) => c.type === 'text')
+                        .map((c) => c.text ?? '')
+                        .join('\n');
+                }
             }
         }
     }
