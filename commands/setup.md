@@ -214,6 +214,12 @@ Read the settings file and merge in the statusLine config, preserving all existi
 If the file doesn't exist, create it. If it contains invalid JSON, report the error and do not overwrite.
 If a write fails with `File has been unexpectedly modified`, re-read the file and retry the merge once.
 
+**CRITICAL - JSON escaping**: The generated command contains `$` characters (from bash variables and awk expressions like `$(NF-1)` and `$0`). When writing to JSON:
+- Do NOT manually escape `$` as `\$` - this is NOT a valid JSON escape sequence and will break `settings.json` parsing entirely (#315).
+- Instead, use the Read tool to load the existing settings, construct the merged object in your working memory, and use the Edit or Write tool to produce valid JSON. The `$` character is valid as-is inside JSON strings and does not need any escaping.
+- Only these characters require escaping in JSON strings: `"` (as `\"`), `\` (as `\\`), and control characters (`\n`, `\t`, etc.).
+- After writing, verify the output is valid JSON by reading it back.
+
 ```json
 {
   "statusLine": {
