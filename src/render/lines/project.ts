@@ -1,7 +1,16 @@
+import * as fs from 'node:fs';
+import * as path from 'node:path';
 import type { RenderContext } from '../../types.js';
 import { getModelName, getProviderLabel } from '../../stdin.js';
 import { getOutputSpeed } from '../../speed-tracker.js';
-import { git as gitColor, gitBranch as gitBranchColor, label, model as modelColor, project as projectColor, red, custom as customColor } from '../colors.js';
+import { git as gitColor, gitBranch as gitBranchColor, label, model as modelColor, project as projectColor, red, green, yellow, dim, custom as customColor } from '../colors.js';
+
+/** Wrap text in an OSC 8 terminal hyperlink (works in iTerm2, WezTerm, Kitty, Ghostty, etc.) */
+function hyperlink(uri: string, text: string): string {
+  const ESC = '\x1b';
+  const ST = '\\';
+  return `${ESC}]8;;${uri}${ESC}${ST}${text}${ESC}]8;;${ESC}${ST}`;
+}
 
 export function renderProjectLine(ctx: RenderContext): string | null {
   const display = ctx.config?.display;
@@ -23,7 +32,9 @@ export function renderProjectLine(ctx: RenderContext): string | null {
     const segments = ctx.stdin.cwd.split(/[/\\]/).filter(Boolean);
     const pathLevels = ctx.config?.pathLevels ?? 1;
     const projectPath = segments.length > 0 ? segments.slice(-pathLevels).join('/') : '/';
-    projectPart = projectColor(projectPath, colors);
+    const coloredProject = projectColor(projectPath, colors);
+    const linkedProject = hyperlink(`file://${ctx.stdin.cwd}`, coloredProject);
+    projectPart = linkedProject;
   }
 
   let gitPart = '';
@@ -31,34 +42,30 @@ export function renderProjectLine(ctx: RenderContext): string | null {
   const showGit = gitConfig?.enabled ?? true;
 
   if (showGit && ctx.gitStatus) {
-    const gitParts: string[] = [ctx.gitStatus.branch];
+    const branchText = ctx.gitStatus.branch + ((gitConfig?.showDirty ?? true) && ctx.gitStatus.isDirty ? '*' : '');
+    const coloredBranch = gitBranchColor(branchText, colors);
+    const linkedBranch = ctx.gitStatus.branchUrl
+      ? hyperlink(ctx.gitStatus.branchUrl, coloredBranch)
+      : coloredBranch;
 
-    if ((gitConfig?.showDirty ?? true) && ctx.gitStatus.isDirty) {
-      gitParts.push('*');
-    }
+    const gitInner: string[] = [linkedBranch];
 
     if (gitConfig?.showAheadBehind) {
-      if (ctx.gitStatus.ahead > 0) {
-        gitParts.push(` ↑${ctx.gitStatus.ahead}`);
-      }
-      if (ctx.gitStatus.behind > 0) {
-        gitParts.push(` ↓${ctx.gitStatus.behind}`);
+      if (ctx.gitStatus.ahead > 0) gitInner.push(gitBranchColor(`↑${ctx.gitStatus.ahead}`, colors));
+      if (ctx.gitStatus.behind > 0) gitInner.push(gitBranchColor(`↓${ctx.gitStatus.behind}`, colors));
+    }
+
+    if (gitConfig?.showFileStats && ctx.gitStatus.lineDiff) {
+      const { added: la, deleted: ld } = ctx.gitStatus.lineDiff;
+      const lineParts: string[] = [];
+      if (la > 0) lineParts.push(green(`+${la}`));
+      if (ld > 0) lineParts.push(red(`-${ld}`));
+      if (lineParts.length > 0) {
+        gitInner.push(`[${lineParts.join(' ')}]`);
       }
     }
 
-    if (gitConfig?.showFileStats && ctx.gitStatus.fileStats) {
-      const { modified, added, deleted, untracked } = ctx.gitStatus.fileStats;
-      const statParts: string[] = [];
-      if (modified > 0) statParts.push(`!${modified}`);
-      if (added > 0) statParts.push(`+${added}`);
-      if (deleted > 0) statParts.push(`✘${deleted}`);
-      if (untracked > 0) statParts.push(`?${untracked}`);
-      if (statParts.length > 0) {
-        gitParts.push(` ${statParts.join(' ')}`);
-      }
-    }
-
-    gitPart = `${gitColor('git:(', colors)}${gitBranchColor(gitParts.join(''), colors)}${gitColor(')', colors)}`;
+    gitPart = `${gitColor('git:(', colors)}${gitInner.join(' ')}${gitColor(')', colors)}`;
   }
 
   if (projectPart && gitPart) {
@@ -102,4 +109,61 @@ export function renderProjectLine(ctx: RenderContext): string | null {
   }
 
   return parts.join(' \u2502 ');
+}
+
+/**
+ * Renders a dedicated line listing individually modified/added/deleted files,
+ * sorted by most-recently-modified, with per-file line diffs.
+ * Controlled by `gitStatus.showFileStats: true` in config.
+ * Pass terminalWidth to hide the line entirely when the terminal is too narrow.
+ */
+export function renderGitFilesLine(ctx: RenderContext, terminalWidth: number | null = null): string | null {
+  const gitConfig = ctx.config?.gitStatus;
+  if (!(gitConfig?.showFileStats ?? false)) return null;
+  if (!ctx.gitStatus?.fileStats) return null;
+
+  const { trackedFiles, untracked } = ctx.gitStatus.fileStats;
+  if (trackedFiles.length === 0 && untracked === 0) return null;
+
+  // Hide on very narrow terminals (threshold: 60 columns)
+  if (terminalWidth !== null && terminalWidth < 60) return null;
+
+  const cwd = ctx.stdin.cwd;
+
+  // Sort by mtime descending (most recently modified first)
+  const sorted = [...trackedFiles].sort((a, b) => {
+    try {
+      const aMtime = cwd ? fs.statSync(path.join(cwd, a.fullPath)).mtimeMs : 0;
+      const bMtime = cwd ? fs.statSync(path.join(cwd, b.fullPath)).mtimeMs : 0;
+      return bMtime - aMtime;
+    } catch {
+      return 0;
+    }
+  });
+
+  const MAX_FILES = 6;
+  const shown = sorted.slice(0, MAX_FILES);
+  const overflow = sorted.length - shown.length;
+  const statParts: string[] = [];
+
+  for (const tf of shown) {
+    const prefix = tf.type === 'added' ? green('+') : tf.type === 'deleted' ? red('-') : yellow('~');
+    const coloredName = tf.type === 'added' ? green(tf.basename) : tf.type === 'deleted' ? red(tf.basename) : yellow(tf.basename);
+    const linkedName = cwd
+      ? hyperlink(`file://${path.join(cwd, tf.fullPath)}`, coloredName)
+      : coloredName;
+    let entry = `${prefix}${linkedName}`;
+    if (tf.lineDiff) {
+      const parts: string[] = [];
+      if (tf.lineDiff.added > 0) parts.push(green(`+${tf.lineDiff.added}`));
+      if (tf.lineDiff.deleted > 0) parts.push(red(`-${tf.lineDiff.deleted}`));
+      if (parts.length > 0) entry += dim(`(${parts.join(' ')})`);
+    }
+    statParts.push(entry);
+  }
+
+  if (overflow > 0) statParts.push(dim(`+${overflow} more`));
+  if (untracked > 0) statParts.push(dim(`?${untracked}`));
+
+  return statParts.join('  ');
 }

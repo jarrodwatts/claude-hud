@@ -8,6 +8,7 @@ import { renderTodosLine } from './todos-line.js';
 import {
   renderIdentityLine,
   renderProjectLine,
+  renderGitFilesLine,
   renderEnvironmentLine,
   renderUsageLine,
   renderMemoryLine,
@@ -369,7 +370,7 @@ function renderCompact(ctx: RenderContext): string[] {
   return lines;
 }
 
-function renderExpanded(ctx: RenderContext): Array<{ line: string; isActivity: boolean }> {
+function renderExpanded(ctx: RenderContext, terminalWidth: number | null = null): Array<{ line: string; isActivity: boolean }> {
   const elementOrder = ctx.config?.elementOrder ?? DEFAULT_ELEMENT_ORDER;
   const seen = new Set<HudElement>();
   const lines: Array<{ line: string; isActivity: boolean }> = [];
@@ -415,6 +416,12 @@ function renderExpanded(ctx: RenderContext): Array<{ line: string; isActivity: b
     });
   }
 
+  // Git files line always goes last (pass width so it can hide itself if too narrow)
+  const gitFilesLine = renderGitFilesLine(ctx, terminalWidth);
+  if (gitFilesLine) {
+    lines.push({ line: gitFilesLine, isActivity: false });
+  }
+
   return lines;
 }
 
@@ -426,7 +433,7 @@ export function render(ctx: RenderContext): void {
   let lines: string[];
 
   if (lineLayout === 'expanded') {
-    const renderedLines = renderExpanded(ctx);
+    const renderedLines = renderExpanded(ctx, terminalWidth);
     lines = renderedLines.map(({ line }) => line);
 
     if (showSeparators) {
