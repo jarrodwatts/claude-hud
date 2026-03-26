@@ -51,6 +51,14 @@ export interface AgentEntry {
   endTime?: Date;
 }
 
+export interface SkillEntry {
+  id: string;
+  name: string;
+  status: 'running' | 'completed';
+  startTime: Date;
+  endTime?: Date;
+}
+
 export interface TodoItem {
   content: string;
   status: 'pending' | 'in_progress' | 'completed';
@@ -78,6 +86,7 @@ export function isLimitReached(data: UsageData): boolean {
 export interface TranscriptData {
   tools: ToolEntry[];
   agents: AgentEntry[];
+  skills: SkillEntry[];
   todos: TodoItem[];
   sessionStart?: Date;
   sessionName?: string;

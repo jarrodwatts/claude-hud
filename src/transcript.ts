@@ -4,7 +4,7 @@ import * as path from 'node:path';
 import * as readline from 'readline';
 import { createHash } from 'node:crypto';
 import { getHudPluginDir } from './claude-config-dir.js';
-import type { TranscriptData, ToolEntry, AgentEntry, TodoItem } from './types.js';
+import type { TranscriptData, ToolEntry, AgentEntry, SkillEntry, TodoItem } from './types.js';
 
 interface TranscriptLine {
   timestamp?: string;
@@ -40,9 +40,15 @@ interface SerializedAgentEntry extends Omit<AgentEntry, 'startTime' | 'endTime'>
   endTime?: string;
 }
 
+interface SerializedSkillEntry extends Omit<SkillEntry, 'startTime' | 'endTime'> {
+  startTime: string;
+  endTime?: string;
+}
+
 interface SerializedTranscriptData {
   tools: SerializedToolEntry[];
   agents: SerializedAgentEntry[];
+  skills: SerializedSkillEntry[];
   todos: TodoItem[];
   sessionStart?: string;
   sessionName?: string;
@@ -88,6 +94,11 @@ function serializeTranscriptData(data: TranscriptData): SerializedTranscriptData
       startTime: agent.startTime.toISOString(),
       endTime: agent.endTime?.toISOString(),
     })),
+    skills: data.skills.map((skill) => ({
+      ...skill,
+      startTime: skill.startTime.toISOString(),
+      endTime: skill.endTime?.toISOString(),
+    })),
     todos: data.todos.map((todo) => ({ ...todo })),
     sessionStart: data.sessionStart?.toISOString(),
     sessionName: data.sessionName,
@@ -105,6 +116,11 @@ function deserializeTranscriptData(data: SerializedTranscriptData): TranscriptDa
       ...agent,
       startTime: new Date(agent.startTime),
       endTime: agent.endTime ? new Date(agent.endTime) : undefined,
+    })),
+    skills: data.skills.map((skill) => ({
+      ...skill,
+      startTime: new Date(skill.startTime),
+      endTime: skill.endTime ? new Date(skill.endTime) : undefined,
     })),
     todos: data.todos.map((todo) => ({ ...todo })),
     sessionStart: data.sessionStart ? new Date(data.sessionStart) : undefined,
@@ -150,6 +166,7 @@ export async function parseTranscript(transcriptPath: string): Promise<Transcrip
   const result: TranscriptData = {
     tools: [],
     agents: [],
+    skills: [],
     todos: [],
   };
 
@@ -169,6 +186,7 @@ export async function parseTranscript(transcriptPath: string): Promise<Transcrip
 
   const toolMap = new Map<string, ToolEntry>();
   const agentMap = new Map<string, AgentEntry>();
+  const skillMap = new Map<string, SkillEntry>();
   let latestTodos: TodoItem[] = [];
   const taskIdToIndex = new Map<string, number>();
   let latestSlug: string | undefined;
@@ -193,7 +211,7 @@ export async function parseTranscript(transcriptPath: string): Promise<Transcrip
         } else if (typeof entry.slug === 'string') {
           latestSlug = entry.slug;
         }
-        processEntry(entry, toolMap, agentMap, taskIdToIndex, latestTodos, result);
+        processEntry(entry, toolMap, agentMap, skillMap, taskIdToIndex, latestTodos, result);
       } catch {
         // Skip malformed lines
       }
@@ -206,6 +224,7 @@ export async function parseTranscript(transcriptPath: string): Promise<Transcrip
 
   result.tools = Array.from(toolMap.values()).slice(-20);
   result.agents = Array.from(agentMap.values()).slice(-10);
+  result.skills = Array.from(skillMap.values()).slice(-10);
   result.todos = latestTodos;
   result.sessionName = customTitle ?? latestSlug;
   if (parsedCleanly) {
@@ -223,6 +242,7 @@ function processEntry(
   entry: TranscriptLine,
   toolMap: Map<string, ToolEntry>,
   agentMap: Map<string, AgentEntry>,
+  skillMap: Map<string, SkillEntry>,
   taskIdToIndex: Map<string, number>,
   latestTodos: TodoItem[],
   result: TranscriptData
@@ -246,7 +266,7 @@ function processEntry(
         startTime: timestamp,
       };
 
-      if (block.name === 'Task') {
+      if (block.name === 'Task' || block.name === 'Agent') {
         const input = block.input as Record<string, unknown>;
         const agentEntry: AgentEntry = {
           id: block.id,
@@ -295,6 +315,15 @@ function processEntry(
             latestTodos[index].content = content;
           }
         }
+      } else if (block.name === 'Skill') {
+        // Skill is a special tool that should be tracked separately
+        const skillEntry: SkillEntry = {
+          id: block.id,
+          name: (block.input as Record<string, unknown>)?.skill as string ?? 'unknown',
+          status: 'running',
+          startTime: timestamp,
+        };
+        skillMap.set(block.id, skillEntry);
       } else {
         toolMap.set(block.id, toolEntry);
       }
@@ -311,6 +340,12 @@ function processEntry(
       if (agent) {
         agent.status = 'completed';
         agent.endTime = timestamp;
+      }
+
+      const skill = skillMap.get(block.tool_use_id);
+      if (skill) {
+        skill.status = 'completed';
+        skill.endTime = timestamp;
       }
     }
   }

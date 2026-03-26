@@ -7,7 +7,9 @@ export type LineLayoutType = 'compact' | 'expanded';
 
 export type AutocompactBufferMode = 'enabled' | 'disabled';
 export type ContextValueMode = 'percent' | 'tokens' | 'remaining' | 'both';
-export type HudElement = 'project' | 'context' | 'usage' | 'memory' | 'environment' | 'tools' | 'agents' | 'todos';
+export type AgentDetailMode = 'minimal' | 'name';
+export type SkillDetailMode = 'minimal' | 'name';
+export type HudElement = 'project' | 'context' | 'usage' | 'memory' | 'environment' | 'tools' | 'agents' | 'skills' | 'todos';
 export type HudColorName =
   | 'dim'
   | 'red'
@@ -43,6 +45,7 @@ export const DEFAULT_ELEMENT_ORDER: HudElement[] = [
   'environment',
   'tools',
   'agents',
+  'skills',
   'todos',
 ];
 
@@ -73,6 +76,7 @@ export interface HudConfig {
     showTools: boolean;
     showAgents: boolean;
     showTodos: boolean;
+    showSkills: boolean;
     showSessionName: boolean;
     showClaudeCodeVersion: boolean;
     showMemoryUsage: boolean;
@@ -81,6 +85,8 @@ export interface HudConfig {
     sevenDayThreshold: number;
     environmentThreshold: number;
     customLine: string;
+    agentDetail: AgentDetailMode;
+    skillDetail: SkillDetailMode;
   };
   colors: HudColorOverrides;
 }
@@ -110,6 +116,7 @@ export const DEFAULT_CONFIG: HudConfig = {
     showTools: false,
     showAgents: false,
     showTodos: false,
+    showSkills: false,
     showSessionName: false,
     showClaudeCodeVersion: false,
     showMemoryUsage: false,
@@ -118,6 +125,8 @@ export const DEFAULT_CONFIG: HudConfig = {
     sevenDayThreshold: 80,
     environmentThreshold: 0,
     customLine: '',
+    agentDetail: 'name',
+    skillDetail: 'name',
   },
   colors: {
     context: 'green',
@@ -149,6 +158,14 @@ function validateLineLayout(value: unknown): value is LineLayoutType {
 
 function validateAutocompactBuffer(value: unknown): value is AutocompactBufferMode {
   return value === 'enabled' || value === 'disabled';
+}
+
+function validateAgentDetail(value: unknown): value is AgentDetailMode {
+  return value === 'minimal' || value === 'name';
+}
+
+function validateSkillDetail(value: unknown): value is SkillDetailMode {
+  return value === 'minimal' || value === 'name';
 }
 
 function validateContextValue(value: unknown): value is ContextValueMode {
@@ -307,6 +324,9 @@ export function mergeConfig(userConfig: Partial<HudConfig>): HudConfig {
     showTodos: typeof migrated.display?.showTodos === 'boolean'
       ? migrated.display.showTodos
       : DEFAULT_CONFIG.display.showTodos,
+    showSkills: typeof migrated.display?.showSkills === 'boolean'
+      ? migrated.display.showSkills
+      : DEFAULT_CONFIG.display.showSkills,
     showSessionName: typeof migrated.display?.showSessionName === 'boolean'
       ? migrated.display.showSessionName
       : DEFAULT_CONFIG.display.showSessionName,
@@ -325,6 +345,12 @@ export function mergeConfig(userConfig: Partial<HudConfig>): HudConfig {
     customLine: typeof migrated.display?.customLine === 'string'
       ? migrated.display.customLine.slice(0, 80)
       : DEFAULT_CONFIG.display.customLine,
+    agentDetail: validateAgentDetail(migrated.display?.agentDetail)
+      ? migrated.display.agentDetail
+      : DEFAULT_CONFIG.display.agentDetail,
+    skillDetail: validateSkillDetail(migrated.display?.skillDetail)
+      ? migrated.display.skillDetail
+      : DEFAULT_CONFIG.display.skillDetail,
   };
 
   const colors = {

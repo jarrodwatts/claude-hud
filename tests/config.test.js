@@ -413,3 +413,55 @@ test('mergeConfig rejects invalid hex strings', () => {
   assert.equal(config.colors.usage, DEFAULT_CONFIG.colors.usage);
   assert.equal(config.colors.warning, DEFAULT_CONFIG.colors.warning);
 });
+
+// --- agentDetail and skillDetail config tests ---
+
+test('loadConfig returns valid agentDetail and skillDetail in config structure', async () => {
+  const config = await loadConfig();
+  // agentDetail should exist and be 'minimal' or 'name'
+  assert.ok(['minimal', 'name'].includes(config.display.agentDetail), 'agentDetail should be minimal or name');
+  // skillDetail should exist and be 'minimal' or 'name'
+  assert.ok(['minimal', 'name'].includes(config.display.skillDetail), 'skillDetail should be minimal or name');
+});
+
+test('mergeConfig defaults agentDetail to name', () => {
+  const config = mergeConfig({});
+  assert.equal(config.display.agentDetail, 'name');
+  assert.equal(DEFAULT_CONFIG.display.agentDetail, 'name');
+});
+
+test('mergeConfig defaults skillDetail to name', () => {
+  const config = mergeConfig({});
+  assert.equal(config.display.skillDetail, 'name');
+  assert.equal(DEFAULT_CONFIG.display.skillDetail, 'name');
+});
+
+test('mergeConfig preserves explicit agentDetail=minimal', () => {
+  const config = mergeConfig({ display: { agentDetail: 'minimal' } });
+  assert.equal(config.display.agentDetail, 'minimal');
+});
+
+test('mergeConfig preserves explicit agentDetail=name', () => {
+  const config = mergeConfig({ display: { agentDetail: 'name' } });
+  assert.equal(config.display.agentDetail, 'name');
+});
+
+test('mergeConfig falls back to default for invalid agentDetail', () => {
+  const config = mergeConfig({ display: { agentDetail: 'invalid' } });
+  assert.equal(config.display.agentDetail, DEFAULT_CONFIG.display.agentDetail);
+});
+
+test('mergeConfig preserves explicit skillDetail=minimal', () => {
+  const config = mergeConfig({ display: { skillDetail: 'minimal' } });
+  assert.equal(config.display.skillDetail, 'minimal');
+});
+
+test('mergeConfig preserves explicit skillDetail=name', () => {
+  const config = mergeConfig({ display: { skillDetail: 'name' } });
+  assert.equal(config.display.skillDetail, 'name');
+});
+
+test('mergeConfig falls back to default for invalid skillDetail', () => {
+  const config = mergeConfig({ display: { skillDetail: 'invalid' } });
+  assert.equal(config.display.skillDetail, DEFAULT_CONFIG.display.skillDetail);
+});

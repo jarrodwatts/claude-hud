@@ -4,6 +4,7 @@ import { yellow, green, magenta, label } from './colors.js';
 export function renderAgentsLine(ctx: RenderContext): string | null {
   const { agents } = ctx.transcript;
   const colors = ctx.config?.colors;
+  const agentDetail = ctx.config?.display?.agentDetail ?? 'name';
 
   const runningAgents = agents.filter((a) => a.status === 'running');
   const recentCompleted = agents
@@ -19,17 +20,17 @@ export function renderAgentsLine(ctx: RenderContext): string | null {
   const lines: string[] = [];
 
   for (const agent of toShow) {
-    lines.push(formatAgent(agent, colors));
+    lines.push(formatAgent(agent, colors, agentDetail));
   }
 
   return lines.join('\n');
 }
 
-function formatAgent(agent: AgentEntry, colors?: RenderContext['config']['colors']): string {
+function formatAgent(agent: AgentEntry, colors?: RenderContext['config']['colors'], agentDetail: 'minimal' | 'name' = 'name'): string {
   const statusIcon = agent.status === 'running' ? yellow('◐') : green('✓');
-  const type = magenta(agent.type);
+  const type = agentDetail === 'minimal' ? magenta('Agent') : magenta(agent.type);
   const model = agent.model ? label(`[${agent.model}]`, colors) : '';
-  const desc = agent.description ? label(`: ${truncateDesc(agent.description)}`, colors) : '';
+  const desc = agentDetail === 'name' && agent.description ? label(`: ${truncateDesc(agent.description)}`, colors) : '';
   const elapsed = formatElapsed(agent);
 
   return `${statusIcon} ${type}${model ? ` ${model}` : ''}${desc} ${label(`(${elapsed})`, colors)}`;

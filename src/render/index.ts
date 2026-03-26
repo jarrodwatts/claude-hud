@@ -4,6 +4,7 @@ import type { RenderContext } from '../types.js';
 import { renderSessionLine } from './session-line.js';
 import { renderToolsLine } from './tools-line.js';
 import { renderAgentsLine } from './agents-line.js';
+import { renderSkillsLine } from './skills-line.js';
 import { renderTodosLine } from './todos-line.js';
 import {
   renderIdentityLine,
@@ -305,7 +306,7 @@ function makeSeparator(length: number): string {
   return dim('─'.repeat(Math.max(length, 1)));
 }
 
-const ACTIVITY_ELEMENTS = new Set<HudElement>(['tools', 'agents', 'todos']);
+const ACTIVITY_ELEMENTS = new Set<HudElement>(['tools', 'agents', 'skills', 'todos']);
 
 function collectActivityLines(ctx: RenderContext): string[] {
   const activityLines: string[] = [];
@@ -322,6 +323,13 @@ function collectActivityLines(ctx: RenderContext): string[] {
     const agentsLine = renderAgentsLine(ctx);
     if (agentsLine) {
       activityLines.push(agentsLine);
+    }
+  }
+
+  if (display?.showSkills !== false) {
+    const skillsLine = renderSkillsLine(ctx);
+    if (skillsLine) {
+      activityLines.push(skillsLine);
     }
   }
 
@@ -353,6 +361,8 @@ function renderElementLine(ctx: RenderContext, element: HudElement): string | nu
       return display?.showTools === false ? null : renderToolsLine(ctx);
     case 'agents':
       return display?.showAgents === false ? null : renderAgentsLine(ctx);
+    case 'skills':
+      return display?.showSkills === false ? null :  renderSkillsLine(ctx);
     case 'todos':
       return display?.showTodos === false ? null : renderTodosLine(ctx);
   }

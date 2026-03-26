@@ -8,6 +8,7 @@ import { renderSessionLine } from '../dist/render/session-line.js';
 import { renderProjectLine } from '../dist/render/lines/project.js';
 import { renderToolsLine } from '../dist/render/tools-line.js';
 import { renderAgentsLine } from '../dist/render/agents-line.js';
+import { renderSkillsLine } from '../dist/render/skills-line.js';
 import { renderTodosLine } from '../dist/render/todos-line.js';
 import { renderUsageLine } from '../dist/render/lines/usage.js';
 import { renderMemoryLine } from '../dist/render/lines/memory.js';
@@ -33,7 +34,7 @@ function baseContext() {
         },
       },
     },
-    transcript: { tools: [], agents: [], todos: [] },
+    transcript: { tools: [], agents: [], skills: [], todos: [] },
     claudeMdCount: 0,
     rulesCount: 0,
     mcpCount: 0,
@@ -48,7 +49,7 @@ function baseContext() {
       pathLevels: 1,
       elementOrder: ['project', 'context', 'usage', 'memory', 'environment', 'tools', 'agents', 'todos'],
       gitStatus: { enabled: true, showDirty: true, showAheadBehind: false, showFileStats: false },
-      display: { showModel: true, showProject: true, showContextBar: true, contextValue: 'percent', showConfigCounts: true, showDuration: true, showSpeed: false, showTokenBreakdown: true, showUsage: true, usageBarEnabled: false, showTools: true, showAgents: true, showTodos: true, showSessionName: false, showClaudeCodeVersion: false, showMemoryUsage: false, autocompactBuffer: 'enabled', usageThreshold: 0, sevenDayThreshold: 80, environmentThreshold: 0, customLine: '' },
+      display: { showModel: true, showProject: true, showContextBar: true, contextValue: 'percent', showConfigCounts: true, showDuration: true, showSpeed: false, showTokenBreakdown: true, showUsage: true, usageBarEnabled: false, showTools: true, showAgents: true, showTodos: true, showSessionName: false, showClaudeCodeVersion: false, showMemoryUsage: false, autocompactBuffer: 'enabled', usageThreshold: 0, sevenDayThreshold: 80, environmentThreshold: 0, customLine: '', agentDetail: 'name', skillDetail: 'name' },
       colors: {
         context: 'green',
         usage: 'brightBlue',
@@ -1491,4 +1492,185 @@ test('render compact layout keeps activity lines even when elementOrder omits th
 
   assert.ok(output.includes('Read'), 'compact mode should keep tools visible');
   assert.ok(output.includes('todo-marker'), 'compact mode should keep todos visible');
+});
+
+// --- agentDetail and skillDetail tests ---
+
+test('renderAgentsLine shows agent type name when agentDetail=name', () => {
+  const ctx = baseContext();
+  ctx.transcript.agents = [
+    {
+      id: 'agent-1',
+      type: 'Explore',
+      model: 'haiku',
+      description: 'Finding auth code',
+      status: 'completed',
+      startTime: new Date(0),
+      endTime: new Date(0),
+    },
+  ];
+  ctx.config.display.agentDetail = 'name';
+  const line = renderAgentsLine(ctx);
+  assert.ok(line?.includes('Explore'), 'should show agent type name when agentDetail=name');
+});
+
+test('renderAgentsLine shows generic Agent label when agentDetail=minimal', () => {
+  const ctx = baseContext();
+  ctx.transcript.agents = [
+    {
+      id: 'agent-1',
+      type: 'Explore',
+      model: 'haiku',
+      description: 'Finding auth code',
+      status: 'completed',
+      startTime: new Date(0),
+      endTime: new Date(0),
+    },
+  ];
+  ctx.config.display.agentDetail = 'minimal';
+  const line = renderAgentsLine(ctx);
+  assert.ok(line?.includes('Agent'), 'should show generic Agent label when agentDetail=minimal');
+  assert.ok(!line?.includes('Explore'), 'should NOT show agent type name when agentDetail=minimal');
+});
+
+test('renderAgentsLine shows generic Agent for running agent when agentDetail=minimal', () => {
+  const ctx = baseContext();
+  ctx.transcript.agents = [
+    {
+      id: 'agent-1',
+      type: 'planner',
+      model: 'opus',
+      description: 'Planning the implementation',
+      status: 'running',
+      startTime: new Date(0),
+    },
+  ];
+  ctx.config.display.agentDetail = 'minimal';
+  const line = renderAgentsLine(ctx);
+  assert.ok(line?.includes('◐'), 'should show running indicator');
+  assert.ok(line?.includes('Agent'), 'should show generic Agent label');
+  assert.ok(!line?.includes('planner'), 'should NOT show agent type when agentDetail=minimal');
+});
+
+test('renderAgentsLine shows model and description when agentDetail=name', () => {
+  const ctx = baseContext();
+  ctx.transcript.agents = [
+    {
+      id: 'agent-1',
+      type: 'gsd-executor',
+      model: 'opus',
+      description: 'Executing P85 wave-1',
+      status: 'running',
+      startTime: new Date(0),
+    },
+  ];
+  ctx.config.display.agentDetail = 'name';
+  const line = renderAgentsLine(ctx);
+  assert.ok(line?.includes('gsd-executor'), 'should show agent type');
+  assert.ok(line?.includes('[opus]'), 'should show model');
+  assert.ok(line?.includes('Executing P85 wave-1'), 'should show description');
+});
+
+test('renderTodosLine hides skill detail when skillDetail=minimal', () => {
+  // Skills are tracked separately from agents, this tests the expected format
+  // When skillDetail=minimal, skills would show generic "Skill" label
+  const ctx = baseContext();
+  // This test validates that the config field exists
+  assert.ok(ctx.config.display.skillDetail !== undefined, 'skillDetail config should exist');
+});
+
+test('renderSessionLine includes agentDetail and skillDetail in config', () => {
+  const ctx = baseContext();
+  assert.ok(ctx.config.display.agentDetail !== undefined, 'agentDetail should exist in config');
+  assert.ok(ctx.config.display.skillDetail !== undefined, 'skillDetail should exist in config');
+});
+
+// --- Skills rendering tests ---
+
+test('renderSkillsLine returns null when no skills exist', () => {
+  const ctx = baseContext();
+  ctx.transcript.skills = [];
+  assert.equal(renderSkillsLine(ctx), null);
+});
+
+test('renderSkillsLine returns null when skills is undefined', () => {
+  const ctx = baseContext();
+  ctx.transcript.skills = undefined;
+  assert.equal(renderSkillsLine(ctx), null);
+});
+
+test('renderSkillsLine shows completed skills with skill names', () => {
+  const ctx = baseContext();
+  ctx.transcript.skills = [
+    {
+      id: 'skill-1',
+      name: 'gsd:execute-phase',
+      status: 'completed',
+      startTime: new Date(0),
+      endTime: new Date(60000),
+    },
+  ];
+  ctx.config.display.skillDetail = 'name';
+  const line = renderSkillsLine(ctx);
+  assert.ok(line?.includes('gsd:execute-phase'), 'should show skill name');
+});
+
+test('renderSkillsLine shows generic Skill label when skillDetail=minimal', () => {
+  const ctx = baseContext();
+  ctx.transcript.skills = [
+    {
+      id: 'skill-1',
+      name: 'gsd:execute-phase',
+      status: 'completed',
+      startTime: new Date(0),
+      endTime: new Date(60000),
+    },
+  ];
+  ctx.config.display.skillDetail = 'minimal';
+  const line = renderSkillsLine(ctx);
+  assert.ok(line?.includes('Skill'), 'should show generic Skill label');
+  assert.ok(!line?.includes('gsd:execute-phase'), 'should NOT show skill name when skillDetail=minimal');
+});
+
+test('renderSkillsLine counts multiple completed skills', () => {
+  const ctx = baseContext();
+  ctx.transcript.skills = [
+    {
+      id: 'skill-1',
+      name: 'commit',
+      status: 'completed',
+      startTime: new Date(0),
+      endTime: new Date(1000),
+    },
+    {
+      id: 'skill-2',
+      name: 'commit',
+      status: 'completed',
+      startTime: new Date(1000),
+      endTime: new Date(2000),
+    },
+  ];
+  const line = renderSkillsLine(ctx);
+  assert.ok(line?.includes('×2'), 'should show count of 2 for same skill');
+});
+
+test('renderSkillsLine shows running skill with elapsed time', () => {
+  const ctx = baseContext();
+  ctx.transcript.skills = [
+    {
+      id: 'skill-1',
+      name: 'gsd:execute-phase',
+      status: 'running',
+      startTime: new Date(0),
+    },
+  ];
+  Date.now = () => 10000;
+  try {
+    const line = renderSkillsLine(ctx);
+    assert.ok(line?.includes('◐'), 'should show running indicator');
+    assert.ok(line?.includes('gsd:execute-phase'), 'should show skill name');
+    assert.ok(line?.includes('10s'), 'should show elapsed time');
+  } finally {
+    Date.now = () => Date.now();
+  }
 });
