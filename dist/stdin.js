@@ -25,6 +25,17 @@ export function getTotalTokens(stdin) {
         (usage?.cache_creation_input_tokens ?? 0) +
         (usage?.cache_read_input_tokens ?? 0));
 }
+function isUsageExplicitlyEmpty(stdin) {
+    const usage = stdin.context_window?.current_usage;
+    if (!usage) {
+        return false;
+    }
+    const input = usage.input_tokens ?? 0;
+    const output = usage.output_tokens ?? 0;
+    const cacheCreation = usage.cache_creation_input_tokens ?? 0;
+    const cacheRead = usage.cache_read_input_tokens ?? 0;
+    return input === 0 && output === 0 && cacheCreation === 0 && cacheRead === 0;
+}
 /**
  * Get native percentage from Claude Code v2.1.6+ if available.
  * Returns null if not available or invalid, triggering fallback to manual calculation.
@@ -37,6 +48,12 @@ function getNativePercent(stdin) {
     return null;
 }
 export function getContextPercent(stdin) {
+    // After /clear, Claude Code can sometimes still provide a non-zero used_percentage
+    // even though the explicit usage token fields are all zero.
+    // In that case, show 0% to avoid a misleading HUD.
+    if (isUsageExplicitlyEmpty(stdin)) {
+        return 0;
+    }
     // Prefer native percentage (v2.1.6+) - accurate and matches /context
     const native = getNativePercent(stdin);
     if (native !== null) {
@@ -51,6 +68,12 @@ export function getContextPercent(stdin) {
     return Math.min(100, Math.round((totalTokens / size) * 100));
 }
 export function getBufferedPercent(stdin) {
+    // After /clear, Claude Code can sometimes still provide a non-zero used_percentage
+    // even though the explicit usage token fields are all zero.
+    // In that case, show 0% to avoid a misleading HUD.
+    if (isUsageExplicitlyEmpty(stdin)) {
+        return 0;
+    }
     // Prefer native percentage (v2.1.6+) so the HUD matches Claude Code's
     // own context output. The buffered fallback only approximates older versions.
     const native = getNativePercent(stdin);
