@@ -4,6 +4,9 @@ All notable changes to Claude HUD will be documented in this file.
 
 ## [Unreleased]
 
+### Added
+- New `display.showAccount` option to display the currently logged-in account (email or display name with organization) in the project/session line. Disabled by default; customizable via `colors.account`.
+
 ### Changed
 - Simplify usage display to rely only on Claude Code's official stdin `rate_limits` fields.
 - Remove the background OAuth usage API fallback, related cache/lock behavior, and credential-derived subscriber plan labels from the HUD.

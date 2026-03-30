@@ -108,6 +108,10 @@ export function custom(text: string, colors?: Partial<HudColorOverrides>): strin
   return withOverride(text, colors?.custom, CLAUDE_ORANGE);
 }
 
+export function account(text: string, colors?: Partial<HudColorOverrides>): string {
+  return withOverride(text, colors?.account, DIM);
+}
+
 export function warning(text: string, colors?: Partial<HudColorOverrides>): string {
   return colorize(text, resolveAnsi(colors?.warning, YELLOW));
 }

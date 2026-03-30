@@ -1,7 +1,8 @@
 import type { RenderContext } from '../../types.js';
 import { getModelName, getProviderLabel } from '../../stdin.js';
 import { getOutputSpeed } from '../../speed-tracker.js';
-import { git as gitColor, gitBranch as gitBranchColor, label, model as modelColor, project as projectColor, red, custom as customColor } from '../colors.js';
+import { git as gitColor, gitBranch as gitBranchColor, label, model as modelColor, project as projectColor, red, custom as customColor, account as accountColor } from '../colors.js';
+import { formatAccountLabel } from '../../account.js';
 
 export function renderProjectLine(ctx: RenderContext): string | null {
   const display = ctx.config?.display;
@@ -75,6 +76,10 @@ export function renderProjectLine(ctx: RenderContext): string | null {
 
   if (display?.showClaudeCodeVersion && ctx.claudeCodeVersion) {
     parts.push(label(`CC v${ctx.claudeCodeVersion}`, colors));
+  }
+
+  if (display?.showAccount && ctx.accountInfo) {
+    parts.push(accountColor(formatAccountLabel(ctx.accountInfo), colors));
   }
 
   if (ctx.extraLabel) {
