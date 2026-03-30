@@ -33,6 +33,7 @@ export interface HudColorOverrides {
   gitBranch: HudColorValue;
   label: HudColorValue;
   custom: HudColorValue;
+  account: HudColorValue;
 }
 
 export const DEFAULT_ELEMENT_ORDER: HudElement[] = [
@@ -76,6 +77,7 @@ export interface HudConfig {
     showSessionName: boolean;
     showClaudeCodeVersion: boolean;
     showMemoryUsage: boolean;
+    showAccount: boolean;
     autocompactBuffer: AutocompactBufferMode;
     usageThreshold: number;
     sevenDayThreshold: number;
@@ -113,6 +115,7 @@ export const DEFAULT_CONFIG: HudConfig = {
     showSessionName: false,
     showClaudeCodeVersion: false,
     showMemoryUsage: false,
+    showAccount: false,
     autocompactBuffer: 'enabled',
     usageThreshold: 0,
     sevenDayThreshold: 80,
@@ -131,6 +134,7 @@ export const DEFAULT_CONFIG: HudConfig = {
     gitBranch: 'cyan',
     label: 'dim',
     custom: 208,
+    account: 'dim',
   },
 };
 
@@ -316,6 +320,9 @@ export function mergeConfig(userConfig: Partial<HudConfig>): HudConfig {
     showMemoryUsage: typeof migrated.display?.showMemoryUsage === 'boolean'
       ? migrated.display.showMemoryUsage
       : DEFAULT_CONFIG.display.showMemoryUsage,
+    showAccount: typeof migrated.display?.showAccount === 'boolean'
+      ? migrated.display.showAccount
+      : DEFAULT_CONFIG.display.showAccount,
     autocompactBuffer: validateAutocompactBuffer(migrated.display?.autocompactBuffer)
       ? migrated.display.autocompactBuffer
       : DEFAULT_CONFIG.display.autocompactBuffer,
@@ -361,6 +368,9 @@ export function mergeConfig(userConfig: Partial<HudConfig>): HudConfig {
     custom: validateColorValue(migrated.colors?.custom)
       ? migrated.colors.custom
       : DEFAULT_CONFIG.colors.custom,
+    account: validateColorValue(migrated.colors?.account)
+      ? migrated.colors.account
+      : DEFAULT_CONFIG.colors.account,
   };
 
   return { lineLayout, showSeparators, pathLevels, elementOrder, gitStatus, display, colors };

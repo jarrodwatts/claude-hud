@@ -7,6 +7,7 @@ import { loadConfig } from './config.js';
 import { parseExtraCmdArg, runExtraCmd } from './extra-cmd.js';
 import { getClaudeCodeVersion } from './version.js';
 import { getMemoryUsage } from './memory.js';
+import { getAccountInfo } from './account.js';
 import type { RenderContext } from './types.js';
 import { fileURLToPath } from 'node:url';
 import { realpathSync } from 'node:fs';
@@ -22,6 +23,7 @@ export type MainDeps = {
   runExtraCmd: typeof runExtraCmd;
   getClaudeCodeVersion: typeof getClaudeCodeVersion;
   getMemoryUsage: typeof getMemoryUsage;
+  getAccountInfo: typeof getAccountInfo;
   render: typeof render;
   now: () => number;
   log: (...args: unknown[]) => void;
@@ -39,6 +41,7 @@ export async function main(overrides: Partial<MainDeps> = {}): Promise<void> {
     runExtraCmd,
     getClaudeCodeVersion,
     getMemoryUsage,
+    getAccountInfo,
     render,
     now: () => Date.now(),
     log: console.log,
@@ -84,6 +87,9 @@ export async function main(overrides: Partial<MainDeps> = {}): Promise<void> {
     const memoryUsage = config.display.showMemoryUsage && config.lineLayout === 'expanded'
       ? await deps.getMemoryUsage()
       : null;
+    const accountInfo = config.display.showAccount
+      ? await deps.getAccountInfo()
+      : null;
 
     const ctx: RenderContext = {
       stdin,
@@ -99,6 +105,7 @@ export async function main(overrides: Partial<MainDeps> = {}): Promise<void> {
       config,
       extraLabel,
       claudeCodeVersion,
+      accountInfo,
     };
 
     deps.render(ctx);

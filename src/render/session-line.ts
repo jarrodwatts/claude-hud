@@ -2,7 +2,8 @@ import type { RenderContext } from '../types.js';
 import { isLimitReached } from '../types.js';
 import { getContextPercent, getBufferedPercent, getModelName, getProviderLabel, getTotalTokens } from '../stdin.js';
 import { getOutputSpeed } from '../speed-tracker.js';
-import { coloredBar, critical, git as gitColor, gitBranch as gitBranchColor, label, model as modelColor, project as projectColor, red, getContextColor, getQuotaColor, quotaBar, custom as customColor, RESET } from './colors.js';
+import { coloredBar, critical, git as gitColor, gitBranch as gitBranchColor, label, model as modelColor, project as projectColor, red, getContextColor, getQuotaColor, quotaBar, custom as customColor, account as accountColor, RESET } from './colors.js';
+import { formatAccountLabel } from '../account.js';
 import { getAdaptiveBarWidth } from '../utils/terminal.js';
 
 const DEBUG = process.env.DEBUG?.includes('claude-hud') || process.env.DEBUG === '*';
@@ -115,6 +116,11 @@ export function renderSessionLine(ctx: RenderContext): string {
 
   if (display?.showClaudeCodeVersion && ctx.claudeCodeVersion) {
     parts.push(label(`CC v${ctx.claudeCodeVersion}`, colors));
+  }
+
+  // Account info
+  if (display?.showAccount && ctx.accountInfo) {
+    parts.push(accountColor(formatAccountLabel(ctx.accountInfo), colors));
   }
 
   // Config counts (respects environmentThreshold)
