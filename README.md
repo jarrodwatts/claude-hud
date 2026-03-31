@@ -72,6 +72,7 @@ Claude HUD gives you better insights into what's happening in your Claude Code s
 | **Tool activity** | Watch Claude read, edit, and search files as it happens |
 | **Agent tracking** | See which subagents are running and what they're doing |
 | **Todo progress** | Track task completion in real-time |
+| **Service status** | See Claude Code service health at a glance — know if an outage is you or them |
 
 ## What You See
 
@@ -166,6 +167,7 @@ Edit `~/.claude/plugins/claude-hud/config.json` directly for advanced settings s
 | `display.showSessionName` | boolean | false | Show session slug or custom title from `/rename` |
 | `display.showClaudeCodeVersion` | boolean | false | Show the installed Claude Code version, e.g. `CC v2.1.81` |
 | `display.showMemoryUsage` | boolean | false | Show an approximate system RAM usage line in expanded layout |
+| `display.showStatus` | boolean | false | Show Claude Code service status from status.claude.com (`●` when operational, expands with incident details on issues) |
 | `colors.context` | color value | `green` | Base color for the context bar and context percentage |
 | `colors.usage` | color value | `brightBlue` | Base color for usage bars and percentages below warning thresholds |
 | `colors.warning` | color value | `yellow` | Warning color for context thresholds and usage warning text |
@@ -260,6 +262,10 @@ To disable, set `display.showUsage` to `false`.
 **With file stats:** `[Opus] │ my-project git:(main* !3 +1 ?2)`
 - `!` = modified files, `+` = added/staged, `✘` = deleted, `?` = untracked
 - Counts of 0 are omitted for cleaner display
+
+**With service status:** `[Opus] │ my-project git:(main*) │ ●`
+
+**During an outage:** `[Opus] │ my-project git:(main*) │ ✖ Elevated errors on Opus 4.6`
 
 ### Troubleshooting
 
