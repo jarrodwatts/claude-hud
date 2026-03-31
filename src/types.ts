@@ -1,5 +1,5 @@
-import type { HudConfig } from './config.js';
-import type { GitStatus } from './git.js';
+import type { HudConfig } from "./config.js";
+import type { GitStatus } from "./git.js";
 
 export interface StdinData {
   transcript_path?: string;
@@ -36,7 +36,7 @@ export interface ToolEntry {
   id: string;
   name: string;
   target?: string;
-  status: 'running' | 'completed' | 'error';
+  status: "running" | "completed" | "error";
   startTime: Date;
   endTime?: Date;
 }
@@ -46,19 +46,19 @@ export interface AgentEntry {
   type: string;
   model?: string;
   description?: string;
-  status: 'running' | 'completed';
+  status: "running" | "completed";
   startTime: Date;
   endTime?: Date;
 }
 
 export interface TodoItem {
   content: string;
-  status: 'pending' | 'in_progress' | 'completed';
+  status: "pending" | "in_progress" | "completed";
 }
 
 export interface UsageData {
-  fiveHour: number | null;  // 0-100 percentage, null if unavailable
-  sevenDay: number | null;  // 0-100 percentage, null if unavailable
+  fiveHour: number | null; // 0-100 percentage, null if unavailable
+  sevenDay: number | null; // 0-100 percentage, null if unavailable
   fiveHourResetAt: Date | null;
   sevenDayResetAt: Date | null;
 }
@@ -68,6 +68,19 @@ export interface MemoryInfo {
   usedBytes: number;
   freeBytes: number;
   usedPercent: number;
+}
+
+export type ServiceStatusValue =
+  | "operational"
+  | "degraded_performance"
+  | "partial_outage"
+  | "major_outage"
+  | "under_maintenance";
+
+export interface StatusData {
+  status: ServiceStatusValue;
+  activeIncident: string | null;
+  fetchedAt: number;
 }
 
 /** Check if usage limit is reached (either window at 100%) */
@@ -94,6 +107,7 @@ export interface RenderContext {
   gitStatus: GitStatus | null;
   usageData: UsageData | null;
   memoryUsage: MemoryInfo | null;
+  statusData: StatusData | null;
   config: HudConfig;
   extraLabel: string | null;
   claudeCodeVersion?: string;
