@@ -35,8 +35,10 @@ Claude Code → stdin JSON → parse → render lines → stdout → Claude Code
 
 **Native from stdin JSON** (accurate, no estimation):
 - `model.display_name` - Current model
-- `context_window.current_usage` - Token counts
+- `context_window.current_usage` - Token counts (input, output, cache_creation, cache_read)
+- `context_window.total_input_tokens` / `total_output_tokens` - Cumulative session tokens
 - `context_window.context_window_size` - Max context
+- `cost.total_cost_usd` - Session cost in USD (calculated by Claude Code using internal pricing)
 - `transcript_path` - Path to session transcript
 
 **From transcript JSONL parsing**:
@@ -87,7 +89,7 @@ src/
 
 ```
 [Opus] │ my-project git:(main*)
-Context █████░░░░░ 45% │ Usage ██░░░░░░░░ 25% (1h 30m / 5h)
+Context █████░░░░░ 45% (450k) │ $3.20 │ 78% cached │ Usage ██░░░░░░░░ 25% (1h 30m / 5h)
 ```
 
 Lines 1-2 always shown. Additional lines are opt-in via config:
@@ -96,7 +98,29 @@ Lines 1-2 always shown. Additional lines are opt-in via config:
 - Todos line (`showTodos`): ▸ Fix authentication bug (2/5)
 - Environment line (`showConfigCounts`): 2 CLAUDE.md | 4 rules
 
-### Context Thresholds
+### Context Intelligence (fork feature)
+
+The identity line shows cost, cache ratio, and token count alongside the context bar:
+
+```
+Context ████░░░░░░ 16% (160k) │ $1.40 │ 85% cached
+```
+
+**Efficiency zones** (color applied to bar, cost, and cache ratio):
+
+| Condition | Color | Meaning |
+|-----------|-------|---------|
+| Context <40% OR (Context <60% AND cache >80%) | Green | Lean and efficient |
+| Context 40-60% AND cache <80% OR Context 60-80% | Yellow | Getting heavy |
+| Context >60% AND cache <70% OR Context >80% | Red | Compact would save money |
+
+Config toggles (all default to off for backward compat):
+- `display.showCost` - Session cost from `cost.total_cost_usd`
+- `display.showCacheRatio` - Cache hit ratio from `cache_read / total`
+- `display.showReclaimable` - Adaptive reclaimable token estimate
+- `display.reclaimableThreshold` - Min tokens before showing (default 30000)
+
+### Legacy Context Thresholds
 
 | Threshold | Color | Action |
 |-----------|-------|--------|
