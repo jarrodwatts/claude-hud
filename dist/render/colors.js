@@ -99,6 +99,14 @@ export function getContextColor(percent, colors) {
         return resolveAnsi(colors?.warning, YELLOW);
     return resolveAnsi(colors?.context, GREEN);
 }
+/** Color based on efficiency zone (context% + cache ratio). */
+export function getEfficiencyColor(zone, colors) {
+    if (zone === 'red')
+        return resolveAnsi(colors?.critical, RED);
+    if (zone === 'yellow')
+        return resolveAnsi(colors?.warning, YELLOW);
+    return resolveAnsi(colors?.context, GREEN);
+}
 export function getQuotaColor(percent, colors) {
     if (percent >= 90)
         return resolveAnsi(colors?.critical, RED);

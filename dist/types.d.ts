@@ -7,7 +7,16 @@ export interface StdinData {
         id?: string;
         display_name?: string;
     };
+    cost?: {
+        total_cost_usd?: number;
+        total_duration_ms?: number;
+        total_api_duration_ms?: number;
+        total_lines_added?: number;
+        total_lines_removed?: number;
+    };
     context_window?: {
+        total_input_tokens?: number;
+        total_output_tokens?: number;
         context_window_size?: number;
         current_usage?: {
             input_tokens?: number;

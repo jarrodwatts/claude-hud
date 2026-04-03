@@ -1,4 +1,40 @@
 import { AUTOCOMPACT_BUFFER_PERCENT } from './constants.js';
+/** Session cost in USD from Claude Code's internal cost tracker. */
+export function getSessionCost(stdin) {
+    return stdin.cost?.total_cost_usd ?? 0;
+}
+/**
+ * Cache ratio: proportion of input tokens served from cache (0-100).
+ * Returns null when no usage data is available.
+ */
+export function getCacheRatio(stdin) {
+    const usage = stdin.context_window?.current_usage;
+    if (!usage)
+        return null;
+    const input = usage.input_tokens ?? 0;
+    const cacheRead = usage.cache_read_input_tokens ?? 0;
+    const cacheCreation = usage.cache_creation_input_tokens ?? 0;
+    const total = input + cacheRead + cacheCreation;
+    if (total === 0)
+        return null;
+    return Math.round((cacheRead / total) * 100);
+}
+/**
+ * Efficiency color zone based on context% + cache ratio.
+ * Returns 'green', 'yellow', or 'red'.
+ */
+export function getEfficiencyZone(contextPercent, cacheRatio) {
+    const cache = cacheRatio ?? 100; // assume good if unknown
+    if (contextPercent > 80)
+        return 'red';
+    if (contextPercent > 60 && cache < 70)
+        return 'red';
+    if (contextPercent > 60)
+        return 'yellow';
+    if (contextPercent > 40 && cache < 80)
+        return 'yellow';
+    return 'green';
+}
 export async function readStdin() {
     if (process.stdin.isTTY) {
         return null;

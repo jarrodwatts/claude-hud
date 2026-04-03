@@ -47,6 +47,10 @@ export interface HudConfig {
         showSessionName: boolean;
         showClaudeCodeVersion: boolean;
         showMemoryUsage: boolean;
+        showCost: boolean;
+        showCacheRatio: boolean;
+        showReclaimable: boolean;
+        reclaimableThreshold: number;
         autocompactBuffer: AutocompactBufferMode;
         usageThreshold: number;
         sevenDayThreshold: number;

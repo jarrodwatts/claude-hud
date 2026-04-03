@@ -122,6 +122,13 @@ export function getContextColor(percent: number, colors?: Partial<HudColorOverri
   return resolveAnsi(colors?.context, GREEN);
 }
 
+/** Color based on efficiency zone (context% + cache ratio). */
+export function getEfficiencyColor(zone: 'green' | 'yellow' | 'red', colors?: Partial<HudColorOverrides>): string {
+  if (zone === 'red') return resolveAnsi(colors?.critical, RED);
+  if (zone === 'yellow') return resolveAnsi(colors?.warning, YELLOW);
+  return resolveAnsi(colors?.context, GREEN);
+}
+
 export function getQuotaColor(percent: number, colors?: Partial<HudColorOverrides>): string {
   if (percent >= 90) return resolveAnsi(colors?.critical, RED);
   if (percent >= 75) return resolveAnsi(colors?.usageWarning, BRIGHT_MAGENTA);
