@@ -58,6 +58,7 @@ test('loadConfig returns valid config structure', async () => {
   assert.equal(typeof config.display.showSessionName, 'boolean');
   assert.equal(typeof config.display.showClaudeCodeVersion, 'boolean');
   assert.equal(typeof config.display.showMemoryUsage, 'boolean');
+  assert.equal(typeof config.display.showOutputStyle, 'boolean');
   assert.ok(['full', 'compact', 'short'].includes(config.display.modelFormat), 'modelFormat should be valid');
   assert.equal(typeof config.display.modelOverride, 'string', 'modelOverride should be string');
   assert.equal(typeof config.colors, 'object');
@@ -111,6 +112,17 @@ test('mergeConfig defaults showMemoryUsage to false', () => {
 test('mergeConfig preserves explicit showMemoryUsage=true', () => {
   const config = mergeConfig({ display: { showMemoryUsage: true } });
   assert.equal(config.display.showMemoryUsage, true);
+});
+
+test('mergeConfig defaults showOutputStyle to false', () => {
+  const config = mergeConfig({});
+  assert.equal(config.display.showOutputStyle, false);
+  assert.equal(DEFAULT_CONFIG.display.showOutputStyle, false);
+});
+
+test('mergeConfig preserves explicit showOutputStyle=true', () => {
+  const config = mergeConfig({ display: { showOutputStyle: true } });
+  assert.equal(config.display.showOutputStyle, true);
 });
 
 test('mergeConfig preserves customLine and truncates long values', () => {

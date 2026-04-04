@@ -12,6 +12,7 @@ export interface ConfigCounts {
   rulesCount: number;
   mcpCount: number;
   hooksCount: number;
+  outputStyle?: string;
 }
 
 interface SentinelState {
@@ -90,6 +91,21 @@ function countHooksInFile(filePath: string): number {
   return 0;
 }
 
+function readStringSetting(filePath: string, key: string): string | undefined {
+  if (!fs.existsSync(filePath)) return undefined;
+  try {
+    const content = fs.readFileSync(filePath, 'utf8');
+    const config = JSON.parse(content);
+    if (typeof config[key] === 'string') {
+      const value = config[key].trim();
+      return value.length > 0 ? value : undefined;
+    }
+  } catch (error) {
+    debug(`Failed to read ${key} from ${filePath}:`, error);
+  }
+  return undefined;
+}
+
 function countRulesInDir(rulesDir: string): number {
   if (!fs.existsSync(rulesDir)) return 0;
   let count = 0;
@@ -159,6 +175,7 @@ function buildSentinelPaths(claudeDir: string, claudeConfigJsonPath: string, cwd
     path.join(claudeDir, 'CLAUDE.md'),
     path.join(claudeDir, 'rules'),
     path.join(claudeDir, 'settings.json'),
+    path.join(claudeDir, 'settings.local.json'),
     claudeConfigJsonPath,
   ];
 
@@ -237,6 +254,7 @@ function isConfigCounts(value: unknown): value is ConfigCounts {
     && typeof counts.hooksCount === 'number'
     && Number.isFinite(counts.hooksCount)
     && counts.hooksCount >= 0
+    && (counts.outputStyle === undefined || typeof counts.outputStyle === 'string')
   );
 }
 
@@ -272,6 +290,7 @@ function computeConfigCountsFresh(cwd?: string): ConfigCounts {
   let claudeMdCount = 0;
   let rulesCount = 0;
   let hooksCount = 0;
+  let outputStyle: string | undefined;
 
   const homeDir = os.homedir();
   const claudeDir = getClaudeConfigDir(homeDir);
@@ -296,6 +315,10 @@ function computeConfigCountsFresh(cwd?: string): ConfigCounts {
     userMcpServers.add(name);
   }
   hooksCount += countHooksInFile(userSettings);
+  outputStyle = readStringSetting(userSettings, 'outputStyle');
+
+  const userLocalSettings = path.join(claudeDir, 'settings.local.json');
+  outputStyle = readStringSetting(userLocalSettings, 'outputStyle') ?? outputStyle;
 
   // {CLAUDE_CONFIG_DIR}.json (additional user-scope MCPs)
   const userClaudeJson = getClaudeConfigJsonPath(homeDir);
@@ -355,6 +378,7 @@ function computeConfigCountsFresh(cwd?: string): ConfigCounts {
         projectMcpServers.add(name);
       }
       hooksCount += countHooksInFile(projectSettings);
+      outputStyle = readStringSetting(projectSettings, 'outputStyle') ?? outputStyle;
     }
 
     // {cwd}/.claude/settings.local.json (local project settings)
@@ -363,6 +387,7 @@ function computeConfigCountsFresh(cwd?: string): ConfigCounts {
       projectMcpServers.add(name);
     }
     hooksCount += countHooksInFile(localSettings);
+    outputStyle = readStringSetting(localSettings, 'outputStyle') ?? outputStyle;
 
     // Get disabled .mcp.json servers from settings.local.json
     const disabledMcpJsonServers = getDisabledMcpServers(localSettings, 'disabledMcpjsonServers');
@@ -381,7 +406,7 @@ function computeConfigCountsFresh(cwd?: string): ConfigCounts {
   // A server with the same name in both user and project scope counts as 2 (separate configs).
   const mcpCount = userMcpServers.size + projectMcpServers.size;
 
-  return { claudeMdCount, rulesCount, mcpCount, hooksCount };
+  return { claudeMdCount, rulesCount, mcpCount, hooksCount, outputStyle };
 }
 
 export async function countConfigs(cwd?: string): Promise<ConfigCounts> {

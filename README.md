@@ -164,6 +164,7 @@ Chinese HUD labels are available as an explicit opt-in. English stays the defaul
 | `display.showContextBar` | boolean | true | Show visual context bar `████░░░░░░` |
 | `display.contextValue` | `percent` \| `tokens` \| `remaining` \| `both` | `percent` | Context display format (`45%`, `45k/200k`, `55%` remaining, or `45% (45k/200k)`) |
 | `display.showConfigCounts` | boolean | false | Show CLAUDE.md, rules, MCPs, hooks counts |
+| `display.showOutputStyle` | boolean | false | Show the active Claude Code `outputStyle` from settings files as `style: <name>` |
 | `display.showDuration` | boolean | false | Show session duration `⏱️ 5m` |
 | `display.showSpeed` | boolean | false | Show output token speed `out: 42.1 tok/s` |
 | `display.showUsage` | boolean | true | Show Claude subscriber usage limits when available |

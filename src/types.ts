@@ -104,5 +104,6 @@ export interface RenderContext {
   memoryUsage: MemoryInfo | null;
   config: HudConfig;
   extraLabel: string | null;
+  outputStyle?: string;
   claudeCodeVersion?: string;
 }

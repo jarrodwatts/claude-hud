@@ -50,7 +50,7 @@ function baseContext() {
       pathLevels: 1,
       elementOrder: ['project', 'context', 'usage', 'memory', 'environment', 'tools', 'agents', 'todos'],
       gitStatus: { enabled: true, showDirty: true, showAheadBehind: false, showFileStats: false },
-      display: { showModel: true, showProject: true, showContextBar: true, contextValue: 'percent', showConfigCounts: true, showDuration: true, showSpeed: false, showTokenBreakdown: true, showUsage: true, usageBarEnabled: false, showTools: true, showAgents: true, showTodos: true, showSessionTokens: false, showSessionName: false, showClaudeCodeVersion: false, showMemoryUsage: false, autocompactBuffer: 'enabled', usageThreshold: 0, sevenDayThreshold: 80, environmentThreshold: 0, customLine: '' },
+      display: { showModel: true, showProject: true, showContextBar: true, contextValue: 'percent', showConfigCounts: true, showDuration: true, showSpeed: false, showTokenBreakdown: true, showUsage: true, usageBarEnabled: false, showTools: true, showAgents: true, showTodos: true, showSessionTokens: false, showSessionName: false, showClaudeCodeVersion: false, showMemoryUsage: false, showOutputStyle: false, autocompactBuffer: 'enabled', usageThreshold: 0, sevenDayThreshold: 80, environmentThreshold: 0, customLine: '' },
       colors: {
         context: 'green',
         usage: 'brightBlue',
@@ -560,6 +560,26 @@ test('label color overrides apply across shared secondary text surfaces', () => 
   assert.ok(renderToolsLine(ctx)?.includes(`${expected}: src/index.ts\x1b[0m`));
   assert.ok(renderAgentsLine(ctx)?.includes(`${expected}[haiku]\x1b[0m`));
   assert.ok(renderTodosLine(ctx)?.includes(`${expected}(1/2)\x1b[0m`));
+});
+
+test('renderEnvironmentLine shows output style when enabled', () => {
+  const ctx = baseContext();
+  ctx.outputStyle = 'tech-leader';
+  ctx.config.display.showConfigCounts = false;
+  ctx.config.display.showOutputStyle = true;
+
+  assert.ok(renderEnvironmentLine(ctx)?.includes('style: tech-leader'));
+});
+
+test('renderEnvironmentLine appends output style after config counts', () => {
+  const ctx = baseContext();
+  ctx.claudeMdCount = 1;
+  ctx.outputStyle = 'learning';
+  ctx.config.display.showOutputStyle = true;
+
+  const line = renderEnvironmentLine(ctx);
+  assert.ok(line?.includes('1 CLAUDE.md'));
+  assert.ok(line?.includes('style: learning'));
 });
 
 test('renderProjectLine includes duration when showDuration is true', () => {
