@@ -7,6 +7,7 @@ import { fileURLToPath } from 'node:url';
 import { _setCreateReadStreamForTests, parseTranscript } from '../dist/transcript.js';
 import { countConfigs } from '../dist/config-reader.js';
 import { getContextPercent, getBufferedPercent, getModelName, getProviderLabel, getUsageFromStdin, isBedrockModelId, stripContextSuffix, formatModelName } from '../dist/stdin.js';
+import { estimateSessionCost, formatUsd } from '../dist/cost.js';
 import * as fs from 'node:fs';
 
 function restoreEnvVar(name, value) {
@@ -336,6 +337,59 @@ test('bedrock model detection recognizes bedrock ids', () => {
   assert.equal(isBedrockModelId('claude-3-5-sonnet-20241022'), false);
   assert.equal(getProviderLabel({ model: { id: 'anthropic.claude-3-5-sonnet-20240620-v1:0' } }), 'Bedrock');
   assert.equal(getProviderLabel({ model: { id: 'claude-3-5-sonnet-20241022' } }), null);
+});
+
+test('estimateSessionCost calculates offline Anthropic pricing from session tokens', () => {
+  const estimate = estimateSessionCost(
+    { model: { display_name: 'Claude Sonnet 4.5' } },
+    {
+      inputTokens: 100000,
+      cacheCreationTokens: 10000,
+      cacheReadTokens: 20000,
+      outputTokens: 50000,
+    },
+  );
+
+  assert.ok(estimate, 'expected a cost estimate');
+  assert.equal(formatUsd(estimate.totalUsd), '$1.09');
+});
+
+test('estimateSessionCost hides cost for Bedrock and unknown model pricing', () => {
+  assert.equal(
+    estimateSessionCost(
+      { model: { id: 'anthropic.claude-sonnet-4-20250514-v1:0' } },
+      { inputTokens: 1, cacheCreationTokens: 0, cacheReadTokens: 0, outputTokens: 1 },
+    ),
+    null,
+  );
+
+  assert.equal(
+    estimateSessionCost(
+      { model: { display_name: 'Custom Router Model' } },
+      { inputTokens: 1, cacheCreationTokens: 0, cacheReadTokens: 0, outputTokens: 1 },
+    ),
+    null,
+  );
+});
+
+test('estimateSessionCost uses model id when display name is shorthand', () => {
+  const estimate = estimateSessionCost(
+    {
+      model: {
+        display_name: 'Opus',
+        id: 'claude-opus-4-20250514',
+      },
+    },
+    {
+      inputTokens: 100000,
+      cacheCreationTokens: 10000,
+      cacheReadTokens: 20000,
+      outputTokens: 50000,
+    },
+  );
+
+  assert.ok(estimate, 'expected a cost estimate from the model id');
+  assert.equal(formatUsd(estimate.totalUsd), '$5.47');
 });
 
 test('parseTranscript aggregates tools, agents, and todos', async () => {

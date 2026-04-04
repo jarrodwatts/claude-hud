@@ -78,6 +78,7 @@ export interface HudConfig {
     showContextBar: boolean;
     contextValue: ContextValueMode;
     showConfigCounts: boolean;
+    showCost: boolean;
     showDuration: boolean;
     showSpeed: boolean;
     showTokenBreakdown: boolean;
@@ -122,6 +123,7 @@ export const DEFAULT_CONFIG: HudConfig = {
     showContextBar: true,
     contextValue: 'percent',
     showConfigCounts: false,
+    showCost: false,
     showDuration: false,
     showSpeed: false,
     showTokenBreakdown: true,
@@ -327,6 +329,9 @@ export function mergeConfig(userConfig: Partial<HudConfig>): HudConfig {
     showConfigCounts: typeof migrated.display?.showConfigCounts === 'boolean'
       ? migrated.display.showConfigCounts
       : DEFAULT_CONFIG.display.showConfigCounts,
+    showCost: typeof migrated.display?.showCost === 'boolean'
+      ? migrated.display.showCost
+      : DEFAULT_CONFIG.display.showCost,
     showDuration: typeof migrated.display?.showDuration === 'boolean'
       ? migrated.display.showDuration
       : DEFAULT_CONFIG.display.showDuration,

@@ -50,7 +50,7 @@ function baseContext() {
       pathLevels: 1,
       elementOrder: ['project', 'context', 'usage', 'memory', 'environment', 'tools', 'agents', 'todos'],
       gitStatus: { enabled: true, showDirty: true, showAheadBehind: false, showFileStats: false, pushWarningThreshold: 0, pushCriticalThreshold: 0 },
-      display: { showModel: true, showProject: true, showContextBar: true, contextValue: 'percent', showConfigCounts: true, showDuration: true, showSpeed: false, showTokenBreakdown: true, showUsage: true, usageBarEnabled: false, showTools: true, showAgents: true, showTodos: true, showSessionTokens: false, showSessionName: false, showClaudeCodeVersion: false, showMemoryUsage: false, showOutputStyle: false, autocompactBuffer: 'enabled', usageThreshold: 0, sevenDayThreshold: 80, environmentThreshold: 0, customLine: '' },
+      display: { showModel: true, showProject: true, showContextBar: true, contextValue: 'percent', showConfigCounts: true, showCost: false, showDuration: true, showSpeed: false, showTokenBreakdown: true, showUsage: true, usageBarEnabled: false, showTools: true, showAgents: true, showTodos: true, showSessionTokens: false, showSessionName: false, showClaudeCodeVersion: false, showMemoryUsage: false, showOutputStyle: false, autocompactBuffer: 'enabled', usageThreshold: 0, sevenDayThreshold: 80, environmentThreshold: 0, customLine: '' },
       colors: {
         context: 'green',
         usage: 'brightBlue',
@@ -589,6 +589,58 @@ test('renderProjectLine includes duration when showDuration is true', () => {
   ctx.sessionDuration = '12m 34s';
   const line = renderProjectLine(ctx);
   assert.ok(line?.includes('12m 34s'), 'should include session duration');
+});
+
+test('renderSessionLine shows estimated cost when enabled and pricing is known', () => {
+  const ctx = baseContext();
+  ctx.stdin.model.id = 'claude-opus-4-20250514';
+  ctx.config.display.showCost = true;
+  ctx.transcript.sessionTokens = {
+    inputTokens: 100000,
+    cacheCreationTokens: 10000,
+    cacheReadTokens: 20000,
+    outputTokens: 50000,
+  };
+
+  const line = stripAnsi(renderSessionLine(ctx));
+  assert.ok(line.includes('Est. $5.47'));
+});
+
+test('renderProjectLine hides estimated cost for Bedrock pricing', () => {
+  const ctx = baseContext();
+  ctx.stdin.cwd = '/tmp/my-project';
+  ctx.config.display.showCost = true;
+  ctx.stdin.model = { id: 'anthropic.claude-sonnet-4-20250514-v1:0' };
+  ctx.transcript.sessionTokens = {
+    inputTokens: 100000,
+    cacheCreationTokens: 10000,
+    cacheReadTokens: 20000,
+    outputTokens: 50000,
+  };
+
+  const line = stripAnsi(renderProjectLine(ctx));
+  assert.ok(!line.includes('Est.'), 'Bedrock cost estimate should stay hidden');
+});
+
+test('renderProjectLine translates estimated cost label when Chinese is enabled', () => {
+  const ctx = baseContext();
+  ctx.stdin.cwd = '/tmp/my-project';
+  ctx.stdin.model.id = 'claude-opus-4-20250514';
+  ctx.config.display.showCost = true;
+  ctx.transcript.sessionTokens = {
+    inputTokens: 100000,
+    cacheCreationTokens: 10000,
+    cacheReadTokens: 20000,
+    outputTokens: 50000,
+  };
+
+  setLanguage('zh');
+  try {
+    const line = stripAnsi(renderProjectLine(ctx));
+    assert.ok(line.includes('估算 $5.47'));
+  } finally {
+    setLanguage('en');
+  }
 });
 
 test('renderProjectLine omits duration when showDuration is false', () => {

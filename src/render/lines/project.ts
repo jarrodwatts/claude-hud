@@ -5,6 +5,7 @@ import { getModelName, formatModelName, getProviderLabel } from '../../stdin.js'
 import { getOutputSpeed } from '../../speed-tracker.js';
 import { git as gitColor, gitBranch as gitBranchColor, warning as warningColor, critical as criticalColor, label, model as modelColor, project as projectColor, red, green, yellow, dim, custom as customColor } from '../colors.js';
 import { t } from '../../i18n/index.js';
+import { renderCostEstimate } from './cost.js';
 
 function hyperlink(uri: string, text: string): string {
   const esc = '\x1b';
@@ -93,6 +94,11 @@ export function renderProjectLine(ctx: RenderContext): string | null {
 
   if (display?.showDuration !== false && ctx.sessionDuration) {
     parts.push(label(`⏱️  ${ctx.sessionDuration}`, colors));
+  }
+
+  const costEstimate = renderCostEstimate(ctx);
+  if (costEstimate) {
+    parts.push(costEstimate);
   }
 
   const customLine = display?.customLine;

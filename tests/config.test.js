@@ -60,6 +60,7 @@ test('loadConfig returns valid config structure', async () => {
   assert.equal(typeof config.display.showSessionName, 'boolean');
   assert.equal(typeof config.display.showClaudeCodeVersion, 'boolean');
   assert.equal(typeof config.display.showMemoryUsage, 'boolean');
+  assert.equal(typeof config.display.showCost, 'boolean');
   assert.equal(typeof config.display.showOutputStyle, 'boolean');
   assert.ok(['full', 'compact', 'short'].includes(config.display.modelFormat), 'modelFormat should be valid');
   assert.equal(typeof config.display.modelOverride, 'string', 'modelOverride should be string');
@@ -114,6 +115,17 @@ test('mergeConfig defaults showMemoryUsage to false', () => {
 test('mergeConfig preserves explicit showMemoryUsage=true', () => {
   const config = mergeConfig({ display: { showMemoryUsage: true } });
   assert.equal(config.display.showMemoryUsage, true);
+});
+
+test('mergeConfig defaults showCost to false', () => {
+  const config = mergeConfig({});
+  assert.equal(config.display.showCost, false);
+  assert.equal(DEFAULT_CONFIG.display.showCost, false);
+});
+
+test('mergeConfig preserves explicit showCost=true', () => {
+  const config = mergeConfig({ display: { showCost: true } });
+  assert.equal(config.display.showCost, true);
 });
 
 test('mergeConfig defaults git push thresholds to disabled', () => {
