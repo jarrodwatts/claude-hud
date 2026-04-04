@@ -235,10 +235,14 @@ export async function getClaudeCodeVersion(): Promise<string | undefined> {
     }
   }
 
-  const binaryInfo = resolveClaudeBinaryImpl();
-  if (!binaryInfo) {
+  const resolvedBinaryInfo = resolveClaudeBinaryImpl();
+  if (!resolvedBinaryInfo) {
     return undefined;
   }
+
+  // Normalize resolver output to the actual on-disk binary so cache keys and
+  // persisted mtimes stay stable across process boundaries.
+  const binaryInfo = statResolvedBinary(resolvedBinaryInfo.path) ?? resolvedBinaryInfo;
 
   const binaryKey = getBinaryCacheKey(binaryInfo);
   if (hasResolved && cachedBinaryKey === binaryKey) {

@@ -1,7 +1,7 @@
 import { afterEach, test } from 'node:test';
 import assert from 'node:assert/strict';
 import { mkdtemp, rm, writeFile } from 'node:fs/promises';
-import { existsSync, utimesSync } from 'node:fs';
+import { existsSync, realpathSync, utimesSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import {
@@ -172,6 +172,7 @@ test('getClaudeCodeVersion executes the resolved binary path', async () => {
   utimesSync(binaryPath, binaryMtimeMs / 1000, binaryMtimeMs / 1000);
 
   try {
+    const realBinaryPath = realpathSync(binaryPath);
     _setResolveClaudeBinaryForTests(() => ({ path: binaryPath, mtimeMs: binaryMtimeMs }));
     _setExecFileImplForTests(async (file) => {
       execCalls.push(file);
@@ -180,7 +181,7 @@ test('getClaudeCodeVersion executes the resolved binary path', async () => {
 
     const version = await getClaudeCodeVersion();
     assert.equal(version, '2.1.81');
-    assert.deepEqual(execCalls, [binaryPath]);
+    assert.deepEqual(execCalls, [realBinaryPath]);
   } finally {
     restoreEnvVar('HOME', originalHome);
     restoreEnvVar('CLAUDE_CONFIG_DIR', originalConfigDir);
@@ -205,6 +206,7 @@ test('getClaudeCodeVersion uses the Windows wrapper invocation for .cmd binaries
   utimesSync(binaryPath, binaryMtimeMs / 1000, binaryMtimeMs / 1000);
 
   try {
+    const realBinaryPath = realpathSync(binaryPath);
     _setVersionInvocationEnvForTests(() => 'win32', () => 'C:\\Windows\\System32\\cmd.exe');
     _setResolveClaudeBinaryForTests(() => ({ path: binaryPath, mtimeMs: binaryMtimeMs }));
     _setExecFileImplForTests(async (file, args) => {
@@ -214,7 +216,7 @@ test('getClaudeCodeVersion uses the Windows wrapper invocation for .cmd binaries
 
     const version = await getClaudeCodeVersion();
     assert.equal(version, '2.1.81');
-    const expectedInvocation = _getClaudeVersionInvocation(binaryPath, 'win32', 'C:\\Windows\\System32\\cmd.exe');
+    const expectedInvocation = _getClaudeVersionInvocation(realBinaryPath, 'win32', 'C:\\Windows\\System32\\cmd.exe');
     assert.deepEqual(execCalls, [{
       file: expectedInvocation.file,
       args: expectedInvocation.args,

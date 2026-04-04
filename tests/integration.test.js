@@ -8,10 +8,12 @@ import path from "node:path";
 import { readFileSync } from "node:fs";
 
 function stripAnsi(text) {
-  return text.replace(
-    /[\u001b\u009b][[()#;?]*(?:[0-9]{1,4}(?:;[0-9]{0,4})*)?[0-9A-ORZcf-nq-uy=><]/g,
-    "",
-  );
+  return text
+    .replace(
+      /[\u001b\u009b][[()#;?]*(?:[0-9]{1,4}(?:;[0-9]{0,4})*)?[0-9A-ORZcf-nq-uy=><]/g,
+      "",
+    )
+    .replace(/\x1b\][^\x07\x1b]*(?:\x07|\x1b\\)/g, "");
 }
 
 function skipIfSpawnBlocked(result, t) {
