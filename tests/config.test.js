@@ -41,6 +41,8 @@ test('loadConfig returns valid config structure', async () => {
   assert.equal(typeof config.gitStatus.enabled, 'boolean');
   assert.equal(typeof config.gitStatus.showDirty, 'boolean');
   assert.equal(typeof config.gitStatus.showAheadBehind, 'boolean');
+  assert.equal(typeof config.gitStatus.pushWarningThreshold, 'number');
+  assert.equal(typeof config.gitStatus.pushCriticalThreshold, 'number');
 
   // display object with expected properties
   assert.equal(typeof config.display, 'object');
@@ -112,6 +114,20 @@ test('mergeConfig defaults showMemoryUsage to false', () => {
 test('mergeConfig preserves explicit showMemoryUsage=true', () => {
   const config = mergeConfig({ display: { showMemoryUsage: true } });
   assert.equal(config.display.showMemoryUsage, true);
+});
+
+test('mergeConfig defaults git push thresholds to disabled', () => {
+  const config = mergeConfig({});
+  assert.equal(config.gitStatus.pushWarningThreshold, 0);
+  assert.equal(config.gitStatus.pushCriticalThreshold, 0);
+});
+
+test('mergeConfig preserves explicit git push thresholds', () => {
+  const config = mergeConfig({
+    gitStatus: { pushWarningThreshold: 15, pushCriticalThreshold: 30 },
+  });
+  assert.equal(config.gitStatus.pushWarningThreshold, 15);
+  assert.equal(config.gitStatus.pushCriticalThreshold, 30);
 });
 
 test('mergeConfig defaults showOutputStyle to false', () => {

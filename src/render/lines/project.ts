@@ -3,7 +3,7 @@ import * as path from 'node:path';
 import type { RenderContext } from '../../types.js';
 import { getModelName, formatModelName, getProviderLabel } from '../../stdin.js';
 import { getOutputSpeed } from '../../speed-tracker.js';
-import { git as gitColor, gitBranch as gitBranchColor, label, model as modelColor, project as projectColor, red, green, yellow, dim, custom as customColor } from '../colors.js';
+import { git as gitColor, gitBranch as gitBranchColor, warning as warningColor, critical as criticalColor, label, model as modelColor, project as projectColor, red, green, yellow, dim, custom as customColor } from '../colors.js';
 import { t } from '../../i18n/index.js';
 
 function hyperlink(uri: string, text: string): string {
@@ -45,7 +45,9 @@ export function renderProjectLine(ctx: RenderContext): string | null {
     const gitInner: string[] = [linkedBranch];
 
     if (gitConfig?.showAheadBehind) {
-      if (ctx.gitStatus.ahead > 0) gitInner.push(gitBranchColor(`↑${ctx.gitStatus.ahead}`, colors));
+      if (ctx.gitStatus.ahead > 0) {
+        gitInner.push(formatAheadCount(ctx.gitStatus.ahead, gitConfig, colors));
+      }
       if (ctx.gitStatus.behind > 0) gitInner.push(gitBranchColor(`↓${ctx.gitStatus.behind}`, colors));
     }
 
@@ -103,6 +105,26 @@ export function renderProjectLine(ctx: RenderContext): string | null {
   }
 
   return parts.join(' \u2502 ');
+}
+
+function formatAheadCount(
+  ahead: number,
+  gitConfig: RenderContext['config']['gitStatus'] | undefined,
+  colors: RenderContext['config']['colors'] | undefined,
+): string {
+  const value = `↑${ahead}`;
+  const criticalThreshold = gitConfig?.pushCriticalThreshold ?? 0;
+  const warningThreshold = gitConfig?.pushWarningThreshold ?? 0;
+
+  if (criticalThreshold > 0 && ahead >= criticalThreshold) {
+    return criticalColor(value, colors);
+  }
+
+  if (warningThreshold > 0 && ahead >= warningThreshold) {
+    return warningColor(value, colors);
+  }
+
+  return gitBranchColor(value, colors);
 }
 
 export function renderGitFilesLine(ctx: RenderContext, terminalWidth: number | null = null): string | null {

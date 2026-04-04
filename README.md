@@ -159,6 +159,8 @@ Chinese HUD labels are available as an explicit opt-in. English stays the defaul
 | `gitStatus.enabled` | boolean | true | Show git branch in HUD |
 | `gitStatus.showDirty` | boolean | true | Show `*` for uncommitted changes |
 | `gitStatus.showAheadBehind` | boolean | false | Show `↑N ↓N` for ahead/behind remote |
+| `gitStatus.pushWarningThreshold` | number | 0 | Color the ahead count with the warning color at or above this unpushed-commit count (`0` disables it) |
+| `gitStatus.pushCriticalThreshold` | number | 0 | Color the ahead count with the critical color at or above this unpushed-commit count (`0` disables it) |
 | `gitStatus.showFileStats` | boolean | false | Show file change counts `!M +A ✘D ?U` |
 | `display.showModel` | boolean | true | Show model name `[Opus]` |
 | `display.showContextBar` | boolean | true | Show visual context bar `████░░░░░░` |

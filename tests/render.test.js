@@ -49,7 +49,7 @@ function baseContext() {
       showSeparators: false,
       pathLevels: 1,
       elementOrder: ['project', 'context', 'usage', 'memory', 'environment', 'tools', 'agents', 'todos'],
-      gitStatus: { enabled: true, showDirty: true, showAheadBehind: false, showFileStats: false },
+      gitStatus: { enabled: true, showDirty: true, showAheadBehind: false, showFileStats: false, pushWarningThreshold: 0, pushCriticalThreshold: 0 },
       display: { showModel: true, showProject: true, showContextBar: true, contextValue: 'percent', showConfigCounts: true, showDuration: true, showSpeed: false, showTokenBreakdown: true, showUsage: true, usageBarEnabled: false, showTools: true, showAgents: true, showTodos: true, showSessionTokens: false, showSessionName: false, showClaudeCodeVersion: false, showMemoryUsage: false, showOutputStyle: false, autocompactBuffer: 'enabled', usageThreshold: 0, sevenDayThreshold: 80, environmentThreshold: 0, customLine: '' },
       colors: {
         context: 'green',
@@ -1501,6 +1501,8 @@ test('renderSessionLine combines showFileStats with showDirty and showAheadBehin
     showDirty: true,
     showAheadBehind: true,
     showFileStats: true,
+    pushWarningThreshold: 0,
+    pushCriticalThreshold: 0,
   };
   ctx.gitStatus = {
     branch: 'feature',
@@ -1516,6 +1518,38 @@ test('renderSessionLine combines showFileStats with showDirty and showAheadBehin
   assert.ok(line.includes('↓1'), 'expected behind count');
   assert.ok(line.includes('!3'), 'expected modified count');
   assert.ok(line.includes('✘1'), 'expected deleted count');
+});
+
+test('renderProjectLine colors ahead count at warning threshold', () => {
+  const ctx = baseContext();
+  ctx.config.gitStatus = {
+    enabled: true,
+    showDirty: true,
+    showAheadBehind: true,
+    showFileStats: false,
+    pushWarningThreshold: 10,
+    pushCriticalThreshold: 20,
+  };
+  ctx.gitStatus = { branch: 'main', isDirty: false, ahead: 12, behind: 0 };
+
+  const line = renderProjectLine(ctx);
+  assert.ok(line?.includes('\x1b[33m↑12\x1b[0m'), 'ahead count should use warning color');
+});
+
+test('renderProjectLine colors ahead count at critical threshold', () => {
+  const ctx = baseContext();
+  ctx.config.gitStatus = {
+    enabled: true,
+    showDirty: true,
+    showAheadBehind: true,
+    showFileStats: false,
+    pushWarningThreshold: 10,
+    pushCriticalThreshold: 20,
+  };
+  ctx.gitStatus = { branch: 'main', isDirty: false, ahead: 25, behind: 0 };
+
+  const line = renderProjectLine(ctx);
+  assert.ok(line?.includes('\x1b[31m↑25\x1b[0m'), 'ahead count should use critical color');
 });
 
 test('renderGitFilesLine renders tracked files with per-file line diffs', () => {

@@ -69,6 +69,8 @@ export interface HudConfig {
     showDirty: boolean;
     showAheadBehind: boolean;
     showFileStats: boolean;
+    pushWarningThreshold: number;
+    pushCriticalThreshold: number;
   };
   display: {
     showModel: boolean;
@@ -111,6 +113,8 @@ export const DEFAULT_CONFIG: HudConfig = {
     showDirty: true,
     showAheadBehind: false,
     showFileStats: false,
+    pushWarningThreshold: 0,
+    pushCriticalThreshold: 0,
   },
   display: {
     showModel: true,
@@ -263,6 +267,13 @@ function validateThreshold(value: unknown, max = 100): number {
   return Math.max(0, Math.min(max, value));
 }
 
+function validateCountThreshold(value: unknown): number {
+  if (typeof value !== 'number' || !Number.isFinite(value)) {
+    return 0;
+  }
+  return Math.max(0, Math.floor(value));
+}
+
 export function mergeConfig(userConfig: Partial<HudConfig>): HudConfig {
   const migrated = migrateConfig(userConfig);
   const language = validateLanguage(migrated.language)
@@ -296,6 +307,8 @@ export function mergeConfig(userConfig: Partial<HudConfig>): HudConfig {
     showFileStats: typeof migrated.gitStatus?.showFileStats === 'boolean'
       ? migrated.gitStatus.showFileStats
       : DEFAULT_CONFIG.gitStatus.showFileStats,
+    pushWarningThreshold: validateCountThreshold(migrated.gitStatus?.pushWarningThreshold),
+    pushCriticalThreshold: validateCountThreshold(migrated.gitStatus?.pushCriticalThreshold),
   };
 
   const display = {
