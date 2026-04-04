@@ -396,7 +396,15 @@ function renderExpanded(ctx: RenderContext, terminalWidth: number | null = null)
       const secondLine = renderElementLine(ctx, nextElement);
 
       if (firstLine && secondLine) {
-        lines.push({ line: `${firstLine} │ ${secondLine}`, isActivity: false });
+        const combinedLine = `${firstLine} │ ${secondLine}`;
+        const canCombine = !terminalWidth || visualLength(combinedLine) <= terminalWidth;
+
+        if (canCombine) {
+          lines.push({ line: combinedLine, isActivity: false });
+        } else {
+          lines.push({ line: firstLine, isActivity: false });
+          lines.push({ line: secondLine, isActivity: false });
+        }
       } else if (firstLine) {
         lines.push({ line: firstLine, isActivity: false });
       } else if (secondLine) {

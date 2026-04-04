@@ -376,6 +376,28 @@ test('render truncation respects Unicode display width', () => {
   assert.ok(lines.every(line => displayWidth(line) <= 10), 'all lines should respect terminal cell width');
 });
 
+test('render keeps context and usage as separate lines when a narrow terminal cannot fit both', () => {
+  const ctx = baseContext();
+  ctx.config.lineLayout = 'expanded';
+  ctx.config.display.usageBarEnabled = true;
+  ctx.stdin.context_window.current_usage.input_tokens = 120000;
+  ctx.usageData = {
+    fiveHour: 62,
+    sevenDay: null,
+    fiveHourResetAt: null,
+    sevenDayResetAt: null,
+  };
+
+  let lines = [];
+  withTerminal(24, () => {
+    lines = captureRender(ctx);
+  });
+
+  assert.ok(lines.some(line => line.includes('Context')), 'context line should remain visible');
+  assert.ok(lines.some(line => line.includes('Usage')), 'usage line should remain visible');
+  assert.ok(lines.every(line => displayWidth(line) <= 24), 'all lines should still fit terminal width');
+});
+
 test('render respects terminal width with Chinese labels enabled', () => {
   const ctx = baseContext();
   ctx.config.lineLayout = 'expanded';
