@@ -124,7 +124,7 @@ Customize your HUD anytime:
 /claude-hud:configure
 ```
 
-The guided flow handles layout and display toggles. Advanced overrides such as
+The guided flow handles layout, language, and common display toggles. Advanced overrides such as
 custom colors and thresholds are preserved there, but you set them by editing the config file directly:
 
 - **First time setup**: Choose a preset (Full/Essential/Minimal), then fine-tune individual elements
@@ -144,9 +144,9 @@ After choosing a preset, you can turn individual elements on or off.
 ### Manual Configuration
 
 Edit `~/.claude/plugins/claude-hud/config.json` directly for advanced settings such as `colors.*`,
-`pathLevels`, and threshold overrides. Running `/claude-hud:configure` preserves those manual settings.
+`pathLevels`, and threshold overrides. Running `/claude-hud:configure` preserves those manual settings while still letting you change `language`, layout, and the common guided toggles.
 
-Chinese HUD labels are available as an explicit opt-in. English stays the default unless you set `language` in config.
+Chinese HUD labels are available as an explicit opt-in. English stays the default unless you choose `中文` in `/claude-hud:configure` or set `language` in config.
 
 ### Options
 
