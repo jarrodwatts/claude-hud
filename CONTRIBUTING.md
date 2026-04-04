@@ -34,6 +34,18 @@ See `TESTING.md` for the full testing strategy, fixtures, and snapshot updates.
 
 CI automatically builds and commits `dist/` after your PR is merged. This keeps PRs focused on source code and makes review easier.
 
+To ignore `dist/` changes locally, run at the project root:
+
+Mac/Linux or Git Bash:
+```bash
+git ls-files dist/ | xargs git update-index --skip-worktree
+```
+
+Windows (PowerShell):
+```powershell
+git ls-files dist/ | ForEach-Object { git update-index --skip-worktree $_ }
+```
+
 ```
 Your PR: src/ changes only → Merge → CI builds dist/ → Committed automatically
 ```
