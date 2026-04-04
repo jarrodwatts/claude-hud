@@ -127,8 +127,8 @@ Customize your HUD anytime:
 The guided flow handles layout, language, and common display toggles. Advanced overrides such as
 custom colors and thresholds are preserved there, but you set them by editing the config file directly:
 
-- **First time setup**: Choose a preset (Full/Essential/Minimal), then fine-tune individual elements
-- **Customize anytime**: Toggle items on/off, adjust git display style, switch layouts
+- **First time setup**: Choose a preset (Full/Essential/Minimal), pick a label language, then fine-tune individual elements
+- **Customize anytime**: Toggle items on/off, adjust git display style, switch layouts, or change label language
 - **Preview before saving**: See exactly how your HUD will look before committing changes
 
 ### Presets

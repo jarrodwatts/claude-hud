@@ -85,8 +85,8 @@ Save as `language: "en"` or `language: "zh"`.
 - options: **ONLY items that are OFF in the chosen preset** (max 4)
   - (same list as above, filtered to OFF items)
 
-**Note:** If preset has all items ON (Full), Q4 shows "Nothing to enable - Full preset has everything!"
-If preset has all items OFF (Minimal), Q3 shows "Nothing to disable - Minimal preset is already minimal!"
+**Note:** If preset has all items ON (Full), Q5 shows "Nothing to enable - Full preset has everything!"
+If preset has all items OFF (Minimal), Q4 shows "Nothing to disable - Minimal preset is already minimal!"
 
 ### Q6: Custom Line (optional)
 - header: "Custom Line"
