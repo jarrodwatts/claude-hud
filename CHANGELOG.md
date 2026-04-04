@@ -4,9 +4,26 @@ All notable changes to Claude HUD will be documented in this file.
 
 ## [Unreleased]
 
+## [0.0.12] - 2026-04-04
+
+### Added
+- Chinese (`zh`) HUD labels as an explicit opt-in, while keeping English as the default.
+- Guided language selection in `/claude-hud:configure` so users can choose English or Chinese without hand-editing JSON.
+- Offline estimated session cost display via `display.showCost` for known Anthropic model families, derived from local transcript token usage only.
+- Session token totals, output-style display, git push count threshold coloring, configurable model badge formatting, and a custom model override.
+- Git file diff rendering with per-file and total line deltas, plus clickable OSC 8 file links where supported.
+
 ### Changed
-- Simplify usage display to rely only on Claude Code's official stdin `rate_limits` fields.
-- Remove the background OAuth usage API fallback, related cache/lock behavior, and credential-derived subscriber plan labels from the HUD.
+- Usage display now relies only on Claude Code's official stdin `rate_limits` fields. Background OAuth usage polling, related cache/lock behavior, and credential-derived subscriber plan labels were removed.
+- Setup and configure flows now better support simple onboarding: Windows setup prefers Node.js guidance, the GitHub star prompt includes `gh` compatibility guidance, and configure now exposes language as a first-class guided choice.
+- Plugin detection, config caching, and transcript-derived activity/session metadata are more robust and better covered by tests.
+
+### Fixed
+- Stabilize Claude Code version cache behavior across resolved binary paths and mtimes, fixing Node 20 CI failures.
+- Stop guessing auth mode from environment variables alone.
+- Preserve task IDs across `TodoWrite`, detect transcript agents recorded as `Agent`, and improve narrow-terminal wrapping including OSC hyperlink width handling.
+- Improve macOS memory reporting, config cache invalidation, and fallback rendering when terminal width is unavailable.
+- Clarify official usage-data behavior and keep Bedrock/unknown pricing cases hidden rather than showing misleading estimates.
 
 ## [0.0.10] - 2026-03-23
 
