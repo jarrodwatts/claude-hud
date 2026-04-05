@@ -1,4 +1,4 @@
-import { readStdin, getUsageFromStdin } from "./stdin.js";
+import { readStdin, getUsageFromStdin, isMiniMaxModelId } from "./stdin.js";
 import { parseTranscript } from "./transcript.js";
 import { render } from "./render/index.js";
 import { countConfigs } from "./config-reader.js";
@@ -8,6 +8,7 @@ import { parseExtraCmdArg, runExtraCmd } from "./extra-cmd.js";
 import { getClaudeCodeVersion } from "./version.js";
 import { getMemoryUsage } from "./memory.js";
 import { setLanguage, t } from "./i18n/index.js";
+import { fetchMiniMaxUsage } from "./minimax-usage.js";
 import type { RenderContext } from "./types.js";
 import { fileURLToPath } from "node:url";
 import { realpathSync } from "node:fs";
@@ -24,6 +25,7 @@ export type MainDeps = {
   getClaudeCodeVersion: typeof getClaudeCodeVersion;
   getMemoryUsage: typeof getMemoryUsage;
   render: typeof render;
+  fetchMiniMaxUsage: typeof fetchMiniMaxUsage;
   now: () => number;
   log: (...args: unknown[]) => void;
 };
@@ -41,6 +43,7 @@ export async function main(overrides: Partial<MainDeps> = {}): Promise<void> {
     getClaudeCodeVersion,
     getMemoryUsage,
     render,
+    fetchMiniMaxUsage,
     now: () => Date.now(),
     log: console.log,
     ...overrides,
@@ -73,10 +76,24 @@ export async function main(overrides: Partial<MainDeps> = {}): Promise<void> {
       ? await deps.getGitStatus(stdin.cwd)
       : null;
 
-    // Usage comes only from Claude Code's official stdin rate_limits fields.
+    // Usage comes from Claude Code's stdin rate_limits fields, or MiniMax API if configured.
+    // For MiniMax models, prefer the dedicated MiniMax API over stdin rate_limits since
+    // the stdin rate_limits may not reflect the actual MiniMax subscription usage.
     let usageData: RenderContext["usageData"] = null;
     if (config.display.showUsage !== false) {
-      usageData = deps.getUsageFromStdin(stdin);
+      const isMiniMax = isMiniMaxModelId(stdin.model?.id);
+
+      if (isMiniMax && config.miniMaxUsageApi.enabled) {
+        // MiniMax model with API enabled: use MiniMax API directly (ignore stdin rate_limits)
+        const apiKey = config.miniMaxUsageApi.apiKey ?? process.env.ANTHROPIC_AUTH_TOKEN ?? '';
+        const apiUrl = config.miniMaxUsageApi.apiUrl;
+        if (apiKey) {
+          usageData = await deps.fetchMiniMaxUsage(apiKey, apiUrl);
+        }
+      } else {
+        // Default: use stdin rate_limits
+        usageData = deps.getUsageFromStdin(stdin);
+      }
     }
 
     const extraCmd = deps.parseExtraCmdArg();

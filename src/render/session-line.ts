@@ -142,7 +142,9 @@ export function renderSessionLine(ctx: RenderContext): string {
   }
 
   // Usage limits display (shown when enabled in config, respects usageThreshold)
-  if (display?.showUsage !== false && ctx.usageData && !providerLabel) {
+  // Only hide usage for Bedrock (which uses stdin rate_limits); MiniMax usage is fetched
+  // via API and should always display when available.
+  if (display?.showUsage !== false && ctx.usageData && providerLabel !== 'Bedrock') {
     if (isLimitReached(ctx.usageData)) {
       const resetTime = ctx.usageData.fiveHour === 100
         ? formatResetTime(ctx.usageData.fiveHourResetAt)

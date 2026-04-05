@@ -23,10 +23,10 @@ Advanced settings such as `colors.*`, `pathLevels`, `display.usageThreshold`, an
 ## Two Flows Based on Config State
 
 ### Flow A: New User (no config)
-Questions: **Layout → Preset → Language → Turn Off → Turn On → Custom Line**
+Questions: **Layout → Preset → Language → Turn Off → Turn On → MiniMax Usage → Custom Line**
 
 ### Flow B: Update Config (config exists)
-Questions: **Turn Off → Turn On → Git Style → Layout/Reset → Language → Custom Line** (6 questions max)
+Questions: **Turn Off → Turn On → MiniMax Usage → Git Style → Layout/Reset → Language → Custom Line** (7 questions max)
 
 ---
 
@@ -64,7 +64,7 @@ Save as `language: "en"` or `language: "zh"`.
 - header: "Turn Off"
 - question: "Disable any of these? (enabled by your preset)"
 - multiSelect: true
-- options: **ONLY items that are ON in the chosen preset** (max 4)
+- options: **ONLY items that are ON in the chosen preset** (max 6)
   - "Tools activity" - ◐ Edit: file.ts | ✓ Read ×3
   - "Agents status" - ◐ explore [haiku]: Finding code
   - "Todo progress" - ▸ Fix bug (2/5 tasks)
@@ -88,7 +88,20 @@ Save as `language: "en"` or `language: "zh"`.
 **Note:** If preset has all items ON (Full), Q5 shows "Nothing to enable - Full preset has everything!"
 If preset has all items OFF (Minimal), Q4 shows "Nothing to disable - Minimal preset is already minimal!"
 
-### Q6: Custom Line (optional)
+### Q6: MiniMax Usage (optional)
+- header: "MiniMax Usage"
+- question: "Enable MiniMax (China) subscription usage tracking? (Requires MiniMax model)"
+- multiSelect: false
+- options:
+  - "Skip" - Do not enable (Recommended)
+  - "China (minimaxi.com)" - Enable with default API endpoint
+  - "Custom URL" - Enter your own API URL
+
+If user chooses "Skip", do not modify `miniMaxUsageApi`.
+If user chooses "China", save `miniMaxUsageApi: { enabled: true, apiUrl: "https://www.minimaxi.com/v1/api/openplatform/coding_plan/remains" }`.
+If user chooses "Custom URL", use AskUserQuestion to get the URL, then save with the custom URL.
+
+### Q7: Custom Line (optional)
 - header: "Custom Line"
 - question: "Add a custom phrase to display in the HUD? (e.g. a motto, max 80 chars)"
 - multiSelect: false
@@ -100,13 +113,13 @@ If user chooses "Enter custom text", use AskUserQuestion to get their text. Save
 
 ---
 
-## Flow B: Update Config (6 Questions)
+## Flow B: Update Config (7 Questions)
 
 ### Q1: Turn Off
 - header: "Turn Off"
 - question: "What do you want to DISABLE? (currently enabled)"
 - multiSelect: true
-- options: **ONLY items currently ON** (max 4, prioritize Activity first)
+- options: **ONLY items currently ON** (max 6, prioritize Activity first)
   - "Tools activity" - ◐ Edit: file.ts | ✓ Read ×3
   - "Agents status" - ◐ explore [haiku]: Finding code
   - "Todo progress" - ▸ Fix bug (2/5 tasks)
@@ -116,14 +129,14 @@ If user chooses "Enter custom text", use AskUserQuestion to get their text. Save
   - "Session tokens" - Tokens 12.8M (in: 7k, out: 28k, cache: 12.8M)
   - "Usage bar style" - ██░░ 25% visual bar (only if usageBarEnabled is true)
 
-If more than 4 items ON, show Activity items (Tools, Agents, Todos, Project, Git) first.
-Info items (Counts, Tokens, Usage, Speed, Duration) can be turned off via "Reset to Minimal" in Q4.
+If more than 6 items ON, show Activity items (Tools, Agents, Todos, Project, Git) first.
+Info items (Counts, Tokens, Usage, Speed, Duration) can be turned off via "Reset to Minimal" in Q5.
 
 ### Q2: Turn On
 - header: "Turn On"
 - question: "What do you want to ENABLE? (currently disabled)"
 - multiSelect: true
-- options: **ONLY items currently OFF** (max 4)
+- options: **ONLY items currently OFF** (max 6)
   - "Config counts" - 2 CLAUDE.md | 4 rules
   - "Token breakdown" - (in: 45k, cache: 12k)
   - "Output speed" - out: 42.1 tok/s
@@ -133,7 +146,22 @@ Info items (Counts, Tokens, Usage, Speed, Duration) can be turned off via "Reset
   - "Session tokens" - Tokens 12.8M (in: 7k, out: 28k, cache: 12.8M)
   - "Session duration" - ⏱️ 5m
 
-### Q3: Git Style (only if Git is currently enabled)
+### Q3: MiniMax Usage (optional)
+- header: "MiniMax Usage"
+- question: "Enable MiniMax (China) subscription usage tracking? (Requires MiniMax model)"
+- multiSelect: false
+- options:
+  - "Skip" - Do not modify MiniMax settings
+  - "Enable" - Enable with default API endpoint
+  - "Disable" - Turn off MiniMax usage tracking
+  - "Custom URL" - Set a custom API endpoint
+
+If user chooses "Skip", do not modify `miniMaxUsageApi`.
+If user chooses "Enable", save `miniMaxUsageApi: { enabled: true, apiUrl: "https://www.minimaxi.com/v1/api/openplatform/coding_plan/remains" }`.
+If user chooses "Disable", save `miniMaxUsageApi: { enabled: false }`.
+If user chooses "Custom URL", use AskUserQuestion to get the URL, then save with enabled: true and custom URL.
+
+### Q4: Git Style (only if Git is currently enabled)
 - header: "Git Style"
 - question: "How much git info to show?"
 - multiSelect: false
@@ -143,9 +171,9 @@ Info items (Counts, Tokens, Usage, Speed, Duration) can be turned off via "Reset
   - "Full details" - git:(main* ↑2 ↓1) includes ahead/behind
   - "File stats" - git:(main* !2 +1 ?3) Starship-compatible format
 
-**Skip Q3 if Git is OFF** - proceed to Q4.
+**Skip Q4 if Git is OFF** - proceed to Q6.
 
-### Q4: Layout/Reset
+### Q5: Layout/Reset
 - header: "Layout/Reset"
 - question: "Change layout or reset to preset?"
 - multiSelect: false
@@ -156,7 +184,7 @@ Info items (Counts, Tokens, Usage, Speed, Duration) can be turned off via "Reset
   - "Reset to Full" - Enable everything
   - "Reset to Essential" - Activity + git only
 
-### Q5: Language
+### Q6: Language
 - header: "Language"
 - question: "Update HUD label language? (current: '{English or 中文}')"
 - multiSelect: false
@@ -169,7 +197,7 @@ If user chooses "Keep current", leave `language` unchanged.
 If user chooses "English (Recommended)", save `language: "en"`.
 If user chooses "中文", save `language: "zh"`.
 
-### Q6: Custom Line (optional)
+### Q7: Custom Line (optional)
 - header: "Custom Line"
 - question: "Update your custom phrase? (currently: '{current customLine or none}')"
 - multiSelect: false
@@ -232,6 +260,20 @@ If user chooses "Remove", set `display.customLine` to `""` in config.
 
 ---
 
+## MiniMax Usage Mapping
+
+| Option | Config |
+|--------|--------|
+| Skip | No change to `miniMaxUsageApi` |
+| China (minimaxi.com) | `miniMaxUsageApi: { enabled: true, apiUrl: "https://www.minimaxi.com/v1/api/openplatform/coding_plan/remains" }` |
+| Enable | `miniMaxUsageApi: { enabled: true, apiUrl: "https://www.minimaxi.com/v1/api/openplatform/coding_plan/remains" }` |
+| Disable | `miniMaxUsageApi: { enabled: false }` |
+| Custom URL | `miniMaxUsageApi: { enabled: true, apiUrl: "<user-provided URL>" }` |
+
+**Note**: `apiKey` is NOT configured via the guided flow. The HUD falls back to the `ANTHROPIC_AUTH_TOKEN` environment variable automatically.
+
+---
+
 ## Element Mapping
 
 | Element | Config Key |
@@ -275,16 +317,18 @@ If user chooses "Remove", set `display.customLine` to `""` in config.
 2. Apply chosen language
 3. Apply Turn Off selections (set those items to OFF)
 4. Apply Turn On selections (set those items to ON)
-5. Apply chosen layout
+5. Apply MiniMax Usage selection (Enable, Disable, Skip, or Custom URL)
+6. Apply chosen layout
 
 ### For Returning Users (Flow B):
 1. Start from current config
 2. Apply Turn Off selections (set to OFF, including usageBarEnabled if selected)
 3. Apply Turn On selections (set to ON, including usageBarEnabled if selected)
-4. Apply Git Style selection (if shown)
-5. If "Reset to [preset]" selected, override with preset values
-6. If layout change selected, apply it
-7. If language change selected, apply it
+4. Apply MiniMax Usage selection (Enable, Disable, or Custom URL)
+5. Apply Git Style selection (if shown)
+6. If "Reset to [preset]" selected, override with preset values
+7. If layout change selected, apply it
+8. If language change selected, apply it
 
 ---
 

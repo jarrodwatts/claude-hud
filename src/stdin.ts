@@ -219,9 +219,20 @@ export function isBedrockModelId(modelId?: string): boolean {
   return normalized.includes('anthropic.claude-');
 }
 
+export function isMiniMaxModelId(modelId?: string): boolean {
+  if (!modelId) {
+    return false;
+  }
+  const normalized = modelId.toLowerCase();
+  return normalized.includes('minimax');
+}
+
 export function getProviderLabel(stdin: StdinData): string | null {
   if (isBedrockModelId(stdin.model?.id)) {
     return 'Bedrock';
+  }
+  if (isMiniMaxModelId(stdin.model?.id)) {
+    return 'MiniMax';
   }
   return null;
 }

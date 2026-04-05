@@ -17,7 +17,9 @@ export function renderUsageLine(ctx: RenderContext): string | null {
     return null;
   }
 
-  if (getProviderLabel(ctx.stdin)) {
+  // Only hide usage for Bedrock; MiniMax usage is fetched separately
+  const provider = getProviderLabel(ctx.stdin);
+  if (provider === 'Bedrock') {
     return null;
   }
 

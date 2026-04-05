@@ -2,6 +2,7 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import * as os from 'node:os';
 import { getHudPluginDir } from './claude-config-dir.js';
+import { DEFAULT_MINIMAX_API_URL } from './minimax-usage.js';
 import type { Language } from './i18n/types.js';
 
 export type LineLayoutType = 'compact' | 'expanded';
@@ -58,6 +59,12 @@ export const DEFAULT_ELEMENT_ORDER: HudElement[] = [
 
 const KNOWN_ELEMENTS = new Set<HudElement>(DEFAULT_ELEMENT_ORDER);
 
+export interface MiniMaxUsageApiConfig {
+  enabled: boolean;
+  apiKey?: string;
+  apiUrl?: string;
+}
+
 export interface HudConfig {
   language: Language;
   lineLayout: LineLayoutType;
@@ -72,6 +79,7 @@ export interface HudConfig {
     pushWarningThreshold: number;
     pushCriticalThreshold: number;
   };
+  miniMaxUsageApi: MiniMaxUsageApiConfig;
   display: {
     showModel: boolean;
     showProject: boolean;
@@ -109,6 +117,10 @@ export const DEFAULT_CONFIG: HudConfig = {
   showSeparators: false,
   pathLevels: 1,
   elementOrder: [...DEFAULT_ELEMENT_ORDER],
+  miniMaxUsageApi: {
+    enabled: false,
+    apiUrl: DEFAULT_MINIMAX_API_URL,
+  },
   gitStatus: {
     enabled: true,
     showDirty: true,
@@ -313,6 +325,18 @@ export function mergeConfig(userConfig: Partial<HudConfig>): HudConfig {
     pushCriticalThreshold: validateCountThreshold(migrated.gitStatus?.pushCriticalThreshold),
   };
 
+  const miniMaxUsageApi = {
+    enabled: typeof migrated.miniMaxUsageApi?.enabled === 'boolean'
+      ? migrated.miniMaxUsageApi.enabled
+      : DEFAULT_CONFIG.miniMaxUsageApi.enabled,
+    apiKey: typeof migrated.miniMaxUsageApi?.apiKey === 'string'
+      ? migrated.miniMaxUsageApi.apiKey
+      : DEFAULT_CONFIG.miniMaxUsageApi.apiKey,
+    apiUrl: typeof migrated.miniMaxUsageApi?.apiUrl === 'string'
+      ? migrated.miniMaxUsageApi.apiUrl
+      : DEFAULT_CONFIG.miniMaxUsageApi.apiUrl,
+  };
+
   const display = {
     showModel: typeof migrated.display?.showModel === 'boolean'
       ? migrated.display.showModel
@@ -424,7 +448,7 @@ export function mergeConfig(userConfig: Partial<HudConfig>): HudConfig {
       : DEFAULT_CONFIG.colors.custom,
   };
 
-  return { language, lineLayout, showSeparators, pathLevels, elementOrder, gitStatus, display, colors };
+  return { language, lineLayout, showSeparators, pathLevels, elementOrder, gitStatus, miniMaxUsageApi, display, colors };
 }
 
 export async function loadConfig(): Promise<HudConfig> {
