@@ -65,6 +65,12 @@ describe('getAdaptiveBarWidth', () => {
     assert.equal(getAdaptiveBarWidth(), 10);
   });
 
+  test('uses COLUMNS env var as explicit override even when stdout.columns is set', () => {
+    Object.defineProperty(process.stdout, 'columns', { value: 120, configurable: true });
+    process.env.COLUMNS = '70';
+    assert.equal(getAdaptiveBarWidth(), 6);
+  });
+
   test('falls back to COLUMNS env var when stdout.columns unavailable', () => {
     Object.defineProperty(process.stdout, 'columns', { value: undefined, configurable: true });
     process.env.COLUMNS = '70';
