@@ -154,7 +154,7 @@ function sliceVisible(str, maxVisible) {
     return result;
 }
 function truncateToWidth(str, maxWidth) {
-    if (maxWidth <= 0 || visualLength(str) <= maxWidth) {
+    if (maxWidth == null || maxWidth <= 0 || visualLength(str) <= maxWidth) {
         return str;
     }
     const suffix = maxWidth >= 3 ? '...' : '.'.repeat(maxWidth);
@@ -227,7 +227,7 @@ function splitWrapParts(line) {
     return parts;
 }
 function wrapLineToWidth(line, maxWidth) {
-    if (maxWidth <= 0 || visualLength(line) <= maxWidth) {
+    if (maxWidth == null || maxWidth <= 0 || visualLength(line) <= maxWidth) {
         return [line];
     }
     const parts = splitWrapParts(line);

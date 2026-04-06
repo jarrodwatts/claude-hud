@@ -29,7 +29,7 @@ function stripAnsi(str: string): string {
   return str.replace(ANSI_ESCAPE_GLOBAL, '');
 }
 
-function getTerminalWidth(): number {
+function getTerminalWidth(): number | null {
   const stdoutColumns = process.stdout?.columns;
   if (typeof stdoutColumns === 'number' && Number.isFinite(stdoutColumns) && stdoutColumns > 0) {
     return Math.floor(stdoutColumns);
@@ -189,8 +189,8 @@ function sliceVisible(str: string, maxVisible: number): string {
   return result;
 }
 
-function truncateToWidth(str: string, maxWidth: number): string {
-  if (maxWidth <= 0 || visualLength(str) <= maxWidth) {
+function truncateToWidth(str: string, maxWidth: number | null): string {
+  if (maxWidth == null || maxWidth <= 0 || visualLength(str) <= maxWidth) {
     return str;
   }
 
@@ -274,8 +274,8 @@ function splitWrapParts(line: string): Array<{ separator: string; segment: strin
   return parts;
 }
 
-function wrapLineToWidth(line: string, maxWidth: number): string[] {
-  if (maxWidth <= 0 || visualLength(line) <= maxWidth) {
+function wrapLineToWidth(line: string, maxWidth: number | null): string[] {
+  if (maxWidth == null || maxWidth <= 0 || visualLength(line) <= maxWidth) {
     return [line];
   }
 
