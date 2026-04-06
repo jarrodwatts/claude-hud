@@ -1,6 +1,14 @@
 import { test, describe, beforeEach, afterEach } from 'node:test';
 import assert from 'node:assert/strict';
-import { getAdaptiveBarWidth } from '../dist/utils/terminal.js';
+import { getAdaptiveBarWidth, getTerminalWidth } from '../dist/utils/terminal.js';
+
+test('prefers COLUMNS env override over process.stdout.columns', () => {
+  assert.equal(getTerminalWidth('120', 60), 120);
+});
+
+test('falls back to stdout columns when COLUMNS is missing', () => {
+  assert.equal(getTerminalWidth(undefined, 72), 72);
+});
 
 describe('getAdaptiveBarWidth', () => {
   let originalColumns;
@@ -69,6 +77,12 @@ describe('getAdaptiveBarWidth', () => {
     Object.defineProperty(process.stdout, 'columns', { value: undefined, configurable: true });
     process.env.COLUMNS = '70';
     assert.equal(getAdaptiveBarWidth(), 6);
+  });
+
+  test('uses wide progress bar when COLUMNS override reports a wide terminal', () => {
+    Object.defineProperty(process.stdout, 'columns', { value: 40, configurable: true });
+    process.env.COLUMNS = '120';
+    assert.equal(getAdaptiveBarWidth(), 10);
   });
 
   test('returns 10 when both stdout.columns and COLUMNS are unavailable', () => {
