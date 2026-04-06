@@ -169,7 +169,23 @@ This is a [Claude Code platform limitation](https://github.com/anthropics/claude
 
 **Windows + Git Bash** (Platform: `win32`, Shell: `bash`):
 
-Use the macOS/Linux bash command format above, but on Windows prefer `node` first and only fall back to `bun`. Do not use PowerShell commands when the shell is bash. Claude Code invokes statusLine commands through bash, which will interpret PowerShell variables like `$env` and `$p` before PowerShell ever sees them.
+Do not use PowerShell commands when the shell is bash. Claude Code invokes statusLine commands through bash, which will interpret PowerShell variables like `$env` and `$p` before PowerShell ever sees them.
+
+On Windows prefer `node` first and only fall back to `bun`.
+
+**Important**: Do **not** reuse the macOS/Linux awk-based command on Windows + Git Bash. The `awk` fragment requires `'"'"'` quoting to nest single quotes inside `bash -c '...'`. After JSON encoding and decoding, this quoting breaks on Windows Git Bash, causing a silent syntax error that prevents the HUD process from starting (see [#326](https://github.com/jarrodwatts/claude-hud/issues/326)).
+
+Instead, use `sort -V` (GNU version sort, included with Git for Windows) which avoids nested single quotes entirely:
+
+   **When runtime is bun** - add `--env-file /dev/null` to prevent Bun from auto-loading project `.env` files:
+   ```
+   bash -c 'plugin_dir=$(ls -1d "${CLAUDE_CONFIG_DIR:-$HOME/.claude}/plugins/cache/claude-hud/claude-hud"/*/ 2>/dev/null | sort -V | tail -1); exec "{RUNTIME_PATH}" --env-file /dev/null "${plugin_dir}{SOURCE}"'
+   ```
+
+   **When runtime is node**:
+   ```
+   bash -c 'plugin_dir=$(ls -1d "${CLAUDE_CONFIG_DIR:-$HOME/.claude}/plugins/cache/claude-hud/claude-hud"/*/ 2>/dev/null | sort -V | tail -1); exec "{RUNTIME_PATH}" "${plugin_dir}{SOURCE}"'
+   ```
 
 **Windows + PowerShell** (Platform: `win32`, Shell: `powershell`, `pwsh`, or `cmd`):
 
