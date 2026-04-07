@@ -5,6 +5,8 @@ import * as readline from 'readline';
 import { createHash } from 'node:crypto';
 import { getHudPluginDir } from './claude-config-dir.js';
 import type { TranscriptData, ToolEntry, AgentEntry, TodoItem, SessionTokenUsage } from './types.js';
+import { parseSignature, EMPTY_VERIFY } from './verify.js';
+import type { VerifyData } from './verify.js';
 
 interface TranscriptLine {
   timestamp?: string;
@@ -29,6 +31,7 @@ interface ContentBlock {
   input?: Record<string, unknown>;
   tool_use_id?: string;
   is_error?: boolean;
+  signature?: string;
 }
 
 interface TranscriptFileState {
@@ -53,6 +56,7 @@ interface SerializedTranscriptData {
   sessionStart?: string;
   sessionName?: string;
   sessionTokens?: SessionTokenUsage;
+  verify?: VerifyData;
 }
 
 interface TranscriptCacheFile {
@@ -121,6 +125,7 @@ function serializeTranscriptData(data: TranscriptData): SerializedTranscriptData
     sessionStart: data.sessionStart?.toISOString(),
     sessionName: data.sessionName,
     sessionTokens: data.sessionTokens,
+    verify: data.verify,
   };
 }
 
@@ -140,6 +145,7 @@ function deserializeTranscriptData(data: SerializedTranscriptData): TranscriptDa
     sessionStart: data.sessionStart ? new Date(data.sessionStart) : undefined,
     sessionName: data.sessionName,
     sessionTokens: normalizeSessionTokens(data.sessionTokens),
+    verify: data.verify,
   };
 }
 
@@ -210,6 +216,7 @@ export async function parseTranscript(transcriptPath: string): Promise<Transcrip
     cacheCreationTokens: 0,
     cacheReadTokens: 0,
   };
+  let latestVerify: VerifyData | undefined;
 
   let parsedCleanly = false;
 
@@ -238,6 +245,14 @@ export async function parseTranscript(transcriptPath: string): Promise<Transcrip
           sessionTokens.cacheCreationTokens += normalizeTokenCount(usage.cache_creation_input_tokens);
           sessionTokens.cacheReadTokens += normalizeTokenCount(usage.cache_read_input_tokens);
         }
+        // Extract thinking block signatures for API authenticity verification
+        if (entry.type === 'assistant' && entry.message?.content) {
+          for (const block of entry.message.content) {
+            if (block.type === 'thinking' && typeof block.signature === 'string' && block.signature) {
+              latestVerify = parseSignature(block.signature);
+            }
+          }
+        }
         processEntry(entry, toolMap, agentMap, taskIdToIndex, latestTodos, result);
       } catch {
         // Skip malformed lines
@@ -254,6 +269,7 @@ export async function parseTranscript(transcriptPath: string): Promise<Transcrip
   result.todos = latestTodos;
   result.sessionName = customTitle ?? latestSlug;
   result.sessionTokens = sessionTokens;
+  result.verify = latestVerify;
   if (parsedCleanly) {
     writeTranscriptCache(transcriptPath, transcriptState, result);
   }

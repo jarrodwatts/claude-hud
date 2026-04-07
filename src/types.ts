@@ -1,5 +1,6 @@
 import type { HudConfig } from './config.js';
 import type { GitStatus } from './git.js';
+import type { VerifyData } from './verify.js';
 
 export interface StdinData {
   transcript_path?: string;
@@ -96,6 +97,7 @@ export interface TranscriptData {
   sessionStart?: Date;
   sessionName?: string;
   sessionTokens?: SessionTokenUsage;
+  verify?: VerifyData;
 }
 
 export interface RenderContext {

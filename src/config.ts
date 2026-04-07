@@ -17,7 +17,7 @@ export type ContextValueMode = 'percent' | 'tokens' | 'remaining' | 'both';
  *   short:   Strip context suffix AND "Claude " prefix (e.g. "Opus 4.6")
  */
 export type ModelFormatMode = 'full' | 'compact' | 'short';
-export type HudElement = 'project' | 'context' | 'usage' | 'memory' | 'environment' | 'tools' | 'agents' | 'todos';
+export type HudElement = 'project' | 'context' | 'usage' | 'memory' | 'environment' | 'tools' | 'agents' | 'todos' | 'verify';
 export type HudColorName =
   | 'dim'
   | 'red'
@@ -51,6 +51,7 @@ export const DEFAULT_ELEMENT_ORDER: HudElement[] = [
   'usage',
   'memory',
   'environment',
+  'verify',
   'tools',
   'agents',
   'todos',
@@ -91,6 +92,7 @@ export interface HudConfig {
     showClaudeCodeVersion: boolean;
     showMemoryUsage: boolean;
     showSessionTokens: boolean;
+    showVerify: boolean;
     showOutputStyle: boolean;
     autocompactBuffer: AutocompactBufferMode;
     usageThreshold: number;
@@ -136,6 +138,7 @@ export const DEFAULT_CONFIG: HudConfig = {
     showClaudeCodeVersion: false,
     showMemoryUsage: false,
     showSessionTokens: false,
+    showVerify: true,
     showOutputStyle: false,
     autocompactBuffer: 'enabled',
     usageThreshold: 0,
@@ -368,6 +371,9 @@ export function mergeConfig(userConfig: Partial<HudConfig>): HudConfig {
     showSessionTokens: typeof migrated.display?.showSessionTokens === 'boolean'
       ? migrated.display.showSessionTokens
       : DEFAULT_CONFIG.display.showSessionTokens,
+    showVerify: typeof migrated.display?.showVerify === 'boolean'
+      ? migrated.display.showVerify
+      : DEFAULT_CONFIG.display.showVerify,
     showOutputStyle: typeof migrated.display?.showOutputStyle === 'boolean'
       ? migrated.display.showOutputStyle
       : DEFAULT_CONFIG.display.showOutputStyle,
