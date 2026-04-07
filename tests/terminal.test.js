@@ -3,20 +3,27 @@ import assert from 'node:assert/strict';
 import { getAdaptiveBarWidth } from '../dist/utils/terminal.js';
 
 describe('getAdaptiveBarWidth', () => {
-  let originalColumns;
+  let originalStdoutColumns;
+  let originalStderrColumns;
   let originalEnvColumns;
 
   beforeEach(() => {
-    originalColumns = Object.getOwnPropertyDescriptor(process.stdout, 'columns');
+    originalStdoutColumns = Object.getOwnPropertyDescriptor(process.stdout, 'columns');
+    originalStderrColumns = Object.getOwnPropertyDescriptor(process.stderr, 'columns');
     originalEnvColumns = process.env.COLUMNS;
     delete process.env.COLUMNS;
   });
 
   afterEach(() => {
-    if (originalColumns) {
-      Object.defineProperty(process.stdout, 'columns', originalColumns);
+    if (originalStdoutColumns) {
+      Object.defineProperty(process.stdout, 'columns', originalStdoutColumns);
     } else {
       delete process.stdout.columns;
+    }
+    if (originalStderrColumns) {
+      Object.defineProperty(process.stderr, 'columns', originalStderrColumns);
+    } else {
+      delete process.stderr.columns;
     }
     if (originalEnvColumns !== undefined) {
       process.env.COLUMNS = originalEnvColumns;
@@ -65,14 +72,28 @@ describe('getAdaptiveBarWidth', () => {
     assert.equal(getAdaptiveBarWidth(), 10);
   });
 
+  test('treats COLUMNS env var as a hard override when present', () => {
+    Object.defineProperty(process.stdout, 'columns', { value: 120, configurable: true });
+    process.env.COLUMNS = '70';
+    assert.equal(getAdaptiveBarWidth(), 6);
+  });
+
   test('falls back to COLUMNS env var when stdout.columns unavailable', () => {
     Object.defineProperty(process.stdout, 'columns', { value: undefined, configurable: true });
     process.env.COLUMNS = '70';
     assert.equal(getAdaptiveBarWidth(), 6);
   });
 
-  test('returns 10 when both stdout.columns and COLUMNS are unavailable', () => {
+  test('falls back to stderr.columns when stdout.columns and COLUMNS are unavailable', () => {
     Object.defineProperty(process.stdout, 'columns', { value: undefined, configurable: true });
+    Object.defineProperty(process.stderr, 'columns', { value: 70, configurable: true });
+    delete process.env.COLUMNS;
+    assert.equal(getAdaptiveBarWidth(), 6);
+  });
+
+  test('returns 10 when stdout.columns, stderr.columns, and COLUMNS are unavailable', () => {
+    Object.defineProperty(process.stdout, 'columns', { value: undefined, configurable: true });
+    Object.defineProperty(process.stderr, 'columns', { value: undefined, configurable: true });
     delete process.env.COLUMNS;
     assert.equal(getAdaptiveBarWidth(), 10);
   });

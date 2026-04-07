@@ -5,7 +5,7 @@ import { renderAgentsLine } from './agents-line.js';
 import { renderTodosLine } from './todos-line.js';
 import { renderIdentityLine, renderProjectLine, renderGitFilesLine, renderEnvironmentLine, renderUsageLine, renderMemoryLine, renderSessionTokensLine, } from './lines/index.js';
 import { dim, RESET } from './colors.js';
-import { UNKNOWN_TERMINAL_WIDTH } from '../utils/terminal.js';
+import { getTerminalWidth, UNKNOWN_TERMINAL_WIDTH } from '../utils/terminal.js';
 // eslint-disable-next-line no-control-regex
 const ANSI_ESCAPE_PATTERN = /^(?:\x1b\[[0-9;]*m|\x1b\][^\x07\x1b]*(?:\x07|\x1b\\))/;
 // eslint-disable-next-line no-control-regex
@@ -15,23 +15,6 @@ const GRAPHEME_SEGMENTER = typeof Intl.Segmenter === 'function'
     : null;
 function stripAnsi(str) {
     return str.replace(ANSI_ESCAPE_GLOBAL, '');
-}
-function getTerminalWidth() {
-    const stdoutColumns = process.stdout?.columns;
-    if (typeof stdoutColumns === 'number' && Number.isFinite(stdoutColumns) && stdoutColumns > 0) {
-        return Math.floor(stdoutColumns);
-    }
-    // When running as a statusline subprocess, stdout is piped but stderr is
-    // still connected to the real terminal — use it to get the actual width.
-    const stderrColumns = process.stderr?.columns;
-    if (typeof stderrColumns === 'number' && Number.isFinite(stderrColumns) && stderrColumns > 0) {
-        return Math.floor(stderrColumns);
-    }
-    const envColumns = Number.parseInt(process.env.COLUMNS ?? '', 10);
-    if (Number.isFinite(envColumns) && envColumns > 0) {
-        return envColumns;
-    }
-    return UNKNOWN_TERMINAL_WIDTH;
 }
 function splitAnsiTokens(str) {
     const tokens = [];
@@ -361,7 +344,7 @@ function renderExpanded(ctx, terminalWidth = null) {
 export function render(ctx) {
     const lineLayout = ctx.config?.lineLayout ?? 'expanded';
     const showSeparators = ctx.config?.showSeparators ?? false;
-    const terminalWidth = getTerminalWidth();
+    const terminalWidth = getTerminalWidth({ preferEnv: true, fallback: UNKNOWN_TERMINAL_WIDTH }) ?? UNKNOWN_TERMINAL_WIDTH;
     let lines;
     if (lineLayout === 'expanded') {
         const renderedLines = renderExpanded(ctx, terminalWidth);
