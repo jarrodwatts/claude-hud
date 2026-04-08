@@ -5,7 +5,7 @@ import { renderAgentsLine } from './agents-line.js';
 import { renderTodosLine } from './todos-line.js';
 import { renderIdentityLine, renderProjectLine, renderGitFilesLine, renderEnvironmentLine, renderUsageLine, renderMemoryLine, renderSessionTokensLine, } from './lines/index.js';
 import { dim, RESET } from './colors.js';
-import { UNKNOWN_TERMINAL_WIDTH } from '../utils/terminal.js';
+import { UNKNOWN_TERMINAL_WIDTH, detectTtyWidth } from '../utils/terminal.js';
 // eslint-disable-next-line no-control-regex
 const ANSI_ESCAPE_PATTERN = /^(?:\x1b\[[0-9;]*m|\x1b\][^\x07\x1b]*(?:\x07|\x1b\\))/;
 // eslint-disable-next-line no-control-regex
@@ -30,6 +30,11 @@ function getTerminalWidth() {
     const envColumns = Number.parseInt(process.env.COLUMNS ?? '', 10);
     if (Number.isFinite(envColumns) && envColumns > 0) {
         return envColumns;
+    }
+    // Walk the process tree to find the real TTY width from an ancestor process.
+    const ttyWidth = detectTtyWidth();
+    if (ttyWidth !== null) {
+        return ttyWidth;
     }
     return UNKNOWN_TERMINAL_WIDTH;
 }

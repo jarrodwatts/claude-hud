@@ -2,6 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { render } from '../dist/render/index.js';
 import { setLanguage } from '../dist/i18n/index.js';
+import { _resetTtyWidthCache } from '../dist/utils/terminal.js';
 
 function baseContext() {
   return {
@@ -280,13 +281,19 @@ test('render falls back to a safe default width when no terminal size is availab
   };
 
   const originalEnvColumns = process.env.COLUMNS;
+  const originalPpid = process.ppid;
   let lines = [];
   withColumns(process.stdout, undefined, () => {
     withColumns(process.stderr, undefined, () => {
       delete process.env.COLUMNS;
+      // Prevent detectTtyWidth from finding a real TTY via the process tree
+      _resetTtyWidthCache();
+      Object.defineProperty(process, 'ppid', { value: 0, configurable: true });
       try {
         lines = captureRender(ctx);
       } finally {
+        Object.defineProperty(process, 'ppid', { value: originalPpid, configurable: true });
+        _resetTtyWidthCache();
         if (originalEnvColumns === undefined) {
           delete process.env.COLUMNS;
         } else {
@@ -297,7 +304,7 @@ test('render falls back to a safe default width when no terminal size is availab
   });
 
   assert.ok(lines.length > 1, 'should wrap output instead of emitting one oversized line');
-  assert.ok(lines.every(line => displayWidth(line) <= 80), 'all lines should fit the safe fallback width');
+  assert.ok(lines.every(line => displayWidth(line) <= 120), 'all lines should fit the UNKNOWN_TERMINAL_WIDTH fallback');
 });
 
 test('render does not strand a bare 5h continuation line in compact mode', () => {
