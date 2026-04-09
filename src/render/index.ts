@@ -16,6 +16,7 @@ import {
 } from './lines/index.js';
 import { dim, RESET } from './colors.js';
 import { UNKNOWN_TERMINAL_WIDTH } from '../utils/terminal.js';
+import { execSync } from 'child_process';
 
 // eslint-disable-next-line no-control-regex
 const ANSI_ESCAPE_PATTERN = /^(?:\x1b\[[0-9;]*m|\x1b\][^\x07\x1b]*(?:\x07|\x1b\\))/;
@@ -45,6 +46,23 @@ function getTerminalWidth(): number {
   const envColumns = Number.parseInt(process.env.COLUMNS ?? '', 10);
   if (Number.isFinite(envColumns) && envColumns > 0) {
     return envColumns;
+  }
+
+  // Fallback: query the terminal via tput.  When bun/node run as a
+  // statusline subprocess both stdout.columns and stderr.columns are
+  // undefined (stdout is a pipe, stderr may also lack a TTY in some
+  // environments).  tput reads from the terminal database and still
+  // returns the correct column count in this scenario.
+  try {
+    const tputCols = Number.parseInt(
+      execSync('tput cols 2>/dev/null', { encoding: 'utf8', timeout: 1000 }).trim(),
+      10,
+    );
+    if (Number.isFinite(tputCols) && tputCols > 0) {
+      return tputCols;
+    }
+  } catch {
+    // tput unavailable or no terminal — ignore
   }
 
   return UNKNOWN_TERMINAL_WIDTH;
