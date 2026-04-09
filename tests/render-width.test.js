@@ -347,6 +347,30 @@ test('render prefers stdout columns over COLUMNS env fallback', () => {
   assert.ok(lines.some(line => displayWidth(line) > 10), 'stdout width should override COLUMNS fallback');
 });
 
+test('render uses a realistic fallback width when terminal columns are unavailable', () => {
+  const ctx = baseContext();
+  ctx.stdin.cwd = '/tmp/very-long-project-name-for-width-checking';
+  const originalEnvColumns = process.env.COLUMNS;
+  delete process.env.COLUMNS;
+
+  let lines = [];
+  withColumns(process.stdout, undefined, () => {
+    withColumns(process.stderr, undefined, () => {
+      lines = captureRender(ctx);
+    });
+  });
+
+  if (originalEnvColumns === undefined) {
+    delete process.env.COLUMNS;
+  } else {
+    process.env.COLUMNS = originalEnvColumns;
+  }
+
+  assert.equal(lines.length, 1, 'piped status line output should stay on a single compact line');
+  assert.ok(displayWidth(lines[0]) > 40, 'fallback width should no longer collapse to the old 40-column default');
+  assert.ok(!lines[0].includes('\n'), 'fallback rendering should not introduce wrapping');
+});
+
 test('render does not split model/provider separator inside brackets', () => {
   const ctx = baseContext();
   ctx.stdin.model = { display_name: 'Sonnet', id: 'anthropic.claude-3-5-sonnet-20240620-v1:0' };
