@@ -50,7 +50,7 @@ function baseContext() {
       pathLevels: 1,
       elementOrder: ['project', 'context', 'usage', 'memory', 'environment', 'tools', 'agents', 'todos'],
       gitStatus: { enabled: true, showDirty: true, showAheadBehind: false, showFileStats: false, pushWarningThreshold: 0, pushCriticalThreshold: 0 },
-      display: { showModel: true, showProject: true, showContextBar: true, contextValue: 'percent', showConfigCounts: true, showCost: false, showDuration: true, showSpeed: false, showTokenBreakdown: true, showUsage: true, usageBarEnabled: false, showTools: true, showAgents: true, showTodos: true, showSessionTokens: false, showSessionName: false, showClaudeCodeVersion: false, showMemoryUsage: false, showOutputStyle: false, autocompactBuffer: 'enabled', usageThreshold: 0, sevenDayThreshold: 80, environmentThreshold: 0, customLine: '' },
+      display: { showModel: true, showProject: true, showContextBar: true, contextValue: 'percent', showConfigCounts: true, showCost: false, showDuration: true, showSpeed: false, showTokenBreakdown: true, showUsage: true, usageBarEnabled: false, showResetLabel: true, showTools: true, showAgents: true, showTodos: true, showSessionTokens: false, showSessionName: false, showClaudeCodeVersion: false, showMemoryUsage: false, showOutputStyle: false, autocompactBuffer: 'enabled', usageThreshold: 0, sevenDayThreshold: 80, environmentThreshold: 0, customLine: '' },
       colors: {
         context: 'green',
         usage: 'brightBlue',
@@ -1245,6 +1245,25 @@ test('renderUsageLine shows 7d reset countdown in text-only mode', () => {
   assert.ok(line.includes('(resets in 1d 4h)'), `should include 7d reset countdown in text-only mode: ${line}`);
 });
 
+test('renderUsageLine can hide reset label in text-only mode', () => {
+  const ctx = baseContext();
+  const resetTime = new Date(Date.now() + (28 * 60 * 60 * 1000));
+  ctx.config.display.usageBarEnabled = false;
+  ctx.config.display.showResetLabel = false;
+  ctx.config.display.sevenDayThreshold = 80;
+  ctx.usageData = {
+    planName: 'Pro',
+    fiveHour: 45,
+    sevenDay: 85,
+    fiveHourResetAt: null,
+    sevenDayResetAt: resetTime,
+  };
+
+  const line = stripAnsi(renderUsageLine(ctx));
+  assert.ok(line.includes('(1d 4h)'), `should include bare countdown when reset label is hidden: ${line}`);
+  assert.ok(!line.includes('resets in'), `should omit reset label when disabled: ${line}`);
+});
+
 test('renderUsageLine translates weekly label when Chinese is enabled', () => {
   const ctx = baseContext();
   ctx.config.display.sevenDayThreshold = 80;
@@ -1284,6 +1303,25 @@ test('renderUsageLine shows 7d reset countdown in bar mode when above threshold'
   assert.ok(line.includes('85%'), `should include 7d percentage: ${line}`);
   assert.ok(line.includes('(resets in 1d 4h)'), `should include 7d reset countdown in bar mode: ${line}`);
   assert.ok(line.includes('|'), `should render both usage windows above the threshold: ${line}`);
+});
+
+test('renderUsageLine can hide reset label in bar mode', () => {
+  const ctx = baseContext();
+  const resetTime = new Date(Date.now() + (28 * 60 * 60 * 1000));
+  ctx.config.display.usageBarEnabled = true;
+  ctx.config.display.showResetLabel = false;
+  ctx.config.display.sevenDayThreshold = 80;
+  ctx.usageData = {
+    planName: 'Pro',
+    fiveHour: 45,
+    sevenDay: 85,
+    fiveHourResetAt: null,
+    sevenDayResetAt: resetTime,
+  };
+
+  const line = stripAnsi(renderUsageLine(ctx));
+  assert.ok(line.includes('(1d 4h)'), `should include bare countdown in bar mode: ${line}`);
+  assert.ok(!line.includes('resets in'), `should omit reset label in bar mode when disabled: ${line}`);
 });
 
 test('renderUsageLine shows weekly-only usage without a ghost 5h section', () => {
