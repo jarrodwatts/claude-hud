@@ -1,3 +1,4 @@
+import { execFileSync } from 'node:child_process';
 import type { HudElement } from '../config.js';
 import { DEFAULT_ELEMENT_ORDER } from '../config.js';
 import type { RenderContext } from '../types.js';
@@ -45,6 +46,23 @@ function getTerminalWidth(): number {
   const envColumns = Number.parseInt(process.env.COLUMNS ?? '', 10);
   if (Number.isFinite(envColumns) && envColumns > 0) {
     return envColumns;
+  }
+
+  // Last resort: Claude Code pipes both stdout and stderr, so process.stdout.columns
+  // and process.stderr.columns are both undefined. Fall back to tput which can read
+  // the terminal size from /dev/tty even when stdio is fully piped.
+  try {
+    const result = execFileSync('tput', ['cols'], {
+      stdio: ['ignore', 'pipe', 'ignore'],
+      env: { ...process.env, TERM: process.env.TERM ?? 'xterm-256color' },
+      timeout: 50,
+    });
+    const cols = Number.parseInt(result.toString().trim(), 10);
+    if (Number.isFinite(cols) && cols > 0) {
+      return cols;
+    }
+  } catch {
+    // tput not available or failed — fall through to default
   }
 
   return UNKNOWN_TERMINAL_WIDTH;
