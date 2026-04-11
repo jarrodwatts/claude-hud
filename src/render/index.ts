@@ -15,7 +15,7 @@ import {
   renderSessionTokensLine,
 } from './lines/index.js';
 import { dim, RESET } from './colors.js';
-import { UNKNOWN_TERMINAL_WIDTH } from '../utils/terminal.js';
+import { UNKNOWN_TERMINAL_WIDTH, getWindowsTerminalWidth } from '../utils/terminal.js';
 
 // eslint-disable-next-line no-control-regex
 const ANSI_ESCAPE_PATTERN = /^(?:\x1b\[[0-9;]*m|\x1b\][^\x07\x1b]*(?:\x07|\x1b\\))/;
@@ -45,6 +45,15 @@ function getTerminalWidth(): number {
   const envColumns = Number.parseInt(process.env.COLUMNS ?? '', 10);
   if (Number.isFinite(envColumns) && envColumns > 0) {
     return envColumns;
+  }
+
+  // On Windows, stdout/stderr.columns are both 0 when Claude Code pipes the
+  // statusLine subprocess output (ConPTY wraps stdout as a pipe, discarding
+  // column info). Query the real width via the Windows Console API instead.
+  // See: https://github.com/jarrodwatts/claude-hud/issues/<issue-number>
+  const winWidth = getWindowsTerminalWidth();
+  if (winWidth !== null) {
+    return winWidth;
   }
 
   return UNKNOWN_TERMINAL_WIDTH;
