@@ -152,17 +152,23 @@ export function renderSessionLine(ctx: RenderContext): string {
 
   // Usage limits display (shown when enabled in config, respects usageThreshold)
   if (display?.showUsage !== false && ctx.usageData && !providerLabel) {
+    const usageCompact = display?.usageCompact ?? false;
+    const showResetLabel = display?.showResetLabel ?? true;
+
     if (isLimitReached(ctx.usageData)) {
-      const showResetLabel = display?.showResetLabel ?? true;
       const resetTime = ctx.usageData.fiveHour === 100
         ? formatResetTime(ctx.usageData.fiveHourResetAt, timeFormat)
         : formatResetTime(ctx.usageData.sevenDayResetAt, timeFormat);
-      const resetSuffix = resetTime
-        ? showResetLabel
-          ? ` (${t(resetsKey)} ${resetTime})`
-          : ` (${resetTime})`
-        : '';
-      parts.push(critical(`⚠ ${t('status.limitReached')}${resetSuffix}`, colors));
+      if (usageCompact) {
+        parts.push(critical(`⚠ Limit${resetTime ? ` (${resetTime})` : ''}`, colors));
+      } else {
+        const resetSuffix = resetTime
+          ? showResetLabel
+            ? ` (${t(resetsKey)} ${resetTime})`
+            : ` (${resetTime})`
+          : '';
+        parts.push(critical(`⚠ ${t('status.limitReached')}${resetSuffix}`, colors));
+      }
     } else {
       const usageThreshold = display?.usageThreshold ?? 0;
       const fiveHour = ctx.usageData.fiveHour;
@@ -171,8 +177,24 @@ export function renderSessionLine(ctx: RenderContext): string {
 
       if (effectiveUsage >= usageThreshold) {
         const usageBarEnabled = display?.usageBarEnabled ?? true;
-        const showResetLabel = display?.showResetLabel ?? true;
-        if (fiveHour === null && sevenDay !== null) {
+        if (usageCompact) {
+          const fiveHourPart = fiveHour !== null
+            ? formatCompactWindowPart('5h', fiveHour, ctx.usageData.fiveHourResetAt, timeFormat, colors)
+            : null;
+          const sevenDayThreshold = display?.sevenDayThreshold ?? 80;
+          const sevenDayPart = (sevenDay !== null && (fiveHour === null || sevenDay >= sevenDayThreshold))
+            ? formatCompactWindowPart('7d', sevenDay, ctx.usageData.sevenDayResetAt, timeFormat, colors)
+            : null;
+
+          if (fiveHourPart && sevenDayPart) {
+            parts.push(fiveHourPart);
+            parts.push(sevenDayPart);
+          } else if (fiveHourPart) {
+            parts.push(fiveHourPart);
+          } else if (sevenDayPart) {
+            parts.push(sevenDayPart);
+          }
+        } else if (fiveHour === null && sevenDay !== null) {
           const weeklyOnlyPart = formatUsageWindowPart({
             label: t('label.weekly'),
             percent: sevenDay,
@@ -303,6 +325,21 @@ function formatContextValue(ctx: RenderContext, percent: number, mode: 'percent'
   }
 
   return `${percent}%`;
+}
+
+function formatCompactWindowPart(
+  windowLabel: string,
+  percent: number | null,
+  resetAt: Date | null,
+  timeFormat: TimeFormatMode,
+  colors?: RenderContext['config']['colors'],
+): string {
+  const usageDisplay = formatUsagePercent(percent, colors);
+  const reset = formatResetTime(resetAt, timeFormat);
+  const styledLabel = label(`${windowLabel}:`, colors);
+  return reset
+    ? `${styledLabel} ${usageDisplay} ${label(`(${reset})`, colors)}`
+    : `${styledLabel} ${usageDisplay}`;
 }
 
 function formatUsagePercent(percent: number | null, colors?: RenderContext['config']['colors']): string {

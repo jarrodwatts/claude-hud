@@ -32,12 +32,17 @@ export function renderUsageLine(
   const timeFormat: TimeFormatMode = display?.timeFormat ?? 'relative';
   const showResetLabel = display?.showResetLabel ?? true;
   const resetsKey = timeFormat === 'absolute' ? "format.resets" : "format.resetsIn";
+  const usageCompact = display?.usageCompact ?? false;
+  const usageLabel = progressLabel("label.usage", colors, alignLabels);
 
   if (isLimitReached(ctx.usageData)) {
     const resetTime =
       ctx.usageData.fiveHour === 100
         ? formatResetTime(ctx.usageData.fiveHourResetAt, timeFormat)
         : formatResetTime(ctx.usageData.sevenDayResetAt, timeFormat);
+    if (usageCompact) {
+      return critical(`⚠ Limit${resetTime ? ` (${resetTime})` : ""}`, colors);
+    }
     const resetSuffix = resetTime
       ? showResetLabel
         ? ` (${t(resetsKey)} ${resetTime})`
@@ -55,8 +60,23 @@ export function renderUsageLine(
     return null;
   }
 
-  const usageBarEnabled = display?.usageBarEnabled ?? true;
   const sevenDayThreshold = display?.sevenDayThreshold ?? 80;
+
+  if (usageCompact) {
+    const fiveHourPart = fiveHour !== null
+      ? formatCompactWindowPart("5h", fiveHour, ctx.usageData.fiveHourResetAt, timeFormat, colors)
+      : null;
+    const sevenDayPart = (sevenDay !== null && (fiveHour === null || sevenDay >= sevenDayThreshold))
+      ? formatCompactWindowPart("7d", sevenDay, ctx.usageData.sevenDayResetAt, timeFormat, colors)
+      : null;
+
+    if (fiveHourPart && sevenDayPart) {
+      return `${fiveHourPart} | ${sevenDayPart}`;
+    }
+    return fiveHourPart ?? sevenDayPart ?? null;
+  }
+
+  const usageBarEnabled = display?.usageBarEnabled ?? true;
   const barWidth = getAdaptiveBarWidth();
 
   if (fiveHour === null && sevenDay !== null) {
@@ -105,6 +125,21 @@ export function renderUsageLine(
   }
 
   return `${usageLabel} ${fiveHourPart}`;
+}
+
+function formatCompactWindowPart(
+  windowLabel: string,
+  percent: number | null,
+  resetAt: Date | null,
+  timeFormat: TimeFormatMode,
+  colors?: RenderContext["config"]["colors"],
+): string {
+  const usageDisplay = formatUsagePercent(percent, colors);
+  const reset = formatResetTime(resetAt, timeFormat);
+  const styledLabel = label(`${windowLabel}:`, colors);
+  return reset
+    ? `${styledLabel} ${usageDisplay} ${label(`(${reset})`, colors)}`
+    : `${styledLabel} ${usageDisplay}`;
 }
 
 function formatUsagePercent(

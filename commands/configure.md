@@ -75,6 +75,7 @@ Save as `language: "en"` or `language: "zh"`.
   - "Token breakdown" - (in: 45k, cache: 12k)
   - "Output speed" - out: 42.1 tok/s
   - "Usage limits" - 5h: 25% | 7d: 10%
+  - "Compact usage" - 5h: 25% (1h 30m) shorter format
   - "Session duration" - ⏱️ 5m
   - "Session name" - fix-auth-bug (session slug or custom title)
   - "Session tokens" - Tokens 12.8M (in: 7k, out: 28k, cache: 12.8M)
@@ -116,6 +117,7 @@ If user chooses "Enter custom text", use AskUserQuestion to get their text. Save
   - "Session name" - fix-auth-bug (session slug or custom title)
   - "Session tokens" - Tokens 12.8M (in: 7k, out: 28k, cache: 12.8M)
   - "Usage bar style" - ██░░ 25% visual bar (only if usageBarEnabled is true)
+  - "Compact usage" - 5h: 25% (1h 30m) shorter format (only if usageCompact is false)
 
 If more than 4 items ON, show Activity items (Tools, Agents, Todos, Project, Git) first.
 Info items (Counts, Tokens, Usage, Speed, Duration) can be turned off via "Reset to Minimal" in Q4.
@@ -130,6 +132,7 @@ Info items (Counts, Tokens, Usage, Speed, Duration) can be turned off via "Reset
   - "Output speed" - out: 42.1 tok/s
   - "Usage limits" - 5h: 25% | 7d: 10%
   - "Usage bar style" - ██░░ 25% visual bar (only if usageBarEnabled is false)
+  - "Compact usage" - 5h: 25% (1h 30m) shorter format (only if usageCompact is false)
   - "Session name" - fix-auth-bug (session slug or custom title)
   - "Session tokens" - Tokens 12.8M (in: 7k, out: 28k, cache: 12.8M)
   - "Session duration" - ⏱️ 5m
@@ -247,6 +250,7 @@ If user chooses "Remove", set `display.customLine` to `""` in config.
 | Output speed | `display.showSpeed` |
 | Usage limits | `display.showUsage` |
 | Usage bar style | `display.usageBarEnabled` |
+| Compact usage | `display.usageCompact` |
 | Session name | `display.showSessionName` |
 | Session duration | `display.showDuration` |
 | Session tokens | `display.showSessionTokens` |
@@ -260,10 +264,13 @@ If user chooses "Remove", set `display.customLine` to `""` in config.
 
 ## Usage Style Mapping
 
-| Option | Config |
-|--------|--------|
-| Bar style | `display.usageBarEnabled: true` — Shows `██░░ 25% (1h 30m / 5h)` |
-| Text style | `display.usageBarEnabled: false` — Shows `5h: 25% (1h 30m)` |
+| Option | Config | Example |
+|--------|--------|---------|
+| Bar style | `usageBarEnabled: true` | `Usage ██░░ 25% (resets in 1h 30m)` |
+| Text style | `usageBarEnabled: false` | `Usage 5h 25% (resets in 1h 30m)` |
+| Compact | `usageCompact: true` | `5h: 25% (1h 30m)` — no "Usage" label, shorter reset format |
+
+`usageCompact` takes precedence over `usageBarEnabled` when both are set. Compact mode always uses the text format (no bar).
 
 **Note**: Usage style only applies when `display.showUsage: true`. When 7d usage >= 80%, it also shows with the same style.
 
