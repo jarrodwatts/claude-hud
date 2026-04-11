@@ -302,6 +302,60 @@ test('render does not wrap when no real terminal width is available', () => {
   assert.ok(lines.length >= 1, 'should still produce output');
 });
 
+test('render uses config.maxWidth as fallback when terminal width is unavailable', () => {
+  const ctx = baseContext();
+  ctx.stdin.model = { display_name: 'Sonnet 4.6' };
+  ctx.stdin.cwd = '/tmp/very-long-project-name-for-maxwidth-fallback';
+  ctx.config.maxWidth = 30;
+  ctx.usageData = {
+    fiveHour: 42,
+    sevenDay: null,
+    fiveHourResetAt: null,
+    sevenDayResetAt: null,
+  };
+
+  // When no terminal size is available, maxWidth should be used as fallback
+  const originalEnvColumns = process.env.COLUMNS;
+  let lines = [];
+  withColumns(process.stdout, undefined, () => {
+    withColumns(process.stderr, undefined, () => {
+      delete process.env.COLUMNS;
+      try {
+        lines = captureRender(ctx);
+      } finally {
+        if (originalEnvColumns === undefined) {
+          delete process.env.COLUMNS;
+        } else {
+          process.env.COLUMNS = originalEnvColumns;
+        }
+      }
+    });
+  });
+
+  assert.ok(lines.length > 0, 'should produce output');
+  assert.ok(lines.every(line => displayWidth(line) <= 30), 'all lines should fit within maxWidth');
+});
+
+test('render ignores config.maxWidth when terminal width is detected', () => {
+  const ctx = baseContext();
+  ctx.stdin.model = { display_name: 'Sonnet 4.6' };
+  ctx.stdin.cwd = '/tmp/project';
+  ctx.config.maxWidth = 30;
+
+  // When terminal reports a real width, maxWidth should NOT cap it
+  let lines = [];
+  withTerminal(120, () => {
+    lines = captureRender(ctx);
+  });
+
+  // Lines should use the detected 120 columns, not the 30 maxWidth
+  assert.ok(lines.length > 0, 'should produce output');
+  assert.ok(lines.every(line => displayWidth(line) <= 120), 'lines should fit detected width');
+  // Compact session line is typically wider than 30 when model+context are shown
+  const widest = Math.max(...lines.map(displayWidth));
+  assert.ok(widest > 30, 'should use detected terminal width, not maxWidth');
+});
+
 test('render does not strand a bare 5h continuation line in compact mode', () => {
   const ctx = baseContext();
   ctx.config.lineLayout = 'compact';

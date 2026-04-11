@@ -32,6 +32,7 @@ test('loadConfig returns valid config structure', async () => {
 
   // showSeparators must be boolean
   assert.equal(typeof config.showSeparators, 'boolean', 'showSeparators should be boolean');
+  assert.ok(config.maxWidth === null || (typeof config.maxWidth === 'number' && config.maxWidth > 0), 'maxWidth should be null or a positive number');
   assert.ok(Array.isArray(config.elementOrder), 'elementOrder should be an array');
   assert.ok(config.elementOrder.length > 0, 'elementOrder should not be empty');
   assert.deepEqual(config.elementOrder, DEFAULT_ELEMENT_ORDER, 'elementOrder should default to the full expanded layout');
@@ -193,6 +194,26 @@ test('mergeConfig falls back to empty for non-string modelOverride', () => {
   assert.equal(mergeConfig({ display: { modelOverride: 123 } }).display.modelOverride, '');
   assert.equal(mergeConfig({ display: { modelOverride: null } }).display.modelOverride, '');
   assert.equal(mergeConfig({ display: { modelOverride: true } }).display.modelOverride, '');
+});
+
+test('mergeConfig defaults maxWidth to null', () => {
+  const config = mergeConfig({});
+  assert.equal(config.maxWidth, null);
+});
+
+test('mergeConfig preserves valid maxWidth', () => {
+  assert.equal(mergeConfig({ maxWidth: 50 }).maxWidth, 50);
+  assert.equal(mergeConfig({ maxWidth: 80 }).maxWidth, 80);
+  assert.equal(mergeConfig({ maxWidth: 30.7 }).maxWidth, 30);
+});
+
+test('mergeConfig rejects invalid maxWidth', () => {
+  assert.equal(mergeConfig({ maxWidth: 0 }).maxWidth, null);
+  assert.equal(mergeConfig({ maxWidth: -10 }).maxWidth, null);
+  assert.equal(mergeConfig({ maxWidth: NaN }).maxWidth, null);
+  assert.equal(mergeConfig({ maxWidth: 'wide' }).maxWidth, null);
+  assert.equal(mergeConfig({ maxWidth: null }).maxWidth, null);
+  assert.equal(mergeConfig({ maxWidth: Infinity }).maxWidth, null);
 });
 
 test('getConfigPath respects CLAUDE_CONFIG_DIR', async () => {
