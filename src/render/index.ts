@@ -439,7 +439,7 @@ function renderExpanded(ctx: RenderContext, terminalWidth: number | null = null)
 export function render(ctx: RenderContext): void {
   const lineLayout = ctx.config?.lineLayout ?? 'expanded';
   const showSeparators = ctx.config?.showSeparators ?? false;
-  const terminalWidth = getTerminalWidth();
+  const terminalWidth = ctx.config?.maxWidth ?? getTerminalWidth();
 
   let lines: string[];
 

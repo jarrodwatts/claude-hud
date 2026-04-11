@@ -300,6 +300,28 @@ test('render falls back to a safe default width when no terminal size is availab
   assert.ok(lines.every(line => displayWidth(line) <= 80), 'all lines should fit the safe fallback width');
 });
 
+test('render uses config.maxWidth as explicit width override', () => {
+  const ctx = baseContext();
+  ctx.stdin.model = { display_name: 'Sonnet 4.6' };
+  ctx.stdin.cwd = '/tmp/project';
+  ctx.config.maxWidth = 30;
+  ctx.usageData = {
+    fiveHour: 42,
+    sevenDay: null,
+    fiveHourResetAt: null,
+    sevenDayResetAt: null,
+  };
+
+  // Even with a wide terminal, maxWidth should cap the output
+  let lines = [];
+  withTerminal(200, () => {
+    lines = captureRender(ctx);
+  });
+
+  assert.ok(lines.length > 0, 'should produce output');
+  assert.ok(lines.every(line => displayWidth(line) <= 30), 'all lines should fit within maxWidth');
+});
+
 test('render does not strand a bare 5h continuation line in compact mode', () => {
   const ctx = baseContext();
   ctx.config.lineLayout = 'compact';
