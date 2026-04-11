@@ -1,3 +1,4 @@
+import { execSync } from 'node:child_process';
 import type { HudElement } from '../config.js';
 import { DEFAULT_ELEMENT_ORDER } from '../config.js';
 import type { RenderContext } from '../types.js';
@@ -45,6 +46,18 @@ function getTerminalWidth(): number {
   const envColumns = Number.parseInt(process.env.COLUMNS ?? '', 10);
   if (Number.isFinite(envColumns) && envColumns > 0) {
     return envColumns;
+  }
+
+  // Last resort: ask tput. Works in environments where stdout/stderr are
+  // piped (e.g. cmux) and /dev/tty is unavailable, because tput reads the
+  // terminal size from the TERM/terminfo database or the controlling tty.
+  try {
+    const tputCols = Number.parseInt(execSync('tput cols', { stdio: ['ignore', 'pipe', 'ignore'] }).toString().trim(), 10);
+    if (Number.isFinite(tputCols) && tputCols > 0) {
+      return tputCols;
+    }
+  } catch {
+    // tput unavailable or failed — fall through to default
   }
 
   return UNKNOWN_TERMINAL_WIDTH;
