@@ -14,6 +14,7 @@ export type MessageKey =
   // Format
   | "format.resets"
   | "format.resetsIn"
+  | "format.at"
   | "format.in"
   | "format.cache"
   | "format.out"

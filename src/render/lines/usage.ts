@@ -30,14 +30,14 @@ export function renderUsageLine(
 
   const usageLabel = progressLabel("label.usage", colors, alignLabels);
   const timeFormat: TimeFormatMode = display?.timeFormat ?? 'relative';
-  const usageLabel = progressLabel("label.usage", colors, alignLabels);
+  const resetsKey = timeFormat === 'absolute' ? "format.resets" : "format.resetsIn";
 
   if (isLimitReached(ctx.usageData)) {
     const resetTime =
       ctx.usageData.fiveHour === 100
         ? formatResetTime(ctx.usageData.fiveHourResetAt, timeFormat)
         : formatResetTime(ctx.usageData.sevenDayResetAt, timeFormat);
-    return `${usageLabel} ${critical(`⚠ ${t("status.limitReached")}${resetTime ? ` (${t("format.resets")} ${resetTime})` : ""}`, colors)}`;
+    return `${usageLabel} ${critical(`⚠ ${t("status.limitReached")}${resetTime ? ` (${t(resetsKey)} ${resetTime})` : ""}`, colors)}`;
   }
 
   const threshold = display?.usageThreshold ?? 0;
