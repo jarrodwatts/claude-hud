@@ -10,6 +10,7 @@ export type ContextValueMode = 'percent' | 'tokens' | 'remaining' | 'both';
  *   short:   Strip context suffix AND "Claude " prefix (e.g. "Opus 4.6")
  */
 export type ModelFormatMode = 'full' | 'compact' | 'short';
+export type TimeFormatMode = 'relative' | 'absolute' | 'both';
 export type HudElement = 'project' | 'context' | 'usage' | 'memory' | 'environment' | 'tools' | 'agents' | 'todos';
 export type HudColorName = 'dim' | 'red' | 'green' | 'yellow' | 'magenta' | 'cyan' | 'brightBlue' | 'brightMagenta';
 /** A color value: named preset, 256-color index (0-255), or hex string (#rrggbb). */
@@ -69,6 +70,7 @@ export interface HudConfig {
         modelFormat: ModelFormatMode;
         modelOverride: string;
         customLine: string;
+        timeFormat: TimeFormatMode;
     };
     colors: HudColorOverrides;
 }

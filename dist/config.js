@@ -54,6 +54,7 @@ export const DEFAULT_CONFIG = {
         modelFormat: 'full',
         modelOverride: '',
         customLine: '',
+        timeFormat: 'relative',
     },
     colors: {
         context: 'green',
@@ -90,6 +91,9 @@ function validateLanguage(value) {
 }
 function validateModelFormat(value) {
     return value === 'full' || value === 'compact' || value === 'short';
+}
+function validateTimeFormat(value) {
+    return value === 'relative' || value === 'absolute' || value === 'both';
 }
 function validateColorName(value) {
     return value === 'dim'
@@ -273,6 +277,9 @@ export function mergeConfig(userConfig) {
         customLine: typeof migrated.display?.customLine === 'string'
             ? migrated.display.customLine.slice(0, 80)
             : DEFAULT_CONFIG.display.customLine,
+        timeFormat: validateTimeFormat(migrated.display?.timeFormat)
+            ? migrated.display.timeFormat
+            : DEFAULT_CONFIG.display.timeFormat,
     };
     const colors = {
         context: validateColorValue(migrated.colors?.context)

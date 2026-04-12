@@ -17,6 +17,7 @@ export type ContextValueMode = 'percent' | 'tokens' | 'remaining' | 'both';
  *   short:   Strip context suffix AND "Claude " prefix (e.g. "Opus 4.6")
  */
 export type ModelFormatMode = 'full' | 'compact' | 'short';
+export type TimeFormatMode = 'relative' | 'absolute' | 'both';
 export type HudElement = 'project' | 'context' | 'usage' | 'memory' | 'environment' | 'tools' | 'agents' | 'todos';
 export type HudColorName =
   | 'dim'
@@ -99,6 +100,7 @@ export interface HudConfig {
     modelFormat: ModelFormatMode;
     modelOverride: string;
     customLine: string;
+    timeFormat: TimeFormatMode;
   };
   colors: HudColorOverrides;
 }
@@ -144,6 +146,7 @@ export const DEFAULT_CONFIG: HudConfig = {
     modelFormat: 'full',
     modelOverride: '',
     customLine: '',
+    timeFormat: 'relative',
   },
   colors: {
     context: 'green',
@@ -187,6 +190,10 @@ function validateLanguage(value: unknown): value is Language {
 
 function validateModelFormat(value: unknown): value is ModelFormatMode {
   return value === 'full' || value === 'compact' || value === 'short';
+}
+
+function validateTimeFormat(value: unknown): value is TimeFormatMode {
+  return value === 'relative' || value === 'absolute' || value === 'both';
 }
 
 function validateColorName(value: unknown): value is HudColorName {
@@ -386,6 +393,9 @@ export function mergeConfig(userConfig: Partial<HudConfig>): HudConfig {
     customLine: typeof migrated.display?.customLine === 'string'
       ? migrated.display.customLine.slice(0, 80)
       : DEFAULT_CONFIG.display.customLine,
+    timeFormat: validateTimeFormat(migrated.display?.timeFormat)
+      ? migrated.display.timeFormat
+      : DEFAULT_CONFIG.display.timeFormat,
   };
 
   const colors = {
