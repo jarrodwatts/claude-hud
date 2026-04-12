@@ -1323,7 +1323,7 @@ test('renderUsageLine shows limit reset in days when >= 24 hours', () => {
   assert.ok(line, 'should render usage line');
   const plain = stripAnsi(line);
   assert.ok(plain.includes('Limit reached'), 'should show limit reached');
-  assert.ok(/resets \d+d( \d+h)?/.test(plain), `expected day/hour reset format, got: ${plain}`);
+  assert.ok(/resets in \d+d( \d+h)?/.test(plain), `expected day/hour reset format, got: ${plain}`);
   assert.ok(!plain.includes('151h'), `should avoid raw hour format for long durations: ${plain}`);
 });
 

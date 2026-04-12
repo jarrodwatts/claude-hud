@@ -18,6 +18,7 @@ export const en: Messages = {
   // Format
   "format.resets": "resets",
   "format.resetsIn": "resets in",
+  "format.at": "at",
   "format.in": "in",
   "format.cache": "cache",
   "format.out": "out",

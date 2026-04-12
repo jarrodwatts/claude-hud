@@ -14,6 +14,7 @@ export const en = {
     // Format
     "format.resets": "resets",
     "format.resetsIn": "resets in",
+    "format.at": "at",
     "format.in": "in",
     "format.cache": "cache",
     "format.out": "out",

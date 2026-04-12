@@ -26,6 +26,7 @@ export function renderSessionLine(ctx) {
     const parts = [];
     const display = ctx.config?.display;
     const timeFormat = display?.timeFormat ?? 'relative';
+    const resetsKey = timeFormat === 'absolute' ? 'format.resets' : 'format.resetsIn';
     const contextValueMode = display?.contextValue ?? 'percent';
     const contextValue = formatContextValue(ctx, percent, contextValueMode);
     const contextValueDisplay = `${getContextColor(percent, colors)}${contextValue}${RESET}`;
@@ -133,7 +134,7 @@ export function renderSessionLine(ctx) {
             const resetTime = ctx.usageData.fiveHour === 100
                 ? formatResetTime(ctx.usageData.fiveHourResetAt, timeFormat)
                 : formatResetTime(ctx.usageData.sevenDayResetAt, timeFormat);
-            parts.push(critical(`⚠ ${t('status.limitReached')}${resetTime ? ` (${t('format.resets')} ${resetTime})` : ''}`, colors));
+            parts.push(critical(`⚠ ${t('status.limitReached')}${resetTime ? ` (${t(resetsKey)} ${resetTime})` : ''}`, colors));
         }
         else {
             const usageThreshold = display?.usageThreshold ?? 0;

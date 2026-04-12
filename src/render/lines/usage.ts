@@ -24,6 +24,7 @@ export function renderUsageLine(ctx: RenderContext): string | null {
   }
 
   const timeFormat: TimeFormatMode = display?.timeFormat ?? 'relative';
+  const resetsKey = timeFormat === 'absolute' ? "format.resets" : "format.resetsIn";
   const usageLabel = label(t("label.usage"), colors);
 
   if (isLimitReached(ctx.usageData)) {
@@ -31,7 +32,7 @@ export function renderUsageLine(ctx: RenderContext): string | null {
       ctx.usageData.fiveHour === 100
         ? formatResetTime(ctx.usageData.fiveHourResetAt, timeFormat)
         : formatResetTime(ctx.usageData.sevenDayResetAt, timeFormat);
-    return `${usageLabel} ${critical(`⚠ ${t("status.limitReached")}${resetTime ? ` (${t("format.resets")} ${resetTime})` : ""}`, colors)}`;
+    return `${usageLabel} ${critical(`⚠ ${t("status.limitReached")}${resetTime ? ` (${t(resetsKey)} ${resetTime})` : ""}`, colors)}`;
   }
 
   const threshold = display?.usageThreshold ?? 0;
