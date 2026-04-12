@@ -143,10 +143,16 @@ export function getTotalTokens(stdin: StdinData): number {
 /**
  * Get native percentage from Claude Code v2.1.6+ if available.
  * Returns null if not available or invalid, triggering fallback to manual calculation.
+ *
+ * A value of 0 is treated as "not yet populated": on a fresh session Claude Code
+ * may emit used_percentage=0 before the first API response arrives, while
+ * current_usage already contains the real initial-context tokens (system prompt,
+ * tools, memory files, etc.).  Falling through to the token-based calculation
+ * ensures those tokens are reflected in the context bar from the very first tick.
  */
 function getNativePercent(stdin: StdinData): number | null {
   const nativePercent = stdin.context_window?.used_percentage;
-  if (typeof nativePercent === 'number' && !Number.isNaN(nativePercent)) {
+  if (typeof nativePercent === 'number' && !Number.isNaN(nativePercent) && nativePercent > 0) {
     return Math.min(100, Math.max(0, Math.round(nativePercent)));
   }
   return null;

@@ -191,8 +191,38 @@ test('getBufferedPercent falls back when native is null', () => {
 });
 
 test('native percentage handles zero correctly', () => {
+  // used_percentage: 0 with no tokens → still 0
   assert.equal(getContextPercent({ context_window: { used_percentage: 0 } }), 0);
   assert.equal(getBufferedPercent({ context_window: { used_percentage: 0 } }), 0);
+});
+
+test('getContextPercent falls through to token-based calculation when used_percentage is 0 but tokens exist', () => {
+  // On a fresh session Claude Code emits used_percentage=0 before the first API
+  // response, while current_usage already contains the initial-context tokens
+  // (system prompt, tools, memory files).  The HUD should reflect them.
+  // 18200 / 200000 = 9.1% → rounds to 9%
+  const percent = getContextPercent({
+    context_window: {
+      context_window_size: 200000,
+      current_usage: { input_tokens: 18200 },
+      used_percentage: 0,
+    },
+  });
+  assert.equal(percent, 9);
+});
+
+test('getBufferedPercent falls through to token-based calculation when used_percentage is 0 but tokens exist', () => {
+  // Same fresh-session scenario for the buffered variant.
+  // 18200 / 200000 = 9.1% raw; scale = (0.091 - 0.05) / (0.50 - 0.05) ≈ 0.091
+  // buffer = 200000 * 0.165 * 0.091 ≈ 3003; (18200 + 3003) / 200000 ≈ 10.6% → 11%
+  const percent = getBufferedPercent({
+    context_window: {
+      context_window_size: 200000,
+      current_usage: { input_tokens: 18200 },
+      used_percentage: 0,
+    },
+  });
+  assert.ok(percent > 9, `expected buffered percent > 9, got ${percent}`);
 });
 
 test('native percentage clamps negative values to 0', () => {
