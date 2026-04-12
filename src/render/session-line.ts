@@ -324,8 +324,13 @@ function formatUsageWindowPart({
   const resetsKey = timeFormat === 'absolute' ? 'format.resets' : 'format.resetsIn';
 
   if (usageBarEnabled) {
-    const body = reset
-      ? `${quotaBar(percent ?? 0, barWidth, colors)} ${usageDisplay} (${reset} / ${windowLabel})`
+    // Relative mode keeps the upstream "(duration / windowLabel)" pattern (e.g. "2h 30m / 5h").
+    // Absolute/both modes use the preposition form instead — "(at 14:30 / 5h)" is incoherent.
+    const barReset = timeFormat === 'relative'
+      ? (reset ? `${reset} / ${windowLabel}` : null)
+      : (reset ? `${t(resetsKey)} ${reset}` : null);
+    const body = barReset
+      ? `${quotaBar(percent ?? 0, barWidth, colors)} ${usageDisplay} (${barReset})`
       : `${quotaBar(percent ?? 0, barWidth, colors)} ${usageDisplay}`;
     return forceLabel ? `${styledLabel} ${body}` : body;
   }
