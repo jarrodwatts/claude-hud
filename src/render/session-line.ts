@@ -6,6 +6,8 @@ import { coloredBar, critical, git as gitColor, gitBranch as gitBranchColor, lab
 import { getAdaptiveBarWidth } from '../utils/terminal.js';
 import { renderCostEstimate } from './lines/cost.js';
 import { t } from '../i18n/index.js';
+import type { TimeFormatMode } from '../config.js';
+import { formatResetTime } from './format-reset-time.js';
 
 const DEBUG = process.env.DEBUG?.includes('claude-hud') || process.env.DEBUG === '*';
 
@@ -31,6 +33,7 @@ export function renderSessionLine(ctx: RenderContext): string {
 
   const parts: string[] = [];
   const display = ctx.config?.display;
+  const timeFormat: TimeFormatMode = display?.timeFormat ?? 'relative';
   const contextValueMode = display?.contextValue ?? 'percent';
   const contextValue = formatContextValue(ctx, percent, contextValueMode);
   const contextValueDisplay = `${getContextColor(percent, colors)}${contextValue}${RESET}`;
@@ -145,8 +148,8 @@ export function renderSessionLine(ctx: RenderContext): string {
   if (display?.showUsage !== false && ctx.usageData && !providerLabel) {
     if (isLimitReached(ctx.usageData)) {
       const resetTime = ctx.usageData.fiveHour === 100
-        ? formatResetTime(ctx.usageData.fiveHourResetAt)
-        : formatResetTime(ctx.usageData.sevenDayResetAt);
+        ? formatResetTime(ctx.usageData.fiveHourResetAt, timeFormat)
+        : formatResetTime(ctx.usageData.sevenDayResetAt, timeFormat);
       parts.push(critical(`⚠ ${t('status.limitReached')}${resetTime ? ` (${t('format.resets')} ${resetTime})` : ''}`, colors));
     } else {
       const usageThreshold = display?.usageThreshold ?? 0;
@@ -164,6 +167,7 @@ export function renderSessionLine(ctx: RenderContext): string {
             colors,
             usageBarEnabled,
             barWidth,
+            timeFormat,
             forceLabel: true,
           });
           parts.push(weeklyOnlyPart);
@@ -175,6 +179,7 @@ export function renderSessionLine(ctx: RenderContext): string {
             colors,
             usageBarEnabled,
             barWidth,
+            timeFormat,
           });
 
           const sevenDayThreshold = display?.sevenDayThreshold ?? 80;
@@ -186,6 +191,7 @@ export function renderSessionLine(ctx: RenderContext): string {
               colors,
               usageBarEnabled,
               barWidth,
+              timeFormat,
               forceLabel: true,
             });
             parts.push(`${label(t('label.usage'), colors)} ${fiveHourPart}`);
@@ -298,6 +304,7 @@ function formatUsageWindowPart({
   colors,
   usageBarEnabled,
   barWidth,
+  timeFormat = 'relative',
   forceLabel = false,
 }: {
   label: string;
@@ -306,11 +313,14 @@ function formatUsageWindowPart({
   colors?: RenderContext['config']['colors'];
   usageBarEnabled: boolean;
   barWidth: number;
+  timeFormat?: TimeFormatMode;
   forceLabel?: boolean;
 }): string {
   const usageDisplay = formatUsagePercent(percent, colors);
-  const reset = formatResetTime(resetAt);
+  const reset = formatResetTime(resetAt, timeFormat);
   const styledLabel = label(windowLabel, colors);
+  // "resets in X" for relative/both; "resets X" for absolute (avoids "resets in at 14:30")
+  const resetsKey = timeFormat === 'absolute' ? 'format.resets' : 'format.resetsIn';
 
   if (usageBarEnabled) {
     const body = reset
@@ -320,28 +330,6 @@ function formatUsageWindowPart({
   }
 
   return reset
-    ? `${styledLabel} ${usageDisplay} (${t('format.resetsIn')} ${reset})`
+    ? `${styledLabel} ${usageDisplay} (${t(resetsKey)} ${reset})`
     : `${styledLabel} ${usageDisplay}`;
-}
-
-function formatResetTime(resetAt: Date | null): string {
-  if (!resetAt) return '';
-  const now = new Date();
-  const diffMs = resetAt.getTime() - now.getTime();
-  if (diffMs <= 0) return '';
-
-  const diffMins = Math.ceil(diffMs / 60000);
-  if (diffMins < 60) return `${diffMins}m`;
-
-  const hours = Math.floor(diffMins / 60);
-  const mins = diffMins % 60;
-
-  if (hours >= 24) {
-    const days = Math.floor(hours / 24);
-    const remHours = hours % 24;
-    if (remHours > 0) return `${days}d ${remHours}h`;
-    return `${days}d`;
-  }
-
-  return mins > 0 ? `${hours}h ${mins}m` : `${hours}h`;
 }
