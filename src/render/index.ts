@@ -397,7 +397,8 @@ function renderExpanded(ctx: RenderContext, terminalWidth: number | null = null)
 
       if (firstLine && secondLine) {
         const combinedLine = `${firstLine} │ ${secondLine}`;
-        const canCombine = !terminalWidth || visualLength(combinedLine) <= terminalWidth;
+        const widthIsReal = terminalWidth && terminalWidth !== UNKNOWN_TERMINAL_WIDTH;
+        const canCombine = !widthIsReal || visualLength(combinedLine) <= terminalWidth;
 
         if (canCombine) {
           lines.push({ line: combinedLine, isActivity: false });
@@ -485,7 +486,11 @@ export function render(ctx: RenderContext): void {
   }
 
   const physicalLines = lines.flatMap(line => line.split('\n'));
-  const visibleLines = physicalLines.flatMap(line => wrapLineToWidth(line, terminalWidth));
+  // Only wrap when terminal width is real (known). When width is the
+  // UNKNOWN_TERMINAL_WIDTH fallback, wrapping would use an arbitrary value
+  // and produce incorrect line breaks.
+  const wrapWidth = (terminalWidth && terminalWidth !== UNKNOWN_TERMINAL_WIDTH) ? terminalWidth : 0;
+  const visibleLines = physicalLines.flatMap(line => wrapLineToWidth(line, wrapWidth));
 
   for (const line of visibleLines) {
     const outputLine = `${RESET}${line}`;
