@@ -1896,3 +1896,85 @@ test('renderSessionLine includes compact session token summary when enabled', ()
   const line = stripAnsi(renderSessionLine(ctx));
   assert.ok(line.includes('tok: 2k (in: 2k, out: 250)'), 'should include compact token summary');
 });
+
+// ---------------------------------------------------------------------------
+// display.timeFormat — absolute and both modes
+// ---------------------------------------------------------------------------
+
+test('renderUsageLine uses "resets in" preposition for default relative mode in bar-mode', () => {
+  const ctx = baseContext();
+  ctx.config.display.usageBarEnabled = true;
+  ctx.usageData = {
+    planName: 'Pro',
+    fiveHour: 45,
+    sevenDay: 20,
+    fiveHourResetAt: new Date(Date.now() + 2 * 60 * 60 * 1000),
+    sevenDayResetAt: null,
+  };
+  const plain = stripAnsi(renderUsageLine(ctx));
+  assert.ok(plain.includes('resets in'), `should use "resets in" for relative mode, got: ${plain}`);
+});
+
+test('renderUsageLine uses "resets at" when timeFormat is "absolute" (bar mode)', () => {
+  const ctx = baseContext();
+  ctx.config.display.usageBarEnabled = true;
+  ctx.config.display.timeFormat = 'absolute';
+  ctx.usageData = {
+    planName: 'Pro',
+    fiveHour: 45,
+    sevenDay: 20,
+    fiveHourResetAt: new Date(Date.now() + 2 * 60 * 60 * 1000),
+    sevenDayResetAt: null,
+  };
+  const plain = stripAnsi(renderUsageLine(ctx));
+  assert.ok(plain.includes('resets at'), `expected "resets at" in absolute bar mode, got: ${plain}`);
+  assert.ok(!plain.includes('resets in'), `should not say "resets in" for absolute mode, got: ${plain}`);
+});
+
+test('renderUsageLine shows relative and absolute time when timeFormat is "both"', () => {
+  const ctx = baseContext();
+  ctx.config.display.usageBarEnabled = false;
+  ctx.config.display.timeFormat = 'both';
+  ctx.usageData = {
+    planName: 'Pro',
+    fiveHour: 45,
+    sevenDay: 20,
+    fiveHourResetAt: new Date(Date.now() + 2 * 60 * 60 * 1000 + 30 * 60 * 1000),
+    sevenDayResetAt: null,
+  };
+  const plain = stripAnsi(renderUsageLine(ctx));
+  // "both" produces "Xh Ym, at HH:MM" — must contain relative part and " at " from i18n
+  assert.match(plain, /\dh/, 'should contain relative duration hours');
+  assert.ok(plain.includes(' at '), `should contain absolute "at" prefix, got: ${plain}`);
+  assert.ok(plain.includes('resets in'), `should use "resets in" preposition for both mode, got: ${plain}`);
+});
+
+test('renderUsageLine limit-reached uses "resets in" for default relative mode', () => {
+  const ctx = baseContext();
+  ctx.usageData = {
+    planName: 'Pro',
+    fiveHour: 100,
+    sevenDay: 45,
+    fiveHourResetAt: new Date(Date.now() + 2 * 60 * 60 * 1000),
+    sevenDayResetAt: null,
+  };
+  const plain = stripAnsi(renderUsageLine(ctx));
+  assert.ok(plain.includes('Limit reached'), 'should show limit reached');
+  assert.ok(plain.includes('resets in'), `should use "resets in" preposition for relative mode, got: ${plain}`);
+});
+
+test('renderUsageLine limit-reached uses "resets at" for absolute timeFormat', () => {
+  const ctx = baseContext();
+  ctx.config.display.timeFormat = 'absolute';
+  ctx.usageData = {
+    planName: 'Pro',
+    fiveHour: 100,
+    sevenDay: 45,
+    fiveHourResetAt: new Date(Date.now() + 2 * 60 * 60 * 1000),
+    sevenDayResetAt: null,
+  };
+  const plain = stripAnsi(renderUsageLine(ctx));
+  assert.ok(plain.includes('Limit reached'), 'should show limit reached');
+  assert.ok(plain.includes('resets at'), `should use "resets at" for absolute mode, got: ${plain}`);
+  assert.ok(!plain.includes('resets in'), `should not say "resets in" for absolute mode, got: ${plain}`);
+});
