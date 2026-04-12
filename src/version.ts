@@ -24,6 +24,7 @@ type ClaudeBinaryInfo = {
 };
 
 type VersionCacheFile = {
+  resolvedFromPath?: string;
   binaryPath: string;
   binaryMtimeMs: number;
   version: string | null;
@@ -91,6 +92,8 @@ function readVersionCache(homeDir: string): VersionCacheFile | null {
 
     const parsed = JSON.parse(fs.readFileSync(cachePath, 'utf8')) as VersionCacheFile;
     if (
+      (parsed.resolvedFromPath !== undefined && typeof parsed.resolvedFromPath !== 'string')
+      ||
       typeof parsed.binaryPath !== 'string'
       || typeof parsed.binaryMtimeMs !== 'number'
       || (typeof parsed.version !== 'string' && parsed.version !== null)
@@ -218,10 +221,13 @@ export async function getClaudeCodeVersion(): Promise<string | undefined> {
   const diskCache = readVersionCache(homeDir);
   if (diskCache) {
     const cachedBinaryInfo = statResolvedBinary(diskCache.binaryPath);
+    const currentResolvedBinary = resolveClaudeBinaryImpl();
     if (
       cachedBinaryInfo
       && cachedBinaryInfo.path === diskCache.binaryPath
       && cachedBinaryInfo.mtimeMs === diskCache.binaryMtimeMs
+      && currentResolvedBinary
+      && currentResolvedBinary.path === diskCache.binaryPath
     ) {
       const cachedKey = getBinaryCacheKey(cachedBinaryInfo);
       if (hasResolved && cachedBinaryKey === cachedKey) {
@@ -261,6 +267,7 @@ export async function getClaudeCodeVersion(): Promise<string | undefined> {
   }
 
   writeVersionCache(homeDir, {
+    resolvedFromPath: resolvedBinaryInfo.path,
     binaryPath: binaryInfo.path,
     binaryMtimeMs: binaryInfo.mtimeMs,
     version: cachedVersion ?? null,
