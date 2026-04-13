@@ -7,6 +7,8 @@ A Claude Code plugin that shows what's happening — context usage, active tools
 
 ![Claude HUD in action](claude-hud-preview-5-2.png)
 
+> 🌐 English | [中文文档](README.zh.md)
+
 ## Install
 
 Inside a Claude Code instance, run the following commands:
