@@ -207,6 +207,14 @@ export function renderSessionLine(ctx: RenderContext): string {
     }
   }
 
+  // Session duration
+  if (display?.showSpeed) {
+    const speed = getOutputSpeed(ctx.stdin);
+    if (speed !== null) {
+      parts.push(label(`${t('format.out')}: ${speed.toFixed(1)} ${t('format.tokPerSec')}`, colors));
+    }
+  }
+
   if (display?.showDuration !== false && ctx.sessionDuration) {
     parts.push(label(`⏱️  ${ctx.sessionDuration}`, colors));
   }
@@ -214,13 +222,6 @@ export function renderSessionLine(ctx: RenderContext): string {
   const costEstimate = renderCostEstimate(ctx);
   if (costEstimate) {
     parts.push(costEstimate);
-  }
-
-  if (display?.showSpeed) {
-    const speed = getOutputSpeed(ctx.stdin);
-    if (speed !== null) {
-      parts.push(label(`${t('format.out')}: ${speed.toFixed(1)} ${t('format.tokPerSec')}`, colors));
-    }
   }
 
   if (ctx.extraLabel) {

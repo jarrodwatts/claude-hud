@@ -740,7 +740,7 @@ test('parseTranscript handles edge-case lines and error statuses', async () => {
     const errorTool = result.tools.find((tool) => tool.id === 'tool-error');
     assert.equal(errorTool?.status, 'error');
     assert.equal(errorTool?.target, '/tmp/fallback.txt');
-    assert.equal(result.agents[0]?.type, 'unknown');
+    assert.equal(result.agents[0]?.type, 'agent');
   } finally {
     await rm(dir, { recursive: true, force: true });
   }
