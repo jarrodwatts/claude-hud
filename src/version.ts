@@ -223,15 +223,24 @@ export async function getClaudeCodeVersion(): Promise<string | undefined> {
       && cachedBinaryInfo.path === diskCache.binaryPath
       && cachedBinaryInfo.mtimeMs === diskCache.binaryMtimeMs
     ) {
-      const cachedKey = getBinaryCacheKey(cachedBinaryInfo);
-      if (hasResolved && cachedBinaryKey === cachedKey) {
+      // Also verify the symlink still resolves to the same binary.
+      // Claude Code updates by re-pointing the symlink to a new binary
+      // without deleting the old one, so the cached resolved path stays
+      // valid on disk even after an update. Fixes #429.
+      const currentBinary = resolveClaudeBinaryImpl();
+      if (currentBinary && currentBinary.path !== diskCache.binaryPath) {
+        // Symlink now points to a different binary — fall through to re-resolve.
+      } else {
+        const cachedKey = getBinaryCacheKey(cachedBinaryInfo);
+        if (hasResolved && cachedBinaryKey === cachedKey) {
+          return cachedVersion;
+        }
+
+        cachedBinaryKey = cachedKey;
+        cachedVersion = diskCache.version ?? undefined;
+        hasResolved = true;
         return cachedVersion;
       }
-
-      cachedBinaryKey = cachedKey;
-      cachedVersion = diskCache.version ?? undefined;
-      hasResolved = true;
-      return cachedVersion;
     }
   }
 
