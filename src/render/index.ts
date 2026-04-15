@@ -13,6 +13,7 @@ import {
   renderUsageLine,
   renderMemoryLine,
   renderSessionTokensLine,
+  renderCostBreakdownLine,
 } from './lines/index.js';
 import { dim, RESET } from './colors.js';
 import { UNKNOWN_TERMINAL_WIDTH } from '../utils/terminal.js';
@@ -445,6 +446,19 @@ export function render(ctx: RenderContext): void {
 
   if (lineLayout === 'expanded') {
     const renderedLines = renderExpanded(ctx, terminalWidth);
+
+    // Cost breakdown sits with the meta block (context/usage/memory) — insert
+    // before the first activity line so it's adjacent to the cost line above
+    // instead of orphaned at the bottom of the HUD.
+    if (ctx.config?.display?.showCostBreakdown) {
+      const costBreakdownLine = renderCostBreakdownLine(ctx);
+      if (costBreakdownLine) {
+        const firstActivityIndex = renderedLines.findIndex(({ isActivity }) => isActivity);
+        const insertAt = firstActivityIndex >= 0 ? firstActivityIndex : renderedLines.length;
+        renderedLines.splice(insertAt, 0, { line: costBreakdownLine, isActivity: false });
+      }
+    }
+
     lines = renderedLines.map(({ line }) => line);
 
     // Session token usage (cumulative)

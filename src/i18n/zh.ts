@@ -20,6 +20,8 @@ export const zh: Messages = {
   "format.resetsIn": "重置剩余",
   "format.in": "输入",
   "format.cache": "缓存",
+  "format.cacheWrite": "写入",
+  "format.cacheRead": "读取",
   "format.out": "输出",
   "format.tokPerSec": "tok/s",
 

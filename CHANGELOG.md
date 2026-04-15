@@ -4,6 +4,9 @@ All notable changes to Claude HUD will be documented in this file.
 
 ## [Unreleased]
 
+### Added
+- Opt-in `display.showCostBreakdown` adds a dedicated per-component token line, e.g. `7k in · 607k out · 2.5M cw · 88M cr`. Counts come from the same `transcript.sessionTokens` accumulator that already powers `display.showSessionTokens` and the merged `display.showCost`. Hidden when session tokens are missing or all zero. Token-only — no dollar figure on this line, so there's no risk of disagreeing with the cost line above when that line is using Claude Code's native `cost.total_cost_usd`.
+
 ## [0.0.12] - 2026-04-04
 
 ### Added

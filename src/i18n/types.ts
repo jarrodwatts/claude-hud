@@ -16,6 +16,8 @@ export type MessageKey =
   | "format.resetsIn"
   | "format.in"
   | "format.cache"
+  | "format.cacheWrite"
+  | "format.cacheRead"
   | "format.out"
   | "format.tokPerSec"
   // Init

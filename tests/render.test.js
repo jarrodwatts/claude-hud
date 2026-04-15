@@ -14,6 +14,7 @@ import { renderMemoryLine } from '../dist/render/lines/memory.js';
 import { renderIdentityLine } from '../dist/render/lines/identity.js';
 import { renderEnvironmentLine } from '../dist/render/lines/environment.js';
 import { renderSessionTokensLine } from '../dist/render/lines/session-tokens.js';
+import { renderCostBreakdownLine } from '../dist/render/lines/cost-breakdown.js';
 import { getContextColor, getQuotaColor } from '../dist/render/colors.js';
 import { setLanguage } from '../dist/i18n/index.js';
 
@@ -1841,6 +1842,53 @@ test('renderSessionTokensLine renders cumulative session token totals', () => {
 
   const line = stripAnsi(renderSessionTokensLine(ctx) ?? '');
   assert.equal(line, 'Tokens 12.8M (in: 7k, out: 28k, cache: 12.8M)');
+});
+
+test('renderCostBreakdownLine returns null when disabled', () => {
+  const ctx = baseContext();
+  ctx.transcript.sessionTokens = { inputTokens: 1000, outputTokens: 200, cacheCreationTokens: 3000, cacheReadTokens: 400 };
+  assert.equal(renderCostBreakdownLine(ctx), null);
+});
+
+test('renderCostBreakdownLine returns null when session tokens are missing', () => {
+  const ctx = baseContext();
+  ctx.config.display.showCostBreakdown = true;
+  assert.equal(renderCostBreakdownLine(ctx), null);
+});
+
+test('renderCostBreakdownLine returns null when all token counts are zero', () => {
+  const ctx = baseContext();
+  ctx.config.display.showCostBreakdown = true;
+  ctx.transcript.sessionTokens = { inputTokens: 0, outputTokens: 0, cacheCreationTokens: 0, cacheReadTokens: 0 };
+  assert.equal(renderCostBreakdownLine(ctx), null);
+});
+
+test('renderCostBreakdownLine renders compact value-first breakdown for estimate-source sessions', () => {
+  const ctx = baseContext();
+  ctx.stdin.model = { display_name: 'Opus 4.6', id: 'claude-opus-4-6' };
+  ctx.config.display.showCostBreakdown = true;
+  ctx.transcript.sessionTokens = { inputTokens: 12000, outputTokens: 4000, cacheCreationTokens: 9000, cacheReadTokens: 88000 };
+  const line = stripAnsi(renderCostBreakdownLine(ctx) ?? '');
+  assert.equal(line, '12k in · 4k out · 9k cw · 88k cr');
+});
+
+test('renderCostBreakdownLine still renders for unknown-pricing sessions (counts only, no cost reconciliation needed)', () => {
+  const ctx = baseContext();
+  ctx.stdin.model = { display_name: 'Mystery Model', id: 'anthropic.claude-unknown-v9:0' };
+  ctx.config.display.showCostBreakdown = true;
+  ctx.transcript.sessionTokens = { inputTokens: 100, outputTokens: 50, cacheCreationTokens: 0, cacheReadTokens: 0 };
+  const line = stripAnsi(renderCostBreakdownLine(ctx) ?? '');
+  assert.equal(line, '100 in · 50 out · 0 cw · 0 cr');
+});
+
+test('renderCostBreakdownLine renders alongside a native cost.total_cost_usd (token counts can\'t mismatch)', () => {
+  const ctx = baseContext();
+  ctx.stdin.model = { display_name: 'Opus 4.6', id: 'claude-opus-4-6' };
+  ctx.stdin.cost = { total_cost_usd: 1.42 };
+  ctx.config.display.showCostBreakdown = true;
+  ctx.transcript.sessionTokens = { inputTokens: 12000, outputTokens: 4000, cacheCreationTokens: 9000, cacheReadTokens: 88000 };
+  const line = stripAnsi(renderCostBreakdownLine(ctx) ?? '');
+  assert.equal(line, '12k in · 4k out · 9k cw · 88k cr');
 });
 
 test('renderSessionLine includes compact session token summary when enabled', () => {

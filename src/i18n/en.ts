@@ -20,6 +20,8 @@ export const en: Messages = {
   "format.resetsIn": "resets in",
   "format.in": "in",
   "format.cache": "cache",
+  "format.cacheWrite": "cw",
+  "format.cacheRead": "cr",
   "format.out": "out",
   "format.tokPerSec": "tok/s",
 
