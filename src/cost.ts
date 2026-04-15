@@ -1,5 +1,5 @@
 import type { SessionTokenUsage, StdinData } from './types.js';
-import { getProviderLabel } from './stdin.js';
+import { isBedrockModelId } from './stdin.js';
 
 type ModelPricing = {
   inputUsdPerMillion: number;
@@ -29,6 +29,10 @@ const ANTHROPIC_MODEL_PRICING: Array<{ pattern: RegExp; pricing: ModelPricing }>
   { pattern: /\bsonnet 3 7\b/i, pricing: { inputUsdPerMillion: 3, outputUsdPerMillion: 15 } },
   { pattern: /\bsonnet 3 5\b/i, pricing: { inputUsdPerMillion: 3, outputUsdPerMillion: 15 } },
   { pattern: /\bhaiku 3 5\b/i, pricing: { inputUsdPerMillion: 0.8, outputUsdPerMillion: 4 } },
+  // Enterprise plan aliases (e.g. opusplan, sonnetplan, haikuplan)
+  { pattern: /\bopusplan\b/i, pricing: { inputUsdPerMillion: 15, outputUsdPerMillion: 75 } },
+  { pattern: /\bsonnetplan\b/i, pricing: { inputUsdPerMillion: 3, outputUsdPerMillion: 15 } },
+  { pattern: /\bhaikuplan\b/i, pricing: { inputUsdPerMillion: 0.8, outputUsdPerMillion: 4 } },
 ];
 
 function normalizeModelName(modelName: string): string {
@@ -83,7 +87,7 @@ export function estimateSessionCost(
     return null;
   }
 
-  if (getProviderLabel(stdin)) {
+  if (isBedrockModelId(stdin.model?.id)) {
     return null;
   }
 
@@ -120,7 +124,7 @@ function getNativeCostUsd(stdin: StdinData): number | null {
     return null;
   }
 
-  if (getProviderLabel(stdin)) {
+  if (isBedrockModelId(stdin.model?.id)) {
     return null;
   }
 

@@ -1,7 +1,7 @@
 import type { RenderContext } from "../../types.js";
 import { isLimitReached } from "../../types.js";
 import type { MessageKey } from "../../i18n/types.js";
-import { getProviderLabel } from "../../stdin.js";
+import { isBedrockModelId } from "../../stdin.js";
 import { critical, label, getQuotaColor, quotaBar, RESET } from "../colors.js";
 import { getAdaptiveBarWidth } from "../../utils/terminal.js";
 import { t } from "../../i18n/index.js";
@@ -24,7 +24,7 @@ export function renderUsageLine(
     return null;
   }
 
-  if (getProviderLabel(ctx.stdin)) {
+  if (isBedrockModelId(ctx.stdin.model?.id)) {
     return null;
   }
 
