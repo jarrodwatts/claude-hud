@@ -269,13 +269,11 @@ test('getGitStatus attaches line diffs to renamed files with shared directory pr
     // Enable numstat-specific rename detection so we exercise that path.
     execFileSync('git', ['config', 'diff.renames', 'true'], { cwd: dir, stdio: 'ignore' });
 
-    execFileSync('git', ['init'], { cwd: dir, stdio: 'ignore' });
     const pkgDir = path.join(dir, 'pkg');
     await writeFile(path.join(dir, '.gitkeep'), '');
     execFileSync('git', ['add', '.gitkeep'], { cwd: dir, stdio: 'ignore' });
     execFileSync('git', ['commit', '-m', 'init'], { cwd: dir, stdio: 'ignore' });
 
-    await mkdtemp(pkgDir).catch(() => {});
     execFileSync('mkdir', ['-p', pkgDir]);
     await writeFile(path.join(pkgDir, 'old.ts'), 'export const a = 1;\n');
     execFileSync('git', ['add', 'pkg/old.ts'], { cwd: dir, stdio: 'ignore' });
