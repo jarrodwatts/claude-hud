@@ -178,6 +178,29 @@ function parseFileStats(porcelainOutput: string): FileStats {
 }
 
 /**
+ * Extract the destination path from a numstat path field.
+ *
+ * For renames, `git diff --numstat` emits the path as `old => new`
+ * (sometimes with a shared directory prefix like `pkg/{old.ts => new.ts}`).
+ * `git status --porcelain` reports the renamed file under its destination
+ * only, so we key `perFileDiff` by the destination to make lookups match.
+ */
+function extractNumstatDestination(filePath: string): string {
+  const braceMatch = filePath.match(/^(.*)\{(.*) => (.*)\}(.*)$/);
+  if (braceMatch) {
+    const [, prefix, , dest, suffix] = braceMatch;
+    return `${prefix}${dest}${suffix}`.replace(/\/{2,}/g, '/');
+  }
+
+  const arrowIndex = filePath.indexOf(' => ');
+  if (arrowIndex !== -1) {
+    return filePath.slice(arrowIndex + 4);
+  }
+
+  return filePath;
+}
+
+/**
  * Parse `git diff --numstat HEAD` output.
  * Returns total line diff and a map of fullPath -> LineDiff.
  */
@@ -190,7 +213,7 @@ function parseNumstat(numstatOutput: string): { totalDiff: LineDiff; perFileDiff
     if (parts.length < 3) continue;
     const added = parseInt(parts[0], 10);
     const deleted = parseInt(parts[1], 10);
-    const filePath = parts[2];
+    const filePath = extractNumstatDestination(parts[2]);
     if (Number.isNaN(added) || Number.isNaN(deleted)) continue; // binary file
     totalDiff.added += added;
     totalDiff.deleted += deleted;

@@ -226,6 +226,79 @@ test('getGitStatus includes total and per-file line diffs for modified files', a
   }
 });
 
+test('getGitStatus attaches line diffs to renamed files', async () => {
+  const dir = await mkdtemp(path.join(tmpdir(), 'claude-hud-git-'));
+  try {
+    execFileSync('git', ['init'], { cwd: dir, stdio: 'ignore' });
+    execFileSync('git', ['config', 'user.email', 'test@test.com'], { cwd: dir, stdio: 'ignore' });
+    execFileSync('git', ['config', 'user.name', 'Test'], { cwd: dir, stdio: 'ignore' });
+    execFileSync('git', ['config', 'commit.gpgsign', 'false'], { cwd: dir, stdio: 'ignore' });
+
+    await writeFile(path.join(dir, 'old_name.txt'), 'one\ntwo\nthree\n');
+    execFileSync('git', ['add', 'old_name.txt'], { cwd: dir, stdio: 'ignore' });
+    execFileSync('git', ['commit', '-m', 'add old_name'], { cwd: dir, stdio: 'ignore' });
+
+    execFileSync('git', ['mv', 'old_name.txt', 'new_name.txt'], { cwd: dir, stdio: 'ignore' });
+    await writeFile(path.join(dir, 'new_name.txt'), 'one\ntwo\nthree\nfour\nfive\n');
+    execFileSync('git', ['add', 'new_name.txt'], { cwd: dir, stdio: 'ignore' });
+
+    const result = await getGitStatus(dir);
+    const tracked = result?.fileStats?.trackedFiles ?? [];
+    const renamed = tracked.find((f) => f.fullPath?.endsWith('new_name.txt'));
+
+    assert.ok(renamed, `expected renamed file in trackedFiles, got ${JSON.stringify(tracked)}`);
+    assert.ok(
+      renamed?.lineDiff,
+      `expected lineDiff on renamed file, got ${JSON.stringify(renamed)}`
+    );
+    assert.equal(renamed?.lineDiff?.added, 2);
+    assert.equal(renamed?.lineDiff?.deleted, 0);
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
+});
+
+test('getGitStatus attaches line diffs to renamed files with shared directory prefix', async () => {
+  const dir = await mkdtemp(path.join(tmpdir(), 'claude-hud-git-'));
+  try {
+    execFileSync('git', ['init'], { cwd: dir, stdio: 'ignore' });
+    execFileSync('git', ['config', 'user.email', 'test@test.com'], { cwd: dir, stdio: 'ignore' });
+    execFileSync('git', ['config', 'user.name', 'Test'], { cwd: dir, stdio: 'ignore' });
+    execFileSync('git', ['config', 'commit.gpgsign', 'false'], { cwd: dir, stdio: 'ignore' });
+    // Some git configurations emit numstat in the brace form: `pkg/{old.ts => new.ts}`.
+    // Enable numstat-specific rename detection so we exercise that path.
+    execFileSync('git', ['config', 'diff.renames', 'true'], { cwd: dir, stdio: 'ignore' });
+
+    execFileSync('git', ['init'], { cwd: dir, stdio: 'ignore' });
+    const pkgDir = path.join(dir, 'pkg');
+    await writeFile(path.join(dir, '.gitkeep'), '');
+    execFileSync('git', ['add', '.gitkeep'], { cwd: dir, stdio: 'ignore' });
+    execFileSync('git', ['commit', '-m', 'init'], { cwd: dir, stdio: 'ignore' });
+
+    await mkdtemp(pkgDir).catch(() => {});
+    execFileSync('mkdir', ['-p', pkgDir]);
+    await writeFile(path.join(pkgDir, 'old.ts'), 'export const a = 1;\n');
+    execFileSync('git', ['add', 'pkg/old.ts'], { cwd: dir, stdio: 'ignore' });
+    execFileSync('git', ['commit', '-m', 'add old.ts'], { cwd: dir, stdio: 'ignore' });
+
+    execFileSync('git', ['mv', 'pkg/old.ts', 'pkg/new.ts'], { cwd: dir, stdio: 'ignore' });
+    await writeFile(path.join(pkgDir, 'new.ts'), 'export const a = 1;\nexport const b = 2;\n');
+    execFileSync('git', ['add', 'pkg/new.ts'], { cwd: dir, stdio: 'ignore' });
+
+    const result = await getGitStatus(dir);
+    const tracked = result?.fileStats?.trackedFiles ?? [];
+    const renamed = tracked.find((f) => f.fullPath?.endsWith('new.ts'));
+
+    assert.ok(renamed, `expected renamed file in trackedFiles, got ${JSON.stringify(tracked)}`);
+    assert.ok(
+      renamed?.lineDiff,
+      `expected lineDiff on renamed file, got ${JSON.stringify(renamed)}`
+    );
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
+});
+
 test('getGitStatus builds branchUrl from HTTPS origin remotes', async () => {
   const dir = await mkdtemp(path.join(tmpdir(), 'claude-hud-git-'));
   try {
