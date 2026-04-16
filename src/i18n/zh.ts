@@ -11,6 +11,7 @@ export const zh: Messages = {
   "label.hooks": "钩子",
   "label.estimatedCost": "估算",
   "label.cost": "费用",
+  "label.tokens": "令牌",
 
   // Status
   "status.limitReached": "已达上限",
@@ -24,6 +25,7 @@ export const zh: Messages = {
   "format.in": "输入",
   "format.cache": "缓存",
   "format.out": "输出",
+  "format.tok": "令牌",
   "format.tokPerSec": "tok/s",
 
   // Init

@@ -2,6 +2,42 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { setLanguage, getLanguage, t } from "../dist/i18n/index.js";
 import { mergeConfig } from "../dist/config.js";
+import { renderSessionTokensLine } from "../dist/render/lines/session-tokens.js";
+
+function stripAnsi(s) {
+  return s.replace(/\x1b\[[0-9;]*m/g, "");
+}
+
+function makeCtx(overrides = {}) {
+  return {
+    stdin: {},
+    transcript: {
+      tools: [],
+      agents: [],
+      todos: [],
+      sessionTokens: {
+        inputTokens: 12345,
+        outputTokens: 6789,
+        cacheCreationTokens: 0,
+        cacheReadTokens: 4321,
+      },
+    },
+    claudeMdCount: 0,
+    rulesCount: 0,
+    mcpCount: 0,
+    hooksCount: 0,
+    sessionDuration: "",
+    gitStatus: null,
+    usageData: null,
+    memoryUsage: null,
+    config: {
+      display: { showSessionTokens: true },
+      colors: { label: "dim" },
+    },
+    extraLabel: null,
+    ...overrides,
+  };
+}
 
 test("t() returns English strings by default", () => {
   setLanguage("en");
@@ -51,4 +87,30 @@ test("mergeConfig preserves explicit language from config", () => {
 test("mergeConfig falls back to English for invalid language", () => {
   const config = mergeConfig({ language: "invalid" });
   assert.equal(config.language, "en");
+});
+
+test("renderSessionTokensLine uses translated labels in English", () => {
+  setLanguage("en");
+  const line = stripAnsi(renderSessionTokensLine(makeCtx()) ?? "");
+  assert.ok(line.includes("Tokens"), `expected 'Tokens' in ${line}`);
+  assert.ok(line.includes("in:"), `expected 'in:' in ${line}`);
+  assert.ok(line.includes("out:"), `expected 'out:' in ${line}`);
+  assert.ok(line.includes("cache:"), `expected 'cache:' in ${line}`);
+});
+
+test("renderSessionTokensLine uses translated labels in Chinese", () => {
+  setLanguage("zh");
+  const line = stripAnsi(renderSessionTokensLine(makeCtx()) ?? "");
+  assert.ok(line.includes("令牌"), `expected '令牌' in ${line}`);
+  assert.ok(line.includes("输入:"), `expected '输入:' in ${line}`);
+  assert.ok(line.includes("输出:"), `expected '输出:' in ${line}`);
+  assert.ok(line.includes("缓存:"), `expected '缓存:' in ${line}`);
+  // No leftover English labels
+  assert.ok(!line.includes("in:") || line.includes("输入:"),
+    `unexpected bare 'in:' label in zh output: ${line}`);
+  assert.ok(!line.includes("out:") || line.includes("输出:"),
+    `unexpected bare 'out:' label in zh output: ${line}`);
+  assert.ok(!line.includes("cache:") || line.includes("缓存:"),
+    `unexpected bare 'cache:' label in zh output: ${line}`);
+  setLanguage("en");
 });

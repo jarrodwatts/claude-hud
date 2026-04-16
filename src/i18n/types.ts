@@ -9,6 +9,7 @@ export type MessageKey =
   | "label.hooks"
   | "label.estimatedCost"
   | "label.cost"
+  | "label.tokens"
   // Status
   | "status.limitReached"
   | "status.allTodosComplete"
@@ -20,6 +21,7 @@ export type MessageKey =
   | "format.in"
   | "format.cache"
   | "format.out"
+  | "format.tok"
   | "format.tokPerSec"
   // Init
   | "init.initializing"

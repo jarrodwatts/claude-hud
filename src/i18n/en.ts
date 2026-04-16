@@ -11,6 +11,7 @@ export const en: Messages = {
   "label.hooks": "hooks",
   "label.estimatedCost": "Est.",
   "label.cost": "Cost",
+  "label.tokens": "Tokens",
 
   // Status
   "status.limitReached": "Limit reached",
@@ -24,6 +25,7 @@ export const en: Messages = {
   "format.in": "in",
   "format.cache": "cache",
   "format.out": "out",
+  "format.tok": "tok",
   "format.tokPerSec": "tok/s",
 
   // Init
