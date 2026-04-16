@@ -106,11 +106,9 @@ test("renderSessionTokensLine uses translated labels in Chinese", () => {
   assert.ok(line.includes("输出:"), `expected '输出:' in ${line}`);
   assert.ok(line.includes("缓存:"), `expected '缓存:' in ${line}`);
   // No leftover English labels
-  assert.ok(!line.includes("in:") || line.includes("输入:"),
-    `unexpected bare 'in:' label in zh output: ${line}`);
-  assert.ok(!line.includes("out:") || line.includes("输出:"),
-    `unexpected bare 'out:' label in zh output: ${line}`);
-  assert.ok(!line.includes("cache:") || line.includes("缓存:"),
-    `unexpected bare 'cache:' label in zh output: ${line}`);
+  assert.ok(!line.includes("in:"), `unexpected bare 'in:' label in zh output: ${line}`);
+  assert.ok(!line.includes("out:"), `unexpected bare 'out:' label in zh output: ${line}`);
+  assert.ok(!line.includes("cache:"), `unexpected bare 'cache:' label in zh output: ${line}`);
+  assert.ok(!line.includes("Tokens"), `unexpected bare 'Tokens' label in zh output: ${line}`);
   setLanguage("en");
 });
