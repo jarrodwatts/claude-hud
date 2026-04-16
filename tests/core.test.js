@@ -426,6 +426,31 @@ test('estimateSessionCost still calculates transcript-based Anthropic pricing', 
   assert.equal(formatUsd(estimate.totalUsd), '$1.09');
 });
 
+test('estimateSessionCost prices Claude Haiku 4.5 (and future 4.x minors)', () => {
+  const tokens = {
+    inputTokens: 1_000_000,
+    cacheCreationTokens: 0,
+    cacheReadTokens: 0,
+    outputTokens: 100_000,
+  };
+
+  const haiku45 = estimateSessionCost({ model: { display_name: 'Claude Haiku 4.5' } }, tokens);
+  assert.ok(haiku45, 'expected non-null estimate for Claude Haiku 4.5');
+  // 1M input @ $1 + 100k output @ $5 = $1 + $0.5 = $1.50
+  assert.equal(formatUsd(haiku45.totalUsd), '$1.50');
+
+  // Bare "Haiku 4" (short name) should also match.
+  const haiku4Bare = estimateSessionCost({ model: { display_name: 'Claude Haiku 4' } }, tokens);
+  assert.ok(haiku4Bare, 'expected non-null estimate for bare Claude Haiku 4');
+  assert.equal(formatUsd(haiku4Bare.totalUsd), '$1.50');
+
+  // Haiku 3.5 pricing stays on its own row.
+  const haiku35 = estimateSessionCost({ model: { display_name: 'Claude Haiku 3.5' } }, tokens);
+  assert.ok(haiku35, 'expected non-null estimate for Claude Haiku 3.5');
+  // 1M input @ $0.8 + 100k output @ $4 = $0.8 + $0.4 = $1.20
+  assert.equal(formatUsd(haiku35.totalUsd), '$1.20');
+});
+
 
 test('parseTranscript aggregates tools, agents, and todos', async () => {
   const fixturePath = fileURLToPath(new URL('./fixtures/transcript-basic.jsonl', import.meta.url));
