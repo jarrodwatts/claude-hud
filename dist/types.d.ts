@@ -84,6 +84,7 @@ export interface TranscriptData {
     sessionStart?: Date;
     sessionName?: string;
     sessionTokens?: SessionTokenUsage;
+    lastAssistantTurnAt?: Date;
 }
 export interface RenderContext {
     stdin: StdinData;

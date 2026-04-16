@@ -4,4 +4,5 @@ export { renderEnvironmentLine } from './environment.js';
 export { renderUsageLine } from './usage.js';
 export { renderMemoryLine } from './memory.js';
 export { renderSessionTokensLine } from './session-tokens.js';
+export { renderCacheLine } from './cache.js';
 //# sourceMappingURL=index.d.ts.map

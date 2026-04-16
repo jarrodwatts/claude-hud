@@ -3,7 +3,7 @@ import { renderSessionLine } from './session-line.js';
 import { renderToolsLine } from './tools-line.js';
 import { renderAgentsLine } from './agents-line.js';
 import { renderTodosLine } from './todos-line.js';
-import { renderIdentityLine, renderProjectLine, renderGitFilesLine, renderEnvironmentLine, renderUsageLine, renderMemoryLine, renderSessionTokensLine, } from './lines/index.js';
+import { renderIdentityLine, renderProjectLine, renderGitFilesLine, renderEnvironmentLine, renderUsageLine, renderMemoryLine, renderSessionTokensLine, renderCacheLine, } from './lines/index.js';
 import { dim, RESET } from './colors.js';
 import { UNKNOWN_TERMINAL_WIDTH } from '../utils/terminal.js';
 // eslint-disable-next-line no-control-regex
@@ -288,6 +288,8 @@ function renderElementLine(ctx, element) {
             return renderUsageLine(ctx);
         case 'memory':
             return renderMemoryLine(ctx);
+        case 'cache':
+            return display?.showCacheLine === false ? null : renderCacheLine(ctx);
         case 'environment':
             return renderEnvironmentLine(ctx);
         case 'tools':
@@ -306,6 +308,13 @@ function renderCompact(ctx) {
     }
     return lines;
 }
+const PAIRED_ELEMENTS = [
+    ['context', 'usage'],
+    ['tools', 'todos'],
+];
+function isPairedWith(a, b) {
+    return PAIRED_ELEMENTS.some(([x, y]) => (a === x && b === y) || (a === y && b === x));
+}
 function renderExpanded(ctx, terminalWidth = null) {
     const elementOrder = ctx.config?.elementOrder ?? DEFAULT_ELEMENT_ORDER;
     const seen = new Set();
@@ -316,28 +325,30 @@ function renderExpanded(ctx, terminalWidth = null) {
             continue;
         }
         const nextElement = elementOrder[index + 1];
-        if ((element === 'context' && nextElement === 'usage' && !seen.has('usage'))
-            || (element === 'usage' && nextElement === 'context' && !seen.has('context'))) {
+        if (nextElement
+            && !seen.has(nextElement)
+            && isPairedWith(element, nextElement)) {
             seen.add(element);
             seen.add(nextElement);
             const firstLine = renderElementLine(ctx, element);
             const secondLine = renderElementLine(ctx, nextElement);
+            const pairIsActivity = ACTIVITY_ELEMENTS.has(element) || ACTIVITY_ELEMENTS.has(nextElement);
             if (firstLine && secondLine) {
                 const combinedLine = `${firstLine} │ ${secondLine}`;
                 const canCombine = !terminalWidth || visualLength(combinedLine) <= terminalWidth;
                 if (canCombine) {
-                    lines.push({ line: combinedLine, isActivity: false });
+                    lines.push({ line: combinedLine, isActivity: pairIsActivity });
                 }
                 else {
-                    lines.push({ line: firstLine, isActivity: false });
-                    lines.push({ line: secondLine, isActivity: false });
+                    lines.push({ line: firstLine, isActivity: pairIsActivity });
+                    lines.push({ line: secondLine, isActivity: pairIsActivity });
                 }
             }
             else if (firstLine) {
-                lines.push({ line: firstLine, isActivity: false });
+                lines.push({ line: firstLine, isActivity: pairIsActivity });
             }
             else if (secondLine) {
-                lines.push({ line: secondLine, isActivity: false });
+                lines.push({ line: secondLine, isActivity: pairIsActivity });
             }
             continue;
         }

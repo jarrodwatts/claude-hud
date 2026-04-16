@@ -6,11 +6,12 @@ export const DEFAULT_ELEMENT_ORDER = [
     'project',
     'context',
     'usage',
+    'cache',
     'memory',
     'environment',
     'tools',
-    'agents',
     'todos',
+    'agents',
 ];
 const KNOWN_ELEMENTS = new Set(DEFAULT_ELEMENT_ORDER);
 export const DEFAULT_CONFIG = {
@@ -45,6 +46,7 @@ export const DEFAULT_CONFIG = {
         showSessionName: false,
         showClaudeCodeVersion: false,
         showMemoryUsage: false,
+        showCacheLine: true,
         showSessionTokens: false,
         showOutputStyle: false,
         autocompactBuffer: 'enabled',
@@ -252,6 +254,9 @@ export function mergeConfig(userConfig) {
         showMemoryUsage: typeof migrated.display?.showMemoryUsage === 'boolean'
             ? migrated.display.showMemoryUsage
             : DEFAULT_CONFIG.display.showMemoryUsage,
+        showCacheLine: typeof migrated.display?.showCacheLine === 'boolean'
+            ? migrated.display.showCacheLine
+            : DEFAULT_CONFIG.display.showCacheLine,
         showSessionTokens: typeof migrated.display?.showSessionTokens === 'boolean'
             ? migrated.display.showSessionTokens
             : DEFAULT_CONFIG.display.showSessionTokens,
