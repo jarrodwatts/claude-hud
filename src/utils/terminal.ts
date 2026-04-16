@@ -1,4 +1,10 @@
-export const UNKNOWN_TERMINAL_WIDTH = 40;
+// When no TTY width is detectable (stdout piped, stderr not a TTY, COLUMNS
+// unset) we must not fall back to a small ceiling — every line then wraps to
+// that value even on a 140-column terminal, defeating pair-merge and
+// truncating multi-segment lines. A very large fallback matches the
+// pre-0.0.12 behaviour of returning null (effectively "do not wrap") and
+// lets the render layer trust its own logic.
+export const UNKNOWN_TERMINAL_WIDTH = 10000;
 
 // Returns a progress bar width scaled to the current terminal width.
 // Wide (>=100): 10, Medium (60-99): 6, Narrow (<60): 4.
