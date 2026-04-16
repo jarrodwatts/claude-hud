@@ -53,6 +53,7 @@ interface SerializedTranscriptData {
   sessionStart?: string;
   sessionName?: string;
   sessionTokens?: SessionTokenUsage;
+  lastAssistantTurnAt?: string;
 }
 
 interface TranscriptCacheFile {
@@ -121,6 +122,7 @@ function serializeTranscriptData(data: TranscriptData): SerializedTranscriptData
     sessionStart: data.sessionStart?.toISOString(),
     sessionName: data.sessionName,
     sessionTokens: data.sessionTokens,
+    lastAssistantTurnAt: data.lastAssistantTurnAt?.toISOString(),
   };
 }
 
@@ -140,6 +142,7 @@ function deserializeTranscriptData(data: SerializedTranscriptData): TranscriptDa
     sessionStart: data.sessionStart ? new Date(data.sessionStart) : undefined,
     sessionName: data.sessionName,
     sessionTokens: normalizeSessionTokens(data.sessionTokens),
+    lastAssistantTurnAt: data.lastAssistantTurnAt ? new Date(data.lastAssistantTurnAt) : undefined,
   };
 }
 
@@ -237,6 +240,13 @@ export async function parseTranscript(transcriptPath: string): Promise<Transcrip
           sessionTokens.outputTokens += normalizeTokenCount(usage.output_tokens);
           sessionTokens.cacheCreationTokens += normalizeTokenCount(usage.cache_creation_input_tokens);
           sessionTokens.cacheReadTokens += normalizeTokenCount(usage.cache_read_input_tokens);
+        }
+        // Track latest assistant turn timestamp for cache-age estimation
+        if (entry.type === 'assistant' && typeof entry.timestamp === 'string') {
+          const parsed = new Date(entry.timestamp);
+          if (!Number.isNaN(parsed.getTime())) {
+            result.lastAssistantTurnAt = parsed;
+          }
         }
         processEntry(entry, toolMap, agentMap, taskIdToIndex, latestTodos, result);
       } catch {

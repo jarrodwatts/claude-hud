@@ -1,4 +1,7 @@
-export const UNKNOWN_TERMINAL_WIDTH = 40;
+// When no TTY width is detectable, avoid an over-conservative wrap ceiling.
+// A very large value effectively disables wrap (matches pre-0.0.12 behaviour
+// where getTerminalWidth returned null).
+export const UNKNOWN_TERMINAL_WIDTH = 10000;
 
 // Returns a progress bar width scaled to the current terminal width.
 // Wide (>=100): 10, Medium (60-99): 6, Narrow (<60): 4.

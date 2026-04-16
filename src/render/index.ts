@@ -13,6 +13,7 @@ import {
   renderUsageLine,
   renderMemoryLine,
   renderSessionTokensLine,
+  renderCacheLine,
 } from './lines/index.js';
 import { dim, RESET } from './colors.js';
 import { UNKNOWN_TERMINAL_WIDTH } from '../utils/terminal.js';
@@ -351,6 +352,8 @@ function renderElementLine(ctx: RenderContext, element: HudElement): string | nu
       return renderUsageLine(ctx);
     case 'memory':
       return renderMemoryLine(ctx);
+    case 'cache':
+      return display?.showCacheLine === false ? null : renderCacheLine(ctx);
     case 'environment':
       return renderEnvironmentLine(ctx);
     case 'tools':
@@ -373,6 +376,17 @@ function renderCompact(ctx: RenderContext): string[] {
   return lines;
 }
 
+const PAIRED_ELEMENTS: ReadonlyArray<readonly [HudElement, HudElement]> = [
+  ['context', 'usage'],
+  ['tools', 'todos'],
+];
+
+function isPairedWith(a: HudElement, b: HudElement): boolean {
+  return PAIRED_ELEMENTS.some(
+    ([x, y]) => (a === x && b === y) || (a === y && b === x)
+  );
+}
+
 function renderExpanded(ctx: RenderContext, terminalWidth: number | null = null): Array<{ line: string; isActivity: boolean }> {
   const elementOrder = ctx.config?.elementOrder ?? DEFAULT_ELEMENT_ORDER;
   const seen = new Set<HudElement>();
@@ -386,29 +400,32 @@ function renderExpanded(ctx: RenderContext, terminalWidth: number | null = null)
 
     const nextElement = elementOrder[index + 1];
     if (
-      (element === 'context' && nextElement === 'usage' && !seen.has('usage'))
-      || (element === 'usage' && nextElement === 'context' && !seen.has('context'))
+      nextElement
+      && !seen.has(nextElement)
+      && isPairedWith(element, nextElement)
     ) {
       seen.add(element);
       seen.add(nextElement);
 
       const firstLine = renderElementLine(ctx, element);
       const secondLine = renderElementLine(ctx, nextElement);
+      const pairIsActivity =
+        ACTIVITY_ELEMENTS.has(element) || ACTIVITY_ELEMENTS.has(nextElement);
 
       if (firstLine && secondLine) {
         const combinedLine = `${firstLine} │ ${secondLine}`;
         const canCombine = !terminalWidth || visualLength(combinedLine) <= terminalWidth;
 
         if (canCombine) {
-          lines.push({ line: combinedLine, isActivity: false });
+          lines.push({ line: combinedLine, isActivity: pairIsActivity });
         } else {
-          lines.push({ line: firstLine, isActivity: false });
-          lines.push({ line: secondLine, isActivity: false });
+          lines.push({ line: firstLine, isActivity: pairIsActivity });
+          lines.push({ line: secondLine, isActivity: pairIsActivity });
         }
       } else if (firstLine) {
-        lines.push({ line: firstLine, isActivity: false });
+        lines.push({ line: firstLine, isActivity: pairIsActivity });
       } else if (secondLine) {
-        lines.push({ line: secondLine, isActivity: false });
+        lines.push({ line: secondLine, isActivity: pairIsActivity });
       }
 
       continue;
