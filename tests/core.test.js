@@ -565,6 +565,48 @@ test('TaskCreate taskId is preserved across TodoWrite and usable by TaskUpdate',
   }
 });
 
+test('TaskCreate taskIds survive TodoWrite when two todos share the same content', async () => {
+  const dir = await mkdtemp(path.join(tmpdir(), 'claude-hud-'));
+  const filePath = path.join(dir, 'taskid-duplicate.jsonl');
+  const lines = [
+    JSON.stringify({
+      timestamp: '2024-01-01T00:00:00.000Z',
+      message: { content: [{ type: 'tool_use', id: 'tc-1', name: 'TaskCreate', input: { taskId: 'a1', subject: 'Duplicate task' } }] },
+    }),
+    JSON.stringify({
+      timestamp: '2024-01-01T00:00:01.000Z',
+      message: { content: [{ type: 'tool_use', id: 'tc-2', name: 'TaskCreate', input: { taskId: 'a2', subject: 'Duplicate task' } }] },
+    }),
+    JSON.stringify({
+      timestamp: '2024-01-01T00:00:02.000Z',
+      message: { content: [{ type: 'tool_use', id: 'tw-1', name: 'TodoWrite', input: { todos: [
+        { content: 'Duplicate task', status: 'pending' },
+        { content: 'Duplicate task', status: 'pending' },
+      ] } }] },
+    }),
+    // Update the SECOND duplicate's taskId specifically.
+    JSON.stringify({
+      timestamp: '2024-01-01T00:00:03.000Z',
+      message: { content: [{ type: 'tool_use', id: 'tu-1', name: 'TaskUpdate', input: { taskId: 'a2', status: 'completed' } }] },
+    }),
+  ];
+
+  await writeFile(filePath, lines.join('\n'), 'utf8');
+
+  try {
+    const result = await parseTranscript(filePath);
+    assert.equal(result.todos.length, 2);
+    assert.equal(result.todos[0].content, 'Duplicate task');
+    assert.equal(result.todos[0].status, 'pending',
+      'first occurrence must remain pending when only the second was updated');
+    assert.equal(result.todos[1].content, 'Duplicate task');
+    assert.equal(result.todos[1].status, 'completed',
+      'second occurrence must be reachable by its own taskId after TodoWrite');
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
+});
+
 test('TodoWrite without prior TaskCreate works as before (no regression)', async () => {
   const dir = await mkdtemp(path.join(tmpdir(), 'claude-hud-'));
   const filePath = path.join(dir, 'todowrite-only.jsonl');

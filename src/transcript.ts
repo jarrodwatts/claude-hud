@@ -306,29 +306,39 @@ function processEntry(
       } else if (block.name === 'TodoWrite') {
         const input = block.input as { todos?: TodoItem[] };
         if (input?.todos && Array.isArray(input.todos)) {
-          // Build reverse map: content → taskIds from existing state
+          // Build a FIFO queue of taskIds per content string, ordered by the
+          // old array position. Two todos that share the same content must
+          // each get their own taskId back after the rebuild, so we cannot
+          // collapse duplicates to one index.
           const contentToTaskIds = new Map<string, string[]>();
+          const taskIdsByOldIndex: Array<[number, string]> = [];
           for (const [taskId, idx] of taskIdToIndex) {
             if (idx < latestTodos.length) {
-              const content = latestTodos[idx].content;
-              const ids = contentToTaskIds.get(content) ?? [];
-              ids.push(taskId);
-              contentToTaskIds.set(content, ids);
+              taskIdsByOldIndex.push([idx, taskId]);
             }
+          }
+          taskIdsByOldIndex.sort((a, b) => a[0] - b[0]);
+          for (const [idx, taskId] of taskIdsByOldIndex) {
+            const content = latestTodos[idx].content;
+            const ids = contentToTaskIds.get(content) ?? [];
+            ids.push(taskId);
+            contentToTaskIds.set(content, ids);
           }
 
           latestTodos.length = 0;
           taskIdToIndex.clear();
           latestTodos.push(...input.todos);
 
-          // Re-register taskId mappings for items whose content matches
+          // Consume one queued taskId per new todo that matches by content,
+          // so duplicate-content items still each get their own taskId.
           for (let i = 0; i < latestTodos.length; i++) {
             const ids = contentToTaskIds.get(latestTodos[i].content);
-            if (ids) {
-              for (const taskId of ids) {
-                taskIdToIndex.set(taskId, i);
+            if (ids && ids.length > 0) {
+              const taskId = ids.shift() as string;
+              taskIdToIndex.set(taskId, i);
+              if (ids.length === 0) {
+                contentToTaskIds.delete(latestTodos[i].content);
               }
-              contentToTaskIds.delete(latestTodos[i].content);
             }
           }
         }
