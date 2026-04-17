@@ -8,6 +8,7 @@ import { parseExtraCmdArg, runExtraCmd } from "./extra-cmd.js";
 import { getClaudeCodeVersion } from "./version.js";
 import { getMemoryUsage } from "./memory.js";
 import { resolveEffortLevel } from "./effort.js";
+import { applyContextWindowFallback } from "./context-cache.js";
 import { setLanguage, t } from "./i18n/index.js";
 import type { RenderContext } from "./types.js";
 import { fileURLToPath } from "node:url";
@@ -24,6 +25,7 @@ export type MainDeps = {
   runExtraCmd: typeof runExtraCmd;
   getClaudeCodeVersion: typeof getClaudeCodeVersion;
   getMemoryUsage: typeof getMemoryUsage;
+  applyContextWindowFallback: typeof applyContextWindowFallback;
   render: typeof render;
   now: () => number;
   log: (...args: unknown[]) => void;
@@ -41,6 +43,7 @@ export async function main(overrides: Partial<MainDeps> = {}): Promise<void> {
     runExtraCmd,
     getClaudeCodeVersion,
     getMemoryUsage,
+    applyContextWindowFallback,
     render,
     now: () => Date.now(),
     log: console.log,
@@ -64,6 +67,8 @@ export async function main(overrides: Partial<MainDeps> = {}): Promise<void> {
 
     const transcriptPath = stdin.transcript_path ?? "";
     const transcript = await deps.parseTranscript(transcriptPath);
+
+    deps.applyContextWindowFallback(stdin, {}, transcript.sessionName);
 
     const { claudeMdCount, rulesCount, mcpCount, hooksCount, outputStyle } =
       await deps.countConfigs(stdin.cwd);
