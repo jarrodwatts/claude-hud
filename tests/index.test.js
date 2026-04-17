@@ -149,6 +149,7 @@ test("main executes the happy path with default dependencies", async () => {
         mcpCount: 0,
         hooksCount: 0,
         outputStyle: "tech-leader",
+        effortLevel: "high",
       }),
       getGitBranch: async () => null,
       getUsage: async () => null,
@@ -162,6 +163,7 @@ test("main executes the happy path with default dependencies", async () => {
 
   assert.equal(renderedContext?.sessionDuration, "1m");
   assert.equal(renderedContext?.outputStyle, "tech-leader");
+  assert.equal(renderedContext?.effortLevel, "high");
 });
 
 test("main includes git status in render context", async () => {

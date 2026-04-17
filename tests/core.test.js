@@ -1017,6 +1017,41 @@ test('countConfigs returns outputStyle with project local precedence', async () 
   }
 });
 
+test('countConfigs returns effortLevel with project local precedence', async () => {
+  const homeDir = await mkdtemp(path.join(tmpdir(), 'claude-hud-home-'));
+  const projectDir = await mkdtemp(path.join(tmpdir(), 'claude-hud-project-'));
+  const originalHome = process.env.HOME;
+  process.env.HOME = homeDir;
+
+  try {
+    await mkdir(path.join(homeDir, '.claude'), { recursive: true });
+    await mkdir(path.join(projectDir, '.claude'), { recursive: true });
+
+    await writeFile(
+      path.join(homeDir, '.claude', 'settings.json'),
+      JSON.stringify({ effortLevel: 'low' }),
+      'utf8',
+    );
+    await writeFile(
+      path.join(projectDir, '.claude', 'settings.json'),
+      JSON.stringify({ effortLevel: 'medium' }),
+      'utf8',
+    );
+    await writeFile(
+      path.join(projectDir, '.claude', 'settings.local.json'),
+      JSON.stringify({ effortLevel: 'high' }),
+      'utf8',
+    );
+
+    const counts = await countConfigs(projectDir);
+    assert.equal(counts.effortLevel, 'high');
+  } finally {
+    restoreEnvVar('HOME', originalHome);
+    await rm(homeDir, { recursive: true, force: true });
+    await rm(projectDir, { recursive: true, force: true });
+  }
+});
+
 test('countConfigs uses CLAUDE_CONFIG_DIR and matching .json sidecar for user scope', async () => {
   const homeDir = await mkdtemp(path.join(tmpdir(), 'claude-hud-home-'));
   const customConfigDir = path.join(homeDir, '.claude-2');

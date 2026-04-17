@@ -582,6 +582,26 @@ test('renderEnvironmentLine appends output style after config counts', () => {
   assert.ok(line?.includes('style: learning'));
 });
 
+test('renderEnvironmentLine shows effort level when enabled', () => {
+  const ctx = baseContext();
+  ctx.effortLevel = 'high';
+  ctx.config.display.showConfigCounts = false;
+  ctx.config.display.showEffortLevel = true;
+
+  assert.ok(renderEnvironmentLine(ctx)?.includes('effort: high'));
+});
+
+test('renderEnvironmentLine appends effort level after config counts', () => {
+  const ctx = baseContext();
+  ctx.claudeMdCount = 1;
+  ctx.effortLevel = 'low';
+  ctx.config.display.showEffortLevel = true;
+
+  const line = renderEnvironmentLine(ctx);
+  assert.ok(line?.includes('1 CLAUDE.md'));
+  assert.ok(line?.includes('effort: low'));
+});
+
 test('renderProjectLine includes duration when showDuration is true', () => {
   const ctx = baseContext();
   ctx.stdin.cwd = '/tmp/my-project';

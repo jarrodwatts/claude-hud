@@ -153,6 +153,17 @@ test('mergeConfig preserves explicit showOutputStyle=true', () => {
   assert.equal(config.display.showOutputStyle, true);
 });
 
+test('mergeConfig defaults showEffortLevel to false', () => {
+  const config = mergeConfig({});
+  assert.equal(config.display.showEffortLevel, false);
+  assert.equal(DEFAULT_CONFIG.display.showEffortLevel, false);
+});
+
+test('mergeConfig preserves explicit showEffortLevel=true', () => {
+  const config = mergeConfig({ display: { showEffortLevel: true } });
+  assert.equal(config.display.showEffortLevel, true);
+});
+
 test('mergeConfig preserves customLine and truncates long values', () => {
   const customLine = 'x'.repeat(120);
   const config = mergeConfig({ display: { customLine } });
