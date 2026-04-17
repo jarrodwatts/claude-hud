@@ -92,6 +92,7 @@ export interface HudConfig {
     showMemoryUsage: boolean;
     showSessionTokens: boolean;
     showOutputStyle: boolean;
+    showEffortLevel: boolean;
     autocompactBuffer: AutocompactBufferMode;
     usageThreshold: number;
     sevenDayThreshold: number;
@@ -137,6 +138,7 @@ export const DEFAULT_CONFIG: HudConfig = {
     showMemoryUsage: false,
     showSessionTokens: false,
     showOutputStyle: false,
+    showEffortLevel: false,
     autocompactBuffer: 'enabled',
     usageThreshold: 0,
     sevenDayThreshold: 80,
@@ -371,6 +373,9 @@ export function mergeConfig(userConfig: Partial<HudConfig>): HudConfig {
     showOutputStyle: typeof migrated.display?.showOutputStyle === 'boolean'
       ? migrated.display.showOutputStyle
       : DEFAULT_CONFIG.display.showOutputStyle,
+    showEffortLevel: typeof migrated.display?.showEffortLevel === 'boolean'
+      ? migrated.display.showEffortLevel
+      : DEFAULT_CONFIG.display.showEffortLevel,
     autocompactBuffer: validateAutocompactBuffer(migrated.display?.autocompactBuffer)
       ? migrated.display.autocompactBuffer
       : DEFAULT_CONFIG.display.autocompactBuffer,

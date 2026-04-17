@@ -64,7 +64,7 @@ export async function main(overrides: Partial<MainDeps> = {}): Promise<void> {
     const transcriptPath = stdin.transcript_path ?? "";
     const transcript = await deps.parseTranscript(transcriptPath);
 
-    const { claudeMdCount, rulesCount, mcpCount, hooksCount, outputStyle } =
+    const { claudeMdCount, rulesCount, mcpCount, hooksCount, outputStyle, effortLevel } =
       await deps.countConfigs(stdin.cwd);
 
     const config = await deps.loadConfig();
@@ -108,6 +108,7 @@ export async function main(overrides: Partial<MainDeps> = {}): Promise<void> {
       config,
       extraLabel,
       outputStyle,
+      effortLevel,
       claudeCodeVersion,
     };
 

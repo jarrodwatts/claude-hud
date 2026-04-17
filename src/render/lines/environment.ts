@@ -33,6 +33,11 @@ export function renderEnvironmentLine(ctx: RenderContext): string | null {
     parts.push(`style: ${ctx.outputStyle}`);
   }
 
+  const showEffortLevel = display?.showEffortLevel === true;
+  if (showEffortLevel && ctx.effortLevel) {
+    parts.push(`effort: ${ctx.effortLevel}`);
+  }
+
   if (parts.length === 0) {
     return null;
   }
