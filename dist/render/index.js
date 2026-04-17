@@ -323,15 +323,14 @@ function renderExpanded(ctx, terminalWidth = null) {
             const firstLine = renderElementLine(ctx, element);
             const secondLine = renderElementLine(ctx, nextElement);
             if (firstLine && secondLine) {
+                // Always emit context+usage as one combined string. wrapLineToWidth's
+                // greedy separator algorithm then keeps them together when they fit and
+                // splits only at the optimal │ / | point when they don't — which keeps
+                // context and usage on the same line far more often than pre-splitting
+                // them here ever did (especially when the fallback terminal width is in
+                // play and the combined string is just a few chars over the threshold).
                 const combinedLine = `${firstLine} │ ${secondLine}`;
-                const canCombine = !terminalWidth || visualLength(combinedLine) <= terminalWidth;
-                if (canCombine) {
-                    lines.push({ line: combinedLine, isActivity: false });
-                }
-                else {
-                    lines.push({ line: firstLine, isActivity: false });
-                    lines.push({ line: secondLine, isActivity: false });
-                }
+                lines.push({ line: combinedLine, isActivity: false });
             }
             else if (firstLine) {
                 lines.push({ line: firstLine, isActivity: false });
