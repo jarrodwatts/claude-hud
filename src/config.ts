@@ -89,6 +89,7 @@ export interface HudConfig {
     showTodos: boolean;
     showSessionName: boolean;
     showClaudeCodeVersion: boolean;
+    showEffortLevel: boolean;
     showMemoryUsage: boolean;
     showSessionTokens: boolean;
     showOutputStyle: boolean;
@@ -134,6 +135,7 @@ export const DEFAULT_CONFIG: HudConfig = {
     showTodos: false,
     showSessionName: false,
     showClaudeCodeVersion: false,
+    showEffortLevel: false,
     showMemoryUsage: false,
     showSessionTokens: false,
     showOutputStyle: false,
@@ -362,6 +364,9 @@ export function mergeConfig(userConfig: Partial<HudConfig>): HudConfig {
     showClaudeCodeVersion: typeof migrated.display?.showClaudeCodeVersion === 'boolean'
       ? migrated.display.showClaudeCodeVersion
       : DEFAULT_CONFIG.display.showClaudeCodeVersion,
+    showEffortLevel: typeof migrated.display?.showEffortLevel === 'boolean'
+      ? migrated.display.showEffortLevel
+      : DEFAULT_CONFIG.display.showEffortLevel,
     showMemoryUsage: typeof migrated.display?.showMemoryUsage === 'boolean'
       ? migrated.display.showMemoryUsage
       : DEFAULT_CONFIG.display.showMemoryUsage,

@@ -7,6 +7,7 @@ import { loadConfig } from "./config.js";
 import { parseExtraCmdArg, runExtraCmd } from "./extra-cmd.js";
 import { getClaudeCodeVersion } from "./version.js";
 import { getMemoryUsage } from "./memory.js";
+import { getEffortLevel } from "./effort.js";
 import { setLanguage, t } from "./i18n/index.js";
 import type { RenderContext } from "./types.js";
 import { fileURLToPath } from "node:url";
@@ -23,6 +24,7 @@ export type MainDeps = {
   runExtraCmd: typeof runExtraCmd;
   getClaudeCodeVersion: typeof getClaudeCodeVersion;
   getMemoryUsage: typeof getMemoryUsage;
+  getEffortLevel: typeof getEffortLevel;
   render: typeof render;
   now: () => number;
   log: (...args: unknown[]) => void;
@@ -40,6 +42,7 @@ export async function main(overrides: Partial<MainDeps> = {}): Promise<void> {
     runExtraCmd,
     getClaudeCodeVersion,
     getMemoryUsage,
+    getEffortLevel,
     render,
     now: () => Date.now(),
     log: console.log,
@@ -89,6 +92,9 @@ export async function main(overrides: Partial<MainDeps> = {}): Promise<void> {
     const claudeCodeVersion = config.display.showClaudeCodeVersion
       ? await deps.getClaudeCodeVersion()
       : undefined;
+    const effortLevel = config.display.showEffortLevel
+      ? deps.getEffortLevel() ?? undefined
+      : undefined;
     const memoryUsage =
       config.display.showMemoryUsage && config.lineLayout === "expanded"
         ? await deps.getMemoryUsage()
@@ -109,6 +115,7 @@ export async function main(overrides: Partial<MainDeps> = {}): Promise<void> {
       extraLabel,
       outputStyle,
       claudeCodeVersion,
+      effortLevel,
     };
 
     deps.render(ctx);

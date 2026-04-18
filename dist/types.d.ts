@@ -100,5 +100,6 @@ export interface RenderContext {
     extraLabel: string | null;
     outputStyle?: string;
     claudeCodeVersion?: string;
+    effortLevel?: string;
 }
 //# sourceMappingURL=types.d.ts.map

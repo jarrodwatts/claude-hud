@@ -81,6 +81,10 @@ export function renderProjectLine(ctx: RenderContext): string | null {
     parts.push(label(`CC v${ctx.claudeCodeVersion}`, colors));
   }
 
+  if (display?.showEffortLevel && ctx.effortLevel) {
+    parts.push(label(ctx.effortLevel, colors));
+  }
+
   if (ctx.extraLabel) {
     parts.push(label(ctx.extraLabel, colors));
   }

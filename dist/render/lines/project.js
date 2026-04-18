@@ -72,6 +72,9 @@ export function renderProjectLine(ctx) {
     if (display?.showClaudeCodeVersion && ctx.claudeCodeVersion) {
         parts.push(label(`CC v${ctx.claudeCodeVersion}`, colors));
     }
+    if (display?.showEffortLevel && ctx.effortLevel) {
+        parts.push(label(ctx.effortLevel, colors));
+    }
     if (ctx.extraLabel) {
         parts.push(label(ctx.extraLabel, colors));
     }
