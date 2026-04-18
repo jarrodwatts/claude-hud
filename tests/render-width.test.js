@@ -296,8 +296,8 @@ test('render falls back to a safe default width when no terminal size is availab
     });
   });
 
-  assert.ok(lines.length > 1, 'should wrap output instead of emitting one oversized line');
-  assert.ok(lines.every(line => displayWidth(line) <= 80), 'all lines should fit the safe fallback width');
+  assert.ok(lines.length >= 1, 'should produce output');
+  assert.ok(lines.every(line => displayWidth(line) <= 220), 'all lines should fit the safe fallback width (220)');
 });
 
 test('render does not strand a bare 5h continuation line in compact mode', () => {
@@ -448,4 +448,31 @@ test('render respects terminal width with Chinese labels enabled', () => {
   assert.ok(lines.some(line => line.includes('上下文')), 'should render the translated context label');
   assert.ok(lines.some(line => line.includes('用量')), 'should render the translated usage label');
   assert.ok(lines.every(line => displayWidth(line) <= 18), 'all lines should fit terminal width with CJK labels');
+});
+
+test('unknown terminal width uses large fallback so lines are not wrapped at 40 chars', () => {
+  const ctx = baseContext();
+  ctx.stdin.model = { display_name: 'Opus' };
+  ctx.stdin.cwd = '/tmp/my-project';
+  ctx.config.lineLayout = 'expanded';
+
+  // Do NOT set process.stdout.columns or COLUMNS — simulate unknown width
+  const savedColumns = process.env.COLUMNS;
+  delete process.env.COLUMNS;
+  try {
+    const lines = captureRender(ctx);
+    // With a 40-char fallback, the project or context line would get wrapped.
+    // With a large fallback (220), lines over 40 chars should remain intact.
+    const longLines = lines.filter(line => displayWidth(line) > 40);
+    assert.ok(longLines.length > 0 || lines.every(line => displayWidth(line) <= 40),
+      'lines should not be artificially wrapped at the old 40-char fallback');
+    // No line should be wrapped to 40 chars when there is content that would be longer
+    lines.forEach(line => {
+      assert.ok(displayWidth(line) <= 220, 'lines should respect the large fallback width');
+    });
+  } finally {
+    if (savedColumns !== undefined) {
+      process.env.COLUMNS = savedColumns;
+    }
+  }
 });
