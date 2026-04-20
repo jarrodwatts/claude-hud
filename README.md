@@ -146,7 +146,7 @@ After choosing a preset, you can turn individual elements on or off.
 ### Manual Configuration
 
 Edit `~/.claude/plugins/claude-hud/config.json` directly for advanced settings such as `colors.*`,
-`pathLevels`, threshold overrides, and `display.timeFormat`. Running `/claude-hud:configure`
+`pathLevels`, `maxWidth`, threshold overrides, and `display.timeFormat`. Running `/claude-hud:configure`
 preserves those manual settings while still letting you change `language`, layout, and the common
 guided toggles.
 
@@ -159,6 +159,7 @@ Chinese HUD labels are available as an explicit opt-in. English stays the defaul
 | `language` | `en` \| `zh` | `en` | HUD label language. English is the default; set `zh` to enable Chinese labels. |
 | `lineLayout` | string | `expanded` | Layout: `expanded` (multi-line) or `compact` (single line) |
 | `pathLevels` | 1-3 | 1 | Directory levels to show in project path |
+| `maxWidth` | number \| `null` | `null` | Optional fallback width used only when terminal width detection fails completely |
 | `elementOrder` | string[] | `["project","context","usage","memory","environment","tools","agents","todos"]` | Expanded-mode element order. Omit entries to hide them in expanded mode. |
 | `gitStatus.enabled` | boolean | true | Show git branch in HUD |
 | `gitStatus.showDirty` | boolean | true | Show `*` for uncommitted changes |
@@ -294,7 +295,7 @@ preserves it without editing it.
 
 **Config not applying?**
 - Check for JSON syntax errors: invalid JSON silently falls back to defaults
-- Ensure valid values: `pathLevels` must be 1, 2, or 3; `lineLayout` must be `expanded` or `compact`
+- Ensure valid values: `pathLevels` must be 1, 2, or 3; `lineLayout` must be `expanded` or `compact`; `maxWidth` must be a positive number
 - Delete config and run `/claude-hud:configure` to regenerate
 
 **Git status missing?**
