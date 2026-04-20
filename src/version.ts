@@ -221,7 +221,10 @@ export async function getClaudeCodeVersion(): Promise<string | undefined> {
   const diskCache = readVersionCache(homeDir);
   if (diskCache) {
     const cachedBinaryInfo = statResolvedBinary(diskCache.binaryPath);
-    const currentResolvedBinary = resolveClaudeBinaryImpl();
+    const resolvedBinaryCandidate = resolveClaudeBinaryImpl();
+    const currentResolvedBinary = resolvedBinaryCandidate
+      ? (statResolvedBinary(resolvedBinaryCandidate.path) ?? resolvedBinaryCandidate)
+      : null;
     if (
       cachedBinaryInfo
       && cachedBinaryInfo.path === diskCache.binaryPath
