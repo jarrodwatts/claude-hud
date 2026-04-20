@@ -106,6 +106,7 @@ export interface HudConfig {
     promptCacheTtlSeconds: number;
     showSessionTokens: boolean;
     showOutputStyle: boolean;
+    showKaomoji: boolean;
     mergeGroups: HudElement[][];
     autocompactBuffer: AutocompactBufferMode;
     usageThreshold: number;
@@ -160,6 +161,7 @@ export const DEFAULT_CONFIG: HudConfig = {
     promptCacheTtlSeconds: 300,
     showSessionTokens: false,
     showOutputStyle: false,
+    showKaomoji: false,
     mergeGroups: DEFAULT_MERGE_GROUPS.map(group => [...group]),
     autocompactBuffer: 'enabled',
     usageThreshold: 0,
@@ -484,6 +486,9 @@ export function mergeConfig(userConfig: Partial<HudConfig>): HudConfig {
     showOutputStyle: typeof migrated.display?.showOutputStyle === 'boolean'
       ? migrated.display.showOutputStyle
       : DEFAULT_CONFIG.display.showOutputStyle,
+    showKaomoji: typeof migrated.display?.showKaomoji === 'boolean'
+      ? migrated.display.showKaomoji
+      : DEFAULT_CONFIG.display.showKaomoji,
     mergeGroups: validateMergeGroups(migrated.display?.mergeGroups),
     autocompactBuffer: validateAutocompactBuffer(migrated.display?.autocompactBuffer)
       ? migrated.display.autocompactBuffer

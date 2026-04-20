@@ -6,6 +6,7 @@ import { getOutputSpeed } from '../../speed-tracker.js';
 import { git as gitColor, gitBranch as gitBranchColor, warning as warningColor, critical as criticalColor, label, model as modelColor, project as projectColor, red, green, yellow, dim, custom as customColor } from '../colors.js';
 import { t } from '../../i18n/index.js';
 import { renderCostEstimate } from './cost.js';
+import { getKaomoji } from '../../kaomoji.js';
 
 function hyperlink(uri: string, text: string): string {
   const esc = '\x1b';
@@ -17,6 +18,10 @@ export function renderProjectLine(ctx: RenderContext): string | null {
   const display = ctx.config?.display;
   const colors = ctx.config?.colors;
   const parts: string[] = [];
+
+  if (display?.showKaomoji) {
+    parts.push(getKaomoji(ctx));
+  }
 
   if (display?.showModel !== false) {
     const model = formatModelName(getModelName(ctx.stdin), ctx.config?.display?.modelFormat, ctx.config?.display?.modelOverride);
