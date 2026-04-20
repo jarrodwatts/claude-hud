@@ -170,16 +170,37 @@ test('applyContextWindowFallback ignores corrupted cache without throwing', asyn
   }
 });
 
-test('applyContextWindowFallback does not treat low-input zero frames as suspicious', async () => {
+test('applyContextWindowFallback does not restore cache when zero frame has not overflowed the context window', async () => {
   const tempHome = await createTempHome();
+  const transcriptPath = '/tmp/session-a.jsonl';
 
   try {
+    const cachePath = getCachePath(tempHome, transcriptPath);
+    await mkdir(path.dirname(cachePath), { recursive: true });
+    await writeFile(
+      cachePath,
+      JSON.stringify({
+        used_percentage: 61,
+        remaining_percentage: 39,
+        context_window_size: 200000,
+        current_usage: {
+          input_tokens: 120000,
+          output_tokens: 5000,
+          cache_creation_input_tokens: 1000,
+          cache_read_input_tokens: 800,
+        },
+        saved_at: 999_000,
+      }),
+      'utf8',
+    );
+
     const stdin = makeSuspiciousFrame({ total_input_tokens: 200000 });
+    stdin.transcript_path = transcriptPath;
 
     applyContextWindowFallback(stdin, makeDeps(tempHome));
 
     assert.equal(stdin.context_window.used_percentage, 0);
-    assert.equal(existsSync(getCacheDir(tempHome)), false);
+    assert.equal(stdin.context_window.remaining_percentage, 100);
   } finally {
     await rm(tempHome, { recursive: true, force: true });
   }
@@ -244,7 +265,7 @@ test('applyContextWindowFallback isolates cache between concurrent sessions', as
   }
 });
 
-test('applyContextWindowFallback skips write when value unchanged and within TTL', async () => {
+test('applyContextWindowFallback skips write when cache is fresh within TTL', async () => {
   const tempHome = await createTempHome();
   const transcriptPath = '/tmp/session-a.jsonl';
 
@@ -278,7 +299,7 @@ test('applyContextWindowFallback rewrites cache after TTL elapses even with unch
   }
 });
 
-test('applyContextWindowFallback rewrites cache immediately when used_percentage changes', async () => {
+test('applyContextWindowFallback keeps the earlier snapshot when usage changes within TTL', async () => {
   const tempHome = await createTempHome();
   const transcriptPath = '/tmp/session-a.jsonl';
 
@@ -292,8 +313,8 @@ test('applyContextWindowFallback rewrites cache immediately when used_percentage
     applyContextWindowFallback(changed, makeDeps(tempHome, 1_002_000));
 
     const refreshed = JSON.parse(await readFile(getCachePath(tempHome, transcriptPath), 'utf8'));
-    assert.equal(refreshed.used_percentage, 59);
-    assert.equal(refreshed.saved_at, 1_002_000);
+    assert.equal(refreshed.used_percentage, 58);
+    assert.equal(refreshed.saved_at, 1_000_000);
   } finally {
     await rm(tempHome, { recursive: true, force: true });
   }

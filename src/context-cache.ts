@@ -8,9 +8,9 @@ import type { StdinData } from "./types.js";
 const CACHE_DIRNAME = "context-cache";
 
 /**
- * Minimum interval between cache rewrites when the reported usage hasn't changed.
- * Status line runs every ~300ms so this cuts write frequency by roughly 10x
- * while still keeping the on-disk snapshot fresh for fallback purposes.
+ * Minimum interval between cache rewrites for the same session.
+ * Status line runs every ~300ms so this keeps the steady-state write path cheap
+ * while still refreshing the fallback snapshot regularly.
  */
 const WRITE_TTL_MS = 3_000;
 
@@ -94,28 +94,16 @@ function readCache(
 }
 
 /**
- * Decide whether the current write can be skipped because the on-disk
- * snapshot already records the same used_percentage and is still fresh.
+ * Decide whether the current write can be skipped because the cached snapshot
+ * for this session was refreshed recently enough.
  */
 function shouldSkipWrite(
   cachePath: string,
-  contextWindow: ContextWindow,
   now: number
 ): boolean {
   try {
-    if (!fs.existsSync(cachePath)) return false;
-    const parsed = JSON.parse(
-      fs.readFileSync(cachePath, "utf8")
-    ) as ContextCache;
-    if (
-      typeof parsed.used_percentage !== "number" ||
-      typeof parsed.saved_at !== "number"
-    ) {
-      return false;
-    }
-    const current = contextWindow.used_percentage ?? 0;
-    if (parsed.used_percentage !== current) return false;
-    return now - parsed.saved_at < WRITE_TTL_MS;
+    const stat = fs.statSync(cachePath);
+    return now - stat.mtimeMs < WRITE_TTL_MS;
   } catch {
     return false;
   }
@@ -134,7 +122,7 @@ function writeCache(
 ): void {
   try {
     const cachePath = getCachePath(homeDir, transcriptPath);
-    if (shouldSkipWrite(cachePath, contextWindow, now)) {
+    if (shouldSkipWrite(cachePath, now)) {
       return;
     }
     const cacheDir = path.dirname(cachePath);
@@ -150,6 +138,8 @@ function writeCache(
       session_name: sessionName ?? null,
     };
     fs.writeFileSync(cachePath, JSON.stringify(payload), "utf8");
+    const timestampSeconds = now / 1000;
+    fs.utimesSync(cachePath, timestampSeconds, timestampSeconds);
   } catch {
     // Ignore cache write failures
   }
@@ -216,8 +206,10 @@ function isAllUsageZero(usage: ContextWindow["current_usage"]): boolean {
  * despite a large accumulated input token count.
  */
 function isSuspiciousZero(contextWindow: ContextWindow): boolean {
-  if (!contextWindow.context_window_size) {
-    return true;
+  const contextWindowSize = contextWindow.context_window_size ?? 0;
+  const totalInputTokens = contextWindow.total_input_tokens ?? 0;
+  if (contextWindowSize <= 0 || totalInputTokens <= contextWindowSize) {
+    return false;
   }
   if ((contextWindow.used_percentage ?? 0) !== 0) {
     return false;
