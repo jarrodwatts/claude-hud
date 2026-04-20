@@ -2,6 +2,7 @@ import { getContextPercent, getBufferedPercent, getTotalTokens, } from "../../st
 import { coloredBar, label, getContextColor, RESET } from "../colors.js";
 import { getAdaptiveBarWidth } from "../../utils/terminal.js";
 import { t } from "../../i18n/index.js";
+import { padBarLabel } from "./bar-label.js";
 const DEBUG = process.env.DEBUG?.includes("claude-hud") || process.env.DEBUG === "*";
 export function renderIdentityLine(ctx) {
     const rawPercent = getContextPercent(ctx.stdin);
@@ -17,8 +18,8 @@ export function renderIdentityLine(ctx) {
     const contextValue = formatContextValue(ctx, percent, contextValueMode);
     const contextValueDisplay = `${getContextColor(percent, colors)}${contextValue}${RESET}`;
     let line = display?.showContextBar !== false
-        ? `${label(t("label.context"), colors)} ${coloredBar(percent, getAdaptiveBarWidth(), colors)} ${contextValueDisplay}`
-        : `${label(t("label.context"), colors)} ${contextValueDisplay}`;
+        ? `${label(padBarLabel(t("label.context")), colors)} ${coloredBar(percent, getAdaptiveBarWidth(), colors)} ${contextValueDisplay}`
+        : `${label(padBarLabel(t("label.context")), colors)} ${contextValueDisplay}`;
     if (display?.showTokenBreakdown !== false && percent >= 85) {
         const usage = ctx.stdin.context_window?.current_usage;
         if (usage) {

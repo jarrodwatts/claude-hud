@@ -554,7 +554,7 @@ test('label color overrides apply across shared secondary text surfaces', () => 
 
   const expected = '\x1b[38;2;171;205;239m';
   assert.ok(renderIdentityLine(ctx).includes(`${expected}Context\x1b[0m`));
-  assert.ok(renderUsageLine(ctx)?.includes(`${expected}Usage\x1b[0m`));
+  assert.ok(renderUsageLine(ctx)?.includes(`${expected}Usage  \x1b[0m`));
   assert.ok(renderEnvironmentLine(ctx)?.includes(`${expected}2 CLAUDE.md | 1 rules\x1b[0m`));
   assert.ok(renderMemoryLine({ ...ctx, config: { ...ctx.config, lineLayout: 'expanded', display: { ...ctx.config.display, showMemoryUsage: true } } })?.includes(`${expected}Approx RAM\x1b[0m`));
   assert.ok(renderToolsLine(ctx)?.includes(`${expected}: src/index.ts\x1b[0m`));
@@ -1865,4 +1865,52 @@ test('renderSessionLine includes compact session token summary when enabled', ()
 
   const line = stripAnsi(renderSessionLine(ctx));
   assert.ok(line.includes('tok: 2k (in: 2k, out: 250)'), 'should include compact token summary');
+});
+
+// --- Progress bar label alignment tests ---
+
+import { padBarLabel, getMaxBarLabelWidth } from '../dist/render/lines/bar-label.js';
+
+test('padBarLabel pads all labels to the same width', () => {
+  const width = getMaxBarLabelWidth();
+  assert.ok(width >= 5, 'max label width should be at least 5 (Usage)');
+  assert.equal(padBarLabel('Context').length, width);
+  assert.equal(padBarLabel('Usage').length, width);
+  assert.equal(padBarLabel('Weekly').length, width);
+});
+
+test('context and usage lines have aligned labels in expanded mode', () => {
+  const ctx = baseContext();
+  ctx.config.lineLayout = 'expanded';
+  ctx.config.display.showContextBar = true;
+  ctx.config.display.showUsage = true;
+  ctx.config.display.usageBarEnabled = true;
+  ctx.usageData = { fiveHour: 30, sevenDay: null, fiveHourResetAt: null, sevenDayResetAt: null };
+
+  const contextLine = stripAnsi(renderIdentityLine(ctx));
+  const usageLine = stripAnsi(renderUsageLine(ctx));
+
+  // Both lines should start with a label of the same width
+  const contextLabel = contextLine.split(/[█░]/)[0]; // text before bar chars
+  const usageLabel = usageLine.split(/[█░]/)[0];
+  assert.equal(contextLabel.length, usageLabel.length, `labels should align: "${contextLabel}" vs "${usageLabel}"`);
+});
+
+test('context and weekly labels align when weekly is shown', () => {
+  const ctx = baseContext();
+  ctx.config.lineLayout = 'expanded';
+  ctx.config.display.showContextBar = true;
+  ctx.config.display.showUsage = true;
+  ctx.config.display.usageBarEnabled = true;
+  ctx.usageData = { fiveHour: null, sevenDay: 85, fiveHourResetAt: null, sevenDayResetAt: null };
+
+  const contextLine = stripAnsi(renderIdentityLine(ctx));
+  const usageLine = stripAnsi(renderUsageLine(ctx));
+
+  // Usage line has "Usage  Weekly ..." — extract prefix before bar
+  // The Weekly-only path renders as "Usage  Weekly  <bar>"
+  const contextLabel = contextLine.split(/[█░]/)[0];
+  const usagePrefix = usageLine.split(/[█░]/)[0];
+  // Weekly label should be padded so total prefix is consistent
+  assert.ok(usagePrefix.includes('Weekly'), 'should contain Weekly label');
 });

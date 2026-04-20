@@ -4,6 +4,7 @@ import { getProviderLabel } from "../../stdin.js";
 import { critical, label, getQuotaColor, quotaBar, RESET } from "../colors.js";
 import { getAdaptiveBarWidth } from "../../utils/terminal.js";
 import { t } from "../../i18n/index.js";
+import { padBarLabel } from "./bar-label.js";
 
 export function renderUsageLine(ctx: RenderContext): string | null {
   const display = ctx.config?.display;
@@ -21,7 +22,7 @@ export function renderUsageLine(ctx: RenderContext): string | null {
     return null;
   }
 
-  const usageLabel = label(t("label.usage"), colors);
+  const usageLabel = label(padBarLabel(t("label.usage")), colors);
 
   if (isLimitReached(ctx.usageData)) {
     const resetTime =
