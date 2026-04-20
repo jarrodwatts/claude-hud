@@ -184,6 +184,8 @@ Chinese HUD labels are available as an explicit opt-in. English stays the defaul
 | `display.showResetLabel` | boolean | true | Show the `resets in` prefix before usage countdowns |
 | `display.timeFormat` | `relative` \| `absolute` \| `both` | `relative` | How reset times are shown in usage windows: countdown only (`resets in 2h 30m`), wall-clock time (`resets at 14:30`), or both (`resets in 2h 30m, at 14:30`) |
 | `display.sevenDayThreshold` | 0-100 | 80 | Show 7-day usage when >= threshold (0 = always) |
+| `display.externalUsagePath` | string | `""` | Optional path to a local usage snapshot file used only when stdin `rate_limits` are missing |
+| `display.externalUsageFreshnessMs` | number | `300000` | Maximum allowed age for the external usage snapshot before it is ignored |
 | `display.showTokenBreakdown` | boolean | true | Show token details at high context (85%+) |
 | `display.showTools` | boolean | false | Show tools activity line |
 | `display.showAgents` | boolean | false | Show agents activity line |
@@ -217,7 +219,9 @@ Supported color names: `dim`, `red`, `green`, `yellow`, `magenta`, `cyan`, `brig
 
 Usage display is **enabled by default** when Claude Code provides subscriber `rate_limits` data on stdin. It shows your rate limit consumption on line 2 alongside the context bar.
 
-ClaudeHUD intentionally trusts only the official statusline stdin payload for live usage. It does not read local OAuth credentials or poll undocumented usage endpoints in the background.
+ClaudeHUD prefers the official statusline stdin payload. If `rate_limits` are missing, you can opt into a local sidecar fallback by setting `display.externalUsagePath` to a JSON snapshot written by another tool such as a proxy. Stdin still wins whenever both sources exist.
+
+The fallback snapshot must be fresh enough (`display.externalUsageFreshnessMs`) and include valid `updated_at`, `five_hour`, and/or `seven_day` fields. Invalid JSON, stale files, or invalid timestamps are ignored quietly.
 
 Free/weekly-only accounts render the weekly window by itself instead of showing a ghost `5h: --` placeholder.
 
@@ -248,7 +252,24 @@ Set `display.usageCompact` to `true` if you want the shorter usage-only form, fo
 - AWS Bedrock models display `Bedrock` and hide usage limits (usage is managed in AWS)
 - Claude Code may leave `rate_limits` empty until after the first model response in a session
 - Some Claude Code builds and subscription tiers may still omit `rate_limits`, even after the first response
-- When `rate_limits` is missing, ClaudeHUD will hide usage instead of falling back to credential scraping or undocumented API calls
+- If you configured `display.externalUsagePath`, ClaudeHUD will try that local snapshot before hiding usage
+- ClaudeHUD never falls back to credential scraping or undocumented API calls
+
+Example fallback snapshot:
+
+```json
+{
+  "updated_at": "2026-04-20T12:00:00.000Z",
+  "five_hour": {
+    "used_percentage": 42,
+    "resets_at": "2026-04-20T15:00:00.000Z"
+  },
+  "seven_day": {
+    "used_percentage": 84,
+    "resets_at": "2026-04-27T12:00:00.000Z"
+  }
+}
+```
 
 ### Example Configuration
 

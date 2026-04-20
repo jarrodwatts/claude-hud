@@ -67,6 +67,8 @@ test('loadConfig returns valid config structure', async () => {
   assert.equal(typeof config.display.promptCacheTtlSeconds, 'number');
   assert.equal(typeof config.display.showCost, 'boolean');
   assert.equal(typeof config.display.showOutputStyle, 'boolean');
+  assert.equal(typeof config.display.externalUsagePath, 'string');
+  assert.equal(typeof config.display.externalUsageFreshnessMs, 'number');
   assert.ok(['full', 'compact', 'short'].includes(config.display.modelFormat), 'modelFormat should be valid');
   assert.equal(typeof config.display.modelOverride, 'string', 'modelOverride should be string');
   assert.equal(typeof config.colors, 'object');
@@ -231,6 +233,34 @@ test('mergeConfig preserves modelOverride and truncates long values', () => {
   const config = mergeConfig({ display: { modelOverride: override } });
   assert.equal(config.display.modelOverride.length, 80);
   assert.equal(config.display.modelOverride, override.slice(0, 80));
+});
+
+test('mergeConfig defaults external usage fallback settings', () => {
+  const config = mergeConfig({});
+  assert.equal(config.display.externalUsagePath, '');
+  assert.equal(config.display.externalUsageFreshnessMs, 300000);
+});
+
+test('mergeConfig preserves valid external usage fallback settings', () => {
+  const config = mergeConfig({
+    display: {
+      externalUsagePath: ' /tmp/usage.json ',
+      externalUsageFreshnessMs: 12345,
+    },
+  });
+  assert.equal(config.display.externalUsagePath, '/tmp/usage.json');
+  assert.equal(config.display.externalUsageFreshnessMs, 12345);
+});
+
+test('mergeConfig sanitizes invalid external usage fallback settings', () => {
+  const config = mergeConfig({
+    display: {
+      externalUsagePath: 123,
+      externalUsageFreshnessMs: -10,
+    },
+  });
+  assert.equal(config.display.externalUsagePath, '');
+  assert.equal(config.display.externalUsageFreshnessMs, 0);
 });
 
 test('mergeConfig falls back to empty for non-string modelOverride', () => {

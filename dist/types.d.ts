@@ -65,6 +65,17 @@ export interface UsageData {
     fiveHourResetAt: Date | null;
     sevenDayResetAt: Date | null;
 }
+export interface ExternalUsageSnapshot {
+    five_hour?: {
+        used_percentage?: number | null;
+        resets_at?: string | number | null;
+    } | null;
+    seven_day?: {
+        used_percentage?: number | null;
+        resets_at?: string | number | null;
+    } | null;
+    updated_at?: string | number | null;
+}
 export interface MemoryInfo {
     totalBytes: number;
     usedBytes: number;

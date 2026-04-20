@@ -111,6 +111,8 @@ export interface HudConfig {
     usageThreshold: number;
     sevenDayThreshold: number;
     environmentThreshold: number;
+    externalUsagePath: string;
+    externalUsageFreshnessMs: number;
     modelFormat: ModelFormatMode;
     modelOverride: string;
     customLine: string;
@@ -165,6 +167,8 @@ export const DEFAULT_CONFIG: HudConfig = {
     usageThreshold: 0,
     sevenDayThreshold: 80,
     environmentThreshold: 0,
+    externalUsagePath: '',
+    externalUsageFreshnessMs: 300000,
     modelFormat: 'full',
     modelOverride: '',
     customLine: '',
@@ -365,6 +369,17 @@ function validateDurationSeconds(value: unknown, fallback: number): number {
   return Math.floor(value);
 }
 
+function validateOptionalPath(value: unknown): string {
+  return typeof value === 'string' ? value.trim() : '';
+}
+
+function validateFreshnessMs(value: unknown): number {
+  if (typeof value !== 'number' || !Number.isFinite(value)) {
+    return DEFAULT_CONFIG.display.externalUsageFreshnessMs;
+  }
+  return Math.max(0, Math.floor(value));
+}
+
 export function mergeConfig(userConfig: Partial<HudConfig>): HudConfig {
   const migrated = migrateConfig(userConfig);
   const language = validateLanguage(migrated.language)
@@ -491,6 +506,8 @@ export function mergeConfig(userConfig: Partial<HudConfig>): HudConfig {
     usageThreshold: validateThreshold(migrated.display?.usageThreshold, 100),
     sevenDayThreshold: validateThreshold(migrated.display?.sevenDayThreshold, 100),
     environmentThreshold: validateThreshold(migrated.display?.environmentThreshold, 100),
+    externalUsagePath: validateOptionalPath(migrated.display?.externalUsagePath),
+    externalUsageFreshnessMs: validateFreshnessMs(migrated.display?.externalUsageFreshnessMs),
     modelFormat: validateModelFormat(migrated.display?.modelFormat)
       ? migrated.display.modelFormat
       : DEFAULT_CONFIG.display.modelFormat,

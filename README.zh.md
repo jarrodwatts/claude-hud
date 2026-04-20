@@ -176,6 +176,8 @@ Claude Code → stdin JSON → claude-hud → stdout → 在终端中显示
 | `display.usageBarEnabled` | boolean | true | 将使用率显示为可视化进度条而非文本 |
 | `display.timeFormat` | `relative` \| `absolute` \| `both` | `relative` | 控制使用率重置时间的显示方式：仅倒计时（`resets in 2h 30m`）、显示墙钟时间（`resets at 14:30`），或同时显示两者（`resets in 2h 30m, at 14:30`） |
 | `display.sevenDayThreshold` | 0-100 | 80 | 当 7 天使用率 ≥ 阈值时显示（0 = 始终显示） |
+| `display.externalUsagePath` | string | `""` | 可选的本地使用率快照文件路径，仅在 stdin `rate_limits` 缺失时使用 |
+| `display.externalUsageFreshnessMs` | number | `300000` | 外部使用率快照允许的最长存活时间，超时后会被忽略 |
 | `display.showTokenBreakdown` | boolean | true | 在高上下文时（85%+）显示 Token 详情 |
 | `display.showTools` | boolean | false | 显示工具活动行 |
 | `display.showAgents` | boolean | false | 显示 Agent 活动行 |
@@ -209,7 +211,9 @@ Claude Code → stdin JSON → claude-hud → stdout → 在终端中显示
 
 当 Claude Code 在 stdin 上提供订阅用户 `rate_limits` 数据时，使用率显示**默认启用**。它会在第 2 行 alongside 上下文进度条显示你的使用率消耗。
 
-ClaudeHUD 有意仅信任官方的 statusline stdin 负载中的实时使用率数据。它不会在后台读取本地 OAuth 凭据或轮询未记录的使用率端点。
+ClaudeHUD 优先使用官方 statusline stdin 负载中的使用率数据。如果 `rate_limits` 缺失，你可以通过 `display.externalUsagePath` 显式启用本地 sidecar 快照回退，例如让代理程序写入 JSON 文件。只要 stdin 和 sidecar 同时存在，stdin 始终优先。
+
+回退快照必须足够新（由 `display.externalUsageFreshnessMs` 控制），并且包含有效的 `updated_at`、`five_hour` 和/或 `seven_day` 字段。非法 JSON、过期文件或非法时间戳都会被静默忽略。
 
 免费/仅限每周账户会单独显示每周窗口，而不是显示幽灵 `5h: --` 占位符。
 
@@ -234,7 +238,24 @@ ClaudeHUD 有意仅信任官方的 statusline stdin 负载中的实时使用率�
 - AWS Bedrock 模型显示 `Bedrock` 并隐藏使用率限制（使用率由 AWS 管理）
 - Claude Code 可能在会话中首个模型响应之前将 `rate_limits` 留空
 - 某些 Claude Code 构建版本和订阅层级即使在首个响应之后仍可能省略 `rate_limits`
-- 当 `rate_limits` 缺失时，ClaudeHUD 会隐藏使用率而非回退到凭据抓取或未记录的 API 调用
+- 如果你配置了 `display.externalUsagePath`，ClaudeHUD 会先尝试读取该本地快照，再决定是否隐藏使用率
+- ClaudeHUD 不会回退到凭据抓取或未记录的 API 调用
+
+回退快照示例：
+
+```json
+{
+  "updated_at": "2026-04-20T12:00:00.000Z",
+  "five_hour": {
+    "used_percentage": 42,
+    "resets_at": "2026-04-20T15:00:00.000Z"
+  },
+  "seven_day": {
+    "used_percentage": 84,
+    "resets_at": "2026-04-27T12:00:00.000Z"
+  }
+}
+```
 
 ### 配置示例
 

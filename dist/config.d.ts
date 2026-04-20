@@ -77,6 +77,8 @@ export interface HudConfig {
         usageThreshold: number;
         sevenDayThreshold: number;
         environmentThreshold: number;
+        externalUsagePath: string;
+        externalUsageFreshnessMs: number;
         modelFormat: ModelFormatMode;
         modelOverride: string;
         customLine: string;
