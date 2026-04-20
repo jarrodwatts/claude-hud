@@ -190,14 +190,14 @@ test('render falls back to COLUMNS env when stdout.columns is unavailable', () =
   assert.ok(lines.every(line => displayWidth(line) <= 10), 'all lines should fit COLUMNS width');
 });
 
-test('render falls back to stderr.columns when stdout.columns is unavailable', () => {
+test('render falls back to stderr.columns when stdout.columns and COLUMNS are unavailable', () => {
   const ctx = baseContext();
   const originalEnvColumns = process.env.COLUMNS;
 
   let lines = [];
   withColumns(process.stdout, undefined, () => {
     withColumns(process.stderr, 12, () => {
-      process.env.COLUMNS = '10';
+      delete process.env.COLUMNS;
       try {
         lines = captureRender(ctx);
       } finally {
@@ -212,7 +212,7 @@ test('render falls back to stderr.columns when stdout.columns is unavailable', (
 
   assert.ok(lines.length > 0, 'should still render output lines');
   assert.ok(lines.every(line => displayWidth(line) <= 12), 'stderr width should be honored');
-  assert.ok(lines.some(line => displayWidth(line) > 10), 'stderr width should override COLUMNS fallback');
+  assert.ok(lines.some(line => displayWidth(line) > 10), 'stderr width should be used when no env override exists');
 });
 
 test('render ignores OSC 8 hyperlink sequences when measuring line width', () => {
@@ -328,7 +328,7 @@ test('render does not strand a bare 5h continuation line in compact mode', () =>
   assert.ok(!lines.some(line => line.startsWith('5h ')), `did not expect a bare 5h continuation line: ${lines.join(' | ')}`);
 });
 
-test('render prefers stdout columns over COLUMNS env fallback', () => {
+test('render treats COLUMNS env as a hard override over stdout width', () => {
   const ctx = baseContext();
   ctx.stdin.cwd = '/tmp/very-long-project-name-for-width-checking';
   const originalEnvColumns = process.env.COLUMNS;
@@ -345,8 +345,8 @@ test('render prefers stdout columns over COLUMNS env fallback', () => {
     process.env.COLUMNS = originalEnvColumns;
   }
 
-  assert.ok(lines.every(line => displayWidth(line) <= 30), 'stdout width should be honored');
-  assert.ok(lines.some(line => displayWidth(line) > 10), 'stdout width should override COLUMNS fallback');
+  assert.ok(lines.every(line => displayWidth(line) <= 10), 'COLUMNS override should be honored');
+  assert.ok(lines.length > 1, 'narrow env override should force wrapping');
 });
 
 test('render does not split model/provider separator inside brackets', () => {
