@@ -172,7 +172,7 @@ export function isBedrockModelId(modelId) {
     return normalized.includes('anthropic.claude-');
 }
 export function getProviderLabel(stdin) {
-    if (process.env.CLAUDE_CODE_USE_BEDROCK === '1') {
+    if (isBedrockModelId(stdin.model?.id)) {
         return 'Bedrock';
     }
     return null;
