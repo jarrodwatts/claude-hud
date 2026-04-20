@@ -220,7 +220,7 @@ export function isBedrockModelId(modelId?: string): boolean {
 }
 
 export function getProviderLabel(stdin: StdinData): string | null {
-  if (isBedrockModelId(stdin.model?.id)) {
+  if (process.env.CLAUDE_CODE_USE_BEDROCK === '1') {
     return 'Bedrock';
   }
   return null;

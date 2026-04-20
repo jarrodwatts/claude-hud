@@ -350,27 +350,32 @@ test('render treats COLUMNS env as a hard override over stdout width', () => {
 });
 
 test('render does not split model/provider separator inside brackets', () => {
-  const ctx = baseContext();
-  ctx.stdin.model = { display_name: 'Sonnet', id: 'anthropic.claude-3-5-sonnet-20240620-v1:0' };
-  ctx.config.display.showUsage = false;
-  ctx.config.display.showContextBar = false;
-  ctx.config.display.showConfigCounts = false;
-  ctx.config.display.showDuration = false;
+  process.env.CLAUDE_CODE_USE_BEDROCK = '1';
+  try {
+    const ctx = baseContext();
+    ctx.stdin.model = { display_name: 'Sonnet', id: 'anthropic.claude-3-5-sonnet-20240620-v1:0' };
+    ctx.config.display.showUsage = false;
+    ctx.config.display.showContextBar = false;
+    ctx.config.display.showConfigCounts = false;
+    ctx.config.display.showDuration = false;
 
-  let wideLines = [];
-  withTerminal(80, () => {
-    wideLines = captureRender(ctx);
-  });
+    let wideLines = [];
+    withTerminal(80, () => {
+      wideLines = captureRender(ctx);
+    });
 
-  assert.ok(wideLines.some(line => line.includes('[Sonnet | Bedrock]')), 'model/provider badge should be preserved when width allows');
+    assert.ok(wideLines.some(line => line.includes('[Sonnet | Bedrock]')), 'model/provider badge should be preserved when width allows');
 
-  let lines = [];
-  withTerminal(12, () => {
-    lines = captureRender(ctx);
-  });
+    let lines = [];
+    withTerminal(12, () => {
+      lines = captureRender(ctx);
+    });
 
-  assert.equal(lines.length, 1, 'single compact line should be truncated, not split');
-  assert.ok(!lines[0].startsWith('Bedrock]'), 'provider label should not become a wrapped prefix');
+    assert.equal(lines.length, 1, 'single compact line should be truncated, not split');
+    assert.ok(!lines[0].startsWith('Bedrock]'), 'provider label should not become a wrapped prefix');
+  } finally {
+    delete process.env.CLAUDE_CODE_USE_BEDROCK;
+  }
 });
 
 test('render clamps separator width in narrow terminals', () => {

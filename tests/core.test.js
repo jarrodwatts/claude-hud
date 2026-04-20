@@ -335,7 +335,12 @@ test('bedrock model detection recognizes bedrock ids', () => {
   assert.ok(isBedrockModelId('anthropic.claude-3-5-sonnet-20240620-v1:0'));
   assert.ok(isBedrockModelId('eu.anthropic.claude-opus-4-5-20251101-v1:0'));
   assert.equal(isBedrockModelId('claude-3-5-sonnet-20241022'), false);
-  assert.equal(getProviderLabel({ model: { id: 'anthropic.claude-3-5-sonnet-20240620-v1:0' } }), 'Bedrock');
+  process.env.CLAUDE_CODE_USE_BEDROCK = '1';
+  try {
+    assert.equal(getProviderLabel({ model: { id: 'anthropic.claude-3-5-sonnet-20240620-v1:0' } }), 'Bedrock');
+  } finally {
+    delete process.env.CLAUDE_CODE_USE_BEDROCK;
+  }
   assert.equal(getProviderLabel({ model: { id: 'claude-3-5-sonnet-20241022' } }), null);
 });
 
@@ -376,20 +381,25 @@ test('resolveSessionCost falls back to transcript estimation when native cost is
 });
 
 test('resolveSessionCost ignores native cost for provider-routed sessions', () => {
-  const cost = resolveSessionCost(
-    {
-      model: { id: 'anthropic.claude-sonnet-4-20250514-v1:0' },
-      cost: { total_cost_usd: 0 },
-    },
-    {
-      inputTokens: 100000,
-      cacheCreationTokens: 10000,
-      cacheReadTokens: 20000,
-      outputTokens: 50000,
-    },
-  );
+  process.env.CLAUDE_CODE_USE_BEDROCK = '1';
+  try {
+    const cost = resolveSessionCost(
+      {
+        model: { id: 'anthropic.claude-sonnet-4-20250514-v1:0' },
+        cost: { total_cost_usd: 0 },
+      },
+      {
+        inputTokens: 100000,
+        cacheCreationTokens: 10000,
+        cacheReadTokens: 20000,
+        outputTokens: 50000,
+      },
+    );
 
-  assert.equal(cost, null);
+    assert.equal(cost, null);
+  } finally {
+    delete process.env.CLAUDE_CODE_USE_BEDROCK;
+  }
 });
 
 test('resolveSessionCost falls back when native cost is invalid', () => {
