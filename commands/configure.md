@@ -15,8 +15,9 @@ These are always enabled and NOT configurable:
 - Model name `[Opus]`
 - Context bar `████░░░░░░ 45%`
 
-Advanced settings such as `colors.*`, `pathLevels`, `display.usageThreshold`, and
-`display.environmentThreshold` are preserved when saving but are not edited by this guided flow.
+Advanced settings such as `colors.*`, `pathLevels`, `display.timeFormat`,
+`display.usageThreshold`, and `display.environmentThreshold` are preserved when saving but are not
+edited by this guided flow.
 
 ---
 

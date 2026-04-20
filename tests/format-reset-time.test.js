@@ -86,11 +86,20 @@ test('absolute: returns a non-empty string for a future date', () => {
 });
 
 test('absolute: includes date component when reset is tomorrow or later', () => {
-  // Reset in 30 hours — guaranteed to be a different calendar day
-  const result = formatResetTime(future(30 * HOUR), 'absolute');
+  const resetAt = future(30 * HOUR); // guaranteed to be a different calendar day
+  const result = formatResetTime(resetAt, 'absolute');
+  const expectedDate = resetAt.toLocaleDateString([], {
+    month: 'short',
+    day: 'numeric',
+  });
+  const expectedTime = resetAt.toLocaleTimeString([], {
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+
   assert.ok(result.startsWith('at '), `Expected "at " prefix, got: ${result}`);
-  // Must contain a month abbreviation (Jan, Feb, …) to prove the date is included
-  assert.match(result, /at [A-Z][a-z]+ \d+/, `Expected month abbreviation in next-day reset, got: ${result}`);
+  assert.ok(result.includes(expectedDate), `Expected localized date in next-day reset, got: ${result}`);
+  assert.ok(result.endsWith(expectedTime), `Expected localized time in next-day reset, got: ${result}`);
 });
 
 // ---------------------------------------------------------------------------

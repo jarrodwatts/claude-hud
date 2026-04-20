@@ -144,7 +144,9 @@ After choosing a preset, you can turn individual elements on or off.
 ### Manual Configuration
 
 Edit `~/.claude/plugins/claude-hud/config.json` directly for advanced settings such as `colors.*`,
-`pathLevels`, and threshold overrides. Running `/claude-hud:configure` preserves those manual settings while still letting you change `language`, layout, and the common guided toggles.
+`pathLevels`, threshold overrides, and `display.timeFormat`. Running `/claude-hud:configure`
+preserves those manual settings while still letting you change `language`, layout, and the common
+guided toggles.
 
 Chinese HUD labels are available as an explicit opt-in. English stays the default unless you choose `中文` in `/claude-hud:configure` or set `language` in config.
 
@@ -172,6 +174,7 @@ Chinese HUD labels are available as an explicit opt-in. English stays the defaul
 | `display.showSpeed` | boolean | false | Show output token speed `out: 42.1 tok/s` |
 | `display.showUsage` | boolean | true | Show Claude subscriber usage limits when available |
 | `display.usageBarEnabled` | boolean | true | Display usage as visual bar instead of text |
+| `display.timeFormat` | `relative` \| `absolute` \| `both` | `relative` | How reset times are shown in usage windows: countdown only (`resets in 2h 30m`), wall-clock time (`resets at 14:30`), or both (`resets in 2h 30m, at 14:30`) |
 | `display.sevenDayThreshold` | 0-100 | 80 | Show 7-day usage when >= threshold (0 = always) |
 | `display.showTokenBreakdown` | boolean | true | Show token details at high context (85%+) |
 | `display.showTools` | boolean | false | Show tools activity line |
@@ -213,6 +216,10 @@ Context █████░░░░░ 45% │ Usage ██░░░░░░░
 ```
 
 To disable, set `display.showUsage` to `false`.
+
+Reset times use relative countdowns by default. Set `display.timeFormat` to `absolute` for wall-clock
+times or `both` to show both forms. This setting is manual-only today; `/claude-hud:configure`
+preserves it without editing it.
 
 **Requirements:**
 - Claude Code must include subscriber `rate_limits` data on stdin for the current session
