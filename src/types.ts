@@ -37,6 +37,8 @@ export interface StdinData {
       resets_at?: number | null;
     } | null;
   } | null;
+  // Future: Claude Code may expose effort level directly in stdin JSON
+  effort?: string | null;
 }
 
 export interface ToolEntry {
@@ -113,4 +115,6 @@ export interface RenderContext {
   extraLabel: string | null;
   outputStyle?: string;
   claudeCodeVersion?: string;
+  effortLevel?: string;
+  effortSymbol?: string;
 }
