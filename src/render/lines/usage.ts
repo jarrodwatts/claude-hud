@@ -33,7 +33,6 @@ export function renderUsageLine(
   const showResetLabel = display?.showResetLabel ?? true;
   const resetsKey = timeFormat === 'absolute' ? "format.resets" : "format.resetsIn";
   const usageCompact = display?.usageCompact ?? false;
-  const usageLabel = progressLabel("label.usage", colors, alignLabels);
 
   if (isLimitReached(ctx.usageData)) {
     const resetTime =
