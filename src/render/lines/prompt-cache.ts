@@ -1,5 +1,6 @@
 import type { RenderContext } from '../../types.js';
 import { getContextColor, RESET, label, warning as warningColor } from '../colors.js';
+import { t } from '../../i18n/index.js';
 
 function getPromptCacheWarningSeconds(ttlSeconds: number): number {
   return Math.min(ttlSeconds, Math.max(60, Math.floor(ttlSeconds / 5)));
@@ -23,7 +24,7 @@ function colorPromptCacheValue(
 
 export function formatPromptCacheCountdown(remainingMs: number): string {
   if (remainingMs <= 0) {
-    return 'expired';
+    return t('status.expired');
   }
 
   const totalSeconds = Math.ceil(remainingMs / 1000);
@@ -64,5 +65,5 @@ export function renderPromptCacheLine(ctx: RenderContext, now: number = Date.now
       ? 'warning'
       : 'active';
 
-  return `${label('Cache', ctx.config?.colors)} ${colorPromptCacheValue(`⏱ ${formatPromptCacheCountdown(remainingMs)}`, state, ctx)}`;
+  return `${label(t('label.promptCache'), ctx.config?.colors)} ${colorPromptCacheValue(`⏱ ${formatPromptCacheCountdown(remainingMs)}`, state, ctx)}`;
 }

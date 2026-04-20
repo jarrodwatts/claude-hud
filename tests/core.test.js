@@ -2,6 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { mkdtemp, readdir, rm, writeFile, mkdir } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
+import { createHash } from 'node:crypto';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { _setCreateReadStreamForTests, parseTranscript } from '../dist/transcript.js';
@@ -992,6 +993,52 @@ test('parseTranscript falls back to a fresh parse when the transcript cache is c
     const second = await parseTranscript(transcriptPath);
     assert.equal(second.tools.length, 1);
     assert.equal(second.tools[0].target, '/tmp/original.txt');
+  } finally {
+    restoreEnvVar('CLAUDE_CONFIG_DIR', originalConfigDir);
+    await rm(dir, { recursive: true, force: true });
+  }
+});
+
+test('parseTranscript invalidates transcript cache entries from older cache versions', async () => {
+  const dir = await mkdtemp(path.join(tmpdir(), 'claude-hud-transcript-cache-'));
+  const configDir = path.join(dir, '.claude-test');
+  const transcriptPath = path.join(dir, 'cache-version-upgrade.jsonl');
+  const originalConfigDir = process.env.CLAUDE_CONFIG_DIR;
+  const line = `${JSON.stringify({
+    type: 'assistant',
+    timestamp: '2024-01-01T00:00:00.000Z',
+    message: { content: [{ type: 'tool_use', id: 'tool-1', name: 'Read', input: { path: '/tmp/fresh.txt' } }] },
+  })}\n`;
+
+  process.env.CLAUDE_CONFIG_DIR = configDir;
+  await writeFile(transcriptPath, line, 'utf8');
+  fs.utimesSync(transcriptPath, 1710000200, 1710000200);
+
+  try {
+    const stat = fs.statSync(transcriptPath);
+    const cachePath = path.join(
+      configDir,
+      'plugins',
+      'claude-hud',
+      'transcript-cache',
+      `${createHash('sha256').update(path.resolve(transcriptPath)).digest('hex')}.json`
+    );
+    await mkdir(path.dirname(cachePath), { recursive: true });
+    await writeFile(cachePath, JSON.stringify({
+      transcriptPath: path.resolve(transcriptPath),
+      transcriptState: { mtimeMs: stat.mtimeMs, size: stat.size },
+      data: {
+        tools: [],
+        agents: [],
+        todos: [],
+        sessionName: 'stale-cache',
+      },
+    }), 'utf8');
+
+    const result = await parseTranscript(transcriptPath);
+    assert.equal(result.sessionName, undefined);
+    assert.equal(result.tools.length, 1);
+    assert.equal(result.lastAssistantResponseAt?.toISOString(), '2024-01-01T00:00:00.000Z');
   } finally {
     restoreEnvVar('CLAUDE_CONFIG_DIR', originalConfigDir);
     await rm(dir, { recursive: true, force: true });

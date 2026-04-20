@@ -1,6 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { formatPromptCacheCountdown, renderPromptCacheLine } from '../dist/render/lines/prompt-cache.js';
+import { setLanguage } from '../dist/i18n/index.js';
 
 function stripAnsi(str) {
   // eslint-disable-next-line no-control-regex
@@ -52,4 +53,17 @@ test('renderPromptCacheLine shows warning and expired states', () => {
 
   ctx.transcript.lastAssistantResponseAt = new Date(now - 301_000);
   assert.equal(stripAnsi(renderPromptCacheLine(ctx, now) ?? ''), 'Cache ⏱ expired');
+});
+
+test('renderPromptCacheLine localizes label and expired state', () => {
+  const ctx = baseContext();
+  const now = Date.UTC(2024, 0, 1, 0, 5, 1);
+  ctx.transcript.lastAssistantResponseAt = new Date(now - 301_000);
+
+  setLanguage('zh');
+  try {
+    assert.equal(stripAnsi(renderPromptCacheLine(ctx, now) ?? ''), '缓存 ⏱ 已过期');
+  } finally {
+    setLanguage('en');
+  }
 });

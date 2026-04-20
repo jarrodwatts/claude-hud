@@ -57,10 +57,13 @@ interface SerializedTranscriptData {
 }
 
 interface TranscriptCacheFile {
+  version?: number;
   transcriptPath: string;
   transcriptState: TranscriptFileState;
   data: SerializedTranscriptData;
 }
+
+const TRANSCRIPT_CACHE_VERSION = 2;
 
 let createReadStreamImpl: typeof fs.createReadStream = fs.createReadStream;
 
@@ -152,7 +155,10 @@ function readTranscriptCache(transcriptPath: string, state: TranscriptFileState)
     const raw = fs.readFileSync(cachePath, 'utf8');
     const parsed = JSON.parse(raw) as TranscriptCacheFile;
     if (
-      parsed.transcriptPath !== path.resolve(transcriptPath)
+      parsed.version !== TRANSCRIPT_CACHE_VERSION
+      || !parsed.data
+      || !parsed.transcriptPath
+      || parsed.transcriptPath !== path.resolve(transcriptPath)
       || parsed.transcriptState?.mtimeMs !== state.mtimeMs
       || parsed.transcriptState?.size !== state.size
     ) {
@@ -170,6 +176,7 @@ function writeTranscriptCache(transcriptPath: string, state: TranscriptFileState
     const cachePath = getTranscriptCachePath(transcriptPath, os.homedir());
     fs.mkdirSync(path.dirname(cachePath), { recursive: true });
     const payload: TranscriptCacheFile = {
+      version: TRANSCRIPT_CACHE_VERSION,
       transcriptPath: path.resolve(transcriptPath),
       transcriptState: state,
       data: serializeTranscriptData(data),
