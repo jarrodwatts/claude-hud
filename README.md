@@ -167,6 +167,7 @@ Chinese HUD labels are available as an explicit opt-in. English stays the defaul
 | `gitStatus.pushWarningThreshold` | number | 0 | Color the ahead count with the warning color at or above this unpushed-commit count (`0` disables it) |
 | `gitStatus.pushCriticalThreshold` | number | 0 | Color the ahead count with the critical color at or above this unpushed-commit count (`0` disables it) |
 | `gitStatus.showFileStats` | boolean | false | Show file change counts `!M +A ✘D ?U` |
+| `gitStatus.branchOverflow` | `truncate` \| `wrap` | `truncate` | Keep current truncation behavior or let the git block wrap onto its own line boundary when possible |
 | `display.showModel` | boolean | true | Show model name `[Opus]` |
 | `display.showContextBar` | boolean | true | Show visual context bar `████░░░░░░` |
 | `display.contextValue` | `percent` \| `tokens` \| `remaining` \| `both` | `percent` | Context display format (`45%`, `45k/200k`, `55%` remaining, or `45% (45k/200k)`) |

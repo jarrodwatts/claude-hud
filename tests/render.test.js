@@ -19,7 +19,9 @@ import { setLanguage } from '../dist/i18n/index.js';
 
 function stripAnsi(str) {
   // eslint-disable-next-line no-control-regex
-  return str.replace(/\x1b\[[0-9;]*m/g, '');
+  return str
+    .replace(/\x1b\[[0-9;]*m/g, '')
+    .replace(/\x1b\][^\x07\x1b]*(?:\x07|\x1b\\)/g, '');
 }
 
 function baseContext() {
@@ -49,7 +51,7 @@ function baseContext() {
       showSeparators: false,
       pathLevels: 1,
       elementOrder: ['project', 'context', 'usage', 'memory', 'environment', 'tools', 'agents', 'todos'],
-      gitStatus: { enabled: true, showDirty: true, showAheadBehind: false, showFileStats: false, pushWarningThreshold: 0, pushCriticalThreshold: 0 },
+      gitStatus: { enabled: true, showDirty: true, showAheadBehind: false, showFileStats: false, branchOverflow: 'truncate', pushWarningThreshold: 0, pushCriticalThreshold: 0 },
       display: { showModel: true, showProject: true, showContextBar: true, contextValue: 'percent', showConfigCounts: true, showCost: false, showDuration: true, showSpeed: false, showTokenBreakdown: true, showUsage: true, usageBarEnabled: false, showResetLabel: true, showTools: true, showAgents: true, showTodos: true, showSessionTokens: false, showSessionName: false, showClaudeCodeVersion: false, showMemoryUsage: false, showOutputStyle: false, autocompactBuffer: 'enabled', usageThreshold: 0, sevenDayThreshold: 80, environmentThreshold: 0, customLine: '' },
       colors: {
         context: 'green',
@@ -746,6 +748,24 @@ test('renderSessionLine displays branch with slashes', () => {
   const line = renderSessionLine(ctx);
   assert.ok(line.includes('git:('));
   assert.ok(line.includes('feature/add-auth'));
+});
+
+test('renderSessionLine can give git its own segment for wrapping', () => {
+  const ctx = baseContext();
+  ctx.stdin.cwd = '/tmp/my-project';
+  ctx.gitStatus = { branch: 'feature/add-auth', isDirty: false, ahead: 0, behind: 0 };
+  ctx.config.gitStatus.branchOverflow = 'wrap';
+  const line = stripAnsi(renderSessionLine(ctx));
+  assert.ok(line.includes('my-project | git:(feature/add-auth)'), 'git should render as a separate segment');
+});
+
+test('renderProjectLine can give git its own segment for wrapping', () => {
+  const ctx = baseContext();
+  ctx.stdin.cwd = '/tmp/my-project';
+  ctx.gitStatus = { branch: 'feature/add-auth', isDirty: false, ahead: 0, behind: 0 };
+  ctx.config.gitStatus.branchOverflow = 'wrap';
+  const line = stripAnsi(renderProjectLine(ctx) ?? '');
+  assert.ok(line.includes('my-project │ git:(feature/add-auth)'), 'git should render as a separate segment');
 });
 
 test('renderToolsLine renders running and completed tools', () => {

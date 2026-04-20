@@ -43,6 +43,7 @@ export function renderProjectLine(ctx: RenderContext): string | null {
   let gitPart = '';
   const gitConfig = ctx.config?.gitStatus;
   const showGit = gitConfig?.enabled ?? true;
+  const branchOverflow = gitConfig?.branchOverflow ?? 'truncate';
 
   if (showGit && ctx.gitStatus) {
     const branchText = ctx.gitStatus.branch + ((gitConfig?.showDirty ?? true) && ctx.gitStatus.isDirty ? '*' : '');
@@ -71,7 +72,12 @@ export function renderProjectLine(ctx: RenderContext): string | null {
   }
 
   if (projectPart && gitPart) {
-    parts.push(`${projectPart} ${gitPart}`);
+    if (branchOverflow === 'wrap') {
+      parts.push(projectPart);
+      parts.push(gitPart);
+    } else {
+      parts.push(`${projectPart} ${gitPart}`);
+    }
   } else if (projectPart) {
     parts.push(projectPart);
   } else if (gitPart) {

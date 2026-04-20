@@ -8,6 +8,7 @@ export type LineLayoutType = 'compact' | 'expanded';
 
 export type AutocompactBufferMode = 'enabled' | 'disabled';
 export type ContextValueMode = 'percent' | 'tokens' | 'remaining' | 'both';
+export type GitBranchOverflowMode = 'truncate' | 'wrap';
 
 /**
  * Controls how the model name is displayed in the HUD badge.
@@ -71,6 +72,7 @@ export interface HudConfig {
     showDirty: boolean;
     showAheadBehind: boolean;
     showFileStats: boolean;
+    branchOverflow: GitBranchOverflowMode;
     pushWarningThreshold: number;
     pushCriticalThreshold: number;
   };
@@ -121,6 +123,7 @@ export const DEFAULT_CONFIG: HudConfig = {
     showDirty: true,
     showAheadBehind: false,
     showFileStats: false,
+    branchOverflow: 'truncate',
     pushWarningThreshold: 0,
     pushCriticalThreshold: 0,
   },
@@ -186,6 +189,10 @@ function validateLineLayout(value: unknown): value is LineLayoutType {
 
 function validateAutocompactBuffer(value: unknown): value is AutocompactBufferMode {
   return value === 'enabled' || value === 'disabled';
+}
+
+function validateGitBranchOverflow(value: unknown): value is GitBranchOverflowMode {
+  return value === 'truncate' || value === 'wrap';
 }
 
 function validateContextValue(value: unknown): value is ContextValueMode {
@@ -329,6 +336,9 @@ export function mergeConfig(userConfig: Partial<HudConfig>): HudConfig {
     showFileStats: typeof migrated.gitStatus?.showFileStats === 'boolean'
       ? migrated.gitStatus.showFileStats
       : DEFAULT_CONFIG.gitStatus.showFileStats,
+    branchOverflow: validateGitBranchOverflow(migrated.gitStatus?.branchOverflow)
+      ? migrated.gitStatus.branchOverflow
+      : DEFAULT_CONFIG.gitStatus.branchOverflow,
     pushWarningThreshold: validateCountThreshold(migrated.gitStatus?.pushWarningThreshold),
     pushCriticalThreshold: validateCountThreshold(migrated.gitStatus?.pushCriticalThreshold),
   };

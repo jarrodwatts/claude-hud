@@ -28,7 +28,7 @@ function baseContext() {
       lineLayout: 'compact',
       showSeparators: false,
       pathLevels: 1,
-      gitStatus: { enabled: true, showDirty: true, showAheadBehind: false, showFileStats: false },
+      gitStatus: { enabled: true, showDirty: true, showAheadBehind: false, showFileStats: false, branchOverflow: 'truncate' },
       display: {
         showModel: true,
         showContextBar: true,
@@ -164,6 +164,26 @@ test('render wraps long lines to terminal width and keeps all activity lines vis
   assert.equal(countContaining(lines, 'plan-c'), 1, 'third agent line should remain visible');
   assert.equal(countContaining(lines, 'todo-marker'), 1, 'todo line should remain visible');
   assert.ok(lines.every(line => displayWidth(line) <= 20), 'all lines should fit terminal width');
+});
+
+test('render can wrap git to its own line without truncating the branch name', () => {
+  const ctx = baseContext();
+  ctx.stdin.cwd = '/tmp/project-with-a-long-name';
+  ctx.gitStatus = {
+    branch: 'feature/this-is-a-very-long-branch-name',
+    isDirty: true,
+    ahead: 0,
+    behind: 0,
+  };
+  ctx.config.gitStatus.branchOverflow = 'wrap';
+
+  let lines = [];
+  withTerminal(55, () => {
+    lines = captureRender(ctx);
+  });
+
+  assert.ok(lines.every(line => displayWidth(line) <= 55), 'all lines should fit terminal width');
+  assert.ok(lines.some(line => line.includes('git:(feature/this-is-a-very-long-branch-name*)')), 'git branch should remain intact on its own line');
 });
 
 test('render falls back to COLUMNS env when stdout.columns is unavailable', () => {

@@ -42,6 +42,7 @@ test('loadConfig returns valid config structure', async () => {
   assert.equal(typeof config.gitStatus.enabled, 'boolean');
   assert.equal(typeof config.gitStatus.showDirty, 'boolean');
   assert.equal(typeof config.gitStatus.showAheadBehind, 'boolean');
+  assert.ok(['truncate', 'wrap'].includes(config.gitStatus.branchOverflow), 'branchOverflow should be valid');
   assert.equal(typeof config.gitStatus.pushWarningThreshold, 'number');
   assert.equal(typeof config.gitStatus.pushCriticalThreshold, 'number');
 
@@ -131,6 +132,7 @@ test('mergeConfig preserves explicit showCost=true', () => {
 
 test('mergeConfig defaults git push thresholds to disabled', () => {
   const config = mergeConfig({});
+  assert.equal(config.gitStatus.branchOverflow, 'truncate');
   assert.equal(config.gitStatus.pushWarningThreshold, 0);
   assert.equal(config.gitStatus.pushCriticalThreshold, 0);
 });
@@ -141,6 +143,16 @@ test('mergeConfig preserves explicit git push thresholds', () => {
   });
   assert.equal(config.gitStatus.pushWarningThreshold, 15);
   assert.equal(config.gitStatus.pushCriticalThreshold, 30);
+});
+
+test('mergeConfig preserves valid git branch overflow modes', () => {
+  assert.equal(mergeConfig({ gitStatus: { branchOverflow: 'wrap' } }).gitStatus.branchOverflow, 'wrap');
+  assert.equal(mergeConfig({ gitStatus: { branchOverflow: 'truncate' } }).gitStatus.branchOverflow, 'truncate');
+});
+
+test('mergeConfig falls back to truncate for invalid git branch overflow values', () => {
+  assert.equal(mergeConfig({ gitStatus: { branchOverflow: 'full' } }).gitStatus.branchOverflow, 'truncate');
+  assert.equal(mergeConfig({ gitStatus: { branchOverflow: null } }).gitStatus.branchOverflow, 'truncate');
 });
 
 test('mergeConfig defaults showOutputStyle to false', () => {
