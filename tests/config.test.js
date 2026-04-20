@@ -63,6 +63,8 @@ test('loadConfig returns valid config structure', async () => {
   assert.equal(typeof config.display.showSessionName, 'boolean');
   assert.equal(typeof config.display.showClaudeCodeVersion, 'boolean');
   assert.equal(typeof config.display.showMemoryUsage, 'boolean');
+  assert.equal(typeof config.display.showPromptCache, 'boolean');
+  assert.equal(typeof config.display.promptCacheTtlSeconds, 'number');
   assert.equal(typeof config.display.showCost, 'boolean');
   assert.equal(typeof config.display.showOutputStyle, 'boolean');
   assert.ok(['full', 'compact', 'short'].includes(config.display.modelFormat), 'modelFormat should be valid');
@@ -118,6 +120,34 @@ test('mergeConfig defaults showMemoryUsage to false', () => {
 test('mergeConfig preserves explicit showMemoryUsage=true', () => {
   const config = mergeConfig({ display: { showMemoryUsage: true } });
   assert.equal(config.display.showMemoryUsage, true);
+});
+
+test('mergeConfig defaults showPromptCache to false', () => {
+  const config = mergeConfig({});
+  assert.equal(config.display.showPromptCache, false);
+  assert.equal(DEFAULT_CONFIG.display.showPromptCache, false);
+});
+
+test('mergeConfig preserves explicit showPromptCache=true', () => {
+  const config = mergeConfig({ display: { showPromptCache: true } });
+  assert.equal(config.display.showPromptCache, true);
+});
+
+test('mergeConfig defaults promptCacheTtlSeconds to 300', () => {
+  const config = mergeConfig({});
+  assert.equal(config.display.promptCacheTtlSeconds, 300);
+  assert.equal(DEFAULT_CONFIG.display.promptCacheTtlSeconds, 300);
+});
+
+test('mergeConfig preserves valid promptCacheTtlSeconds values', () => {
+  const config = mergeConfig({ display: { promptCacheTtlSeconds: 3600 } });
+  assert.equal(config.display.promptCacheTtlSeconds, 3600);
+});
+
+test('mergeConfig falls back to default promptCacheTtlSeconds for invalid values', () => {
+  assert.equal(mergeConfig({ display: { promptCacheTtlSeconds: 0 } }).display.promptCacheTtlSeconds, 300);
+  assert.equal(mergeConfig({ display: { promptCacheTtlSeconds: -1 } }).display.promptCacheTtlSeconds, 300);
+  assert.equal(mergeConfig({ display: { promptCacheTtlSeconds: 'fast' } }).display.promptCacheTtlSeconds, 300);
 });
 
 test('mergeConfig defaults showCost to false', () => {

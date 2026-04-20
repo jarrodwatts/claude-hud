@@ -52,6 +52,7 @@ interface SerializedTranscriptData {
   todos: TodoItem[];
   sessionStart?: string;
   sessionName?: string;
+  lastAssistantResponseAt?: string;
   sessionTokens?: SessionTokenUsage;
 }
 
@@ -120,6 +121,7 @@ function serializeTranscriptData(data: TranscriptData): SerializedTranscriptData
     todos: data.todos.map((todo) => ({ ...todo })),
     sessionStart: data.sessionStart?.toISOString(),
     sessionName: data.sessionName,
+    lastAssistantResponseAt: data.lastAssistantResponseAt?.toISOString(),
     sessionTokens: data.sessionTokens,
   };
 }
@@ -139,6 +141,7 @@ function deserializeTranscriptData(data: SerializedTranscriptData): TranscriptDa
     todos: data.todos.map((todo) => ({ ...todo })),
     sessionStart: data.sessionStart ? new Date(data.sessionStart) : undefined,
     sessionName: data.sessionName,
+    lastAssistantResponseAt: data.lastAssistantResponseAt ? new Date(data.lastAssistantResponseAt) : undefined,
     sessionTokens: normalizeSessionTokens(data.sessionTokens),
   };
 }
@@ -274,9 +277,14 @@ function processEntry(
   result: TranscriptData
 ): void {
   const timestamp = entry.timestamp ? new Date(entry.timestamp) : new Date();
+  const hasValidTimestamp = !Number.isNaN(timestamp.getTime());
 
-  if (!result.sessionStart && entry.timestamp) {
+  if (!result.sessionStart && entry.timestamp && hasValidTimestamp) {
     result.sessionStart = timestamp;
+  }
+
+  if (entry.type === 'assistant' && entry.timestamp && hasValidTimestamp) {
+    result.lastAssistantResponseAt = timestamp;
   }
 
   const content = entry.message?.content;

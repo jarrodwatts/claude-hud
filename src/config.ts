@@ -19,7 +19,7 @@ export type GitBranchOverflowMode = 'truncate' | 'wrap';
  */
 export type ModelFormatMode = 'full' | 'compact' | 'short';
 export type TimeFormatMode = 'relative' | 'absolute' | 'both';
-export type HudElement = 'project' | 'context' | 'usage' | 'memory' | 'environment' | 'tools' | 'agents' | 'todos';
+export type HudElement = 'project' | 'context' | 'usage' | 'promptCache' | 'memory' | 'environment' | 'tools' | 'agents' | 'todos';
 export type HudColorName =
   | 'dim'
   | 'red'
@@ -51,6 +51,7 @@ export const DEFAULT_ELEMENT_ORDER: HudElement[] = [
   'project',
   'context',
   'usage',
+  'promptCache',
   'memory',
   'environment',
   'tools',
@@ -101,6 +102,8 @@ export interface HudConfig {
     showClaudeCodeVersion: boolean;
     showEffortLevel: boolean;
     showMemoryUsage: boolean;
+    showPromptCache: boolean;
+    promptCacheTtlSeconds: number;
     showSessionTokens: boolean;
     showOutputStyle: boolean;
     mergeGroups: HudElement[][];
@@ -153,6 +156,8 @@ export const DEFAULT_CONFIG: HudConfig = {
     showClaudeCodeVersion: false,
     showEffortLevel: false,
     showMemoryUsage: false,
+    showPromptCache: false,
+    promptCacheTtlSeconds: 300,
     showSessionTokens: false,
     showOutputStyle: false,
     mergeGroups: DEFAULT_MERGE_GROUPS.map(group => [...group]),
@@ -353,6 +358,13 @@ function validateCountThreshold(value: unknown): number {
   return Math.max(0, Math.floor(value));
 }
 
+function validateDurationSeconds(value: unknown, fallback: number): number {
+  if (typeof value !== 'number' || !Number.isFinite(value) || value <= 0) {
+    return fallback;
+  }
+  return Math.floor(value);
+}
+
 export function mergeConfig(userConfig: Partial<HudConfig>): HudConfig {
   const migrated = migrateConfig(userConfig);
   const language = validateLanguage(migrated.language)
@@ -459,6 +471,13 @@ export function mergeConfig(userConfig: Partial<HudConfig>): HudConfig {
     showMemoryUsage: typeof migrated.display?.showMemoryUsage === 'boolean'
       ? migrated.display.showMemoryUsage
       : DEFAULT_CONFIG.display.showMemoryUsage,
+    showPromptCache: typeof migrated.display?.showPromptCache === 'boolean'
+      ? migrated.display.showPromptCache
+      : DEFAULT_CONFIG.display.showPromptCache,
+    promptCacheTtlSeconds: validateDurationSeconds(
+      migrated.display?.promptCacheTtlSeconds,
+      DEFAULT_CONFIG.display.promptCacheTtlSeconds,
+    ),
     showSessionTokens: typeof migrated.display?.showSessionTokens === 'boolean'
       ? migrated.display.showSessionTokens
       : DEFAULT_CONFIG.display.showSessionTokens,

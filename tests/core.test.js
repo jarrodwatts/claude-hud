@@ -527,6 +527,26 @@ test('parseTranscript accumulates session token usage from assistant messages', 
   }
 });
 
+test('parseTranscript captures the last assistant response timestamp', async () => {
+  const dir = await mkdtemp(path.join(tmpdir(), 'claude-hud-'));
+  const filePath = path.join(dir, 'assistant-timestamp.jsonl');
+  const lines = [
+    JSON.stringify({ type: 'assistant', timestamp: '2024-01-01T00:00:05.000Z' }),
+    JSON.stringify({ type: 'user', timestamp: '2024-01-01T00:00:06.000Z' }),
+    JSON.stringify({ type: 'assistant', timestamp: '2024-01-01T00:00:10.000Z' }),
+    JSON.stringify({ type: 'assistant', timestamp: 'not-a-date' }),
+  ];
+
+  await writeFile(filePath, lines.join('\n'), 'utf8');
+
+  try {
+    const result = await parseTranscript(filePath);
+    assert.equal(result.lastAssistantResponseAt?.toISOString(), '2024-01-01T00:00:10.000Z');
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
+});
+
 test('parseTranscript ignores malformed session token values', async () => {
   const dir = await mkdtemp(path.join(tmpdir(), 'claude-hud-'));
   const filePath = path.join(dir, 'session-tokens-malformed.jsonl');

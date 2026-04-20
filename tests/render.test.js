@@ -6,6 +6,7 @@ import { tmpdir } from 'node:os';
 import { render } from '../dist/render/index.js';
 import { renderSessionLine } from '../dist/render/session-line.js';
 import { renderProjectLine, renderGitFilesLine } from '../dist/render/lines/project.js';
+import { renderPromptCacheLine } from '../dist/render/lines/prompt-cache.js';
 import { renderToolsLine } from '../dist/render/tools-line.js';
 import { renderAgentsLine } from '../dist/render/agents-line.js';
 import { renderTodosLine } from '../dist/render/todos-line.js';
@@ -50,9 +51,9 @@ function baseContext() {
       lineLayout: 'compact',
       showSeparators: false,
       pathLevels: 1,
-      elementOrder: ['project', 'context', 'usage', 'memory', 'environment', 'tools', 'agents', 'todos'],
+      elementOrder: ['project', 'context', 'usage', 'promptCache', 'memory', 'environment', 'tools', 'agents', 'todos'],
       gitStatus: { enabled: true, showDirty: true, showAheadBehind: false, showFileStats: false, branchOverflow: 'truncate', pushWarningThreshold: 0, pushCriticalThreshold: 0 },
-      display: { showModel: true, showProject: true, showContextBar: true, contextValue: 'percent', showConfigCounts: true, showCost: false, showDuration: true, showSpeed: false, showTokenBreakdown: true, showUsage: true, usageBarEnabled: false, showResetLabel: true, showTools: true, showAgents: true, showTodos: true, showSessionTokens: false, showSessionName: false, showClaudeCodeVersion: false, showMemoryUsage: false, showOutputStyle: false, mergeGroups: [['context', 'usage']], autocompactBuffer: 'enabled', usageThreshold: 0, sevenDayThreshold: 80, environmentThreshold: 0, customLine: '' },
+      display: { showModel: true, showProject: true, showContextBar: true, contextValue: 'percent', showConfigCounts: true, showCost: false, showDuration: true, showSpeed: false, showTokenBreakdown: true, showUsage: true, usageBarEnabled: false, showResetLabel: true, showTools: true, showAgents: true, showTodos: true, showSessionTokens: false, showSessionName: false, showClaudeCodeVersion: false, showMemoryUsage: false, showPromptCache: false, promptCacheTtlSeconds: 300, showOutputStyle: false, mergeGroups: [['context', 'usage']], autocompactBuffer: 'enabled', usageThreshold: 0, sevenDayThreshold: 80, environmentThreshold: 0, customLine: '' },
       colors: {
         context: 'green',
         usage: 'brightBlue',
@@ -328,6 +329,16 @@ test('render expanded layout supports combined context display', () => {
   );
 });
 
+test('render expanded layout includes prompt cache as its own opt-in element', () => {
+  const ctx = baseContext();
+  ctx.config.lineLayout = 'expanded';
+  ctx.config.display.showPromptCache = true;
+  ctx.transcript.lastAssistantResponseAt = new Date(Date.now() - 45_000);
+
+  const lines = captureRenderLines(ctx);
+  assert.ok(lines.some(line => line.includes('Cache ⏱ 4m 15s')), `should render prompt cache line, got: ${lines.join(' | ')}`);
+});
+
 test('renderSessionLine omits project name when cwd is undefined', () => {
   const ctx = baseContext();
   ctx.stdin.cwd = undefined;
@@ -351,6 +362,23 @@ test('renderSessionLine includes Claude Code version when enabled', () => {
   ctx.claudeCodeVersion = '2.1.81';
   const line = stripAnsi(renderSessionLine(ctx));
   assert.ok(line.includes('CC v2.1.81'));
+});
+
+test('renderPromptCacheLine returns null when disabled or missing transcript data', () => {
+  const ctx = baseContext();
+  assert.equal(renderPromptCacheLine(ctx), null);
+
+  ctx.config.display.showPromptCache = true;
+  assert.equal(renderPromptCacheLine(ctx), null);
+});
+
+test('renderSessionLine includes prompt cache countdown when enabled', () => {
+  const ctx = baseContext();
+  ctx.config.display.showPromptCache = true;
+  ctx.transcript.lastAssistantResponseAt = new Date(Date.now() - 30_000);
+
+  const line = stripAnsi(renderSessionLine(ctx));
+  assert.ok(line.includes('Cache ⏱ 4m 30s'), `should include prompt cache countdown, got: ${line}`);
 });
 
 test('renderSessionLine hides session name by default', () => {

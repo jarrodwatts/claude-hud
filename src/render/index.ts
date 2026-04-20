@@ -10,6 +10,7 @@ import {
   renderProjectLine,
   renderGitFilesLine,
   renderEnvironmentLine,
+  renderPromptCacheLine,
   renderUsageLine,
   renderMemoryLine,
   renderSessionTokensLine,
@@ -367,6 +368,8 @@ function renderElementLine(
       return renderIdentityLine(ctx, alignProgressLabels);
     case 'usage':
       return renderUsageLine(ctx, alignProgressLabels);
+    case 'promptCache':
+      return renderPromptCacheLine(ctx);
     case 'memory':
       return renderMemoryLine(ctx);
     case 'environment':
