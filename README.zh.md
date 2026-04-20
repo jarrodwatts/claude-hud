@@ -55,7 +55,7 @@ mkdir -p ~/.cache/tmp && TMPDIR=~/.cache/tmp claude
 <details>
 <summary><strong>⚠️ Windows 用户：如果 setup 提示未找到 JavaScript 运行时，请点击此处</strong></summary>
 
-在 Windows 上，推荐使用 Node.js LTS 作为 Claude HUD 的运行时。如果 setup 提示未找到 JavaScript 运行时，请先为你的 shell 安装 Node.js：
+在 Windows 上，Claude HUD setup 支持的运行时是 Node.js LTS。如果 setup 提示未找到 JavaScript 运行时，请先为你的 shell 安装 Node.js：
 ```powershell
 winget install OpenJS.NodeJS.LTS
 ```
@@ -307,7 +307,8 @@ ClaudeHUD 有意仅信任官方的 statusline stdin 负载中的实时使用率�
 ## 运行环境要求
 
 - Claude Code v1.0.80+
-- Node.js 18+ 或 Bun
+- macOS/Linux：Node.js 18+ 或 Bun
+- Windows：Node.js 18+
 
 ---
 

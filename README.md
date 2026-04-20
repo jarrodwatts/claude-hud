@@ -56,7 +56,7 @@ After that, reload plugins:
 <details>
 <summary><strong>⚠️ Windows users: Click here if setup says no JavaScript runtime was found</strong></summary>
 
-On Windows, Node.js LTS is the recommended runtime for Claude HUD. If setup says no JavaScript runtime was found, install Node.js for your shell first:
+On Windows, Node.js LTS is the supported runtime for Claude HUD setup. If setup says no JavaScript runtime was found, install Node.js for your shell first:
 ```powershell
 winget install OpenJS.NodeJS.LTS
 ```
@@ -321,7 +321,8 @@ Set `display.usageCompact` to `true` if you want the shorter usage-only form, fo
 ## Requirements
 
 - Claude Code v1.0.80+
-- Node.js 18+ or Bun
+- macOS/Linux: Node.js 18+ or Bun
+- Windows: Node.js 18+
 
 ---
 
