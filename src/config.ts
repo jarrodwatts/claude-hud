@@ -59,6 +59,17 @@ export const DEFAULT_ELEMENT_ORDER: HudElement[] = [
 
 const KNOWN_ELEMENTS = new Set<HudElement>(DEFAULT_ELEMENT_ORDER);
 
+/**
+ * Two elements that should be rendered on the same line when adjacent in
+ * `elementOrder`. Pairs are checked in order; first match wins, and both
+ * elements are consumed so subsequent pairs can't re-match them.
+ */
+export type LinePair = [HudElement, HudElement];
+
+export const DEFAULT_LINE_PAIRS: ReadonlyArray<LinePair> = [
+  ['context', 'usage'],
+];
+
 export interface HudConfig {
   language: Language;
   lineLayout: LineLayoutType;
@@ -66,6 +77,7 @@ export interface HudConfig {
   pathLevels: 1 | 2 | 3;
   maxWidth: number | null;
   elementOrder: HudElement[];
+  linePairs: LinePair[];
   gitStatus: {
     enabled: boolean;
     showDirty: boolean;
@@ -116,6 +128,7 @@ export const DEFAULT_CONFIG: HudConfig = {
   pathLevels: 1,
   maxWidth: null,
   elementOrder: [...DEFAULT_ELEMENT_ORDER],
+  linePairs: DEFAULT_LINE_PAIRS.map(pair => [...pair] as LinePair),
   gitStatus: {
     enabled: true,
     showDirty: true,
@@ -249,6 +262,30 @@ function validateElementOrder(value: unknown): HudElement[] {
   return elementOrder.length > 0 ? elementOrder : [...DEFAULT_ELEMENT_ORDER];
 }
 
+function validateLinePairs(value: unknown): LinePair[] {
+  if (!Array.isArray(value)) {
+    return DEFAULT_LINE_PAIRS.map(pair => [...pair] as LinePair);
+  }
+
+  const pairs: LinePair[] = [];
+  const seenKeys = new Set<string>();
+
+  for (const item of value) {
+    if (!Array.isArray(item) || item.length !== 2) continue;
+    const [a, b] = item;
+    if (typeof a !== 'string' || typeof b !== 'string') continue;
+    if (!KNOWN_ELEMENTS.has(a as HudElement) || !KNOWN_ELEMENTS.has(b as HudElement)) continue;
+    if (a === b) continue;
+
+    const key = a < b ? `${a}|${b}` : `${b}|${a}`;
+    if (seenKeys.has(key)) continue;
+    seenKeys.add(key);
+    pairs.push([a as HudElement, b as HudElement]);
+  }
+
+  return pairs;
+}
+
 interface LegacyConfig {
   layout?: 'default' | 'separators' | Record<string, unknown>;
 }
@@ -315,6 +352,8 @@ export function mergeConfig(userConfig: Partial<HudConfig>): HudConfig {
     : null;
 
   const elementOrder = validateElementOrder(migrated.elementOrder);
+
+  const linePairs = validateLinePairs(migrated.linePairs);
 
   const gitStatus = {
     enabled: typeof migrated.gitStatus?.enabled === 'boolean'
@@ -456,7 +495,7 @@ export function mergeConfig(userConfig: Partial<HudConfig>): HudConfig {
       : DEFAULT_CONFIG.colors.custom,
   };
 
-  return { language, lineLayout, showSeparators, pathLevels, maxWidth, elementOrder, gitStatus, display, colors };
+  return { language, lineLayout, showSeparators, pathLevels, maxWidth, elementOrder, linePairs, gitStatus, display, colors };
 }
 
 export async function loadConfig(): Promise<HudConfig> {

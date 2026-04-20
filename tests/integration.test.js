@@ -74,6 +74,62 @@ test("CLI renders expected output for a basic transcript", async (t) => {
   }
 });
 
+test("CLI merges project+context into one line when linePairs config opts in", async (t) => {
+  const fixturePath = fileURLToPath(
+    new URL("./fixtures/transcript-render.jsonl", import.meta.url),
+  );
+
+  const homeDir = await mkdtemp(path.join(tmpdir(), "claude-hud-home-"));
+  const projectDir = path.join(homeDir, "dev", "apps", "my-project");
+  const configDir = path.join(homeDir, ".claude", "plugins", "claude-hud");
+  await import("node:fs/promises").then((fs) =>
+    fs.mkdir(projectDir, { recursive: true }),
+  );
+  await import("node:fs/promises").then((fs) =>
+    fs.mkdir(configDir, { recursive: true }),
+  );
+  await writeFile(
+    path.join(configDir, "config.json"),
+    JSON.stringify({ linePairs: [["project", "context"]] }),
+    "utf8",
+  );
+  try {
+    const stdin = JSON.stringify({
+      model: { display_name: "Opus" },
+      context_window: {
+        context_window_size: 200000,
+        current_usage: { input_tokens: 45000 },
+      },
+      transcript_path: fixturePath,
+      cwd: projectDir,
+    });
+
+    const env = { ...process.env, HOME: homeDir, LANG: "C" };
+    delete env.CLAUDE_CONFIG_DIR;
+
+    const result = spawnSync("node", ["dist/index.js"], {
+      cwd: path.resolve(process.cwd()),
+      input: stdin,
+      encoding: "utf8",
+      env,
+    });
+
+    if (skipIfSpawnBlocked(result, t)) return;
+
+    assert.equal(result.error, undefined, result.error?.message);
+    assert.equal(result.status, 0, result.stderr || "non-zero exit");
+    const normalized = stripAnsi(result.stdout)
+      .replace(/\u00A0/g, " ")
+      .trimEnd();
+    assert.ok(
+      normalized.includes("my-project │ Context"),
+      `expected project+context merge, got: ${normalized}`,
+    );
+  } finally {
+    await rm(homeDir, { recursive: true, force: true });
+  }
+});
+
 test("CLI prints initializing message on empty stdin", (t) => {
   const result = spawnSync("node", ["dist/index.js"], {
     cwd: path.resolve(process.cwd()),

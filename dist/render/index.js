@@ -1,4 +1,4 @@
-import { DEFAULT_ELEMENT_ORDER } from '../config.js';
+import { DEFAULT_ELEMENT_ORDER, DEFAULT_LINE_PAIRS } from '../config.js';
 import { renderSessionLine } from './session-line.js';
 import { renderToolsLine } from './tools-line.js';
 import { renderAgentsLine } from './agents-line.js';
@@ -290,8 +290,12 @@ function renderCompact(ctx) {
     }
     return lines;
 }
+function isAdjacentPair(a, b, pairs) {
+    return pairs.some(([x, y]) => (x === a && y === b) || (x === b && y === a));
+}
 function renderExpanded(ctx, terminalWidth = null) {
     const elementOrder = ctx.config?.elementOrder ?? DEFAULT_ELEMENT_ORDER;
+    const linePairs = ctx.config?.linePairs ?? DEFAULT_LINE_PAIRS;
     const seen = new Set();
     const lines = [];
     for (let index = 0; index < elementOrder.length; index += 1) {
@@ -300,8 +304,9 @@ function renderExpanded(ctx, terminalWidth = null) {
             continue;
         }
         const nextElement = elementOrder[index + 1];
-        if ((element === 'context' && nextElement === 'usage' && !seen.has('usage'))
-            || (element === 'usage' && nextElement === 'context' && !seen.has('context'))) {
+        if (nextElement !== undefined
+            && !seen.has(nextElement)
+            && isAdjacentPair(element, nextElement, linePairs)) {
             seen.add(element);
             seen.add(nextElement);
             const firstLine = renderElementLine(ctx, element);

@@ -29,6 +29,13 @@ export interface HudColorOverrides {
     custom: HudColorValue;
 }
 export declare const DEFAULT_ELEMENT_ORDER: HudElement[];
+/**
+ * Two elements that should be rendered on the same line when adjacent in
+ * `elementOrder`. Pairs are checked in order; first match wins, and both
+ * elements are consumed so subsequent pairs can't re-match them.
+ */
+export type LinePair = [HudElement, HudElement];
+export declare const DEFAULT_LINE_PAIRS: ReadonlyArray<LinePair>;
 export interface HudConfig {
     language: Language;
     lineLayout: LineLayoutType;
@@ -36,6 +43,7 @@ export interface HudConfig {
     pathLevels: 1 | 2 | 3;
     maxWidth: number | null;
     elementOrder: HudElement[];
+    linePairs: LinePair[];
     gitStatus: {
         enabled: boolean;
         showDirty: boolean;

@@ -13,6 +13,9 @@ export const DEFAULT_ELEMENT_ORDER = [
     'todos',
 ];
 const KNOWN_ELEMENTS = new Set(DEFAULT_ELEMENT_ORDER);
+export const DEFAULT_LINE_PAIRS = [
+    ['context', 'usage'],
+];
 export const DEFAULT_CONFIG = {
     language: 'en',
     lineLayout: 'expanded',
@@ -20,6 +23,7 @@ export const DEFAULT_CONFIG = {
     pathLevels: 1,
     maxWidth: null,
     elementOrder: [...DEFAULT_ELEMENT_ORDER],
+    linePairs: DEFAULT_LINE_PAIRS.map(pair => [...pair]),
     gitStatus: {
         enabled: true,
         showDirty: true,
@@ -138,6 +142,30 @@ function validateElementOrder(value) {
     }
     return elementOrder.length > 0 ? elementOrder : [...DEFAULT_ELEMENT_ORDER];
 }
+function validateLinePairs(value) {
+    if (!Array.isArray(value)) {
+        return DEFAULT_LINE_PAIRS.map(pair => [...pair]);
+    }
+    const pairs = [];
+    const seenKeys = new Set();
+    for (const item of value) {
+        if (!Array.isArray(item) || item.length !== 2)
+            continue;
+        const [a, b] = item;
+        if (typeof a !== 'string' || typeof b !== 'string')
+            continue;
+        if (!KNOWN_ELEMENTS.has(a) || !KNOWN_ELEMENTS.has(b))
+            continue;
+        if (a === b)
+            continue;
+        const key = a < b ? `${a}|${b}` : `${b}|${a}`;
+        if (seenKeys.has(key))
+            continue;
+        seenKeys.add(key);
+        pairs.push([a, b]);
+    }
+    return pairs;
+}
 function migrateConfig(userConfig) {
     const migrated = { ...userConfig };
     if ('layout' in userConfig && !('lineLayout' in userConfig)) {
@@ -196,6 +224,7 @@ export function mergeConfig(userConfig) {
         ? Math.floor(rawMaxWidth)
         : null;
     const elementOrder = validateElementOrder(migrated.elementOrder);
+    const linePairs = validateLinePairs(migrated.linePairs);
     const gitStatus = {
         enabled: typeof migrated.gitStatus?.enabled === 'boolean'
             ? migrated.gitStatus.enabled
@@ -333,7 +362,7 @@ export function mergeConfig(userConfig) {
             ? migrated.colors.custom
             : DEFAULT_CONFIG.colors.custom,
     };
-    return { language, lineLayout, showSeparators, pathLevels, maxWidth, elementOrder, gitStatus, display, colors };
+    return { language, lineLayout, showSeparators, pathLevels, maxWidth, elementOrder, linePairs, gitStatus, display, colors };
 }
 export async function loadConfig() {
     const configPath = getConfigPath();
