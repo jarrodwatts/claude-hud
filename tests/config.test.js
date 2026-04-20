@@ -6,6 +6,7 @@ import {
   mergeConfig,
   DEFAULT_CONFIG,
   DEFAULT_ELEMENT_ORDER,
+  DEFAULT_MERGE_GROUPS,
 } from '../dist/config.js';
 import * as path from 'node:path';
 import * as os from 'node:os';
@@ -344,6 +345,46 @@ test('mergeConfig falls back to default for invalid contextValue', () => {
 test('mergeConfig defaults elementOrder to the full expanded layout', () => {
   const config = mergeConfig({});
   assert.deepEqual(config.elementOrder, DEFAULT_ELEMENT_ORDER);
+});
+
+test('mergeConfig defaults mergeGroups to context and usage', () => {
+  const config = mergeConfig({});
+  assert.deepEqual(config.display.mergeGroups, DEFAULT_MERGE_GROUPS);
+  assert.deepEqual(DEFAULT_CONFIG.display.mergeGroups, DEFAULT_MERGE_GROUPS);
+});
+
+test('mergeConfig preserves explicit empty mergeGroups to disable merged lines', () => {
+  const config = mergeConfig({
+    display: {
+      mergeGroups: [],
+    },
+  });
+  assert.deepEqual(config.display.mergeGroups, []);
+});
+
+test('mergeConfig accepts valid mergeGroups and filters invalid entries', () => {
+  const config = mergeConfig({
+    display: {
+      mergeGroups: [
+        ['project', 'context', 'usage'],
+        ['tools', 'todos', 'tools'],
+        ['memory'],
+        ['agents', 'unknown', 'environment'],
+      ],
+    },
+  });
+
+  assert.deepEqual(config.display.mergeGroups, [
+    ['project', 'context', 'usage'],
+    ['tools', 'todos'],
+    ['agents', 'environment'],
+  ]);
+});
+
+test('mergeConfig falls back to default mergeGroups when value is invalid', () => {
+  assert.deepEqual(mergeConfig({ display: { mergeGroups: 'context,usage' } }).display.mergeGroups, DEFAULT_MERGE_GROUPS);
+  assert.deepEqual(mergeConfig({ display: { mergeGroups: [['context'], ['unknown']] } }).display.mergeGroups, DEFAULT_MERGE_GROUPS);
+  assert.deepEqual(mergeConfig({ display: { mergeGroups: [null] } }).display.mergeGroups, DEFAULT_MERGE_GROUPS);
 });
 
 test('mergeConfig preserves valid custom elementOrder including activity elements', () => {

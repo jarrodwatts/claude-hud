@@ -52,7 +52,7 @@ function baseContext() {
       pathLevels: 1,
       elementOrder: ['project', 'context', 'usage', 'memory', 'environment', 'tools', 'agents', 'todos'],
       gitStatus: { enabled: true, showDirty: true, showAheadBehind: false, showFileStats: false, branchOverflow: 'truncate', pushWarningThreshold: 0, pushCriticalThreshold: 0 },
-      display: { showModel: true, showProject: true, showContextBar: true, contextValue: 'percent', showConfigCounts: true, showCost: false, showDuration: true, showSpeed: false, showTokenBreakdown: true, showUsage: true, usageBarEnabled: false, showResetLabel: true, showTools: true, showAgents: true, showTodos: true, showSessionTokens: false, showSessionName: false, showClaudeCodeVersion: false, showMemoryUsage: false, showOutputStyle: false, autocompactBuffer: 'enabled', usageThreshold: 0, sevenDayThreshold: 80, environmentThreshold: 0, customLine: '' },
+      display: { showModel: true, showProject: true, showContextBar: true, contextValue: 'percent', showConfigCounts: true, showCost: false, showDuration: true, showSpeed: false, showTokenBreakdown: true, showUsage: true, usageBarEnabled: false, showResetLabel: true, showTools: true, showAgents: true, showTodos: true, showSessionTokens: false, showSessionName: false, showClaudeCodeVersion: false, showMemoryUsage: false, showOutputStyle: false, mergeGroups: [['context', 'usage']], autocompactBuffer: 'enabled', usageThreshold: 0, sevenDayThreshold: 80, environmentThreshold: 0, customLine: '' },
       colors: {
         context: 'green',
         usage: 'brightBlue',
@@ -1826,7 +1826,7 @@ test('render expanded layout omits elements not present in elementOrder', () => 
   assert.ok(!output.includes('todo-marker'), 'todos should be omitted when excluded');
 });
 
-test('render expanded layout combines usage and context when adjacent in elementOrder', () => {
+test('render expanded layout combines default merge-group elements when adjacent in elementOrder', () => {
   const ctx = baseContext();
   ctx.config.lineLayout = 'expanded';
   ctx.usageData = {
@@ -1850,7 +1850,7 @@ test('render expanded layout combines usage and context when adjacent in element
   assert.ok(!stripped.includes('Weekly '), `combined line should not pad the weekly label: ${stripped}`);
 });
 
-test('render expanded layout keeps usage and context separate when not adjacent', () => {
+test('render expanded layout keeps merge-group elements separate when they are not adjacent', () => {
   const ctx = baseContext();
   ctx.config.lineLayout = 'expanded';
   ctx.stdin.cwd = '/tmp/my-project';
@@ -1873,7 +1873,51 @@ test('render expanded layout keeps usage and context separate when not adjacent'
   assert.equal(combinedLine, undefined, 'usage and context should not combine when separated by another element');
 });
 
-test('render expanded layout aligns progress labels only after wrapping to separate lines', () => {
+test('render expanded layout keeps default merge-group elements separate when mergeGroups is empty', () => {
+  const ctx = baseContext();
+  ctx.config.lineLayout = 'expanded';
+  ctx.usageData = {
+    planName: 'Team',
+    fiveHour: 30,
+    sevenDay: 10,
+    fiveHourResetAt: new Date(Date.now() + 60 * 60 * 1000),
+    sevenDayResetAt: new Date(Date.now() + 24 * 60 * 60 * 1000),
+  };
+  ctx.config.display.mergeGroups = [];
+  ctx.config.elementOrder = ['usage', 'context'];
+
+  const lines = withTerminal(120, () => captureRenderLines(ctx));
+
+  assert.equal(lines.length, 2, 'empty mergeGroups should disable expanded merged lines');
+  assert.ok(lines.some(line => line.includes('Usage')), 'usage should stay visible');
+  assert.ok(lines.some(line => line.includes('Context')), 'context should stay visible');
+  assert.ok(!lines.some(line => line.includes('Usage') && line.includes('Context')), 'no combined line should be rendered');
+});
+
+test('render expanded layout combines custom merge groups in configured order', () => {
+  const ctx = baseContext();
+  ctx.config.lineLayout = 'expanded';
+  ctx.stdin.cwd = '/tmp/my-project';
+  ctx.usageData = {
+    planName: 'Team',
+    fiveHour: 30,
+    sevenDay: 10,
+    fiveHourResetAt: new Date(Date.now() + 60 * 60 * 1000),
+    sevenDayResetAt: new Date(Date.now() + 24 * 60 * 60 * 1000),
+  };
+  ctx.config.display.mergeGroups = [['project', 'usage', 'context']];
+  ctx.config.elementOrder = ['project', 'usage', 'context'];
+
+  const lines = withTerminal(160, () => captureRenderLines(ctx));
+
+  assert.equal(lines.length, 1, 'custom merge groups should combine all adjacent configured elements');
+  assert.ok(lines[0].includes('my-project'), 'combined line should include project');
+  assert.ok(lines[0].includes('Usage'), 'combined line should include usage');
+  assert.ok(lines[0].includes('Context'), 'combined line should include context');
+  assert.ok(lines[0].split('│').length - 1 >= 2, 'combined line should keep the merge separators');
+});
+
+test('render expanded layout aligns progress labels only after wrapping merged lines to separate lines', () => {
   const ctx = baseContext();
   ctx.config.lineLayout = 'expanded';
   ctx.usageData = {

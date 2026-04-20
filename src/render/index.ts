@@ -1,5 +1,5 @@
 import type { HudElement } from '../config.js';
-import { DEFAULT_ELEMENT_ORDER } from '../config.js';
+import { DEFAULT_ELEMENT_ORDER, DEFAULT_MERGE_GROUPS } from '../config.js';
 import type { RenderContext } from '../types.js';
 import { renderSessionLine } from './session-line.js';
 import { renderToolsLine } from './tools-line.js';
@@ -290,6 +290,40 @@ function makeSeparator(length: number): string {
 
 const ACTIVITY_ELEMENTS = new Set<HudElement>(['tools', 'agents', 'todos']);
 
+function buildMergeGroupLookup(mergeGroups: HudElement[][]): Map<HudElement, Set<HudElement>> {
+  const lookup = new Map<HudElement, Set<HudElement>>();
+
+  for (const group of mergeGroups) {
+    const groupSet = new Set(group);
+    for (const element of group) {
+      if (!lookup.has(element)) {
+        lookup.set(element, groupSet);
+      }
+    }
+  }
+
+  return lookup;
+}
+
+function collectMergeSequence(
+  elementOrder: HudElement[],
+  startIndex: number,
+  seen: Set<HudElement>,
+  group: Set<HudElement>,
+): HudElement[] {
+  const sequence: HudElement[] = [];
+
+  for (let index = startIndex; index < elementOrder.length; index += 1) {
+    const element = elementOrder[index];
+    if (seen.has(element) || !group.has(element)) {
+      break;
+    }
+    sequence.push(element);
+  }
+
+  return sequence;
+}
+
 function collectActivityLines(ctx: RenderContext): string[] {
   const activityLines: string[] = [];
   const display = ctx.config?.display;
@@ -359,6 +393,8 @@ function renderCompact(ctx: RenderContext): string[] {
 
 function renderExpanded(ctx: RenderContext, terminalWidth: number | null = null): Array<{ line: string; isActivity: boolean }> {
   const elementOrder = ctx.config?.elementOrder ?? DEFAULT_ELEMENT_ORDER;
+  const mergeGroups = ctx.config?.display?.mergeGroups ?? DEFAULT_MERGE_GROUPS;
+  const mergeGroupLookup = buildMergeGroupLookup(mergeGroups);
   const seen = new Set<HudElement>();
   const lines: Array<{ line: string; isActivity: boolean }> = [];
 
@@ -368,41 +404,57 @@ function renderExpanded(ctx: RenderContext, terminalWidth: number | null = null)
       continue;
     }
 
-    const nextElement = elementOrder[index + 1];
-    if (
-      (element === 'context' && nextElement === 'usage' && !seen.has('usage'))
-      || (element === 'usage' && nextElement === 'context' && !seen.has('context'))
-    ) {
-      seen.add(element);
-      seen.add(nextElement);
+    const mergeGroup = mergeGroupLookup.get(element);
+    if (mergeGroup) {
+      const mergeSequence = collectMergeSequence(elementOrder, index, seen, mergeGroup);
 
-      const firstLine = renderElementLine(ctx, element);
-      const secondLine = renderElementLine(ctx, nextElement);
-
-      if (firstLine && secondLine) {
-        const combinedLine = `${firstLine} │ ${secondLine}`;
-        const widthIsReal = terminalWidth && terminalWidth !== UNKNOWN_TERMINAL_WIDTH;
-        const canCombine = !widthIsReal || visualLength(combinedLine) <= terminalWidth;
-
-        if (canCombine) {
-          lines.push({ line: combinedLine, isActivity: false });
-        } else {
-          const firstStackedLine = renderElementLine(ctx, element, {
-            alignProgressLabels: true,
-          }) ?? firstLine;
-          const secondStackedLine = renderElementLine(ctx, nextElement, {
-            alignProgressLabels: true,
-          }) ?? secondLine;
-          lines.push({ line: firstStackedLine, isActivity: false });
-          lines.push({ line: secondStackedLine, isActivity: false });
+      if (mergeSequence.length > 1) {
+        index += mergeSequence.length - 1;
+        for (const groupedElement of mergeSequence) {
+          seen.add(groupedElement);
         }
-      } else if (firstLine) {
-        lines.push({ line: firstLine, isActivity: false });
-      } else if (secondLine) {
-        lines.push({ line: secondLine, isActivity: false });
-      }
 
-      continue;
+        const renderedGroupLines = mergeSequence
+          .map(groupedElement => ({
+            element: groupedElement,
+            line: renderElementLine(ctx, groupedElement),
+          }))
+          .filter(
+            (entry): entry is { element: HudElement; line: string } =>
+              typeof entry.line === 'string' && entry.line.length > 0
+          );
+
+        if (renderedGroupLines.length > 1) {
+          const combinedLine = renderedGroupLines.map(({ line }) => line).join(' │ ');
+          const widthIsReal = terminalWidth && terminalWidth !== UNKNOWN_TERMINAL_WIDTH;
+          const canCombine = !widthIsReal || visualLength(combinedLine) <= terminalWidth;
+
+          if (canCombine) {
+            lines.push({
+              line: combinedLine,
+              isActivity: renderedGroupLines.some(({ element: groupedElement }) => ACTIVITY_ELEMENTS.has(groupedElement)),
+            });
+          } else {
+            for (const { element: groupedElement, line } of renderedGroupLines) {
+              const stackedLine = renderElementLine(ctx, groupedElement, {
+                alignProgressLabels: true,
+              }) ?? line;
+              lines.push({
+                line: stackedLine,
+                isActivity: ACTIVITY_ELEMENTS.has(groupedElement),
+              });
+            }
+          }
+        } else if (renderedGroupLines.length === 1) {
+          const [{ element: groupedElement, line }] = renderedGroupLines;
+          lines.push({
+            line,
+            isActivity: ACTIVITY_ELEMENTS.has(groupedElement),
+          });
+        }
+
+        continue;
+      }
     }
 
     seen.add(element);

@@ -42,6 +42,7 @@ function baseContext() {
         showTools: true,
         showAgents: true,
         showTodos: true,
+        mergeGroups: [['context', 'usage']],
         autocompactBuffer: 'enabled',
         usageThreshold: 0,
         sevenDayThreshold: 80,
@@ -483,7 +484,7 @@ test('render truncation respects Unicode display width', () => {
   assert.ok(lines.every(line => displayWidth(line) <= 10), 'all lines should respect terminal cell width');
 });
 
-test('render keeps context and usage as separate lines when a narrow terminal cannot fit both', () => {
+test('render keeps default merge-group elements as separate lines when a narrow terminal cannot fit both', () => {
   const ctx = baseContext();
   ctx.config.lineLayout = 'expanded';
   ctx.config.display.usageBarEnabled = true;
