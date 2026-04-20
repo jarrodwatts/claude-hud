@@ -296,7 +296,7 @@ function processEntry(
         const input = block.input as Record<string, unknown>;
         const agentEntry: AgentEntry = {
           id: block.id,
-          type: (input?.subagent_type as string) ?? 'general-purpose',
+          type: (input?.subagent_type as string) ?? 'agent',
           model: (input?.model as string) ?? undefined,
           description: (input?.description as string) ?? undefined,
           status: 'running',
