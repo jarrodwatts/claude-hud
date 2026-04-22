@@ -2074,6 +2074,28 @@ test('renderSessionLine includes compact session token summary when enabled', ()
   assert.ok(line.includes('tok: 2k (in: 2k, out: 250)'), 'should include compact token summary');
 });
 
+test('renderSessionLine translates compact session token summary when Chinese is enabled', () => {
+  const ctx = baseContext();
+  ctx.config.display.showSessionTokens = true;
+  ctx.transcript.sessionTokens = {
+    inputTokens: 1500,
+    outputTokens: 250,
+    cacheCreationTokens: 500,
+    cacheReadTokens: 0,
+  };
+
+  setLanguage('zh');
+  try {
+    const line = stripAnsi(renderSessionLine(ctx));
+    assert.ok(line.includes('令牌: 2k (输入: 2k, 输出: 250)'), `unexpected zh compact token summary: ${line}`);
+    assert.ok(!line.includes('tok:'), `unexpected bare English token label in zh output: ${line}`);
+    assert.ok(!line.includes('in:'), `unexpected bare English input label in zh output: ${line}`);
+    assert.ok(!line.includes('out:'), `unexpected bare English output label in zh output: ${line}`);
+  } finally {
+    setLanguage('en');
+  }
+});
+
 // ---------------------------------------------------------------------------
 // display.timeFormat — absolute and both modes
 // ---------------------------------------------------------------------------
