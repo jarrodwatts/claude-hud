@@ -88,7 +88,8 @@ export async function getGitStatus(cwd?: string): Promise<GitStatus | null> {
           ['diff', '--numstat', 'HEAD'],
           { cwd, timeout: 2000, encoding: 'utf8' }
         );
-        const { totalDiff, perFileDiff } = parseNumstat(numstatOut);
+        const trackedPaths = new Set(fileStats?.trackedFiles.map((file) => file.fullPath) ?? []);
+        const { totalDiff, perFileDiff } = parseNumstat(numstatOut, trackedPaths);
         lineDiff = totalDiff;
         if (fileStats) {
           applyLineDiffsToFiles(fileStats.trackedFiles, perFileDiff);
@@ -159,22 +160,34 @@ function parseFileStats(porcelainOutput: string): FileStats {
       stats.untracked++;
     } else if (index === 'A') {
       stats.added++;
-      const fullPath = line.slice(2).trimStart();
+      const fullPath = parsePorcelainPath(line.slice(2).trimStart());
       stats.trackedFiles.push({ basename: fullPath.split('/').pop() ?? fullPath, fullPath, type: 'added' });
     } else if (index === 'D' || worktree === 'D') {
       stats.deleted++;
-      const fullPath = line.slice(2).trimStart();
+      const fullPath = parsePorcelainPath(line.slice(2).trimStart());
       stats.trackedFiles.push({ basename: fullPath.split('/').pop() ?? fullPath, fullPath, type: 'deleted' });
     } else if (index === 'M' || worktree === 'M' || index === 'R' || index === 'C') {
       // M=modified, R=renamed (counts as modified), C=copied (counts as modified)
       stats.modified++;
       // For renames, git porcelain shows "old -> new"; take the destination path
-      const fullPath = line.slice(2).trimStart().split(' -> ').pop() ?? line.slice(2).trimStart();
+      const fullPath = parsePorcelainPath(line.slice(2).trimStart().split(' -> ').pop() ?? line.slice(2).trimStart());
       stats.trackedFiles.push({ basename: fullPath.split('/').pop() ?? fullPath, fullPath, type: 'modified' });
     }
   }
 
   return stats;
+}
+
+function parsePorcelainPath(pathField: string): string {
+  if (pathField.startsWith('"') && pathField.endsWith('"')) {
+    try {
+      return JSON.parse(pathField);
+    } catch {
+      return pathField.slice(1, -1);
+    }
+  }
+
+  return pathField;
 }
 
 /**
@@ -200,11 +213,24 @@ function extractNumstatDestination(filePath: string): string {
   return filePath;
 }
 
+function resolveNumstatPath(filePath: string, trackedPaths: Set<string>): string {
+  if (trackedPaths.has(filePath)) {
+    return filePath;
+  }
+
+  const destinationPath = extractNumstatDestination(filePath);
+  if (destinationPath !== filePath && trackedPaths.has(destinationPath)) {
+    return destinationPath;
+  }
+
+  return filePath;
+}
+
 /**
  * Parse `git diff --numstat HEAD` output.
  * Returns total line diff and a map of fullPath -> LineDiff.
  */
-function parseNumstat(numstatOutput: string): { totalDiff: LineDiff; perFileDiff: Map<string, LineDiff> } {
+function parseNumstat(numstatOutput: string, trackedPaths: Set<string>): { totalDiff: LineDiff; perFileDiff: Map<string, LineDiff> } {
   const totalDiff: LineDiff = { added: 0, deleted: 0 };
   const perFileDiff = new Map<string, LineDiff>();
 
@@ -213,7 +239,7 @@ function parseNumstat(numstatOutput: string): { totalDiff: LineDiff; perFileDiff
     if (parts.length < 3) continue;
     const added = parseInt(parts[0], 10);
     const deleted = parseInt(parts[1], 10);
-    const filePath = extractNumstatDestination(parts[2]);
+    const filePath = resolveNumstatPath(parts[2], trackedPaths);
     if (Number.isNaN(added) || Number.isNaN(deleted)) continue; // binary file
     totalDiff.added += added;
     totalDiff.deleted += deleted;

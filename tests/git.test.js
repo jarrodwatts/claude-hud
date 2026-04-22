@@ -297,6 +297,36 @@ test('getGitStatus attaches line diffs to renamed files with shared directory pr
   }
 });
 
+test('getGitStatus keeps line diffs for literal filenames containing arrow text', async () => {
+  const dir = await mkdtemp(path.join(tmpdir(), 'claude-hud-git-'));
+  try {
+    execFileSync('git', ['init'], { cwd: dir, stdio: 'ignore' });
+    execFileSync('git', ['config', 'user.email', 'test@test.com'], { cwd: dir, stdio: 'ignore' });
+    execFileSync('git', ['config', 'user.name', 'Test'], { cwd: dir, stdio: 'ignore' });
+    execFileSync('git', ['config', 'commit.gpgsign', 'false'], { cwd: dir, stdio: 'ignore' });
+
+    const fileName = 'foo => bar.txt';
+    await writeFile(path.join(dir, fileName), 'one\ntwo\n');
+    execFileSync('git', ['add', fileName], { cwd: dir, stdio: 'ignore' });
+    execFileSync('git', ['commit', '-m', 'add literal arrow file'], { cwd: dir, stdio: 'ignore' });
+
+    await writeFile(path.join(dir, fileName), 'one\ntwo\nthree\n');
+
+    const result = await getGitStatus(dir);
+    const tracked = result?.fileStats?.trackedFiles ?? [];
+    const modified = tracked.find((f) => f.fullPath === fileName);
+
+    assert.ok(modified, `expected literal arrow filename in trackedFiles, got ${JSON.stringify(tracked)}`);
+    assert.deepEqual(
+      modified?.lineDiff,
+      { added: 1, deleted: 0 },
+      `expected lineDiff on literal arrow filename, got ${JSON.stringify(modified)}`
+    );
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
+});
+
 test('getGitStatus builds branchUrl from HTTPS origin remotes', async () => {
   const dir = await mkdtemp(path.join(tmpdir(), 'claude-hud-git-'));
   try {
