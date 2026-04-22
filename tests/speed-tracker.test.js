@@ -67,6 +67,39 @@ test('getOutputSpeed ignores sub-window bursts to avoid inflated rates', async (
   }
 });
 
+test('getOutputSpeed accumulates repeated short windows until the sample matures', async () => {
+  const tempHome = await createTempHome();
+
+  try {
+    const base = { homeDir: () => tempHome };
+    getOutputSpeed(
+      { context_window: { current_usage: { output_tokens: 10 } } },
+      { ...base, now: () => 1000 }
+    );
+
+    const firstBurst = getOutputSpeed(
+      { context_window: { current_usage: { output_tokens: 40 } } },
+      { ...base, now: () => 1200 }
+    );
+    assert.equal(firstBurst, null);
+
+    const secondBurst = getOutputSpeed(
+      { context_window: { current_usage: { output_tokens: 70 } } },
+      { ...base, now: () => 1400 }
+    );
+    assert.equal(secondBurst, null);
+
+    const matured = getOutputSpeed(
+      { context_window: { current_usage: { output_tokens: 100 } } },
+      { ...base, now: () => 1600 }
+    );
+    assert.ok(matured !== null);
+    assert.ok(Math.abs(matured - 150) < 0.01);
+  } finally {
+    await rm(tempHome, { recursive: true, force: true });
+  }
+});
+
 test('getOutputSpeed ignores stale windows', async () => {
   const tempHome = await createTempHome();
 

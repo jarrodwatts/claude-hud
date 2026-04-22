@@ -69,14 +69,35 @@ export function getOutputSpeed(stdin: StdinData, overrides: Partial<SpeedTracker
   const homeDir = deps.homeDir();
   const previous = readCache(homeDir);
 
-  let speed: number | null = null;
-  if (previous && outputTokens >= previous.outputTokens) {
-    const deltaTokens = outputTokens - previous.outputTokens;
-    const deltaMs = now - previous.timestamp;
-    if (deltaTokens > 0 && deltaMs >= MIN_DELTA_MS && deltaMs <= SPEED_WINDOW_MS) {
-      speed = deltaTokens / (deltaMs / 1000);
-    }
+  if (!previous) {
+    writeCache(homeDir, { outputTokens, timestamp: now });
+    return null;
   }
+
+  if (outputTokens < previous.outputTokens) {
+    writeCache(homeDir, { outputTokens, timestamp: now });
+    return null;
+  }
+
+  let speed: number | null = null;
+  const deltaTokens = outputTokens - previous.outputTokens;
+  const deltaMs = now - previous.timestamp;
+
+  if (deltaMs > SPEED_WINDOW_MS) {
+    writeCache(homeDir, { outputTokens, timestamp: now });
+    return null;
+  }
+
+  if (deltaTokens <= 0) {
+    writeCache(homeDir, { outputTokens, timestamp: now });
+    return null;
+  }
+
+  if (deltaMs < MIN_DELTA_MS) {
+    return null;
+  }
+
+  speed = deltaTokens / (deltaMs / 1000);
 
   writeCache(homeDir, { outputTokens, timestamp: now });
   return speed;
