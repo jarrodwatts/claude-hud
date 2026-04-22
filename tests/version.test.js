@@ -44,7 +44,7 @@ test('_getClaudeVersionInvocation executes binaries directly on non-Windows', ()
   });
 });
 
-test('_getClaudeVersionInvocation wraps .cmd launches through COMSPEC on Windows', () => {
+test('_getClaudeVersionInvocation wraps .cmd launches through a fixed Windows cmd path', () => {
   const invocation = _getClaudeVersionInvocation(
     'C:\\Program Files\\Claude\\claude.cmd',
     'win32',
@@ -54,6 +54,21 @@ test('_getClaudeVersionInvocation wraps .cmd launches through COMSPEC on Windows
     file: 'C:\\Windows\\System32\\cmd.exe',
     args: ['/d', '/s', '/c', '"\"C:\\Program Files\\Claude\\claude.cmd\" --version"'],
   });
+});
+
+test('_getClaudeVersionInvocation ignores COMSPEC on Windows', () => {
+  const originalComspec = process.env.COMSPEC;
+  process.env.COMSPEC = 'C:\\malicious\\cmd.exe';
+
+  try {
+    const invocation = _getClaudeVersionInvocation(
+      'C:\\Program Files\\Claude\\claude.cmd',
+      'win32'
+    );
+    assert.equal(invocation.file, 'C:\\Windows\\System32\\cmd.exe');
+  } finally {
+    restoreEnvVar('COMSPEC', originalComspec);
+  }
 });
 
 test('_getClaudeVersionInvocation executes .exe paths directly on Windows', () => {

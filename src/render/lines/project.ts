@@ -1,5 +1,6 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
+import { pathToFileURL } from 'node:url';
 import type { RenderContext } from '../../types.js';
 import { getModelName, formatModelName, getProviderLabel } from '../../stdin.js';
 import { getOutputSpeed } from '../../speed-tracker.js';
@@ -7,10 +8,51 @@ import { git as gitColor, gitBranch as gitBranchColor, warning as warningColor, 
 import { t } from '../../i18n/index.js';
 import { renderCostEstimate } from './cost.js';
 
+const CONTROL_AND_BIDI_PATTERN = /[\u0000-\u001F\u007F-\u009F\u061C\u200E\u200F\u202A-\u202E\u2066-\u2069\u206A-\u206F]/g;
+
 function hyperlink(uri: string, text: string): string {
   const esc = '\x1b';
   const st = '\\';
   return `${esc}]8;;${uri}${esc}${st}${text}${esc}]8;;${esc}${st}`;
+}
+
+function sanitizeDisplayText(value: string): string {
+  return value.replace(CONTROL_AND_BIDI_PATTERN, '');
+}
+
+function getFileHref(filePath: string): string | null {
+  try {
+    return pathToFileURL(path.resolve(filePath)).toString();
+  } catch {
+    return null;
+  }
+}
+
+function resolvePathWithinCwd(cwd: string, candidatePath: string): string | null {
+  const resolvedCwd = path.resolve(cwd);
+  const resolvedPath = path.resolve(cwd, candidatePath);
+  const relative = path.relative(resolvedCwd, resolvedPath);
+  if (relative === '' || (!relative.startsWith('..') && !path.isAbsolute(relative))) {
+    return resolvedPath;
+  }
+  return null;
+}
+
+function safeHyperlink(uri: string | undefined | null, text: string): string {
+  if (!uri) {
+    return text;
+  }
+
+  const sanitizedUri = sanitizeDisplayText(uri);
+  try {
+    const parsed = new URL(sanitizedUri);
+    if (parsed.protocol !== 'https:' && parsed.protocol !== 'file:') {
+      return text;
+    }
+    return hyperlink(parsed.toString(), text);
+  } catch {
+    return text;
+  }
 }
 
 export function renderProjectLine(ctx: RenderContext): string | null {
@@ -35,9 +77,9 @@ export function renderProjectLine(ctx: RenderContext): string | null {
   if (display?.showProject !== false && ctx.stdin.cwd) {
     const segments = ctx.stdin.cwd.split(/[/\\]/).filter(Boolean);
     const pathLevels = ctx.config?.pathLevels ?? 1;
-    const projectPath = segments.length > 0 ? segments.slice(-pathLevels).join('/') : '/';
+    const projectPath = sanitizeDisplayText(segments.length > 0 ? segments.slice(-pathLevels).join('/') : '/');
     const coloredProject = projectColor(projectPath, colors);
-    projectPart = hyperlink(`file://${ctx.stdin.cwd}`, coloredProject);
+    projectPart = safeHyperlink(getFileHref(ctx.stdin.cwd), coloredProject);
   }
 
   let gitPart = '';
@@ -46,9 +88,11 @@ export function renderProjectLine(ctx: RenderContext): string | null {
   const branchOverflow = gitConfig?.branchOverflow ?? 'truncate';
 
   if (showGit && ctx.gitStatus) {
-    const branchText = ctx.gitStatus.branch + ((gitConfig?.showDirty ?? true) && ctx.gitStatus.isDirty ? '*' : '');
+    const branchText = sanitizeDisplayText(
+      ctx.gitStatus.branch + ((gitConfig?.showDirty ?? true) && ctx.gitStatus.isDirty ? '*' : '')
+    );
     const coloredBranch = gitBranchColor(branchText, colors);
-    const linkedBranch = ctx.gitStatus.branchUrl ? hyperlink(ctx.gitStatus.branchUrl, coloredBranch) : coloredBranch;
+    const linkedBranch = safeHyperlink(ctx.gitStatus.branchUrl, coloredBranch);
     const gitInner: string[] = [linkedBranch];
 
     if (gitConfig?.showAheadBehind) {
@@ -156,8 +200,10 @@ export function renderGitFilesLine(ctx: RenderContext, terminalWidth: number | n
   const cwd = ctx.stdin.cwd;
   const sorted = [...trackedFiles].sort((a, b) => {
     try {
-      const aMtime = cwd ? fs.statSync(path.join(cwd, a.fullPath)).mtimeMs : 0;
-      const bMtime = cwd ? fs.statSync(path.join(cwd, b.fullPath)).mtimeMs : 0;
+      const aPath = cwd ? resolvePathWithinCwd(cwd, a.fullPath) : null;
+      const bPath = cwd ? resolvePathWithinCwd(cwd, b.fullPath) : null;
+      const aMtime = aPath ? fs.statSync(aPath).mtimeMs : 0;
+      const bMtime = bPath ? fs.statSync(bPath).mtimeMs : 0;
       return bMtime - aMtime;
     } catch {
       return 0;
@@ -170,12 +216,14 @@ export function renderGitFilesLine(ctx: RenderContext, terminalWidth: number | n
 
   for (const trackedFile of shown) {
     const prefix = trackedFile.type === 'added' ? green('+') : trackedFile.type === 'deleted' ? red('-') : yellow('~');
+    const safeBasename = sanitizeDisplayText(trackedFile.basename);
     const coloredName = trackedFile.type === 'added'
-      ? green(trackedFile.basename)
+      ? green(safeBasename)
       : trackedFile.type === 'deleted'
-        ? red(trackedFile.basename)
-        : yellow(trackedFile.basename);
-    const linkedName = cwd ? hyperlink(`file://${path.join(cwd, trackedFile.fullPath)}`, coloredName) : coloredName;
+        ? red(safeBasename)
+        : yellow(safeBasename);
+    const resolvedPath = cwd ? resolvePathWithinCwd(cwd, trackedFile.fullPath) : null;
+    const linkedName = resolvedPath ? safeHyperlink(getFileHref(resolvedPath), coloredName) : coloredName;
     let entry = `${prefix}${linkedName}`;
 
     if (trackedFile.lineDiff) {

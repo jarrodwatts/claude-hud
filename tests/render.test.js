@@ -1706,6 +1706,25 @@ test('renderProjectLine colors ahead count at critical threshold', () => {
   assert.ok(line?.includes('\x1b[31m↑25\x1b[0m'), 'ahead count should use critical color');
 });
 
+test('renderProjectLine strips control characters from project and branch links', () => {
+  const ctx = baseContext();
+  ctx.stdin.cwd = '/tmp/my-\u0007project';
+  ctx.gitStatus = {
+    branch: 'feat/\u0007name',
+    isDirty: false,
+    ahead: 0,
+    behind: 0,
+    branchUrl: 'https://github.com/example/claude-hud/tree/feat%2Fname\u0007',
+  };
+
+  const line = renderProjectLine(ctx) ?? '';
+  const visible = stripAnsi(line);
+
+  assert.ok(visible.includes('my-project'));
+  assert.ok(visible.includes('feat/name'));
+  assert.ok(!line.includes('\u0007'));
+});
+
 test('renderGitFilesLine renders tracked files with per-file line diffs', () => {
   const ctx = baseContext();
   ctx.stdin.cwd = '/tmp/my-project';
@@ -1734,6 +1753,34 @@ test('renderGitFilesLine renders tracked files with per-file line diffs', () => 
   assert.ok(line?.includes('+4'));
   assert.ok(line?.includes('-2'));
   assert.ok(line?.includes('?2'));
+});
+
+test('renderGitFilesLine strips control characters and skips links outside cwd', () => {
+  const ctx = baseContext();
+  ctx.stdin.cwd = '/tmp/my-project';
+  ctx.config.gitStatus.showFileStats = true;
+  ctx.gitStatus = {
+    branch: 'main',
+    isDirty: true,
+    ahead: 0,
+    behind: 0,
+    lineDiff: { added: 1, deleted: 0 },
+    fileStats: {
+      modified: 1,
+      added: 0,
+      deleted: 0,
+      untracked: 0,
+      trackedFiles: [
+        { basename: 'app\u0007.ts', fullPath: '../outside.ts', type: 'modified', lineDiff: { added: 1, deleted: 0 } },
+      ],
+    },
+  };
+
+  const line = renderGitFilesLine(ctx, 120) ?? '';
+  const visible = stripAnsi(line);
+
+  assert.ok(visible.includes('app.ts'));
+  assert.ok(!line.includes('\u0007'));
 });
 
 test('renderGitFilesLine hides on narrow terminals', () => {

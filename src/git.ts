@@ -129,7 +129,7 @@ export async function getGitStatus(cwd?: string): Promise<GitStatus | null> {
         .replace(/^git@([^:]+):/, 'https://$1/')
         .replace(/\.git$/, '');
       if (httpsBase.startsWith('https://')) {
-        branchUrl = `${httpsBase}/tree/${branch}`;
+        branchUrl = `${httpsBase}/tree/${encodeURIComponent(branch)}`;
       }
     } catch {
       // No remote or not GitHub

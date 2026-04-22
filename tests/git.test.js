@@ -237,7 +237,7 @@ test('getGitStatus builds branchUrl from HTTPS origin remotes', async () => {
     execFileSync('git', ['remote', 'add', 'origin', 'https://github.com/example/claude-hud.git'], { cwd: dir, stdio: 'ignore' });
 
     const result = await getGitStatus(dir);
-    assert.equal(result?.branchUrl, 'https://github.com/example/claude-hud/tree/feature/test-branch');
+    assert.equal(result?.branchUrl, 'https://github.com/example/claude-hud/tree/feature%2Ftest-branch');
   } finally {
     await rm(dir, { recursive: true, force: true });
   }
@@ -254,7 +254,7 @@ test('getGitStatus builds branchUrl from SSH origin remotes', async () => {
     execFileSync('git', ['remote', 'add', 'origin', 'git@github.com:example/claude-hud.git'], { cwd: dir, stdio: 'ignore' });
 
     const result = await getGitStatus(dir);
-    assert.equal(result?.branchUrl, 'https://github.com/example/claude-hud/tree/feature/test-branch');
+    assert.equal(result?.branchUrl, 'https://github.com/example/claude-hud/tree/feature%2Ftest-branch');
   } finally {
     await rm(dir, { recursive: true, force: true });
   }

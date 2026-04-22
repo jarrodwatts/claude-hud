@@ -94,6 +94,14 @@ function getTranscriptCachePath(transcriptPath: string, homeDir: string): string
   return path.join(getHudPluginDir(homeDir), 'transcript-cache', `${hash}.json`);
 }
 
+function canonicalizeTranscriptPath(transcriptPath: string): string | null {
+  try {
+    return fs.realpathSync(transcriptPath);
+  } catch {
+    return null;
+  }
+}
+
 function readTranscriptFileState(transcriptPath: string): TranscriptFileState | null {
   try {
     const stat = fs.statSync(transcriptPath);
@@ -181,7 +189,7 @@ function writeTranscriptCache(transcriptPath: string, state: TranscriptFileState
       transcriptState: state,
       data: serializeTranscriptData(data),
     };
-    fs.writeFileSync(cachePath, JSON.stringify(payload), 'utf8');
+    fs.writeFileSync(cachePath, JSON.stringify(payload), { encoding: 'utf8', mode: 0o600 });
   } catch {
     // Cache failures are non-fatal; fall back to fresh parsing next time.
   }
@@ -198,12 +206,17 @@ export async function parseTranscript(transcriptPath: string): Promise<Transcrip
     return result;
   }
 
-  const transcriptState = readTranscriptFileState(transcriptPath);
+  const canonicalTranscriptPath = canonicalizeTranscriptPath(transcriptPath);
+  if (!canonicalTranscriptPath) {
+    return result;
+  }
+
+  const transcriptState = readTranscriptFileState(canonicalTranscriptPath);
   if (!transcriptState) {
     return result;
   }
 
-  const cached = readTranscriptCache(transcriptPath, transcriptState);
+  const cached = readTranscriptCache(canonicalTranscriptPath, transcriptState);
   if (cached) {
     return cached;
   }
@@ -224,7 +237,7 @@ export async function parseTranscript(transcriptPath: string): Promise<Transcrip
   let parsedCleanly = false;
 
   try {
-    const fileStream = createReadStreamImpl(transcriptPath);
+    const fileStream = createReadStreamImpl(canonicalTranscriptPath);
     const rl = readline.createInterface({
       input: fileStream,
       crlfDelay: Infinity,
@@ -265,7 +278,7 @@ export async function parseTranscript(transcriptPath: string): Promise<Transcrip
   result.sessionName = customTitle ?? latestSlug;
   result.sessionTokens = sessionTokens;
   if (parsedCleanly) {
-    writeTranscriptCache(transcriptPath, transcriptState, result);
+    writeTranscriptCache(canonicalTranscriptPath, transcriptState, result);
   }
 
   return result;
