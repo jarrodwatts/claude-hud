@@ -45,6 +45,28 @@ test('getOutputSpeed computes tokens per second within window', async () => {
   }
 });
 
+test('getOutputSpeed ignores sub-window bursts to avoid inflated rates', async () => {
+  const tempHome = await createTempHome();
+
+  try {
+    const base = { homeDir: () => tempHome };
+    getOutputSpeed(
+      { context_window: { current_usage: { output_tokens: 10 } } },
+      { ...base, now: () => 1000 }
+    );
+
+    // Status line re-renders ~50ms later with 60 more tokens. A naive rate
+    // calculation would report 1200 tok/s; we expect null instead (#481).
+    const speed = getOutputSpeed(
+      { context_window: { current_usage: { output_tokens: 70 } } },
+      { ...base, now: () => 1050 }
+    );
+    assert.equal(speed, null);
+  } finally {
+    await rm(tempHome, { recursive: true, force: true });
+  }
+});
+
 test('getOutputSpeed ignores stale windows', async () => {
   const tempHome = await createTempHome();
 
