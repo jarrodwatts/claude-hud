@@ -71,10 +71,9 @@ export async function getGitStatus(cwd) {
             const { stdout: remoteOut } = await execFileAsync('git', ['remote', 'get-url', 'origin'], { cwd, timeout: 1000, encoding: 'utf8' });
             const remote = remoteOut.trim();
             const httpsBase = remote
-                .replace(/^git@github\.com:/, 'https://github.com/')
-                .replace(/^ssh:\/\/git@github\.com\//, 'https://github.com/')
+                .replace(/^git@([^:]+):/, 'https://$1/')
                 .replace(/\.git$/, '');
-            if (httpsBase.startsWith('https://github.com/')) {
+            if (httpsBase.startsWith('https://')) {
                 branchUrl = `${httpsBase}/tree/${encodeURIComponent(branch)}`;
             }
         }

@@ -1,4 +1,4 @@
-export const UNKNOWN_TERMINAL_WIDTH = null;
+export const UNKNOWN_TERMINAL_WIDTH = 40;
 function parseEnvColumns() {
     const envColumns = Number.parseInt(process.env.COLUMNS ?? '', 10);
     return Number.isFinite(envColumns) && envColumns > 0 ? envColumns : null;
