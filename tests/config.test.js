@@ -178,6 +178,36 @@ test('mergeConfig preserves explicit git push thresholds', () => {
   assert.equal(config.gitStatus.pushCriticalThreshold, 30);
 });
 
+test('mergeConfig defaults context thresholds to 70/85', () => {
+  const config = mergeConfig({});
+  assert.equal(config.display.contextWarningThreshold, 70);
+  assert.equal(config.display.contextCriticalThreshold, 85);
+});
+
+test('mergeConfig preserves explicit context thresholds', () => {
+  const config = mergeConfig({
+    display: { contextWarningThreshold: 30, contextCriticalThreshold: 50 },
+  });
+  assert.equal(config.display.contextWarningThreshold, 30);
+  assert.equal(config.display.contextCriticalThreshold, 50);
+});
+
+test('mergeConfig clamps context thresholds to 0-100', () => {
+  const config = mergeConfig({
+    display: { contextWarningThreshold: -10, contextCriticalThreshold: 150 },
+  });
+  assert.equal(config.display.contextWarningThreshold, 0);
+  assert.equal(config.display.contextCriticalThreshold, 100);
+});
+
+test('mergeConfig falls back to defaults for invalid context thresholds', () => {
+  const config = mergeConfig({
+    display: { contextWarningThreshold: 'high', contextCriticalThreshold: null },
+  });
+  assert.equal(config.display.contextWarningThreshold, 70);
+  assert.equal(config.display.contextCriticalThreshold, 85);
+});
+
 test('mergeConfig preserves valid git branch overflow modes', () => {
   assert.equal(mergeConfig({ gitStatus: { branchOverflow: 'wrap' } }).gitStatus.branchOverflow, 'wrap');
   assert.equal(mergeConfig({ gitStatus: { branchOverflow: 'truncate' } }).gitStatus.branchOverflow, 'truncate');
@@ -522,7 +552,7 @@ test('mergeConfig accepts valid color overrides and filters invalid values', () 
   assert.equal(config.colors.custom, '#ff6600');
 });
 
-// --- Custom color value tests (256-color and hex) ---
+// --- Custom colour value tests (256-colour and hex) ---
 
 test('mergeConfig accepts 256-color index values', () => {
   const config = mergeConfig({

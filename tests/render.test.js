@@ -175,6 +175,28 @@ test('getContextColor returns yellow for warning threshold', () => {
   assert.equal(getContextColor(70), '\x1b[33m');
 });
 
+test('getContextColor respects custom thresholds', () => {
+  const thresholds = { warning: 30, critical: 50 };
+  assert.equal(getContextColor(10, undefined, thresholds), '\x1b[32m'); // green
+  assert.equal(getContextColor(30, undefined, thresholds), '\x1b[33m'); // yellow
+  assert.equal(getContextColor(49, undefined, thresholds), '\x1b[33m'); // still yellow
+  assert.equal(getContextColor(50, undefined, thresholds), '\x1b[31m'); // red
+  assert.equal(getContextColor(90, undefined, thresholds), '\x1b[31m'); // red
+});
+
+test('getContextColor falls back to defaults when thresholds undefined', () => {
+  assert.equal(getContextColor(69, undefined, {}), '\x1b[32m');
+  assert.equal(getContextColor(70, undefined, {}), '\x1b[33m');
+  assert.equal(getContextColor(85, undefined, {}), '\x1b[31m');
+});
+
+test('getContextColor honours partial threshold overrides', () => {
+  // Only warning overridden — critical stays at default 85
+  assert.equal(getContextColor(30, undefined, { warning: 30 }), '\x1b[33m');
+  assert.equal(getContextColor(84, undefined, { warning: 30 }), '\x1b[33m');
+  assert.equal(getContextColor(85, undefined, { warning: 30 }), '\x1b[31m');
+});
+
 test('getContextColor and getQuotaColor respect custom semantic overrides', () => {
   const colors = {
     context: 'cyan',

@@ -29,16 +29,20 @@ export function renderSessionLine(ctx: RenderContext): string {
   }
 
   const colors = ctx.config?.colors;
+  const display = ctx.config?.display;
+  const contextThresholds = {
+    warning: display?.contextWarningThreshold,
+    critical: display?.contextCriticalThreshold,
+  };
   const barWidth = getAdaptiveBarWidth();
-  const bar = coloredBar(percent, barWidth, colors);
+  const bar = coloredBar(percent, barWidth, colors, contextThresholds);
 
   const parts: string[] = [];
-  const display = ctx.config?.display;
   const timeFormat: TimeFormatMode = display?.timeFormat ?? 'relative';
   const resetsKey = timeFormat === 'absolute' ? 'format.resets' : 'format.resetsIn';
   const contextValueMode = display?.contextValue ?? 'percent';
   const contextValue = formatContextValue(ctx, percent, contextValueMode);
-  const contextValueDisplay = `${getContextColor(percent, colors)}${contextValue}${RESET}`;
+  const contextValueDisplay = `${getContextColor(percent, colors, contextThresholds)}${contextValue}${RESET}`;
 
   // Model and context bar (FIRST)
   const providerLabel = getProviderLabel(ctx.stdin);
