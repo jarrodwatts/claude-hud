@@ -1217,6 +1217,40 @@ test('renderSessionLine shows Bedrock label and hides usage for bedrock model id
   }
 });
 
+test('renderSessionLine keeps usage visible for Enterprise model aliases', () => {
+  const ctx = baseContext();
+  ctx.stdin.model = { display_name: 'Claude Opus', id: 'opusplan' };
+  ctx.usageData = {
+    planName: 'Team',
+    fiveHour: 23,
+    sevenDay: 45,
+    fiveHourResetAt: null,
+    sevenDayResetAt: null,
+  };
+
+  const line = stripAnsi(renderSessionLine(ctx));
+  assert.ok(line.includes('Enterprise'), 'should include Enterprise label');
+  assert.ok(line.includes('Usage'), 'should keep usage visible for Enterprise aliases');
+  assert.ok(line.includes('5h'), 'should include usage window');
+});
+
+test('renderUsageLine keeps usage visible for Enterprise model aliases in expanded mode', () => {
+  const ctx = baseContext();
+  ctx.config.lineLayout = 'expanded';
+  ctx.stdin.model = { display_name: 'Claude Opus', id: 'opusplan' };
+  ctx.usageData = {
+    planName: 'Team',
+    fiveHour: 23,
+    sevenDay: 45,
+    fiveHourResetAt: null,
+    sevenDayResetAt: null,
+  };
+
+  const line = stripAnsi(renderUsageLine(ctx) ?? '');
+  assert.ok(line.includes('Usage'), 'expanded usage line should still render');
+  assert.ok(line.includes('5h'), 'expanded usage line should include usage window');
+});
+
 test('renderSessionLine displays usage percentages (7d hidden when low)', () => {
   const ctx = baseContext();
   ctx.config.display.sevenDayThreshold = 80;

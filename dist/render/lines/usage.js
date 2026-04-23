@@ -1,5 +1,5 @@
 import { isLimitReached } from "../../types.js";
-import { isBedrockModelId } from "../../stdin.js";
+import { shouldHideUsage } from "../../stdin.js";
 import { critical, label, getQuotaColor, quotaBar, RESET } from "../colors.js";
 import { getAdaptiveBarWidth } from "../../utils/terminal.js";
 import { t } from "../../i18n/index.js";
@@ -14,7 +14,7 @@ export function renderUsageLine(ctx, alignLabels = false) {
     if (!ctx.usageData) {
         return null;
     }
-    if (isBedrockModelId(ctx.stdin.model?.id)) {
+    if (shouldHideUsage(ctx.stdin)) {
         return null;
     }
     const usageLabel = progressLabel("label.usage", colors, alignLabels);

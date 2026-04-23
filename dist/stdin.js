@@ -214,6 +214,9 @@ export function getProviderLabel(stdin) {
     }
     return null;
 }
+export function shouldHideUsage(stdin) {
+    return getProviderLabel(stdin) === 'Bedrock' || isBedrockModelId(stdin.model?.id);
+}
 function parseRateLimitPercent(value) {
     if (typeof value !== 'number' || !Number.isFinite(value)) {
         return null;

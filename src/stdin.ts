@@ -268,6 +268,10 @@ export function getProviderLabel(stdin: StdinData): string | null {
   return null;
 }
 
+export function shouldHideUsage(stdin: StdinData): boolean {
+  return getProviderLabel(stdin) === 'Bedrock' || isBedrockModelId(stdin.model?.id);
+}
+
 function parseRateLimitPercent(value: number | null | undefined): number | null {
   if (typeof value !== 'number' || !Number.isFinite(value)) {
     return null;
