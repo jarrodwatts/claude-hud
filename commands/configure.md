@@ -16,7 +16,8 @@ These are always enabled and NOT configurable:
 - Context bar `████░░░░░░ 45%`
 
 Advanced settings such as `colors.*`, `pathLevels`, `display.timeFormat`,
-`display.usageThreshold`, and `display.environmentThreshold` are preserved when saving but are not
+`display.usageThreshold`, `display.environmentThreshold`, `display.contextWarningThreshold`,
+and `display.contextCriticalThreshold` are preserved when saving but are not
 edited by this guided flow.
 
 ---

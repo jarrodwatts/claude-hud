@@ -23,7 +23,7 @@ const ANSI_BY_NAME: Record<HudColorName, string> = {
   brightMagenta: BRIGHT_MAGENTA,
 };
 
-/** Convert a hex colour string (#rrggbb) to a truecolor ANSI escape sequence. */
+/** Convert a hex color string (#rrggbb) to a truecolor ANSI escape sequence. */
 function hexToAnsi(hex: string): string {
   const r = parseInt(hex.slice(1, 3), 16);
   const g = parseInt(hex.slice(3, 5), 16);
@@ -32,8 +32,8 @@ function hexToAnsi(hex: string): string {
 }
 
 /**
- * Resolve a colour value to an ANSI escape sequence.
- * Accepts named presets, 256-colour indices (0-255), or hex strings (#rrggbb).
+ * Resolve a color value to an ANSI escape sequence.
+ * Accepts named presets, 256-color indices (0-255), or hex strings (#rrggbb).
  */
 function resolveAnsi(value: HudColorValue | undefined, fallback: string): string {
   if (value === undefined || value === null) {

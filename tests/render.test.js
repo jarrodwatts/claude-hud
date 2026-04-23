@@ -134,6 +134,42 @@ test('renderSessionLine adds token breakdown when context is high', () => {
   assert.ok(line.includes('cache:'), 'expected cache breakdown');
 });
 
+test('renderSessionLine token breakdown honours contextCriticalThreshold', () => {
+  const ctx = baseContext();
+  ctx.config.display.contextCriticalThreshold = 50;
+  // For 55%: (tokens + 33000) / 200000 = 0.55 → tokens = 77000
+  ctx.stdin.context_window.current_usage.input_tokens = 77000;
+  const line = renderSessionLine(ctx);
+  assert.ok(line.includes('in:'), 'expected token breakdown at 55% when critical threshold is 50');
+});
+
+test('renderSessionLine suppresses token breakdown below raised contextCriticalThreshold', () => {
+  const ctx = baseContext();
+  ctx.config.display.contextCriticalThreshold = 95;
+  // For 90%: (tokens + 33000) / 200000 = 0.9 → tokens = 147000
+  ctx.stdin.context_window.current_usage.input_tokens = 147000;
+  const line = renderSessionLine(ctx);
+  assert.ok(!line.includes('in:'), 'expected no token breakdown at 90% when critical threshold is 95');
+});
+
+test('renderIdentityLine token breakdown honours contextCriticalThreshold', () => {
+  const ctx = baseContext();
+  ctx.config.display.contextCriticalThreshold = 50;
+  // For 55%: (tokens + 33000) / 200000 = 0.55 → tokens = 77000
+  ctx.stdin.context_window.current_usage.input_tokens = 77000;
+  const line = renderIdentityLine(ctx);
+  assert.ok(line.includes('in:'), 'expected token breakdown at 55% when critical threshold is 50');
+});
+
+test('renderIdentityLine suppresses token breakdown below raised contextCriticalThreshold', () => {
+  const ctx = baseContext();
+  ctx.config.display.contextCriticalThreshold = 95;
+  // For 90%: (tokens + 33000) / 200000 = 0.9 → tokens = 147000
+  ctx.stdin.context_window.current_usage.input_tokens = 147000;
+  const line = renderIdentityLine(ctx);
+  assert.ok(!line.includes('in:'), 'expected no token breakdown at 90% when critical threshold is 95');
+});
+
 test('renderSessionLine includes duration and formats large tokens', () => {
   const ctx = baseContext();
   ctx.sessionDuration = '1m';

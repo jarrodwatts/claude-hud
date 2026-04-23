@@ -296,7 +296,7 @@ export function renderSessionLine(ctx: RenderContext): string {
   let line = parts.join(' | ');
 
   // Token breakdown at high context
-  if (display?.showTokenBreakdown !== false && percent >= 85) {
+  if (display?.showTokenBreakdown !== false && percent >= (display?.contextCriticalThreshold ?? 85)) {
     const usage = ctx.stdin.context_window?.current_usage;
     if (usage) {
       const input = formatTokens(usage.input_tokens ?? 0);

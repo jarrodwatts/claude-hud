@@ -30,7 +30,7 @@ export type HudColorName =
   | 'brightBlue'
   | 'brightMagenta';
 
-/** A colour value: named preset, 256-colour index (0-255), or hex string (#rrggbb). */
+/** A color value: named preset, 256-color index (0-255), or hex string (#rrggbb). */
 export type HudColorValue = HudColorName | number | string;
 
 export interface HudColorOverrides {
