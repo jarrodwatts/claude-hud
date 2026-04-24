@@ -73,7 +73,10 @@ export async function main(overrides: Partial<MainDeps> = {}): Promise<void> {
     const transcriptPath = stdin.transcript_path ?? "";
     const transcript = await deps.parseTranscript(transcriptPath);
 
-    deps.applyContextWindowFallback(stdin, {}, transcript.sessionName);
+    deps.applyContextWindowFallback(stdin, {}, transcript.sessionName, {
+      lastCompactBoundaryAt: transcript.lastCompactBoundaryAt,
+      lastCompactPostTokens: transcript.lastCompactPostTokens,
+    });
 
     const { claudeMdCount, rulesCount, mcpCount, hooksCount, outputStyle } =
       await deps.countConfigs(stdin.cwd);

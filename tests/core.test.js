@@ -553,6 +553,67 @@ test('parseTranscript accumulates session token usage from assistant messages', 
   }
 });
 
+test('parseTranscript records the most recent compact_boundary and postTokens', async () => {
+  const dir = await mkdtemp(path.join(tmpdir(), 'claude-hud-'));
+  const filePath = path.join(dir, 'compact-boundary.jsonl');
+  const lines = [
+    JSON.stringify({ type: 'assistant', timestamp: '2024-01-01T00:00:01.000Z' }),
+    JSON.stringify({
+      type: 'system',
+      subtype: 'compact_boundary',
+      timestamp: '2024-01-01T00:05:00.000Z',
+      compactMetadata: { trigger: 'auto', preTokens: 170574, postTokens: 7679 },
+    }),
+    JSON.stringify({ type: 'assistant', timestamp: '2024-01-01T00:06:00.000Z' }),
+    // A second /compact later in the session should win.
+    JSON.stringify({
+      type: 'system',
+      subtype: 'compact_boundary',
+      timestamp: '2024-01-01T00:10:00.000Z',
+      compactMetadata: { trigger: 'manual', preTokens: 180000, postTokens: 12345 },
+    }),
+  ];
+
+  await writeFile(filePath, lines.join('\n'), 'utf8');
+
+  try {
+    const result = await parseTranscript(filePath);
+    assert.equal(result.lastCompactBoundaryAt?.toISOString(), '2024-01-01T00:10:00.000Z');
+    assert.equal(result.lastCompactPostTokens, 12345);
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
+});
+
+test('parseTranscript ignores compact_boundary entries without a valid timestamp', async () => {
+  const dir = await mkdtemp(path.join(tmpdir(), 'claude-hud-'));
+  const filePath = path.join(dir, 'compact-boundary-bad.jsonl');
+  const lines = [
+    JSON.stringify({
+      type: 'system',
+      subtype: 'compact_boundary',
+      timestamp: 'not-a-date',
+      compactMetadata: { postTokens: 500 },
+    }),
+    JSON.stringify({
+      type: 'system',
+      subtype: 'something_else',
+      timestamp: '2024-01-01T00:05:00.000Z',
+      compactMetadata: { postTokens: 999 },
+    }),
+  ];
+
+  await writeFile(filePath, lines.join('\n'), 'utf8');
+
+  try {
+    const result = await parseTranscript(filePath);
+    assert.equal(result.lastCompactBoundaryAt, undefined);
+    assert.equal(result.lastCompactPostTokens, undefined);
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
+});
+
 test('parseTranscript captures the last assistant response timestamp', async () => {
   const dir = await mkdtemp(path.join(tmpdir(), 'claude-hud-'));
   const filePath = path.join(dir, 'assistant-timestamp.jsonl');

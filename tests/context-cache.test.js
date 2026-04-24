@@ -212,6 +212,119 @@ test('applyContextWindowFallback safely returns when context_window is missing',
   });
 });
 
+test('applyContextWindowFallback does not restore cache when compact_boundary is newer than saved_at', async () => {
+  const tempHome = await createTempHome();
+  const transcriptPath = '/tmp/session-a.jsonl';
+
+  try {
+    // Seed cache with a pre-compact snapshot at t=1_000_000
+    applyContextWindowFallback(
+      makeHealthyFrame(transcriptPath),
+      makeDeps(tempHome, 1_000_000),
+    );
+
+    // Then a suspicious-zero frame arrives with a compact_boundary at t=1_500_000
+    const stdin = makeSuspiciousFrame();
+    stdin.transcript_path = transcriptPath;
+
+    applyContextWindowFallback(
+      stdin,
+      makeDeps(tempHome, 2_000_000),
+      undefined,
+      { lastCompactBoundaryAt: new Date(1_500_000) },
+    );
+
+    // Must NOT restore the stale 58% snapshot
+    assert.equal(stdin.context_window.used_percentage, 0);
+    assert.equal(stdin.context_window.remaining_percentage, 100);
+  } finally {
+    await rm(tempHome, { recursive: true, force: true });
+  }
+});
+
+test('applyContextWindowFallback uses compactMetadata.postTokens when present', async () => {
+  const tempHome = await createTempHome();
+  const transcriptPath = '/tmp/session-a.jsonl';
+
+  try {
+    applyContextWindowFallback(
+      makeHealthyFrame(transcriptPath),
+      makeDeps(tempHome, 1_000_000),
+    );
+
+    const stdin = makeSuspiciousFrame();
+    stdin.transcript_path = transcriptPath;
+
+    applyContextWindowFallback(
+      stdin,
+      makeDeps(tempHome, 2_000_000),
+      undefined,
+      {
+        lastCompactBoundaryAt: new Date(1_500_000),
+        lastCompactPostTokens: 7679, // from Claude Code compactMetadata
+      },
+    );
+
+    // 7679 / 200000 ≈ 3.84% -> rounded to 4%
+    assert.equal(stdin.context_window.used_percentage, 4);
+    assert.equal(stdin.context_window.remaining_percentage, 96);
+  } finally {
+    await rm(tempHome, { recursive: true, force: true });
+  }
+});
+
+test('applyContextWindowFallback still restores cache for glitch frames when no compact_boundary is present', async () => {
+  const tempHome = await createTempHome();
+  const transcriptPath = '/tmp/session-a.jsonl';
+
+  try {
+    applyContextWindowFallback(
+      makeHealthyFrame(transcriptPath),
+      makeDeps(tempHome, 1_000_000),
+    );
+
+    const stdin = makeSuspiciousFrame();
+    stdin.transcript_path = transcriptPath;
+
+    // No compactHint — pure Claude Code glitch path
+    applyContextWindowFallback(stdin, makeDeps(tempHome, 2_000_000));
+
+    assert.equal(stdin.context_window.used_percentage, 58);
+    assert.equal(stdin.context_window.remaining_percentage, 42);
+  } finally {
+    await rm(tempHome, { recursive: true, force: true });
+  }
+});
+
+test('applyContextWindowFallback still restores cache when compact_boundary is older than saved_at', async () => {
+  const tempHome = await createTempHome();
+  const transcriptPath = '/tmp/session-a.jsonl';
+
+  try {
+    // Cache saved at t=1_000_000 — i.e. AFTER the stale boundary below
+    applyContextWindowFallback(
+      makeHealthyFrame(transcriptPath),
+      makeDeps(tempHome, 1_000_000),
+    );
+
+    const stdin = makeSuspiciousFrame();
+    stdin.transcript_path = transcriptPath;
+
+    applyContextWindowFallback(
+      stdin,
+      makeDeps(tempHome, 2_000_000),
+      undefined,
+      { lastCompactBoundaryAt: new Date(500_000) }, // older than saved_at
+    );
+
+    // Boundary is pre-snapshot, so the zero is a real glitch -> restore cache
+    assert.equal(stdin.context_window.used_percentage, 58);
+    assert.equal(stdin.context_window.remaining_percentage, 42);
+  } finally {
+    await rm(tempHome, { recursive: true, force: true });
+  }
+});
+
 test('applyContextWindowFallback is a no-op when transcript_path is missing', async () => {
   const tempHome = await createTempHome();
 

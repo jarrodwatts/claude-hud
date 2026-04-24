@@ -243,11 +243,23 @@ function applyCachedContext(
     contextWindow.context_window_size ?? cache.context_window_size ?? undefined;
 }
 
+export type CompactHint = {
+  /** Timestamp of the most recent compact_boundary entry in the transcript. */
+  lastCompactBoundaryAt?: Date;
+  /** Post-compact token count from compactMetadata, when Claude Code records it. */
+  lastCompactPostTokens?: number;
+};
+
 /**
  * Apply context-window fallback in-place:
  * - For suspicious zero frames, try restoring from the session-scoped cache.
  * - For healthy frames, refresh the cache snapshot for this session
  *   (subject to TTL + value-change throttling to avoid hot-path writes).
+ *
+ * When `compactHint.lastCompactBoundaryAt` is newer than the cached snapshot's
+ * `saved_at`, the zero frame is treated as a legitimate post-/compact reset and
+ * the stale pre-compact snapshot is NOT restored. If `lastCompactPostTokens`
+ * is provided, it is used to synthesize an accurate transition-window percent.
  *
  * No-op when stdin has no transcript_path, since without a stable session key
  * we cannot safely isolate cache entries across concurrent Claude Code sessions.
@@ -255,7 +267,8 @@ function applyCachedContext(
 export function applyContextWindowFallback(
   stdin: StdinData,
   overrides: Partial<ContextCacheDeps> = {},
-  sessionName?: string
+  sessionName?: string,
+  compactHint?: CompactHint
 ): void {
   const contextWindow = stdin.context_window;
   if (!contextWindow) {
@@ -273,7 +286,25 @@ export function applyContextWindowFallback(
 
   if (isSuspiciousZero(contextWindow)) {
     const cached = readCache(homeDir, transcriptPath);
-    if (cached) {
+    const boundaryMs = compactHint?.lastCompactBoundaryAt?.getTime();
+    const isPostCompactReset =
+      typeof boundaryMs === "number" &&
+      Number.isFinite(boundaryMs) &&
+      (!cached?.saved_at || boundaryMs > cached.saved_at);
+
+    if (isPostCompactReset) {
+      // Legitimate /compact reset: keep the zero frame instead of restoring a
+      // stale pre-compact snapshot. Surface the compactMetadata.postTokens
+      // value (when available) so the bar shows the real post-compact
+      // percent during the transition before the next assistant response.
+      const postTokens = compactHint?.lastCompactPostTokens;
+      const size = contextWindow.context_window_size ?? 0;
+      if (typeof postTokens === "number" && postTokens > 0 && size > 0) {
+        const pct = Math.min(100, Math.max(0, Math.round((postTokens / size) * 100)));
+        contextWindow.used_percentage = pct;
+        contextWindow.remaining_percentage = 100 - pct;
+      }
+    } else if (cached) {
       applyCachedContext(contextWindow, cached);
     }
   }

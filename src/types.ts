@@ -112,6 +112,8 @@ export interface TranscriptData {
   sessionName?: string;
   lastAssistantResponseAt?: Date;
   sessionTokens?: SessionTokenUsage;
+  lastCompactBoundaryAt?: Date;
+  lastCompactPostTokens?: number;
 }
 
 export interface RenderContext {

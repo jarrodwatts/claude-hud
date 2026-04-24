@@ -9,6 +9,7 @@ import type { TranscriptData, ToolEntry, AgentEntry, TodoItem, SessionTokenUsage
 interface TranscriptLine {
   timestamp?: string;
   type?: string;
+  subtype?: string;
   slug?: string;
   customTitle?: string;
   message?: {
@@ -19,6 +20,12 @@ interface TranscriptLine {
       cache_creation_input_tokens?: number;
       cache_read_input_tokens?: number;
     };
+  };
+  compactMetadata?: {
+    trigger?: string;
+    preTokens?: number;
+    postTokens?: number;
+    durationMs?: number;
   };
 }
 
@@ -54,6 +61,8 @@ interface SerializedTranscriptData {
   sessionName?: string;
   lastAssistantResponseAt?: string;
   sessionTokens?: SessionTokenUsage;
+  lastCompactBoundaryAt?: string;
+  lastCompactPostTokens?: number;
 }
 
 interface TranscriptCacheFile {
@@ -63,7 +72,7 @@ interface TranscriptCacheFile {
   data: SerializedTranscriptData;
 }
 
-const TRANSCRIPT_CACHE_VERSION = 2;
+const TRANSCRIPT_CACHE_VERSION = 3;
 
 let createReadStreamImpl: typeof fs.createReadStream = fs.createReadStream;
 
@@ -134,6 +143,8 @@ function serializeTranscriptData(data: TranscriptData): SerializedTranscriptData
     sessionName: data.sessionName,
     lastAssistantResponseAt: data.lastAssistantResponseAt?.toISOString(),
     sessionTokens: data.sessionTokens,
+    lastCompactBoundaryAt: data.lastCompactBoundaryAt?.toISOString(),
+    lastCompactPostTokens: data.lastCompactPostTokens,
   };
 }
 
@@ -154,6 +165,8 @@ function deserializeTranscriptData(data: SerializedTranscriptData): TranscriptDa
     sessionName: data.sessionName,
     lastAssistantResponseAt: data.lastAssistantResponseAt ? new Date(data.lastAssistantResponseAt) : undefined,
     sessionTokens: normalizeSessionTokens(data.sessionTokens),
+    lastCompactBoundaryAt: data.lastCompactBoundaryAt ? new Date(data.lastCompactBoundaryAt) : undefined,
+    lastCompactPostTokens: typeof data.lastCompactPostTokens === 'number' ? data.lastCompactPostTokens : undefined,
   };
 }
 
@@ -227,6 +240,8 @@ export async function parseTranscript(transcriptPath: string): Promise<Transcrip
   const taskIdToIndex = new Map<string, number>();
   let latestSlug: string | undefined;
   let customTitle: string | undefined;
+  let lastCompactBoundaryAt: Date | undefined;
+  let lastCompactPostTokens: number | undefined;
   const sessionTokens: SessionTokenUsage = {
     inputTokens: 0,
     outputTokens: 0,
@@ -261,6 +276,22 @@ export async function parseTranscript(transcriptPath: string): Promise<Transcrip
           sessionTokens.cacheCreationTokens += normalizeTokenCount(usage.cache_creation_input_tokens);
           sessionTokens.cacheReadTokens += normalizeTokenCount(usage.cache_read_input_tokens);
         }
+        // Track Claude Code's compact_boundary marker. Both manual (/compact)
+        // and auto compaction emit this system entry with compactMetadata; we
+        // take the most recent one's timestamp so callers can distinguish a
+        // legitimate post-compact zero frame from a transient stdin glitch.
+        if (entry.type === 'system' && entry.subtype === 'compact_boundary') {
+          const ts = entry.timestamp ? new Date(entry.timestamp) : null;
+          if (ts && !Number.isNaN(ts.getTime())) {
+            if (!lastCompactBoundaryAt || ts.getTime() > lastCompactBoundaryAt.getTime()) {
+              lastCompactBoundaryAt = ts;
+              const post = entry.compactMetadata?.postTokens;
+              lastCompactPostTokens = typeof post === 'number' && Number.isFinite(post) && post >= 0
+                ? Math.trunc(post)
+                : undefined;
+            }
+          }
+        }
         processEntry(entry, toolMap, agentMap, taskIdToIndex, latestTodos, result);
       } catch {
         // Skip malformed lines
@@ -277,6 +308,8 @@ export async function parseTranscript(transcriptPath: string): Promise<Transcrip
   result.todos = latestTodos;
   result.sessionName = customTitle ?? latestSlug;
   result.sessionTokens = sessionTokens;
+  result.lastCompactBoundaryAt = lastCompactBoundaryAt;
+  result.lastCompactPostTokens = lastCompactPostTokens;
   if (parsedCleanly) {
     writeTranscriptCache(canonicalTranscriptPath, transcriptState, result);
   }
