@@ -273,6 +273,50 @@ test('applyContextWindowFallback uses compactMetadata.postTokens when present', 
   }
 });
 
+test('applyContextWindowFallback refreshes cache after post-compact transition percent', async () => {
+  const tempHome = await createTempHome();
+  const transcriptPath = '/tmp/session-a.jsonl';
+
+  try {
+    applyContextWindowFallback(
+      makeHealthyFrame(transcriptPath),
+      makeDeps(tempHome, 1_000_000),
+    );
+
+    const firstPostCompactTick = makeSuspiciousFrame();
+    firstPostCompactTick.transcript_path = transcriptPath;
+    const compactHint = {
+      lastCompactBoundaryAt: new Date(1_500_000),
+      lastCompactPostTokens: 7679,
+    };
+
+    applyContextWindowFallback(
+      firstPostCompactTick,
+      makeDeps(tempHome, 2_000_000),
+      undefined,
+      compactHint,
+    );
+
+    assert.equal(firstPostCompactTick.context_window.used_percentage, 4);
+    assert.equal(firstPostCompactTick.context_window.remaining_percentage, 96);
+
+    const nextPostCompactTick = makeSuspiciousFrame();
+    nextPostCompactTick.transcript_path = transcriptPath;
+
+    applyContextWindowFallback(
+      nextPostCompactTick,
+      makeDeps(tempHome, 2_010_000),
+      undefined,
+      compactHint,
+    );
+
+    assert.equal(nextPostCompactTick.context_window.used_percentage, 4);
+    assert.equal(nextPostCompactTick.context_window.remaining_percentage, 96);
+  } finally {
+    await rm(tempHome, { recursive: true, force: true });
+  }
+});
+
 test('applyContextWindowFallback still restores cache for glitch frames when no compact_boundary is present', async () => {
   const tempHome = await createTempHome();
   const transcriptPath = '/tmp/session-a.jsonl';

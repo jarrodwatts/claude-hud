@@ -204,6 +204,39 @@ test("main executes the happy path", async () => {
   assert.equal(renderedContext?.outputStyle, "tech-leader");
 });
 
+test("main passes compact transcript metadata to context fallback", async () => {
+  const stdin = makeStdin({ transcript_path: "/tmp/session.jsonl" });
+  const boundary = new Date("2026-04-24T03:00:00.000Z");
+  let fallbackArgs;
+
+  await main({
+    readStdin: async () => stdin,
+    parseTranscript: async (transcriptPath) => {
+      assert.equal(transcriptPath, "/tmp/session.jsonl");
+      return makeTranscript({
+        sessionName: "compact-session",
+        lastCompactBoundaryAt: boundary,
+        lastCompactPostTokens: 7679,
+      });
+    },
+    applyContextWindowFallback: (...args) => {
+      fallbackArgs = args;
+    },
+    countConfigs: async () => makeCounts(),
+    loadConfig: async () => makeConfig(),
+    getGitStatus: async () => null,
+    render: () => {},
+  });
+
+  assert.equal(fallbackArgs?.[0], stdin);
+  assert.deepEqual(fallbackArgs?.[1], {});
+  assert.equal(fallbackArgs?.[2], "compact-session");
+  assert.deepEqual(fallbackArgs?.[3], {
+    lastCompactBoundaryAt: boundary,
+    lastCompactPostTokens: 7679,
+  });
+});
+
 test("main includes git status in render context", async () => {
   let renderedContext;
 
