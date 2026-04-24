@@ -377,6 +377,40 @@ test('render ignores config.maxWidth when terminal width is detected', () => {
   assert.ok(widest > 30, 'should use detected terminal width, not maxWidth');
 });
 
+test('render treats an actual 40-column terminal as a real width', () => {
+  const ctx = baseContext();
+  ctx.stdin.cwd = '/tmp/very-long-project-name-for-real-40-column-check';
+  ctx.extraLabel = 'extra-segment-for-40-column-check';
+
+  let lines = [];
+  withTerminal(40, () => {
+    lines = captureRender(ctx);
+  });
+
+  assert.ok(lines.length > 1, 'real 40-column terminals should still wrap');
+  assert.ok(lines.every(line => displayWidth(line) <= 40), 'all lines should respect the real 40-column width');
+});
+
+test('render does not treat a real 40-column terminal as unknown maxWidth fallback', () => {
+  const ctx = baseContext();
+  ctx.config.maxWidth = 30;
+  ctx.config.display.showModel = false;
+  ctx.config.display.showContextBar = false;
+  ctx.config.display.showProject = false;
+  ctx.config.display.showConfigCounts = false;
+  ctx.config.display.showDuration = false;
+  ctx.extraLabel = '12345678901234567890123456789012345';
+
+  let lines = [];
+  withTerminal(40, () => {
+    lines = captureRender(ctx);
+  });
+
+  assert.equal(lines.length, 1, 'real 40-column terminals should not fall back to maxWidth wrapping');
+  assert.ok(lines[0].includes('12345678901234567890123456789012345'), 'full extra label should remain visible at the real terminal width');
+  assert.ok(lines.every(line => displayWidth(line) <= 40), 'lines should still fit the real terminal width');
+});
+
 test('render does not strand a bare 5h continuation line in compact mode', () => {
   const ctx = baseContext();
   ctx.config.lineLayout = 'compact';

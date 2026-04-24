@@ -29,16 +29,20 @@ export function renderIdentityLine(
   }
 
   const display = ctx.config?.display;
+  const contextThresholds = {
+    warning: display?.contextWarningThreshold,
+    critical: display?.contextCriticalThreshold,
+  };
   const contextValueMode = display?.contextValue ?? "percent";
   const contextValue = formatContextValue(ctx, percent, contextValueMode);
-  const contextValueDisplay = `${getContextColor(percent, colors)}${contextValue}${RESET}`;
+  const contextValueDisplay = `${getContextColor(percent, colors, contextThresholds)}${contextValue}${RESET}`;
 
   let line =
     display?.showContextBar !== false
-      ? `${progressLabel("label.context", colors, alignLabels)} ${coloredBar(percent, getAdaptiveBarWidth(), colors)} ${contextValueDisplay}`
+      ? `${progressLabel("label.context", colors, alignLabels)} ${coloredBar(percent, getAdaptiveBarWidth(), colors, contextThresholds)} ${contextValueDisplay}`
       : `${progressLabel("label.context", colors, alignLabels)} ${contextValueDisplay}`;
 
-  if (display?.showTokenBreakdown !== false && percent >= 85) {
+  if (display?.showTokenBreakdown !== false && percent >= (display?.contextCriticalThreshold ?? 85)) {
     const usage = ctx.stdin.context_window?.current_usage;
     if (usage) {
       const input = formatTokens(usage.input_tokens ?? 0);

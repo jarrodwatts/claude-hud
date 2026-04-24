@@ -127,9 +127,10 @@ export async function getGitStatus(cwd?: string): Promise<GitStatus | null> {
       );
       const remote = remoteOut.trim();
       const httpsBase = remote
-        .replace(/^git@([^:]+):/, 'https://$1/')
+        .replace(/^git@github\.com:/, 'https://github.com/')
+        .replace(/^ssh:\/\/git@github\.com\//, 'https://github.com/')
         .replace(/\.git$/, '');
-      if (httpsBase.startsWith('https://')) {
+      if (httpsBase.startsWith('https://github.com/')) {
         branchUrl = `${httpsBase}/tree/${encodeURIComponent(branch)}`;
       }
     } catch {

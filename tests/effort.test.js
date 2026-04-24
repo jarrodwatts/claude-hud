@@ -51,4 +51,59 @@ describe('resolveEffortLevel', () => {
       assert.strictEqual(result?.level, 'low');
     });
   });
+
+  describe('stdin effort as object (Claude Code 2.1.115+ schema)', () => {
+    it('extracts level from object { level: "max" }', () => {
+      const result = resolveEffortLevel({ level: 'max' });
+      assert.deepStrictEqual(result, { level: 'max', symbol: '●' });
+    });
+
+    it('extracts and normalizes uppercase level from object', () => {
+      const result = resolveEffortLevel({ level: 'HIGH' });
+      assert.deepStrictEqual(result, { level: 'high', symbol: '◑' });
+    });
+
+    it('handles all known levels when wrapped in object', () => {
+      assert.deepStrictEqual(resolveEffortLevel({ level: 'low' }), { level: 'low', symbol: '○' });
+      assert.deepStrictEqual(resolveEffortLevel({ level: 'medium' }), { level: 'medium', symbol: '◔' });
+      assert.deepStrictEqual(resolveEffortLevel({ level: 'xhigh' }), { level: 'xhigh', symbol: '◕' });
+    });
+
+    it('tolerates extra fields in effort object (forward-compat)', () => {
+      const result = resolveEffortLevel({ level: 'max', budget: 32000, extra: 'ignored' });
+      assert.deepStrictEqual(result, { level: 'max', symbol: '●' });
+    });
+
+    it('falls through when object has no level field', () => {
+      const result = resolveEffortLevel({});
+      assert.ok(result === null || typeof result.level === 'string');
+    });
+
+    it('falls through when object.level is null', () => {
+      const result = resolveEffortLevel({ level: null });
+      assert.ok(result === null || typeof result.level === 'string');
+    });
+
+    it('falls through when object.level is not a string', () => {
+      const result = resolveEffortLevel({ level: 42 });
+      assert.ok(result === null || typeof result.level === 'string');
+    });
+  });
+
+  describe('defensive handling of unexpected types (no crash)', () => {
+    it('does not crash on numeric effort value', () => {
+      const result = resolveEffortLevel(42);
+      assert.ok(result === null || typeof result.level === 'string');
+    });
+
+    it('does not crash on boolean effort value', () => {
+      const result = resolveEffortLevel(true);
+      assert.ok(result === null || typeof result.level === 'string');
+    });
+
+    it('does not crash on array effort value', () => {
+      const result = resolveEffortLevel(['max']);
+      assert.ok(result === null || typeof result.level === 'string');
+    });
+  });
 });

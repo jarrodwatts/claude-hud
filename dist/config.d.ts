@@ -74,6 +74,8 @@ export interface HudConfig {
         showOutputStyle: boolean;
         mergeGroups: HudElement[][];
         autocompactBuffer: AutocompactBufferMode;
+        contextWarningThreshold: number;
+        contextCriticalThreshold: number;
         usageThreshold: number;
         sevenDayThreshold: number;
         environmentThreshold: number;

@@ -1,6 +1,6 @@
 import type { RenderContext } from '../types.js';
 import { isLimitReached } from '../types.js';
-import { getContextPercent, getBufferedPercent, getModelName, formatModelName, getProviderLabel, getTotalTokens } from '../stdin.js';
+import { getContextPercent, getBufferedPercent, getModelName, formatModelName, getProviderLabel, getTotalTokens, shouldHideUsage } from '../stdin.js';
 import { getOutputSpeed } from '../speed-tracker.js';
 import { coloredBar, critical, git as gitColor, gitBranch as gitBranchColor, label, model as modelColor, project as projectColor, getContextColor, getQuotaColor, quotaBar, custom as customColor, RESET } from './colors.js';
 import { getAdaptiveBarWidth } from '../utils/terminal.js';
@@ -29,16 +29,20 @@ export function renderSessionLine(ctx: RenderContext): string {
   }
 
   const colors = ctx.config?.colors;
+  const display = ctx.config?.display;
+  const contextThresholds = {
+    warning: display?.contextWarningThreshold,
+    critical: display?.contextCriticalThreshold,
+  };
   const barWidth = getAdaptiveBarWidth();
-  const bar = coloredBar(percent, barWidth, colors);
+  const bar = coloredBar(percent, barWidth, colors, contextThresholds);
 
   const parts: string[] = [];
-  const display = ctx.config?.display;
   const timeFormat: TimeFormatMode = display?.timeFormat ?? 'relative';
   const resetsKey = timeFormat === 'absolute' ? 'format.resets' : 'format.resetsIn';
   const contextValueMode = display?.contextValue ?? 'percent';
   const contextValue = formatContextValue(ctx, percent, contextValueMode);
-  const contextValueDisplay = `${getContextColor(percent, colors)}${contextValue}${RESET}`;
+  const contextValueDisplay = `${getContextColor(percent, colors, contextThresholds)}${contextValue}${RESET}`;
 
   // Model and context bar (FIRST)
   const providerLabel = getProviderLabel(ctx.stdin);
@@ -158,7 +162,7 @@ export function renderSessionLine(ctx: RenderContext): string {
   }
 
   // Usage limits display (shown when enabled in config, respects usageThreshold)
-  if (display?.showUsage !== false && ctx.usageData && !providerLabel) {
+  if (display?.showUsage !== false && ctx.usageData && !shouldHideUsage(ctx.stdin)) {
     const usageCompact = display?.usageCompact ?? false;
     const showResetLabel = display?.showResetLabel ?? true;
 
@@ -292,7 +296,7 @@ export function renderSessionLine(ctx: RenderContext): string {
   let line = parts.join(' | ');
 
   // Token breakdown at high context
-  if (display?.showTokenBreakdown !== false && percent >= 85) {
+  if (display?.showTokenBreakdown !== false && percent >= (display?.contextCriticalThreshold ?? 85)) {
     const usage = ctx.stdin.context_window?.current_usage;
     if (usage) {
       const input = formatTokens(usage.input_tokens ?? 0);

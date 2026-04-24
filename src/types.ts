@@ -38,8 +38,11 @@ export interface StdinData {
       resets_at?: number | null;
     } | null;
   } | null;
-  // Future: Claude Code may expose effort level directly in stdin JSON
-  effort?: string | null;
+  // Claude Code 2.1.115+ exposes effort as an object: { level: "max" }.
+  // Earlier versions (≤2.1.114) did not send this field at all. The bare-string
+  // shape is kept for backwards compatibility with the original PR #471 design
+  // that future-proofed a string form before Anthropic had committed a schema.
+  effort?: string | { level?: string | null; [key: string]: unknown } | null;
 }
 
 export interface ToolEntry {

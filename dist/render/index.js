@@ -342,7 +342,7 @@ function renderExpanded(ctx, terminalWidth = null) {
                     .filter((entry) => typeof entry.line === 'string' && entry.line.length > 0);
                 if (renderedGroupLines.length > 1) {
                     const combinedLine = renderedGroupLines.map(({ line }) => line).join(' │ ');
-                    const widthIsReal = terminalWidth && terminalWidth !== UNKNOWN_TERMINAL_WIDTH;
+                    const widthIsReal = terminalWidth !== UNKNOWN_TERMINAL_WIDTH;
                     const canCombine = !widthIsReal || visualLength(combinedLine) <= terminalWidth;
                     if (canCombine) {
                         lines.push({
@@ -392,11 +392,8 @@ function renderExpanded(ctx, terminalWidth = null) {
 export function render(ctx) {
     const lineLayout = ctx.config?.lineLayout ?? 'expanded';
     const showSeparators = ctx.config?.showSeparators ?? false;
-    const detectedWidth = getTerminalWidth({ preferEnv: true, fallback: UNKNOWN_TERMINAL_WIDTH }) ??
-        UNKNOWN_TERMINAL_WIDTH;
-    const terminalWidth = detectedWidth === UNKNOWN_TERMINAL_WIDTH && ctx.config?.maxWidth
-        ? ctx.config.maxWidth
-        : detectedWidth;
+    const detectedWidth = getTerminalWidth({ preferEnv: true, fallback: UNKNOWN_TERMINAL_WIDTH });
+    const terminalWidth = detectedWidth ?? ctx.config?.maxWidth ?? UNKNOWN_TERMINAL_WIDTH;
     let lines;
     if (lineLayout === 'expanded') {
         const renderedLines = renderExpanded(ctx, terminalWidth);
@@ -436,7 +433,7 @@ export function render(ctx) {
     // Only wrap when terminal width is real (known). When width is the
     // UNKNOWN_TERMINAL_WIDTH fallback, wrapping would use an arbitrary value
     // and produce incorrect line breaks.
-    const wrapWidth = (terminalWidth && terminalWidth !== UNKNOWN_TERMINAL_WIDTH) ? terminalWidth : 0;
+    const wrapWidth = terminalWidth !== UNKNOWN_TERMINAL_WIDTH ? (terminalWidth ?? 0) : 0;
     const visibleLines = physicalLines.flatMap(line => wrapLineToWidth(line, wrapWidth));
     for (const line of visibleLines) {
         const outputLine = `${RESET}${line}`;

@@ -108,6 +108,8 @@ export interface HudConfig {
     showOutputStyle: boolean;
     mergeGroups: HudElement[][];
     autocompactBuffer: AutocompactBufferMode;
+    contextWarningThreshold: number;
+    contextCriticalThreshold: number;
     usageThreshold: number;
     sevenDayThreshold: number;
     environmentThreshold: number;
@@ -164,6 +166,8 @@ export const DEFAULT_CONFIG: HudConfig = {
     showOutputStyle: false,
     mergeGroups: DEFAULT_MERGE_GROUPS.map(group => [...group]),
     autocompactBuffer: 'enabled',
+    contextWarningThreshold: 70,
+    contextCriticalThreshold: 85,
     usageThreshold: 0,
     sevenDayThreshold: 80,
     environmentThreshold: 0,
@@ -355,6 +359,11 @@ function validateThreshold(value: unknown, max = 100): number {
   return Math.max(0, Math.min(max, value));
 }
 
+function validateContextThreshold(value: unknown, fallback: number): number {
+  if (typeof value !== 'number' || !Number.isFinite(value)) return fallback;
+  return Math.max(0, Math.min(100, value));
+}
+
 function validateCountThreshold(value: unknown): number {
   if (typeof value !== 'number' || !Number.isFinite(value)) {
     return 0;
@@ -503,6 +512,14 @@ export function mergeConfig(userConfig: Partial<HudConfig>): HudConfig {
     autocompactBuffer: validateAutocompactBuffer(migrated.display?.autocompactBuffer)
       ? migrated.display.autocompactBuffer
       : DEFAULT_CONFIG.display.autocompactBuffer,
+    contextWarningThreshold: validateContextThreshold(
+      migrated.display?.contextWarningThreshold,
+      DEFAULT_CONFIG.display.contextWarningThreshold,
+    ),
+    contextCriticalThreshold: validateContextThreshold(
+      migrated.display?.contextCriticalThreshold,
+      DEFAULT_CONFIG.display.contextCriticalThreshold,
+    ),
     usageThreshold: validateThreshold(migrated.display?.usageThreshold, 100),
     sevenDayThreshold: validateThreshold(migrated.display?.sevenDayThreshold, 100),
     environmentThreshold: validateThreshold(migrated.display?.environmentThreshold, 100),

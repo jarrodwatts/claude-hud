@@ -360,3 +360,37 @@ test('getGitStatus builds branchUrl from SSH origin remotes', async () => {
     await rm(dir, { recursive: true, force: true });
   }
 });
+
+test('getGitStatus does not build branchUrl for non-GitHub HTTPS remotes', async () => {
+  const dir = await mkdtemp(path.join(tmpdir(), 'claude-hud-git-'));
+  try {
+    execFileSync('git', ['init'], { cwd: dir, stdio: 'ignore' });
+    execFileSync('git', ['config', 'user.email', 'test@test.com'], { cwd: dir, stdio: 'ignore' });
+    execFileSync('git', ['config', 'user.name', 'Test'], { cwd: dir, stdio: 'ignore' });
+    execFileSync('git', ['commit', '--allow-empty', '-m', 'init'], { cwd: dir, stdio: 'ignore' });
+    execFileSync('git', ['checkout', '-b', 'feature/test-branch'], { cwd: dir, stdio: 'ignore' });
+    execFileSync('git', ['remote', 'add', 'origin', 'https://gitlab.com/example/claude-hud.git'], { cwd: dir, stdio: 'ignore' });
+
+    const result = await getGitStatus(dir);
+    assert.equal(result?.branchUrl, undefined);
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
+});
+
+test('getGitStatus does not build branchUrl for non-GitHub SSH remotes', async () => {
+  const dir = await mkdtemp(path.join(tmpdir(), 'claude-hud-git-'));
+  try {
+    execFileSync('git', ['init'], { cwd: dir, stdio: 'ignore' });
+    execFileSync('git', ['config', 'user.email', 'test@test.com'], { cwd: dir, stdio: 'ignore' });
+    execFileSync('git', ['config', 'user.name', 'Test'], { cwd: dir, stdio: 'ignore' });
+    execFileSync('git', ['commit', '--allow-empty', '-m', 'init'], { cwd: dir, stdio: 'ignore' });
+    execFileSync('git', ['checkout', '-b', 'feature/test-branch'], { cwd: dir, stdio: 'ignore' });
+    execFileSync('git', ['remote', 'add', 'origin', 'git@gitlab.com:example/claude-hud.git'], { cwd: dir, stdio: 'ignore' });
+
+    const result = await getGitStatus(dir);
+    assert.equal(result?.branchUrl, undefined);
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
+});

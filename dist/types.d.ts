@@ -36,7 +36,10 @@ export interface StdinData {
             resets_at?: number | null;
         } | null;
     } | null;
-    effort?: string | null;
+    effort?: string | {
+        level?: string | null;
+        [key: string]: unknown;
+    } | null;
 }
 export interface ToolEntry {
     id: string;

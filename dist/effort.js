@@ -9,19 +9,36 @@ const KNOWN_SYMBOLS = {
 /**
  * Resolve the current session's effort level.
  *
- * Priority:
- * 1. stdin.effort (future — when Claude Code exposes it in statusline JSON)
- * 2. Parent process CLI args (reflects --effort flag at session start)
+ * Resolution order (matches `extractEffortString` below):
+ * 1. stdin.effort as non-empty string — original PR #471 future-proofed path.
+ * 2. stdin.effort as object with string `level` — Claude Code 2.1.115+ schema
+ *    (e.g., `{ "level": "max" }`).
+ * 3. Parent process CLI args — `--effort` flag captured from ppid.
+ * 4. null.
  *
- * Returns null if effort cannot be determined.
+ * Non-matching inputs (numbers, booleans, arrays, objects without a string
+ * `level`) fall through to step 3 rather than crashing.
  */
 export function resolveEffortLevel(stdinEffort) {
-    if (stdinEffort) {
-        return formatEffort(stdinEffort);
+    const fromStdin = extractEffortString(stdinEffort);
+    if (fromStdin) {
+        return formatEffort(fromStdin);
     }
     const cliEffort = readParentProcessEffort();
     if (cliEffort) {
         return formatEffort(cliEffort);
+    }
+    return null;
+}
+function extractEffortString(value) {
+    if (typeof value === 'string') {
+        return value.length > 0 ? value : null;
+    }
+    if (value && typeof value === 'object' && !Array.isArray(value)) {
+        const level = value.level;
+        if (typeof level === 'string' && level.length > 0) {
+            return level;
+        }
     }
     return null;
 }

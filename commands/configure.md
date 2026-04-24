@@ -16,7 +16,8 @@ These are always enabled and NOT configurable:
 - Context bar `████░░░░░░ 45%`
 
 Advanced settings such as `colors.*`, `pathLevels`, `display.timeFormat`,
-`display.usageThreshold`, and `display.environmentThreshold` are preserved when saving but are not
+`display.usageThreshold`, `display.environmentThreshold`, `display.contextWarningThreshold`,
+and `display.contextCriticalThreshold` are preserved when saving but are not
 edited by this guided flow.
 
 ---
@@ -341,6 +342,8 @@ Merge with existing config, preserving:
 - `pathLevels` (not in configure flow)
 - `display.usageThreshold` (advanced config)
 - `display.environmentThreshold` (advanced config)
+- `display.contextWarningThreshold` (advanced config)
+- `display.contextCriticalThreshold` (advanced config)
 - `colors` (advanced manual palette overrides)
 
 **Migration note**: Old configs with `layout: "default"` or `layout: "separators"` are automatically migrated to the new `lineLayout` + `showSeparators` format on load.
