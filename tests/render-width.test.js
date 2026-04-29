@@ -865,6 +865,36 @@ test('render keeps the default status group within a safe row budget at 160 colu
   assert.ok(lines.every(line => displayWidth(line) <= 160), 'all rows should fit 160 columns');
 });
 
+test('render keeps the default status group within a safe row budget at 170 columns', () => {
+  let lines = [];
+  withColumns(process.stdout, undefined, () => {
+    withColumns(process.stderr, undefined, () => {
+      lines = captureRender(statuslineBudgetContext(170));
+    });
+  });
+
+  assert.ok(lines.length <= 3, `statusline should stay within project + 2 info rows: ${lines.join(' | ')}`);
+  assert.ok(lines.some(line => line.includes('Context')), 'context row should remain visible');
+  assert.ok(lines.some(line => line.includes('Usage')), 'usage row should remain visible');
+  assert.ok(lines.some(line => line.includes('ZenMux')), 'zenmux row should remain visible');
+  assert.ok(lines.every(line => displayWidth(line) <= 170), 'all rows should fit 170 columns');
+});
+
+test('render keeps the default status group within a safe row budget at 180 columns', () => {
+  let lines = [];
+  withColumns(process.stdout, undefined, () => {
+    withColumns(process.stderr, undefined, () => {
+      lines = captureRender(statuslineBudgetContext(180));
+    });
+  });
+
+  assert.ok(lines.length <= 3, `statusline should stay within project + 2 info rows: ${lines.join(' | ')}`);
+  assert.ok(lines.some(line => line.includes('Context')), 'context row should remain visible');
+  assert.ok(lines.some(line => line.includes('Usage')), 'usage row should remain visible');
+  assert.ok(lines.some(line => line.includes('ZenMux')), 'zenmux row should remain visible');
+  assert.ok(lines.every(line => displayWidth(line) <= 180), 'all rows should fit 180 columns');
+});
+
 test('render prioritizes core status elements within the row budget at 80 columns', () => {
   let lines = [];
   withColumns(process.stdout, undefined, () => {
