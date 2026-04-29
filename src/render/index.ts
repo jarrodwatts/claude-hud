@@ -20,9 +20,8 @@ import { getTerminalWidth, UNKNOWN_TERMINAL_WIDTH } from '../utils/terminal.js';
 import { codePointCellWidth, isCjkAmbiguousWide } from './width.js';
 
 const FALLBACK_TERMINAL_WIDTH = 120;
-const NARROW_MERGE_GROUP_WIDTH = 160;
-const NARROW_MERGE_GROUP_ROW_BUDGET = 2;
-const NARROW_OPTIONAL_DROP_ORDER: HudElement[] = ['memory', 'promptCache', 'environment'];
+const MERGE_GROUP_ROW_BUDGET = 2;
+const OPTIONAL_DROP_ORDER: HudElement[] = ['memory', 'promptCache', 'environment'];
 
 type RenderDensity = 'normal' | 'compact';
 type RenderElementOptions = {
@@ -450,12 +449,8 @@ function packMergeRows(
   return packedRows;
 }
 
-function rowsFitNarrowBudget(rows: PackedMergeRow[], terminalWidth: number | null): boolean {
-  return !(
-    typeof terminalWidth === 'number'
-    && terminalWidth <= NARROW_MERGE_GROUP_WIDTH
-    && rows.length > NARROW_MERGE_GROUP_ROW_BUDGET
-  );
+function rowsFitBudget(rows: PackedMergeRow[]): boolean {
+  return rows.length <= MERGE_GROUP_ROW_BUDGET;
 }
 
 function convertPackedRowsToLines(
@@ -491,24 +486,24 @@ function renderMergeSequence(
   terminalWidth: number | null,
 ): Array<{ line: string; isActivity: boolean }> {
   const normalRows = packMergeRows(renderGroupLines(ctx, mergeSequence, 'normal'), terminalWidth);
-  if (normalRows.length === 0 || rowsFitNarrowBudget(normalRows, terminalWidth)) {
+  if (normalRows.length === 0 || rowsFitBudget(normalRows)) {
     return convertPackedRowsToLines(ctx, normalRows, 'normal');
   }
 
   let compactSequence = [...mergeSequence];
   let compactRows = packMergeRows(renderGroupLines(ctx, compactSequence, 'compact'), terminalWidth);
-  if (rowsFitNarrowBudget(compactRows, terminalWidth)) {
+  if (rowsFitBudget(compactRows)) {
     return convertPackedRowsToLines(ctx, compactRows, 'compact');
   }
 
-  for (const optionalElement of NARROW_OPTIONAL_DROP_ORDER) {
+  for (const optionalElement of OPTIONAL_DROP_ORDER) {
     if (!compactSequence.includes(optionalElement)) {
       continue;
     }
 
     compactSequence = compactSequence.filter(element => element !== optionalElement);
     compactRows = packMergeRows(renderGroupLines(ctx, compactSequence, 'compact'), terminalWidth);
-    if (rowsFitNarrowBudget(compactRows, terminalWidth)) {
+    if (rowsFitBudget(compactRows)) {
       return convertPackedRowsToLines(ctx, compactRows, 'compact');
     }
   }
