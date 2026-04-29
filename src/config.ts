@@ -59,8 +59,15 @@ export const DEFAULT_ELEMENT_ORDER: HudElement[] = [
   'todos',
 ];
 
+// All progress/info elements share one merge group so the renderer can
+// combine them onto a single line when the terminal is wide enough, and
+// fall back to stacking them when it isn't. Activity rows (tools/agents/
+// todos) and the project row stay separate because they're list-shaped.
+// Keeping the group's element order aligned with DEFAULT_ELEMENT_ORDER
+// is required: collectMergeSequence stops at the first consecutive
+// element that isn't in the group.
 export const DEFAULT_MERGE_GROUPS: HudElement[][] = [
-  ['context', 'usage'],
+  ['context', 'usage', 'zenmux', 'promptCache', 'memory', 'environment'],
 ];
 
 const KNOWN_ELEMENTS = new Set<HudElement>(DEFAULT_ELEMENT_ORDER);

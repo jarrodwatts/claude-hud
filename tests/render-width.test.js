@@ -1,6 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { render } from '../dist/render/index.js';
+import { mergeConfig } from '../dist/config.js';
 import { setLanguage } from '../dist/i18n/index.js';
 
 function baseContext() {
@@ -674,6 +675,116 @@ test('separator width accounts for CJK ambiguous-wide dashes so the terminal doe
   }
 });
 
+test('render greedily packs merge-group elements onto rows that fit, splitting only when the next element would overflow', () => {
+  // Build a context with several mergeable elements (context, zenmux,
+  // environment) and verify:
+  //   - On a wide enough terminal, all three pack into a single row.
+  //   - On an intermediate width, packing splits into multiple rows but
+  //     keeps as many elements per row as fit.
+  //   - On a narrow terminal, every element stacks alone.
+  function packingContext() {
+    const ctx = baseContext();
+    ctx.config.lineLayout = 'expanded';
+    ctx.config.elementOrder = ['project', 'context', 'zenmux', 'environment'];
+    ctx.config.display.mergeGroups = [['context', 'zenmux', 'environment']];
+    ctx.config.display.showZenmuxQuota = true;
+    ctx.config.display.showContextBar = true;
+    ctx.config.display.showConfigCounts = true;
+    ctx.config.display.showUsage = false;
+    ctx.config.display.usageBarEnabled = false;
+    ctx.claudeMdCount = 1;
+    ctx.hooksCount = 6;
+    ctx.zenmuxQuota = {
+      accountStatus: 'healthy',
+      fiveHour: { usagePercentage: 49, resetsAt: new Date(Date.now() + 3 * 3600 * 1000) },
+      sevenDay: { usagePercentage: 49, resetsAt: new Date(Date.now() + 24 * 3600 * 1000) },
+    };
+    return ctx;
+  }
+
+  let wide = [];
+  withTerminal(300, () => {
+    wide = captureRender(packingContext());
+  });
+  const wideMerged = wide.filter(line => line.includes('Context') && line.includes('ZenMux') && line.includes('CLAUDE.md'));
+  assert.equal(wideMerged.length, 1, `wide terminal should pack all merge-group elements onto one row: ${wide.join(' | ')}`);
+  assert.ok(wide.every(line => displayWidth(line) <= 300), 'all lines should fit terminal width');
+
+  let mid = [];
+  withTerminal(100, () => {
+    mid = captureRender(packingContext());
+  });
+  // At 100 cells Context+ZenMux pack onto one row (~95 cells) but adding
+  // Environment would overflow, so packing splits Environment to a new row.
+  const midContextZenmuxRow = mid.filter(line => line.includes('Context') && line.includes('ZenMux'));
+  const midEnvRow = mid.filter(line => line.includes('CLAUDE.md'));
+  assert.equal(midContextZenmuxRow.length, 1, `context should pack with zenmux when there is room: ${mid.join(' | ')}`);
+  assert.equal(midEnvRow.length, 1, 'environment should appear on exactly one row');
+  assert.notEqual(midContextZenmuxRow[0], midEnvRow[0], 'environment must split to a new row when adding it would overflow');
+  assert.ok(mid.every(line => displayWidth(line) <= 100), 'all lines should fit terminal width');
+
+  let narrow = [];
+  withTerminal(40, () => {
+    narrow = captureRender(packingContext());
+  });
+  const narrowContextRow = narrow.filter(line => line.includes('Context'));
+  const narrowZenmuxRow = narrow.filter(line => line.includes('ZenMux'));
+  const narrowEnvRow = narrow.filter(line => line.includes('CLAUDE.md'));
+  assert.equal(narrowContextRow.length, 1, 'context should appear on its own row at narrow widths');
+  assert.equal(narrowZenmuxRow.length, 1, 'zenmux should appear on its own row at narrow widths');
+  assert.equal(narrowEnvRow.length, 1, 'environment should appear on its own row at narrow widths');
+  assert.notEqual(narrowContextRow[0], narrowZenmuxRow[0], 'narrow stacking: context must not share row with zenmux');
+  assert.notEqual(narrowZenmuxRow[0], narrowEnvRow[0], 'narrow stacking: zenmux must not share row with environment');
+});
+
+test('render keeps default merge-group rows visible when a narrow terminal forces wrapping', () => {
+  const ctx = baseContext();
+  ctx.config = mergeConfig({
+    lineLayout: 'expanded',
+    display: {
+      showContextBar: true,
+      showUsage: true,
+      usageBarEnabled: false,
+      showZenmuxQuota: true,
+      showPromptCache: true,
+      showMemoryUsage: true,
+      showConfigCounts: true,
+    },
+  });
+  ctx.usageData = {
+    fiveHour: 62,
+    sevenDay: 83,
+    fiveHourResetAt: new Date(Date.now() + 90 * 60 * 1000),
+    sevenDayResetAt: new Date(Date.now() + 4 * 24 * 60 * 60 * 1000),
+  };
+  ctx.zenmuxQuota = {
+    accountStatus: 'healthy',
+    fiveHour: { usagePercentage: 40, resetsAt: null },
+    sevenDay: { usagePercentage: 45, resetsAt: null },
+  };
+  ctx.transcript.lastAssistantResponseAt = new Date();
+  ctx.memoryUsage = {
+    totalBytes: 16 * 1024 ** 3,
+    usedBytes: 8 * 1024 ** 3,
+    freeBytes: 8 * 1024 ** 3,
+    usedPercent: 50,
+  };
+  ctx.claudeMdCount = 1;
+  ctx.hooksCount = 2;
+
+  let lines = [];
+  withTerminal(32, () => {
+    lines = captureRender(ctx);
+  });
+
+  assert.ok(lines.some(line => line.includes('Context')), 'context row should remain visible');
+  assert.ok(lines.some(line => line.includes('Usage')), 'usage row should remain visible');
+  assert.ok(lines.some(line => line.includes('ZenMux')), 'zenmux row should remain visible');
+  assert.ok(lines.some(line => line.includes('Cache')), 'prompt cache row should remain visible');
+  assert.ok(lines.some(line => line.includes('Approx RAM')), 'memory row should remain visible');
+  assert.ok(lines.some(line => line.includes('CLAUDE.md')), 'environment row should remain visible');
+  assert.ok(lines.every(line => displayWidth(line) <= 32), 'all wrapped rows should fit terminal width');
+});
 
 test('width math counts ambiguous chars as 2 cells only in CJK mode', async () => {
   const { codePointCellWidth, isAmbiguousWideCodePoint, isCjkAmbiguousWide } =

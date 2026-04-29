@@ -419,33 +419,54 @@ function renderExpanded(ctx: RenderContext, terminalWidth: number | null = null)
               typeof entry.line === 'string' && entry.line.length > 0
           );
 
-        if (renderedGroupLines.length > 1) {
-          const combinedLine = renderedGroupLines.map(({ line }) => line).join(' │ ');
-          const widthIsReal = terminalWidth !== UNKNOWN_TERMINAL_WIDTH;
-          const canCombine = !widthIsReal || visualLength(combinedLine) <= terminalWidth;
-
-          if (canCombine) {
-            lines.push({
-              line: combinedLine,
-              isActivity: renderedGroupLines.some(({ element: groupedElement }) => ACTIVITY_ELEMENTS.has(groupedElement)),
-            });
-          } else {
-            for (const { element: groupedElement, line } of renderedGroupLines) {
-              const stackedLine = renderElementLine(ctx, groupedElement, {
-                alignProgressLabels: true,
-              }) ?? line;
-              lines.push({
-                line: stackedLine,
-                isActivity: ACTIVITY_ELEMENTS.has(groupedElement),
-              });
-            }
-          }
-        } else if (renderedGroupLines.length === 1) {
+        if (renderedGroupLines.length === 1) {
           const [{ element: groupedElement, line }] = renderedGroupLines;
           lines.push({
             line,
             isActivity: ACTIVITY_ELEMENTS.has(groupedElement),
           });
+          continue;
+        }
+
+        if (renderedGroupLines.length > 1) {
+          // Greedy multi-row packing: keep adding elements to the current
+          // row while they still fit, otherwise start a new row. This lets
+          // wide terminals pack everything onto one line and narrow ones
+          // fall back to stacking, instead of all-or-nothing.
+          const widthIsReal = terminalWidth !== UNKNOWN_TERMINAL_WIDTH;
+          const packedRows: Array<{ elements: HudElement[]; line: string }> = [];
+
+          for (const { element: groupedElement, line } of renderedGroupLines) {
+            const lastRow = packedRows[packedRows.length - 1];
+            if (lastRow) {
+              const candidate = `${lastRow.line} │ ${line}`;
+              if (!widthIsReal || visualLength(candidate) <= terminalWidth) {
+                lastRow.line = candidate;
+                lastRow.elements.push(groupedElement);
+                continue;
+              }
+            }
+            packedRows.push({ elements: [groupedElement], line });
+          }
+
+          // When an element ends up alone on a row, re-render it with the
+          // aligned-label variant so progress bars line up vertically with
+          // any other solo rows from the same group.
+          for (const row of packedRows) {
+            let line = row.line;
+            if (row.elements.length === 1) {
+              const aligned = renderElementLine(ctx, row.elements[0], {
+                alignProgressLabels: true,
+              });
+              if (aligned) {
+                line = aligned;
+              }
+            }
+            lines.push({
+              line,
+              isActivity: row.elements.some(element => ACTIVITY_ELEMENTS.has(element)),
+            });
+          }
         }
 
         continue;
