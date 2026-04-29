@@ -4,7 +4,12 @@ import { label, getQuotaColor, quotaBar, RESET } from "../colors.js";
 import { getAdaptiveBarWidth } from "../../utils/terminal.js";
 import { t } from "../../i18n/index.js";
 
-export function renderMemoryLine(ctx: RenderContext): string | null {
+type RenderDensity = 'normal' | 'compact';
+
+export function renderMemoryLine(
+  ctx: RenderContext,
+  options: { density?: RenderDensity } = {},
+): string | null {
   const display = ctx.config?.display;
   const colors = ctx.config?.colors;
 
@@ -23,11 +28,17 @@ export function renderMemoryLine(ctx: RenderContext): string | null {
   const memoryLabel = label(t("label.approxRam"), colors);
   const percentColor = getQuotaColor(ctx.memoryUsage.usedPercent, colors);
   const percent = `${percentColor}${ctx.memoryUsage.usedPercent}%${RESET}`;
+  const usage = `${formatBytes(ctx.memoryUsage.usedBytes)} / ${formatBytes(ctx.memoryUsage.totalBytes)} (${percent})`;
+
+  if (options.density === 'compact') {
+    return `${memoryLabel} ${usage}`;
+  }
+
   const bar = quotaBar(
     ctx.memoryUsage.usedPercent,
     getAdaptiveBarWidth(),
     colors,
   );
 
-  return `${memoryLabel} ${bar} ${formatBytes(ctx.memoryUsage.usedBytes)} / ${formatBytes(ctx.memoryUsage.totalBytes)} (${percent})`;
+  return `${memoryLabel} ${bar} ${usage}`;
 }

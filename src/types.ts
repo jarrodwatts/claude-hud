@@ -3,6 +3,7 @@ import type { GitStatus } from './git.js';
 
 export interface StdinData {
   transcript_path?: string;
+  columns?: number | string | null;
   cwd?: string;
   model?: {
     id?: string;

@@ -19,6 +19,19 @@ import { dim, RESET } from './colors.js';
 import { getTerminalWidth, UNKNOWN_TERMINAL_WIDTH } from '../utils/terminal.js';
 import { codePointCellWidth, isCjkAmbiguousWide } from './width.js';
 
+const FALLBACK_TERMINAL_WIDTH = 120;
+const NARROW_MERGE_GROUP_WIDTH = 160;
+const NARROW_MERGE_GROUP_ROW_BUDGET = 2;
+const NARROW_OPTIONAL_DROP_ORDER: HudElement[] = ['memory', 'promptCache', 'environment'];
+
+type RenderDensity = 'normal' | 'compact';
+type RenderElementOptions = {
+  alignProgressLabels?: boolean;
+  density?: RenderDensity;
+};
+type RenderedGroupLine = { element: HudElement; line: string };
+type PackedMergeRow = { elements: HudElement[]; line: string };
+
 // eslint-disable-next-line no-control-regex
 const ANSI_ESCAPE_PATTERN = /^(?:\x1b\[[0-9;]*m|\x1b\][^\x07\x1b]*(?:\x07|\x1b\\))/;
 // eslint-disable-next-line no-control-regex
@@ -163,6 +176,28 @@ function truncateToWidth(str: string, maxWidth: number): string {
   const suffix = maxWidth >= 3 ? '...' : '.'.repeat(maxWidth);
   const keep = Math.max(0, maxWidth - suffix.length);
   return `${sliceVisible(str, keep)}${suffix}${RESET}`;
+}
+
+function parseColumns(value: unknown): number | null {
+  const columns = typeof value === 'number'
+    ? value
+    : (typeof value === 'string' ? Number.parseInt(value, 10) : NaN);
+
+  return Number.isFinite(columns) && columns > 0 ? Math.floor(columns) : null;
+}
+
+function withRenderColumns<T>(columns: number, fn: () => T): T {
+  const originalColumns = process.env.COLUMNS;
+  process.env.COLUMNS = String(columns);
+  try {
+    return fn();
+  } finally {
+    if (originalColumns === undefined) {
+      delete process.env.COLUMNS;
+    } else {
+      process.env.COLUMNS = originalColumns;
+    }
+  }
 }
 
 function splitLineBySeparators(line: string): { segments: string[]; separators: string[] } {
@@ -348,10 +383,11 @@ function collectActivityLines(ctx: RenderContext): string[] {
 function renderElementLine(
   ctx: RenderContext,
   element: HudElement,
-  options?: { alignProgressLabels?: boolean },
+  options?: RenderElementOptions,
 ): string | null {
   const display = ctx.config?.display;
   const alignProgressLabels = options?.alignProgressLabels ?? false;
+  const density = options?.density ?? 'normal';
 
   switch (element) {
     case 'project':
@@ -359,11 +395,11 @@ function renderElementLine(
     case 'context':
       return renderIdentityLine(ctx, alignProgressLabels);
     case 'usage':
-      return renderUsageLine(ctx, alignProgressLabels);
+      return renderUsageLine(ctx, alignProgressLabels, { density });
     case 'promptCache':
       return renderPromptCacheLine(ctx);
     case 'memory':
-      return renderMemoryLine(ctx);
+      return renderMemoryLine(ctx, { density });
     case 'environment':
       return renderEnvironmentLine(ctx);
     case 'tools':
@@ -373,6 +409,111 @@ function renderElementLine(
     case 'todos':
       return display?.showTodos === false ? null : renderTodosLine(ctx);
   }
+}
+
+function renderGroupLines(
+  ctx: RenderContext,
+  mergeSequence: HudElement[],
+  density: RenderDensity,
+): RenderedGroupLine[] {
+  return mergeSequence
+    .map(groupedElement => ({
+      element: groupedElement,
+      line: renderElementLine(ctx, groupedElement, { density }),
+    }))
+    .filter(
+      (entry): entry is RenderedGroupLine =>
+        typeof entry.line === 'string' && entry.line.length > 0
+    );
+}
+
+function packMergeRows(
+  renderedGroupLines: RenderedGroupLine[],
+  terminalWidth: number | null,
+): PackedMergeRow[] {
+  const widthIsReal = typeof terminalWidth === 'number' && terminalWidth > 0;
+  const packedRows: PackedMergeRow[] = [];
+
+  for (const { element: groupedElement, line } of renderedGroupLines) {
+    const lastRow = packedRows[packedRows.length - 1];
+    if (lastRow) {
+      const candidate = `${lastRow.line} │ ${line}`;
+      if (!widthIsReal || visualLength(candidate) <= terminalWidth) {
+        lastRow.line = candidate;
+        lastRow.elements.push(groupedElement);
+        continue;
+      }
+    }
+    packedRows.push({ elements: [groupedElement], line });
+  }
+
+  return packedRows;
+}
+
+function rowsFitNarrowBudget(rows: PackedMergeRow[], terminalWidth: number | null): boolean {
+  return !(
+    typeof terminalWidth === 'number'
+    && terminalWidth <= NARROW_MERGE_GROUP_WIDTH
+    && rows.length > NARROW_MERGE_GROUP_ROW_BUDGET
+  );
+}
+
+function convertPackedRowsToLines(
+  ctx: RenderContext,
+  rows: PackedMergeRow[],
+  density: RenderDensity,
+): Array<{ line: string; isActivity: boolean }> {
+  const lines: Array<{ line: string; isActivity: boolean }> = [];
+
+  for (const row of rows) {
+    let line = row.line;
+    if (row.elements.length === 1) {
+      const aligned = renderElementLine(ctx, row.elements[0], {
+        alignProgressLabels: true,
+        density,
+      });
+      if (aligned) {
+        line = aligned;
+      }
+    }
+    lines.push({
+      line,
+      isActivity: row.elements.some(element => ACTIVITY_ELEMENTS.has(element)),
+    });
+  }
+
+  return lines;
+}
+
+function renderMergeSequence(
+  ctx: RenderContext,
+  mergeSequence: HudElement[],
+  terminalWidth: number | null,
+): Array<{ line: string; isActivity: boolean }> {
+  const normalRows = packMergeRows(renderGroupLines(ctx, mergeSequence, 'normal'), terminalWidth);
+  if (normalRows.length === 0 || rowsFitNarrowBudget(normalRows, terminalWidth)) {
+    return convertPackedRowsToLines(ctx, normalRows, 'normal');
+  }
+
+  let compactSequence = [...mergeSequence];
+  let compactRows = packMergeRows(renderGroupLines(ctx, compactSequence, 'compact'), terminalWidth);
+  if (rowsFitNarrowBudget(compactRows, terminalWidth)) {
+    return convertPackedRowsToLines(ctx, compactRows, 'compact');
+  }
+
+  for (const optionalElement of NARROW_OPTIONAL_DROP_ORDER) {
+    if (!compactSequence.includes(optionalElement)) {
+      continue;
+    }
+
+    compactSequence = compactSequence.filter(element => element !== optionalElement);
+    compactRows = packMergeRows(renderGroupLines(ctx, compactSequence, 'compact'), terminalWidth);
+    if (rowsFitNarrowBudget(compactRows, terminalWidth)) {
+      return convertPackedRowsToLines(ctx, compactRows, 'compact');
+    }
+  }
+
+  return convertPackedRowsToLines(ctx, compactRows, 'compact');
 }
 
 function renderCompact(ctx: RenderContext): string[] {
@@ -409,65 +550,7 @@ function renderExpanded(ctx: RenderContext, terminalWidth: number | null = null)
           seen.add(groupedElement);
         }
 
-        const renderedGroupLines = mergeSequence
-          .map(groupedElement => ({
-            element: groupedElement,
-            line: renderElementLine(ctx, groupedElement),
-          }))
-          .filter(
-            (entry): entry is { element: HudElement; line: string } =>
-              typeof entry.line === 'string' && entry.line.length > 0
-          );
-
-        if (renderedGroupLines.length === 1) {
-          const [{ element: groupedElement, line }] = renderedGroupLines;
-          lines.push({
-            line,
-            isActivity: ACTIVITY_ELEMENTS.has(groupedElement),
-          });
-          continue;
-        }
-
-        if (renderedGroupLines.length > 1) {
-          // Greedy multi-row packing: keep adding elements to the current
-          // row while they still fit, otherwise start a new row. This lets
-          // wide terminals pack everything onto one line and narrow ones
-          // fall back to stacking, instead of all-or-nothing.
-          const widthIsReal = terminalWidth !== UNKNOWN_TERMINAL_WIDTH;
-          const packedRows: Array<{ elements: HudElement[]; line: string }> = [];
-
-          for (const { element: groupedElement, line } of renderedGroupLines) {
-            const lastRow = packedRows[packedRows.length - 1];
-            if (lastRow) {
-              const candidate = `${lastRow.line} │ ${line}`;
-              if (!widthIsReal || visualLength(candidate) <= terminalWidth) {
-                lastRow.line = candidate;
-                lastRow.elements.push(groupedElement);
-                continue;
-              }
-            }
-            packedRows.push({ elements: [groupedElement], line });
-          }
-
-          // When an element ends up alone on a row, re-render it with the
-          // aligned-label variant so progress bars line up vertically with
-          // any other solo rows from the same group.
-          for (const row of packedRows) {
-            let line = row.line;
-            if (row.elements.length === 1) {
-              const aligned = renderElementLine(ctx, row.elements[0], {
-                alignProgressLabels: true,
-              });
-              if (aligned) {
-                line = aligned;
-              }
-            }
-            lines.push({
-              line,
-              isActivity: row.elements.some(element => ACTIVITY_ELEMENTS.has(element)),
-            });
-          }
-        }
+        lines.push(...renderMergeSequence(ctx, mergeSequence, terminalWidth));
 
         continue;
       }
@@ -498,61 +581,60 @@ function renderExpanded(ctx: RenderContext, terminalWidth: number | null = null)
 export function render(ctx: RenderContext): void {
   const lineLayout = ctx.config?.lineLayout ?? 'expanded';
   const showSeparators = ctx.config?.showSeparators ?? false;
+  const stdinWidth = parseColumns(ctx.stdin?.columns);
   const detectedWidth = getTerminalWidth({ preferEnv: true, fallback: UNKNOWN_TERMINAL_WIDTH });
-  const terminalWidth = detectedWidth ?? ctx.config?.maxWidth ?? UNKNOWN_TERMINAL_WIDTH;
+  const terminalWidth = stdinWidth ?? detectedWidth ?? ctx.config?.maxWidth ?? FALLBACK_TERMINAL_WIDTH;
 
-  let lines: string[];
+  withRenderColumns(terminalWidth, () => {
+    let lines: string[];
 
-  if (lineLayout === 'expanded') {
-    const renderedLines = renderExpanded(ctx, terminalWidth);
-    lines = renderedLines.map(({ line }) => line);
+    if (lineLayout === 'expanded') {
+      const renderedLines = renderExpanded(ctx, terminalWidth);
+      lines = renderedLines.map(({ line }) => line);
 
-    // Session token usage (cumulative)
-    if (ctx.config?.display?.showSessionTokens) {
-      const sessionTokensLine = renderSessionTokensLine(ctx);
-      if (sessionTokensLine) {
-        lines.push(sessionTokensLine);
+      // Session token usage (cumulative)
+      if (ctx.config?.display?.showSessionTokens) {
+        const sessionTokensLine = renderSessionTokensLine(ctx);
+        if (sessionTokensLine) {
+          lines.push(sessionTokensLine);
+        }
       }
-    }
 
-    if (showSeparators) {
-      const firstActivityIndex = renderedLines.findIndex(({ isActivity }) => isActivity);
-      if (firstActivityIndex > 0) {
-        const separatorBaseWidth = Math.max(
-          ...renderedLines
-            .slice(0, firstActivityIndex)
-            .map(({ line }) => visualLength(line)),
-          20
-        );
-        const separatorWidth = terminalWidth
-          ? Math.min(separatorBaseWidth, terminalWidth)
-          : separatorBaseWidth;
-        lines.splice(firstActivityIndex, 0, makeSeparator(separatorWidth));
+      if (showSeparators) {
+        const firstActivityIndex = renderedLines.findIndex(({ isActivity }) => isActivity);
+        if (firstActivityIndex > 0) {
+          const separatorBaseWidth = Math.max(
+            ...renderedLines
+              .slice(0, firstActivityIndex)
+              .map(({ line }) => visualLength(line)),
+            20
+          );
+          const separatorWidth = terminalWidth
+            ? Math.min(separatorBaseWidth, terminalWidth)
+            : separatorBaseWidth;
+          lines.splice(firstActivityIndex, 0, makeSeparator(separatorWidth));
+        }
       }
+    } else {
+      const headerLines = renderCompact(ctx);
+      const activityLines = collectActivityLines(ctx);
+      lines = [...headerLines];
+
+      if (showSeparators && activityLines.length > 0) {
+        const maxWidth = Math.max(...headerLines.map(visualLength), 20);
+        const separatorWidth = terminalWidth ? Math.min(maxWidth, terminalWidth) : maxWidth;
+        lines.push(makeSeparator(separatorWidth));
+      }
+
+      lines.push(...activityLines);
     }
-  } else {
-    const headerLines = renderCompact(ctx);
-    const activityLines = collectActivityLines(ctx);
-    lines = [...headerLines];
 
-    if (showSeparators && activityLines.length > 0) {
-      const maxWidth = Math.max(...headerLines.map(visualLength), 20);
-      const separatorWidth = terminalWidth ? Math.min(maxWidth, terminalWidth) : maxWidth;
-      lines.push(makeSeparator(separatorWidth));
+    const physicalLines = lines.flatMap(line => line.split('\n'));
+    const visibleLines = physicalLines.flatMap(line => wrapLineToWidth(line, terminalWidth));
+
+    for (const line of visibleLines) {
+      const outputLine = `${RESET}${line}`;
+      console.log(outputLine);
     }
-
-    lines.push(...activityLines);
-  }
-
-  const physicalLines = lines.flatMap(line => line.split('\n'));
-  // Only wrap when terminal width is real (known). When width is the
-  // UNKNOWN_TERMINAL_WIDTH fallback, wrapping would use an arbitrary value
-  // and produce incorrect line breaks.
-  const wrapWidth = terminalWidth !== UNKNOWN_TERMINAL_WIDTH ? (terminalWidth ?? 0) : 0;
-  const visibleLines = physicalLines.flatMap(line => wrapLineToWidth(line, wrapWidth));
-
-  for (const line of visibleLines) {
-    const outputLine = `${RESET}${line}`;
-    console.log(outputLine);
-  }
+  });
 }

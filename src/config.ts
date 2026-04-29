@@ -67,7 +67,7 @@ export const DEFAULT_ELEMENT_ORDER: HudElement[] = [
 // is required: collectMergeSequence stops at the first consecutive
 // element that isn't in the group.
 export const DEFAULT_MERGE_GROUPS: HudElement[][] = [
-  ['context', 'usage', 'zenmux', 'promptCache', 'memory', 'environment'],
+  ['context', 'usage', 'promptCache', 'memory', 'environment'],
 ];
 
 const KNOWN_ELEMENTS = new Set<HudElement>(DEFAULT_ELEMENT_ORDER);

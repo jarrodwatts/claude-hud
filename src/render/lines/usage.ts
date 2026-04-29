@@ -12,6 +12,7 @@ import { formatResetTime } from "../format-reset-time.js";
 export function renderUsageLine(
   ctx: RenderContext,
   alignLabels = false,
+  options: { density?: 'normal' | 'compact' } = {},
 ): string | null {
   const display = ctx.config?.display;
   const colors = ctx.config?.colors;
@@ -32,7 +33,8 @@ export function renderUsageLine(
   const timeFormat: TimeFormatMode = display?.timeFormat ?? 'relative';
   const showResetLabel = display?.showResetLabel ?? true;
   const resetsKey = timeFormat === 'absolute' ? "format.resets" : "format.resetsIn";
-  const usageCompact = display?.usageCompact ?? false;
+  const forceCompact = options.density === 'compact';
+  const usageCompact = forceCompact || (display?.usageCompact ?? false);
 
   if (isLimitReached(ctx.usageData)) {
     const resetTime =
@@ -40,7 +42,7 @@ export function renderUsageLine(
         ? formatResetTime(ctx.usageData.fiveHourResetAt, timeFormat)
         : formatResetTime(ctx.usageData.sevenDayResetAt, timeFormat);
     if (usageCompact) {
-      return critical(`⚠ Limit${resetTime ? ` (${resetTime})` : ""}`, colors);
+      return critical(`⚠ Limit${forceCompact || !resetTime ? "" : ` (${resetTime})`}`, colors);
     }
     const resetSuffix = resetTime
       ? showResetLabel
@@ -63,16 +65,18 @@ export function renderUsageLine(
 
   if (usageCompact) {
     const fiveHourPart = fiveHour !== null
-      ? formatCompactWindowPart("5h", fiveHour, ctx.usageData.fiveHourResetAt, timeFormat, colors)
+      ? formatCompactWindowPart("5h", fiveHour, forceCompact ? null : ctx.usageData.fiveHourResetAt, timeFormat, colors)
       : null;
     const sevenDayPart = (sevenDay !== null && (fiveHour === null || sevenDay >= sevenDayThreshold))
-      ? formatCompactWindowPart("7d", sevenDay, ctx.usageData.sevenDayResetAt, timeFormat, colors)
+      ? formatCompactWindowPart("7d", sevenDay, forceCompact ? null : ctx.usageData.sevenDayResetAt, timeFormat, colors)
       : null;
 
     if (fiveHourPart && sevenDayPart) {
-      return `${fiveHourPart} | ${sevenDayPart}`;
+      const compactLine = `${fiveHourPart} | ${sevenDayPart}`;
+      return forceCompact ? `${usageLabel} ${compactLine}` : compactLine;
     }
-    return fiveHourPart ?? sevenDayPart ?? null;
+    const compactLine = fiveHourPart ?? sevenDayPart ?? null;
+    return forceCompact && compactLine ? `${usageLabel} ${compactLine}` : compactLine;
   }
 
   const usageBarEnabled = display?.usageBarEnabled ?? true;

@@ -1,8 +1,22 @@
-import { test } from 'node:test';
+import { after, before, test } from 'node:test';
 import assert from 'node:assert/strict';
 import { render } from '../dist/render/index.js';
 import { mergeConfig } from '../dist/config.js';
 import { setLanguage } from '../dist/i18n/index.js';
+
+const originalDisableTtyWidth = process.env.CLAUDE_HUD_DISABLE_TTY_WIDTH;
+
+before(() => {
+  process.env.CLAUDE_HUD_DISABLE_TTY_WIDTH = '1';
+});
+
+after(() => {
+  if (originalDisableTtyWidth === undefined) {
+    delete process.env.CLAUDE_HUD_DISABLE_TTY_WIDTH;
+  } else {
+    process.env.CLAUDE_HUD_DISABLE_TTY_WIDTH = originalDisableTtyWidth;
+  }
+});
 
 function baseContext() {
   return {
@@ -281,7 +295,7 @@ test('render ignores BEL-terminated OSC 8 hyperlink sequences when measuring lin
   assert.ok(displayWidth(lines[0]) <= 47, 'visible width should respect terminal width');
 });
 
-test('render does not wrap when no real terminal width is available', () => {
+test('render uses default fallback width when no real terminal width is available', () => {
   const ctx = baseContext();
   ctx.stdin.model = { display_name: 'Sonnet 4.6' };
   ctx.stdin.cwd = '/tmp/very-long-project-name-for-ghostty-fallback-check';
@@ -318,10 +332,8 @@ test('render does not wrap when no real terminal width is available', () => {
     });
   });
 
-  // When terminal width is unknown (UNKNOWN_TERMINAL_WIDTH fallback),
-  // lines should NOT be wrapped at an arbitrary width — the host process
-  // (e.g. Claude Code) is responsible for final display layout.
   assert.ok(lines.length >= 1, 'should still produce output');
+  assert.ok(lines.every(line => displayWidth(line) <= 120), 'all lines should fit the default fallback width');
 });
 
 test('render uses config.maxWidth as fallback when terminal width is unavailable', () => {
@@ -729,12 +741,10 @@ test('render greedily packs merge-group elements onto rows that fit, splitting o
   });
   const narrowContextRow = narrow.filter(line => line.includes('Context'));
   const narrowZenmuxRow = narrow.filter(line => line.includes('ZenMux'));
-  const narrowEnvRow = narrow.filter(line => line.includes('CLAUDE.md'));
   assert.equal(narrowContextRow.length, 1, 'context should appear on its own row at narrow widths');
-  assert.equal(narrowZenmuxRow.length, 1, 'zenmux should appear on its own row at narrow widths');
-  assert.equal(narrowEnvRow.length, 1, 'environment should appear on its own row at narrow widths');
+  assert.equal(narrowZenmuxRow.length, 1, 'zenmux should remain visible at narrow widths');
   assert.notEqual(narrowContextRow[0], narrowZenmuxRow[0], 'narrow stacking: context must not share row with zenmux');
-  assert.notEqual(narrowZenmuxRow[0], narrowEnvRow[0], 'narrow stacking: zenmux must not share row with environment');
+  assert.ok(narrow.every(line => displayWidth(line) <= 40), 'all narrow rows should fit terminal width');
 });
 
 test('render keeps default merge-group rows visible when a narrow terminal forces wrapping', () => {
@@ -780,10 +790,241 @@ test('render keeps default merge-group rows visible when a narrow terminal force
   assert.ok(lines.some(line => line.includes('Context')), 'context row should remain visible');
   assert.ok(lines.some(line => line.includes('Usage')), 'usage row should remain visible');
   assert.ok(lines.some(line => line.includes('ZenMux')), 'zenmux row should remain visible');
+  assert.ok(lines.every(line => displayWidth(line) <= 32), 'all wrapped rows should fit terminal width');
+});
+
+function statuslineBudgetContext(columns) {
+  const ctx = baseContext();
+  ctx.stdin.columns = columns;
+  ctx.stdin.cwd = '/tmp/ava';
+  ctx.config = mergeConfig({
+    lineLayout: 'expanded',
+    display: {
+      showContextBar: true,
+      showUsage: true,
+      usageBarEnabled: true,
+      showZenmuxQuota: true,
+      showMemoryUsage: true,
+      showConfigCounts: true,
+      showTokenBreakdown: true,
+    },
+  });
+  ctx.usageData = {
+    fiveHour: 97,
+    sevenDay: 55,
+    fiveHourResetAt: new Date(Date.now() + 90 * 60 * 1000),
+    sevenDayResetAt: new Date(Date.now() + 22 * 60 * 60 * 1000),
+  };
+  ctx.zenmuxQuota = {
+    accountStatus: 'healthy',
+    fiveHour: { usagePercentage: 97, resetsAt: new Date(Date.now() + 90 * 60 * 1000) },
+    sevenDay: { usagePercentage: 55, resetsAt: new Date(Date.now() + 22 * 60 * 60 * 1000) },
+  };
+  ctx.memoryUsage = {
+    totalBytes: 24 * 1024 ** 3,
+    usedBytes: 9.2 * 1024 ** 3,
+    freeBytes: 14.8 * 1024 ** 3,
+    usedPercent: 38,
+  };
+  ctx.claudeMdCount = 1;
+  ctx.hooksCount = 6;
+  return ctx;
+}
+
+test('render keeps the default status group within a safe row budget at 99 columns', () => {
+  let lines = [];
+  withColumns(process.stdout, undefined, () => {
+    withColumns(process.stderr, undefined, () => {
+      lines = captureRender(statuslineBudgetContext(99));
+    });
+  });
+
+  assert.ok(lines.length <= 3, `statusline should stay within project + 2 info rows: ${lines.join(' | ')}`);
+  assert.ok(lines.some(line => line.includes('Context')), 'context row should remain visible');
+  assert.ok(lines.some(line => line.includes('Usage')), 'usage row should remain visible');
+  assert.ok(lines.some(line => line.includes('ZenMux')), 'zenmux row should remain visible');
+  assert.ok(lines.some(line => line.includes('Approx RAM')), 'memory row should remain visible at 99 columns');
+  assert.ok(lines.some(line => line.includes('CLAUDE.md')), 'environment row should remain visible at 99 columns');
+  assert.ok(lines.every(line => displayWidth(line) <= 99), 'all rows should fit 99 columns');
+});
+
+test('render keeps the default status group within a safe row budget at 160 columns', () => {
+  let lines = [];
+  withColumns(process.stdout, undefined, () => {
+    withColumns(process.stderr, undefined, () => {
+      lines = captureRender(statuslineBudgetContext(160));
+    });
+  });
+
+  assert.ok(lines.length <= 3, `statusline should stay within project + 2 info rows: ${lines.join(' | ')}`);
+  assert.ok(lines.some(line => line.includes('Context')), 'context row should remain visible');
+  assert.ok(lines.some(line => line.includes('Usage')), 'usage row should remain visible');
+  assert.ok(lines.some(line => line.includes('ZenMux')), 'zenmux row should remain visible');
+  assert.ok(lines.some(line => line.includes('Approx RAM')), 'memory row should remain visible at 160 columns');
+  assert.ok(lines.some(line => line.includes('CLAUDE.md')), 'environment row should remain visible at 160 columns');
+  assert.ok(lines.every(line => displayWidth(line) <= 160), 'all rows should fit 160 columns');
+});
+
+test('render prioritizes core status elements within the row budget at 80 columns', () => {
+  let lines = [];
+  withColumns(process.stdout, undefined, () => {
+    withColumns(process.stderr, undefined, () => {
+      lines = captureRender(statuslineBudgetContext(80));
+    });
+  });
+
+  assert.ok(lines.length <= 3, `statusline should stay within project + 2 info rows: ${lines.join(' | ')}`);
+  assert.ok(lines.some(line => line.includes('Context')), 'context row should remain visible');
+  assert.ok(lines.some(line => line.includes('Usage')), 'usage row should remain visible');
+  assert.ok(lines.some(line => line.includes('ZenMux')), 'zenmux row should remain visible');
+  assert.ok(lines.every(line => displayWidth(line) <= 80), 'all rows should fit 80 columns');
+});
+
+test('render uses stdin columns when statusline stdout is piped', () => {
+  const ctx = baseContext();
+  ctx.stdin.columns = 300;
+  ctx.config.lineLayout = 'expanded';
+  ctx.config.elementOrder = ['project', 'context', 'zenmux', 'environment'];
+  ctx.config.display.mergeGroups = [['context', 'zenmux', 'environment']];
+  ctx.config.display.showZenmuxQuota = true;
+  ctx.config.display.showContextBar = true;
+  ctx.config.display.showConfigCounts = true;
+  ctx.config.display.showUsage = false;
+  ctx.claudeMdCount = 1;
+  ctx.hooksCount = 6;
+  ctx.zenmuxQuota = {
+    accountStatus: 'healthy',
+    fiveHour: { usagePercentage: 49, resetsAt: null },
+    sevenDay: { usagePercentage: 49, resetsAt: null },
+  };
+
+  const originalEnvColumns = process.env.COLUMNS;
+  let lines = [];
+  withColumns(process.stdout, undefined, () => {
+    withColumns(process.stderr, undefined, () => {
+      delete process.env.COLUMNS;
+      try {
+        lines = captureRender(ctx);
+      } finally {
+        if (originalEnvColumns === undefined) {
+          delete process.env.COLUMNS;
+        } else {
+          process.env.COLUMNS = originalEnvColumns;
+        }
+      }
+    });
+  });
+
+  const mergedRows = lines.filter(line => line.includes('Context') && line.includes('ZenMux') && line.includes('CLAUDE.md'));
+  assert.equal(mergedRows.length, 1, `stdin columns should allow wide merge-group packing: ${lines.join(' | ')}`);
+  assert.ok(lines.every(line => displayWidth(line) <= 300), 'all lines should fit stdin columns');
+});
+
+test('render wraps by stdin columns when statusline stdout is piped', () => {
+  const ctx = baseContext();
+  ctx.stdin.columns = 40;
+  ctx.config.lineLayout = 'expanded';
+  ctx.config.elementOrder = ['project', 'context', 'zenmux', 'environment'];
+  ctx.config.display.mergeGroups = [['context', 'zenmux', 'environment']];
+  ctx.config.display.showZenmuxQuota = true;
+  ctx.config.display.showContextBar = true;
+  ctx.config.display.showConfigCounts = true;
+  ctx.config.display.showUsage = false;
+  ctx.claudeMdCount = 1;
+  ctx.hooksCount = 6;
+  ctx.zenmuxQuota = {
+    accountStatus: 'healthy',
+    fiveHour: { usagePercentage: 49, resetsAt: null },
+    sevenDay: { usagePercentage: 49, resetsAt: null },
+  };
+
+  const originalEnvColumns = process.env.COLUMNS;
+  let lines = [];
+  withColumns(process.stdout, undefined, () => {
+    withColumns(process.stderr, undefined, () => {
+      delete process.env.COLUMNS;
+      try {
+        lines = captureRender(ctx);
+      } finally {
+        if (originalEnvColumns === undefined) {
+          delete process.env.COLUMNS;
+        } else {
+          process.env.COLUMNS = originalEnvColumns;
+        }
+      }
+    });
+  });
+
+  assert.ok(lines.some(line => line.includes('Context')), 'context row should remain visible');
+  assert.ok(lines.some(line => line.includes('ZenMux')), 'zenmux row should remain visible');
+  assert.ok(lines.every(line => displayWidth(line) <= 40), 'all rows should fit stdin columns');
+});
+
+test('render wraps default merge-group rows with fallback width when statusline stdout is piped', () => {
+  const ctx = baseContext();
+  ctx.config = mergeConfig({
+    lineLayout: 'expanded',
+    display: {
+      showContextBar: true,
+      showUsage: true,
+      usageBarEnabled: true,
+      showZenmuxQuota: true,
+      showPromptCache: true,
+      showMemoryUsage: true,
+      showConfigCounts: true,
+      showTokenBreakdown: true,
+    },
+  });
+  ctx.stdin.context_window.current_usage.input_tokens = 100000;
+  ctx.stdin.context_window.current_usage.cache_creation_input_tokens = 20000;
+  ctx.stdin.context_window.current_usage.cache_read_input_tokens = 30000;
+  ctx.usageData = {
+    fiveHour: 62,
+    sevenDay: 83,
+    fiveHourResetAt: new Date(Date.now() + 90 * 60 * 1000),
+    sevenDayResetAt: new Date(Date.now() + 4 * 24 * 60 * 60 * 1000),
+  };
+  ctx.zenmuxQuota = {
+    accountStatus: 'healthy',
+    fiveHour: { usagePercentage: 40, resetsAt: null },
+    sevenDay: { usagePercentage: 45, resetsAt: null },
+  };
+  ctx.transcript.lastAssistantResponseAt = new Date();
+  ctx.memoryUsage = {
+    totalBytes: 16 * 1024 ** 3,
+    usedBytes: 8 * 1024 ** 3,
+    freeBytes: 8 * 1024 ** 3,
+    usedPercent: 50,
+  };
+  ctx.claudeMdCount = 1;
+  ctx.rulesCount = 2;
+  ctx.mcpCount = 3;
+  ctx.hooksCount = 4;
+
+  const originalEnvColumns = process.env.COLUMNS;
+  let lines = [];
+  withColumns(process.stdout, undefined, () => {
+    withColumns(process.stderr, undefined, () => {
+      delete process.env.COLUMNS;
+      try {
+        lines = captureRender(ctx);
+      } finally {
+        if (originalEnvColumns === undefined) {
+          delete process.env.COLUMNS;
+        } else {
+          process.env.COLUMNS = originalEnvColumns;
+        }
+      }
+    });
+  });
+
+  assert.ok(lines.some(line => line.includes('Context')), 'context row should remain visible');
+  assert.ok(lines.some(line => line.includes('Usage')), 'usage row should remain visible');
+  assert.ok(lines.some(line => line.includes('ZenMux')), 'zenmux row should remain visible');
   assert.ok(lines.some(line => line.includes('Cache')), 'prompt cache row should remain visible');
   assert.ok(lines.some(line => line.includes('Approx RAM')), 'memory row should remain visible');
   assert.ok(lines.some(line => line.includes('CLAUDE.md')), 'environment row should remain visible');
-  assert.ok(lines.every(line => displayWidth(line) <= 32), 'all wrapped rows should fit terminal width');
+  assert.ok(lines.every(line => displayWidth(line) <= 120), 'fallback wrapping should prevent overlong statusline rows');
 });
 
 test('width math counts ambiguous chars as 2 cells only in CJK mode', async () => {
