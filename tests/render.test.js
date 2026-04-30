@@ -1977,6 +1977,27 @@ test('explicit showInlineDiff/showFileList override showFileStats in mergeConfig
   assert.strictEqual(merged.gitStatus.showFileList, false, 'explicit showFileList should override showFileStats');
 });
 
+test('mixed case: only showInlineDiff set, showFileList falls back to showFileStats', () => {
+  const raw = { gitStatus: { showFileStats: true, showInlineDiff: false } };
+  const merged = mergeConfig(raw);
+  assert.strictEqual(merged.gitStatus.showInlineDiff, false, 'explicit showInlineDiff=false should override showFileStats=true');
+  assert.strictEqual(merged.gitStatus.showFileList, true, 'showFileList should fall back to showFileStats=true when not explicitly set');
+});
+
+test('mixed case: only showFileList set, showInlineDiff falls back to showFileStats', () => {
+  const raw = { gitStatus: { showFileStats: true, showFileList: false } };
+  const merged = mergeConfig(raw);
+  assert.strictEqual(merged.gitStatus.showInlineDiff, true, 'showInlineDiff should fall back to showFileStats=true when not explicitly set');
+  assert.strictEqual(merged.gitStatus.showFileList, false, 'explicit showFileList=false should override showFileStats=true');
+});
+
+test('showFileStats=false disables both new toggles when not explicitly set', () => {
+  const raw = { gitStatus: { showFileStats: false } };
+  const merged = mergeConfig(raw);
+  assert.strictEqual(merged.gitStatus.showInlineDiff, false, 'showInlineDiff should inherit showFileStats=false');
+  assert.strictEqual(merged.gitStatus.showFileList, false, 'showFileList should inherit showFileStats=false');
+});
+
 test('render expanded layout honors custom elementOrder including activity placement', () => {
   const ctx = baseContext();
   ctx.config.lineLayout = 'expanded';
