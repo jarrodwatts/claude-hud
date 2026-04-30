@@ -43,6 +43,8 @@ export interface HudConfig {
         showDirty: boolean;
         showAheadBehind: boolean;
         showFileStats: boolean;
+        showInlineDiff: boolean;
+        showFileList: boolean;
         branchOverflow: GitBranchOverflowMode;
         pushWarningThreshold: number;
         pushCriticalThreshold: number;

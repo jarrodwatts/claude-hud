@@ -89,7 +89,7 @@ export function renderProjectLine(ctx) {
             if (ctx.gitStatus.behind > 0)
                 gitInner.push(gitBranchColor(`↓${ctx.gitStatus.behind}`, colors));
         }
-        if (gitConfig?.showFileStats && ctx.gitStatus.lineDiff) {
+        if (gitConfig?.showInlineDiff && ctx.gitStatus.lineDiff) {
             const { added, deleted } = ctx.gitStatus.lineDiff;
             const diffParts = [];
             if (added > 0)
@@ -162,7 +162,7 @@ function formatAheadCount(ahead, gitConfig, colors) {
 }
 export function renderGitFilesLine(ctx, terminalWidth = null) {
     const gitConfig = ctx.config?.gitStatus;
-    if (!(gitConfig?.showFileStats ?? false))
+    if (!(gitConfig?.showFileList ?? false))
         return null;
     if (!ctx.gitStatus?.fileStats)
         return null;

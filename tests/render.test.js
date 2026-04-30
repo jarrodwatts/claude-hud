@@ -13,6 +13,7 @@ import { renderAgentsLine } from '../dist/render/agents-line.js';
 import { renderTodosLine } from '../dist/render/todos-line.js';
 import { renderUsageLine } from '../dist/render/lines/usage.js';
 import { renderMemoryLine } from '../dist/render/lines/memory.js';
+import { mergeConfig } from '../dist/config.js';
 import { renderIdentityLine } from '../dist/render/lines/identity.js';
 import { renderEnvironmentLine } from '../dist/render/lines/environment.js';
 import { renderSessionTokensLine } from '../dist/render/lines/session-tokens.js';
@@ -53,7 +54,7 @@ function baseContext() {
       showSeparators: false,
       pathLevels: 1,
       elementOrder: ['project', 'context', 'usage', 'promptCache', 'memory', 'environment', 'tools', 'agents', 'todos'],
-      gitStatus: { enabled: true, showDirty: true, showAheadBehind: false, showFileStats: false, branchOverflow: 'truncate', pushWarningThreshold: 0, pushCriticalThreshold: 0 },
+      gitStatus: { enabled: true, showDirty: true, showAheadBehind: false, showFileStats: false, showInlineDiff: false, showFileList: false, branchOverflow: 'truncate', pushWarningThreshold: 0, pushCriticalThreshold: 0 },
       display: { showModel: true, showProject: true, showContextBar: true, contextValue: 'percent', showConfigCounts: true, showCost: false, showDuration: true, showSpeed: false, showTokenBreakdown: true, showUsage: true, usageBarEnabled: false, showResetLabel: true, showTools: true, showAgents: true, showTodos: true, showSessionTokens: false, showSessionName: false, showClaudeCodeVersion: false, showMemoryUsage: false, showPromptCache: false, promptCacheTtlSeconds: 300, showOutputStyle: false, mergeGroups: [['context', 'usage']], autocompactBuffer: 'enabled', usageThreshold: 0, sevenDayThreshold: 80, environmentThreshold: 0, customLine: '' },
       colors: {
         context: 'green',
@@ -1827,6 +1828,7 @@ test('renderGitFilesLine renders tracked files with per-file line diffs', () => 
   const ctx = baseContext();
   ctx.stdin.cwd = '/tmp/my-project';
   ctx.config.gitStatus.showFileStats = true;
+  ctx.config.gitStatus.showFileList = true;
   ctx.gitStatus = {
     branch: 'main',
     isDirty: true,
@@ -1857,6 +1859,7 @@ test('renderGitFilesLine strips control characters and skips links outside cwd',
   const ctx = baseContext();
   ctx.stdin.cwd = '/tmp/my-project';
   ctx.config.gitStatus.showFileStats = true;
+  ctx.config.gitStatus.showFileList = true;
   ctx.gitStatus = {
     branch: 'main',
     isDirty: true,
@@ -1884,6 +1887,7 @@ test('renderGitFilesLine strips control characters and skips links outside cwd',
 test('renderGitFilesLine hides on narrow terminals', () => {
   const ctx = baseContext();
   ctx.config.gitStatus.showFileStats = true;
+  ctx.config.gitStatus.showFileList = true;
   ctx.gitStatus = {
     branch: 'main',
     isDirty: true,
@@ -1902,6 +1906,75 @@ test('renderGitFilesLine hides on narrow terminals', () => {
   };
 
   assert.equal(renderGitFilesLine(ctx, 50), null);
+});
+
+test('showInlineDiff controls inline line diff independently of showFileList', () => {
+  const ctx = baseContext();
+  ctx.stdin.cwd = '/tmp/my-project';
+  ctx.config.gitStatus.showInlineDiff = true;
+  ctx.config.gitStatus.showFileList = false;
+  ctx.gitStatus = {
+    branch: 'main',
+    isDirty: true,
+    ahead: 0,
+    behind: 0,
+    lineDiff: { added: 10, deleted: 3 },
+    fileStats: {
+      modified: 1,
+      added: 0,
+      deleted: 0,
+      untracked: 0,
+      trackedFiles: [
+        { basename: 'app.ts', fullPath: 'src/app.ts', type: 'modified', lineDiff: { added: 10, deleted: 3 } },
+      ],
+    },
+  };
+  const projectLine = renderProjectLine(ctx);
+  assert.ok(projectLine?.includes('+10'), 'inline diff should show added lines');
+  assert.ok(projectLine?.includes('-3'), 'inline diff should show deleted lines');
+  const fileLine = renderGitFilesLine(ctx, 120);
+  assert.equal(fileLine, null, 'file list should be hidden when showFileList is false');
+});
+
+test('showFileList controls file list independently of showInlineDiff', () => {
+  const ctx = baseContext();
+  ctx.stdin.cwd = '/tmp/my-project';
+  ctx.config.gitStatus.showInlineDiff = false;
+  ctx.config.gitStatus.showFileList = true;
+  ctx.gitStatus = {
+    branch: 'main',
+    isDirty: true,
+    ahead: 0,
+    behind: 0,
+    lineDiff: { added: 10, deleted: 3 },
+    fileStats: {
+      modified: 1,
+      added: 0,
+      deleted: 0,
+      untracked: 0,
+      trackedFiles: [
+        { basename: 'app.ts', fullPath: 'src/app.ts', type: 'modified', lineDiff: { added: 10, deleted: 3 } },
+      ],
+    },
+  };
+  const projectLine = renderProjectLine(ctx);
+  assert.ok(!projectLine?.includes('+10'), 'inline diff should be hidden when showInlineDiff is false');
+  const fileLine = renderGitFilesLine(ctx, 120);
+  assert.ok(fileLine?.includes('app.ts'), 'file list should show when showFileList is true');
+});
+
+test('showFileStats legacy fallback enables both new toggles via mergeConfig', () => {
+  const raw = { gitStatus: { showFileStats: true } };
+  const merged = mergeConfig(raw);
+  assert.strictEqual(merged.gitStatus.showInlineDiff, true, 'showInlineDiff should inherit from showFileStats');
+  assert.strictEqual(merged.gitStatus.showFileList, true, 'showFileList should inherit from showFileStats');
+});
+
+test('explicit showInlineDiff/showFileList override showFileStats in mergeConfig', () => {
+  const raw = { gitStatus: { showFileStats: true, showInlineDiff: false, showFileList: false } };
+  const merged = mergeConfig(raw);
+  assert.strictEqual(merged.gitStatus.showInlineDiff, false, 'explicit showInlineDiff should override showFileStats');
+  assert.strictEqual(merged.gitStatus.showFileList, false, 'explicit showFileList should override showFileStats');
 });
 
 test('render expanded layout honors custom elementOrder including activity placement', () => {

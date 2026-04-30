@@ -102,7 +102,7 @@ export function renderProjectLine(ctx: RenderContext): string | null {
       if (ctx.gitStatus.behind > 0) gitInner.push(gitBranchColor(`↓${ctx.gitStatus.behind}`, colors));
     }
 
-    if (gitConfig?.showFileStats && ctx.gitStatus.lineDiff) {
+    if (gitConfig?.showInlineDiff && ctx.gitStatus.lineDiff) {
       const { added, deleted } = ctx.gitStatus.lineDiff;
       const diffParts: string[] = [];
       if (added > 0) diffParts.push(green(`+${added}`));
@@ -190,7 +190,7 @@ function formatAheadCount(
 
 export function renderGitFilesLine(ctx: RenderContext, terminalWidth: number | null = null): string | null {
   const gitConfig = ctx.config?.gitStatus;
-  if (!(gitConfig?.showFileStats ?? false)) return null;
+  if (!(gitConfig?.showFileList ?? false)) return null;
   if (!ctx.gitStatus?.fileStats) return null;
 
   const { trackedFiles, untracked } = ctx.gitStatus.fileStats;

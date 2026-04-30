@@ -29,6 +29,8 @@ export const DEFAULT_CONFIG = {
         showDirty: true,
         showAheadBehind: false,
         showFileStats: false,
+        showInlineDiff: false,
+        showFileList: false,
         branchOverflow: 'truncate',
         pushWarningThreshold: 0,
         pushCriticalThreshold: 0,
@@ -283,6 +285,16 @@ export function mergeConfig(userConfig) {
         showFileStats: typeof migrated.gitStatus?.showFileStats === 'boolean'
             ? migrated.gitStatus.showFileStats
             : DEFAULT_CONFIG.gitStatus.showFileStats,
+        showInlineDiff: typeof migrated.gitStatus?.showInlineDiff === 'boolean'
+            ? migrated.gitStatus.showInlineDiff
+            : typeof migrated.gitStatus?.showFileStats === 'boolean'
+                ? migrated.gitStatus.showFileStats
+                : DEFAULT_CONFIG.gitStatus.showInlineDiff,
+        showFileList: typeof migrated.gitStatus?.showFileList === 'boolean'
+            ? migrated.gitStatus.showFileList
+            : typeof migrated.gitStatus?.showFileStats === 'boolean'
+                ? migrated.gitStatus.showFileStats
+                : DEFAULT_CONFIG.gitStatus.showFileList,
         branchOverflow: validateGitBranchOverflow(migrated.gitStatus?.branchOverflow)
             ? migrated.gitStatus.branchOverflow
             : DEFAULT_CONFIG.gitStatus.branchOverflow,
