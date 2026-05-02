@@ -11,6 +11,7 @@ import { resolveEffortLevel } from "./effort.js";
 import { applyContextWindowFallback } from "./context-cache.js";
 import { getUsageFromExternalSnapshot } from "./external-usage.js";
 import { setLanguage, t } from "./i18n/index.js";
+import { migrateDataDirIfNeeded } from "./claude-config-dir.js";
 import type { RenderContext } from "./types.js";
 
 export { getUsageFromExternalSnapshot } from "./external-usage.js";
@@ -56,6 +57,9 @@ export async function main(overrides: Partial<MainDeps> = {}): Promise<void> {
   };
 
   try {
+    // Migrate data directory to $CLAUDE_PLUGIN_DATA if available (one-time, no-op after first run)
+    migrateDataDirIfNeeded((await import('node:os')).homedir());
+
     const stdin = await deps.readStdin();
 
     if (!stdin) {
