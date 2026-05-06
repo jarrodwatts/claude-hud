@@ -161,7 +161,7 @@ Chinese HUD labels are available as an explicit opt-in. English stays the defaul
 | `pathLevels` | 1-3 | 1 | Directory levels to show in project path |
 | `maxWidth` | number \| `null` | `null` | Optional fallback width used only when terminal width detection fails completely |
 | `elementOrder` | string[] | `["project","context","usage","promptCache","memory","environment","tools","agents","todos"]` | Expanded-mode element order. Omit entries to hide them in expanded mode. |
-| `display.mergeGroups` | string[][] | `[["context","usage"]]` | Expanded-mode groups that should share a line when adjacent. Set `[]` to disable merged lines. |
+| `display.mergeGroups` | string[][] | `[["context","usage","promptCache","memory","environment"]]` | Expanded-mode groups that should share a line when adjacent. Set `[]` to disable merged lines. |
 | `gitStatus.enabled` | boolean | true | Show git branch in HUD |
 | `gitStatus.showDirty` | boolean | true | Show `*` for uncommitted changes |
 | `gitStatus.showAheadBehind` | boolean | false | Show `↑N ↓N` for ahead/behind remote |
@@ -207,6 +207,8 @@ Chinese HUD labels are available as an explicit opt-in. English stays the defaul
 | `colors.custom` | color value | `208` | Color for the optional custom line |
 
 Supported color names: `dim`, `red`, `green`, `yellow`, `magenta`, `cyan`, `brightBlue`, `brightMagenta`. You can also use a 256-color number (`0-255`) or hex (`#rrggbb`).
+
+Expanded-mode merge groups use a known terminal width only. When width is unknown, ClaudeHUD does not wrap at an arbitrary fallback width and leaves final wrapping to the host. When width is known, the default status merge group has a project line plus two info-row budget: it first packs rows by measured width, then switches usage and memory to compact density, then drops supplemental opt-in elements in this order if needed: `memory`, `promptCache`, `environment`. Core `context` and `usage` stay visible. The opt-in `gitStatus.showFileStats` file-list row is separate from this merge-group budget and hides below 60 columns.
 
 `display.showMemoryUsage` is fully opt-in and only renders in `expanded` layout. It reports approximate system RAM usage from the local machine, not precise memory pressure inside Claude Code or a specific process. The number may overstate actual pressure because reclaimable OS cache and buffers can still be counted as used memory.
 

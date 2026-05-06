@@ -19,8 +19,10 @@ import { dim, RESET } from './colors.js';
 import { getTerminalWidth, UNKNOWN_TERMINAL_WIDTH } from '../utils/terminal.js';
 import { codePointCellWidth, isCjkAmbiguousWide } from './width.js';
 
-const FALLBACK_TERMINAL_WIDTH = 120;
 const MERGE_GROUP_ROW_BUDGET = 2;
+// Row-budget fallback preserves core status first. These elements are
+// opt-in supplemental details, so they can be hidden only after compact
+// density still cannot fit the merge group within the row budget.
 const OPTIONAL_DROP_ORDER: HudElement[] = ['memory', 'promptCache', 'environment'];
 
 type RenderDensity = 'normal' | 'compact';
@@ -197,6 +199,12 @@ function withRenderColumns<T>(columns: number, fn: () => T): T {
       process.env.COLUMNS = originalColumns;
     }
   }
+}
+
+function withKnownRenderColumns<T>(columns: number | null, fn: () => T): T {
+  return typeof columns === 'number' && columns > 0
+    ? withRenderColumns(columns, fn)
+    : fn();
 }
 
 function splitLineBySeparators(line: string): { segments: string[]; separators: string[] } {
@@ -578,9 +586,9 @@ export function render(ctx: RenderContext): void {
   const showSeparators = ctx.config?.showSeparators ?? false;
   const stdinWidth = parseColumns(ctx.stdin?.columns);
   const detectedWidth = getTerminalWidth({ preferEnv: true, fallback: UNKNOWN_TERMINAL_WIDTH });
-  const terminalWidth = stdinWidth ?? detectedWidth ?? ctx.config?.maxWidth ?? FALLBACK_TERMINAL_WIDTH;
+  const terminalWidth = stdinWidth ?? detectedWidth ?? ctx.config?.maxWidth ?? UNKNOWN_TERMINAL_WIDTH;
 
-  withRenderColumns(terminalWidth, () => {
+  withKnownRenderColumns(terminalWidth, () => {
     let lines: string[];
 
     if (lineLayout === 'expanded') {
@@ -625,7 +633,8 @@ export function render(ctx: RenderContext): void {
     }
 
     const physicalLines = lines.flatMap(line => line.split('\n'));
-    const visibleLines = physicalLines.flatMap(line => wrapLineToWidth(line, terminalWidth));
+    const wrapWidth = terminalWidth !== UNKNOWN_TERMINAL_WIDTH ? (terminalWidth ?? 0) : 0;
+    const visibleLines = physicalLines.flatMap(line => wrapLineToWidth(line, wrapWidth));
 
     for (const line of visibleLines) {
       const outputLine = `${RESET}${line}`;
