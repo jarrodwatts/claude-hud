@@ -3,6 +3,22 @@ import * as tty from 'node:tty';
 
 export const UNKNOWN_TERMINAL_WIDTH = null;
 
+type TtyWriteStreamLike = Pick<tty.WriteStream, 'columns' | 'destroy'>;
+type TtyWidthProbeDeps = {
+  openSync: typeof fs.openSync;
+  closeSync: typeof fs.closeSync;
+  createWriteStream: (fd: number) => TtyWriteStreamLike;
+};
+
+const DEFAULT_TTY_WIDTH_PROBE_DEPS: TtyWidthProbeDeps = {
+  openSync: fs.openSync,
+  closeSync: fs.closeSync,
+  createWriteStream: fd => new tty.WriteStream(fd),
+};
+
+let ttyWidthProbeDeps = DEFAULT_TTY_WIDTH_PROBE_DEPS;
+let cachedControllingTerminalColumns: number | null | undefined;
+
 function parseEnvColumns(): number | null {
   const envColumns = Number.parseInt(process.env.COLUMNS ?? '', 10);
   return Number.isFinite(envColumns) && envColumns > 0 ? envColumns : null;
@@ -14,31 +30,42 @@ function parseStreamColumns(columns: unknown): number | null {
     : null;
 }
 
-function parseControllingTerminalColumns(): number | null {
-  if (process.platform === 'win32' || process.env.CLAUDE_HUD_DISABLE_TTY_WIDTH === '1') {
-    return null;
-  }
-
+function readControllingTerminalColumns(): number | null {
   let fd: number | null = null;
-  let stream: tty.WriteStream | null = null;
+  let stream: TtyWriteStreamLike | null = null;
   try {
-    fd = fs.openSync('/dev/tty', 'r+');
-    stream = new tty.WriteStream(fd);
+    fd = ttyWidthProbeDeps.openSync('/dev/tty', 'r+');
+    stream = ttyWidthProbeDeps.createWriteStream(fd);
     fd = null;
     return parseStreamColumns(stream.columns);
   } catch {
     return null;
   } finally {
+    // Once tty.WriteStream is constructed, it owns the fd; destroy only the
+    // stream to avoid double-closing under Node or Bun-compatible runtimes.
     if (stream) {
       stream.destroy();
     } else if (fd !== null) {
       try {
-        fs.closeSync(fd);
+        ttyWidthProbeDeps.closeSync(fd);
       } catch {
         // Ignore close errors; width detection is best-effort.
       }
     }
   }
+}
+
+function parseControllingTerminalColumns(): number | null {
+  if (process.platform === 'win32' || process.env.CLAUDE_HUD_DISABLE_TTY_WIDTH === '1') {
+    return null;
+  }
+
+  if (cachedControllingTerminalColumns !== undefined) {
+    return cachedControllingTerminalColumns;
+  }
+
+  cachedControllingTerminalColumns = readControllingTerminalColumns();
+  return cachedControllingTerminalColumns;
 }
 
 export function getTerminalWidth(options: { preferEnv?: boolean; fallback?: number | null } = {}): number | null {
@@ -70,4 +97,15 @@ export function getAdaptiveBarWidth(): number {
     return 4;
   }
   return 10;
+}
+
+export function _resetTerminalWidthCacheForTests(): void {
+  cachedControllingTerminalColumns = undefined;
+}
+
+export function _setTtyWidthProbeDepsForTests(deps: Partial<TtyWidthProbeDeps> | null): void {
+  ttyWidthProbeDeps = deps
+    ? { ...DEFAULT_TTY_WIDTH_PROBE_DEPS, ...deps }
+    : DEFAULT_TTY_WIDTH_PROBE_DEPS;
+  _resetTerminalWidthCacheForTests();
 }
