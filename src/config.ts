@@ -19,7 +19,7 @@ export type GitBranchOverflowMode = 'truncate' | 'wrap';
  */
 export type ModelFormatMode = 'full' | 'compact' | 'short';
 export type TimeFormatMode = 'relative' | 'absolute' | 'both';
-export type HudElement = 'project' | 'addedDirs' | 'context' | 'usage' | 'promptCache' | 'memory' | 'environment' | 'tools' | 'agents' | 'todos';
+export type HudElement = 'project' | 'addedDirs' | 'context' | 'usage' | 'promptCache' | 'memory' | 'environment' | 'tools' | 'agents' | 'todos' | 'skills' | 'mcp';
 
 export type AddedDirsLayout = 'inline' | 'line';
 export type HudColorName =
@@ -62,6 +62,8 @@ export const DEFAULT_ELEMENT_ORDER: HudElement[] = [
   'tools',
   'agents',
   'todos',
+  'skills',
+  'mcp',
 ];
 
 export const DEFAULT_MERGE_GROUPS: HudElement[][] = [
@@ -106,6 +108,8 @@ export interface HudConfig {
     showTools: boolean;
     showAgents: boolean;
     showTodos: boolean;
+    showSkills: boolean;
+    showMcp: boolean;
     showSessionName: boolean;
     showClaudeCodeVersion: boolean;
     showEffortLevel: boolean;
@@ -167,6 +171,8 @@ export const DEFAULT_CONFIG: HudConfig = {
     showTools: false,
     showAgents: false,
     showTodos: false,
+    showSkills: false,
+    showMcp: false,
     showSessionName: false,
     showClaudeCodeVersion: false,
     showEffortLevel: false,
@@ -519,6 +525,12 @@ export function mergeConfig(userConfig: Partial<HudConfig>): HudConfig {
     showTodos: typeof migrated.display?.showTodos === 'boolean'
       ? migrated.display.showTodos
       : DEFAULT_CONFIG.display.showTodos,
+    showSkills: typeof migrated.display?.showSkills === 'boolean'
+      ? migrated.display.showSkills
+      : DEFAULT_CONFIG.display.showSkills,
+    showMcp: typeof migrated.display?.showMcp === 'boolean'
+      ? migrated.display.showMcp
+      : DEFAULT_CONFIG.display.showMcp,
     showSessionName: typeof migrated.display?.showSessionName === 'boolean'
       ? migrated.display.showSessionName
       : DEFAULT_CONFIG.display.showSessionName,

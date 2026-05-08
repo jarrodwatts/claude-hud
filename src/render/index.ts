@@ -15,6 +15,8 @@ import {
   renderUsageLine,
   renderMemoryLine,
   renderSessionTokensLine,
+  renderSkillsLine,
+  renderMcpLine,
 } from './lines/index.js';
 import { dim, RESET } from './colors.js';
 import { getTerminalWidth, UNKNOWN_TERMINAL_WIDTH } from '../utils/terminal.js';
@@ -282,7 +284,7 @@ function makeSeparator(length: number): string {
   return dim('─'.repeat(repeats));
 }
 
-const ACTIVITY_ELEMENTS = new Set<HudElement>(['tools', 'agents', 'todos']);
+const ACTIVITY_ELEMENTS = new Set<HudElement>(['tools', 'agents', 'todos', 'skills', 'mcp']);
 
 function buildMergeGroupLookup(mergeGroups: HudElement[][]): Map<HudElement, Set<HudElement>> {
   const lookup = new Map<HudElement, Set<HudElement>>();
@@ -343,6 +345,20 @@ function collectActivityLines(ctx: RenderContext): string[] {
     }
   }
 
+  if (display?.showSkills !== false) {
+    const skillsLine = renderSkillsLine(ctx);
+    if (skillsLine) {
+      activityLines.push(skillsLine);
+    }
+  }
+
+  if (display?.showMcp !== false) {
+    const mcpLine = renderMcpLine(ctx);
+    if (mcpLine) {
+      activityLines.push(mcpLine);
+    }
+  }
+
   return activityLines;
 }
 
@@ -375,6 +391,10 @@ function renderElementLine(
       return display?.showAgents === false ? null : renderAgentsLine(ctx);
     case 'todos':
       return display?.showTodos === false ? null : renderTodosLine(ctx);
+    case 'skills':
+      return display?.showSkills === false ? null : renderSkillsLine(ctx);
+    case 'mcp':
+      return display?.showMcp === false ? null : renderMcpLine(ctx);
   }
 }
 

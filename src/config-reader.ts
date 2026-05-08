@@ -13,6 +13,8 @@ export interface ConfigCounts {
   mcpCount: number;
   hooksCount: number;
   outputStyle?: string;
+  skillNames: string[];
+  mcpServerNames: string[];
 }
 
 interface SentinelState {
@@ -46,6 +48,28 @@ function getMcpServerNames(filePath: string): Set<string> {
     debug(`Failed to read MCP servers from ${filePath}:`, error);
   }
   return new Set();
+}
+
+function getSkillNames(filePath: string): string[] {
+  if (!fs.existsSync(filePath)) return [];
+  try {
+    const content = fs.readFileSync(filePath, 'utf8');
+    const config = JSON.parse(content);
+    if (Array.isArray(config.skills)) {
+      return config.skills
+        .filter((s: unknown) => typeof s === 'string')
+        .map((s: string) => {
+          // Extract skill name from path like '/home/user/.claude/skills/opc/skill.md'
+          const parts = s.replace(/\\/g, '/').split('/');
+          const mdIndex = parts.lastIndexOf('skill.md');
+          return mdIndex > 0 ? parts[mdIndex - 1] : parts[parts.length - 1];
+        })
+        .filter((name: string) => name.length > 0);
+    }
+  } catch (error) {
+    debug(`Failed to read skills from ${filePath}:`, error);
+  }
+  return [];
 }
 
 function getDisabledMcpServers(filePath: string, key: DisabledMcpKey): Set<string> {
@@ -255,6 +279,8 @@ function isConfigCounts(value: unknown): value is ConfigCounts {
     && Number.isFinite(counts.hooksCount)
     && counts.hooksCount >= 0
     && (counts.outputStyle === undefined || typeof counts.outputStyle === 'string')
+    && Array.isArray(counts.skillNames)
+    && Array.isArray(counts.mcpServerNames)
   );
 }
 
@@ -405,8 +431,22 @@ function computeConfigCountsFresh(cwd?: string): ConfigCounts {
   // Note: Deduplication only occurs within each scope, not across scopes.
   // A server with the same name in both user and project scope counts as 2 (separate configs).
   const mcpCount = userMcpServers.size + projectMcpServers.size;
+  const mcpServerNames = [...userMcpServers, ...projectMcpServers];
 
-  return { claudeMdCount, rulesCount, mcpCount, hooksCount, outputStyle };
+  // Collect skill names from user and project settings
+  const skillNameSet = new Set<string>();
+  for (const name of getSkillNames(userSettings)) {
+    skillNameSet.add(name);
+  }
+  if (cwd) {
+    const projectSettings = path.join(cwd, '.claude', 'settings.json');
+    for (const name of getSkillNames(projectSettings)) {
+      skillNameSet.add(name);
+    }
+  }
+  const skillNames = [...skillNameSet];
+
+  return { claudeMdCount, rulesCount, mcpCount, hooksCount, outputStyle, skillNames, mcpServerNames };
 }
 
 export async function countConfigs(cwd?: string): Promise<ConfigCounts> {

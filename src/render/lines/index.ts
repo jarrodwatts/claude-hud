@@ -6,3 +6,5 @@ export { renderPromptCacheLine, formatPromptCacheCountdown } from './prompt-cach
 export { renderUsageLine } from './usage.js';
 export { renderMemoryLine } from './memory.js';
 export { renderSessionTokensLine } from './session-tokens.js';
+export { renderSkillsLine } from './skills-line.js';
+export { renderMcpLine } from './mcp-line.js';

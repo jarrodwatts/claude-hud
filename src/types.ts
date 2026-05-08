@@ -132,6 +132,8 @@ export interface RenderContext {
   claudeMdCount: number;
   rulesCount: number;
   mcpCount: number;
+  skillNames: string[];
+  mcpServerNames: string[];
   hooksCount: number;
   sessionDuration: string;
   gitStatus: GitStatus | null;
