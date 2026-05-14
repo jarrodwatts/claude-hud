@@ -504,7 +504,9 @@ function extractTarget(toolName: string, input?: Record<string, unknown>): strin
         : undefined;
     case 'Bash':
       const cmd = input.command as string;
-      return cmd?.slice(0, 30) + (cmd?.length > 30 ? '...' : '');
+      const cols = Number.parseInt(process.env.COLUMNS ?? '', 10) || 120;
+      const maxCmd = Math.max(30, cols - 20);
+      return cmd?.slice(0, maxCmd) + (cmd?.length > maxCmd ? '...' : '');
   }
   return undefined;
 }

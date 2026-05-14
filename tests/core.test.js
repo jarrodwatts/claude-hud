@@ -948,7 +948,8 @@ test('parseTranscript leaves Skill target empty when input.skill is missing or i
 test('parseTranscript truncates long bash commands in targets', async () => {
   const dir = await mkdtemp(path.join(tmpdir(), 'claude-hud-'));
   const filePath = path.join(dir, 'bash.jsonl');
-  const longCommand = 'echo ' + 'x'.repeat(50);
+  // Use a command longer than any reasonable terminal width to ensure truncation
+  const longCommand = 'echo ' + 'x'.repeat(200);
   const lines = [
     JSON.stringify({
       message: {
@@ -959,11 +960,16 @@ test('parseTranscript truncates long bash commands in targets', async () => {
 
   await writeFile(filePath, lines.join('\n'), 'utf8');
 
+  const prevColumns = process.env.COLUMNS;
+  process.env.COLUMNS = '60';
   try {
     const result = await parseTranscript(filePath);
     assert.equal(result.tools.length, 1);
     assert.ok(result.tools[0].target?.endsWith('...'));
+    assert.ok(result.tools[0].target.length <= 60 - 20 + 3); // maxCmd + '...'
   } finally {
+    if (prevColumns === undefined) delete process.env.COLUMNS;
+    else process.env.COLUMNS = prevColumns;
     await rm(dir, { recursive: true, force: true });
   }
 });

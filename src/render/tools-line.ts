@@ -4,6 +4,7 @@ import { yellow, green, cyan, label } from './colors.js';
 export function renderToolsLine(ctx: RenderContext): string | null {
   const { tools } = ctx.transcript;
   const colors = ctx.config?.colors;
+  const configMaxLen = ctx.config?.display?.toolTargetMaxLength;
 
   if (tools.length === 0) {
     return null;
@@ -15,7 +16,7 @@ export function renderToolsLine(ctx: RenderContext): string | null {
   const completedTools = tools.filter((t) => t.status === 'completed' || t.status === 'error');
 
   for (const tool of runningTools.slice(-2)) {
-    const target = tool.target ? truncatePath(tool.target) : '';
+    const target = tool.target ? truncatePath(tool.target, configMaxLen) : '';
     parts.push(`${yellow('◐')} ${cyan(tool.name)}${target ? label(`: ${target}`, colors) : ''}`);
   }
 
@@ -40,7 +41,12 @@ export function renderToolsLine(ctx: RenderContext): string | null {
   return parts.join(' | ');
 }
 
-function truncatePath(path: string, maxLen: number = 20): string {
+function truncatePath(path: string, configMaxLen?: number): string {
+  // 0 means auto (use terminal width), undefined/missing uses default 20
+  const maxLen = configMaxLen === 0
+    ? Math.max(20, (Number.parseInt(process.env.COLUMNS ?? '', 10) || 120) - 30)
+    : (configMaxLen && configMaxLen > 0 ? configMaxLen : 20);
+
   // Normalize Windows backslashes to forward slashes for consistent display
   const normalizedPath = path.replace(/\\/g, '/');
 

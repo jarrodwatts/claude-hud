@@ -107,6 +107,7 @@ export interface HudConfig {
     showResetLabel: boolean;
     usageCompact: boolean;
     showTools: boolean;
+    toolTargetMaxLength: number;
     showAgents: boolean;
     showTodos: boolean;
     showSessionName: boolean;
@@ -171,6 +172,7 @@ export const DEFAULT_CONFIG: HudConfig = {
     showResetLabel: true,
     usageCompact: false,
     showTools: false,
+    toolTargetMaxLength: 0,
     showAgents: false,
     showTodos: false,
     showSessionName: false,
@@ -528,6 +530,11 @@ export function mergeConfig(userConfig: Partial<HudConfig>): HudConfig {
     showTools: typeof migrated.display?.showTools === 'boolean'
       ? migrated.display.showTools
       : DEFAULT_CONFIG.display.showTools,
+    toolTargetMaxLength: typeof migrated.display?.toolTargetMaxLength === 'number'
+        && Number.isFinite(migrated.display.toolTargetMaxLength)
+        && migrated.display.toolTargetMaxLength >= 0
+      ? Math.floor(migrated.display.toolTargetMaxLength)
+      : DEFAULT_CONFIG.display.toolTargetMaxLength,
     showAgents: typeof migrated.display?.showAgents === 'boolean'
       ? migrated.display.showAgents
       : DEFAULT_CONFIG.display.showAgents,
