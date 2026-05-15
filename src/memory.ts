@@ -7,7 +7,7 @@ type MemoryReader = () => { totalBytes: number; freeBytes: number };
 
 export function parseVmStat(
   output: string,
-): { pageSize: number; active: number; wired: number } | null {
+): { pageSize: number; active: number; wired: number; compressor: number } | null {
   const pageSizeMatch = output.match(/page size of (\d+) bytes/);
   if (!pageSizeMatch) return null;
 
@@ -15,10 +15,17 @@ export function parseVmStat(
   const wiredMatch = output.match(/Pages wired down:\s+(\d+)/);
   if (!activeMatch || !wiredMatch) return null;
 
+  // macOS memory compression (10.9+) stores pressured pages in a compressor
+  // region that still occupies real RAM. Activity Monitor's "Memory Used"
+  // counts these pages, so we include them here to match. Fall back to 0
+  // on outputs that don't report the field (older macOS / stripped output).
+  const compressorMatch = output.match(/Pages occupied by compressor:\s+(\d+)/);
+
   return {
     pageSize: Number(pageSizeMatch[1]),
     active: Number(activeMatch[1]),
     wired: Number(wiredMatch[1]),
+    compressor: compressorMatch ? Number(compressorMatch[1]) : 0,
   };
 }
 
@@ -61,7 +68,7 @@ const readMacOSMemory: MemoryReader = () => {
     const parsed = parseVmStat(output);
     if (!parsed) return readDefaultMemory();
     const totalBytes = os.totalmem();
-    const usedBytes = (parsed.active + parsed.wired) * parsed.pageSize;
+    const usedBytes = (parsed.active + parsed.wired + parsed.compressor) * parsed.pageSize;
     return { totalBytes, freeBytes: totalBytes - usedBytes };
   } catch {
     return readDefaultMemory();
