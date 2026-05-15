@@ -53,7 +53,7 @@ Pageouts:                               1498775.
 Swapins:                                      0.
 Swapouts:                                     0.`;
   const result = parseVmStat(output);
-  assert.deepEqual(result, { pageSize: 16384, active: 253775, wired: 195488 });
+  assert.deepEqual(result, { pageSize: 16384, active: 253775, wired: 195488, compressor: 115488 });
 });
 
 test('parseVmStat returns null for empty string', () => {
@@ -62,6 +62,16 @@ test('parseVmStat returns null for empty string', () => {
 
 test('parseVmStat returns null for malformed output', () => {
   assert.equal(parseVmStat('not valid vm_stat output'), null);
+});
+
+test('parseVmStat treats missing compressor line as 0 (pre-10.9 / stripped output)', () => {
+  const output = `Mach Virtual Memory Statistics: (page size of 4096 bytes)
+Pages free:                              100000.
+Pages active:                            200000.
+Pages inactive:                          150000.
+Pages wired down:                         50000.`;
+  const result = parseVmStat(output);
+  assert.deepEqual(result, { pageSize: 4096, active: 200000, wired: 50000, compressor: 0 });
 });
 
 test('parseLinuxMeminfo uses MemAvailable for Linux free memory', () => {
@@ -83,16 +93,20 @@ MemFree:         7105992 kB`;
   assert.equal(parseLinuxMeminfo(output), null);
 });
 
-test('macOS memory calculation: 16GB total, active+wired via vm_stat → 43%', async () => {
+test('macOS memory calculation: 16GB total, active+wired+compressor via vm_stat → 54%', async () => {
   const totalBytes = 16 * 1024 ** 3;
-  const usedBytes = (253775 + 195488) * 16384;
+  // Mirrors readMacOSMemory: usedBytes = (active + wired + compressor) * pageSize.
+  // Without the compressor pages, this same fixture reports 43% — the gap
+  // shows up as the difference between claude-hud and Activity Monitor on
+  // pressured macOS systems before this fix.
+  const usedBytes = (253775 + 195488 + 115488) * 16384;
   _setMemoryReaderForTests(() => ({
     totalBytes,
     freeBytes: totalBytes - usedBytes,
   }));
 
   const memoryUsage = await getMemoryUsage();
-  assert.equal(memoryUsage.usedPercent, 43);
+  assert.equal(memoryUsage.usedPercent, 54);
   assert.equal(memoryUsage.usedBytes, usedBytes);
 });
 
