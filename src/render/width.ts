@@ -1,12 +1,13 @@
-import { getLanguage } from '../i18n/index.js';
+import { isCjkLanguage } from '../i18n/index.js';
 
 // CJK terminals render East Asian Ambiguous-width chars (box drawing,
 // block elements, arrows, etc.) as 2 cells. The HUD bar/separator/icon
 // glyphs fall in those ranges, so width math must follow suit when the
 // user's language is CJK — otherwise wrap calculations under-report
 // visual width and the terminal itself wraps.
+// https://www.unicode.org/reports/tr11/
 export function isCjkAmbiguousWide(): boolean {
-  return getLanguage() === 'zh';
+  return isCjkLanguage();
 }
 
 export function isWideCodePoint(codePoint: number): boolean {

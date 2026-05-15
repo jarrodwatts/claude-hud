@@ -1,6 +1,6 @@
 import type { Messages } from "./types.js";
 
-export const zh: Messages = {
+export const zhHans: Messages = {
   // Labels
   "label.context": "上下文",
   "label.usage": "用量",
