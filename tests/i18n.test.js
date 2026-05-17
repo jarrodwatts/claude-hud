@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { setLanguage, getLanguage, t } from "../dist/i18n/index.js";
+import { setLanguage, getLanguage, getCanonicalLanguage, isCjkLanguage, t } from "../dist/i18n/index.js";
 import { mergeConfig } from "../dist/config.js";
 import { renderSessionTokensLine } from "../dist/render/lines/session-tokens.js";
 
@@ -111,4 +111,50 @@ test("renderSessionTokensLine uses translated labels in Chinese", () => {
   assert.ok(!line.includes("cache:"), `unexpected bare 'cache:' label in zh output: ${line}`);
   assert.ok(!line.includes("Tokens"), `unexpected bare 'Tokens' label in zh output: ${line}`);
   setLanguage("en");
+});
+
+test("getCanonicalLanguage resolves zh alias to zh-Hans", () => {
+  setLanguage("zh");
+  assert.equal(getCanonicalLanguage(), "zh-Hans");
+  setLanguage("en");
+});
+
+test("getCanonicalLanguage returns zh-Hans for explicit zh-Hans", () => {
+  setLanguage("zh-Hans");
+  assert.equal(getCanonicalLanguage(), "zh-Hans");
+  setLanguage("en");
+});
+
+test("getCanonicalLanguage returns en for English", () => {
+  setLanguage("en");
+  assert.equal(getCanonicalLanguage(), "en");
+});
+
+test("isCjkLanguage returns true for zh", () => {
+  setLanguage("zh");
+  assert.equal(isCjkLanguage(), true);
+  setLanguage("en");
+});
+
+test("isCjkLanguage returns true for zh-Hans", () => {
+  setLanguage("zh-Hans");
+  assert.equal(isCjkLanguage(), true);
+  setLanguage("en");
+});
+
+test("isCjkLanguage returns false for en", () => {
+  setLanguage("en");
+  assert.equal(isCjkLanguage(), false);
+});
+
+test("t() resolves translations via canonical mapping for zh-Hans", () => {
+  setLanguage("zh-Hans");
+  assert.equal(t("label.context"), "上下文");
+  assert.equal(t("label.usage"), "用量");
+  setLanguage("en");
+});
+
+test("mergeConfig accepts zh-Hans as valid language", () => {
+  const config = mergeConfig({ language: "zh-Hans" });
+  assert.equal(config.language, "zh-Hans");
 });

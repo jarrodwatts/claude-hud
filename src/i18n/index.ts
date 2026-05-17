@@ -4,13 +4,13 @@ import { zhHans } from "./zh-Hans.js";
 
 export type { Language, MessageKey, Messages };
 
-const locales: Record<string, Messages> = {
+type CanonicalLanguage = "en" | "zh-Hans";
+
+const locales: Record<CanonicalLanguage | "zh", Messages> = {
   en,
   zh: zhHans,
   "zh-Hans": zhHans,
 };
-
-type CanonicalLanguage = "en" | "zh-Hans";
 
 // Resolve short language tags to canonical BCP 47 forms.
 // Based on CLDR likely subtags: zh → zh-Hans-CN
