@@ -17,7 +17,7 @@ import { renderIdentityLine } from '../dist/render/lines/identity.js';
 import { renderEnvironmentLine } from '../dist/render/lines/environment.js';
 import { renderSessionTokensLine } from '../dist/render/lines/session-tokens.js';
 import { renderSessionTimeLine } from '../dist/render/lines/session-time.js';
-import { getContextColor, getQuotaColor } from '../dist/render/colors.js';
+import { coloredBar, getContextColor, getQuotaColor, quotaBar } from '../dist/render/colors.js';
 import { setLanguage } from '../dist/i18n/index.js';
 
 function stripAnsi(str) {
@@ -296,6 +296,14 @@ test('getContextColor and getQuotaColor resolve hex color strings', () => {
   assert.equal(getContextColor(70, colors), '\x1b[38;2;255;135;215m');
   assert.equal(getQuotaColor(25, colors), '\x1b[38;2;255;176;0m');
   assert.equal(getQuotaColor(80, colors), '\x1b[38;2;175;135;255m');
+});
+
+test('progress bars use line characters with rounded fill', () => {
+  assert.equal(stripAnsi(coloredBar(0, 10)), '──────────');
+  assert.equal(stripAnsi(coloredBar(4, 10)), '──────────');
+  assert.equal(stripAnsi(coloredBar(20, 10)), '━━────────');
+  assert.equal(stripAnsi(coloredBar(100, 10)), '━━━━━━━━━━');
+  assert.equal(stripAnsi(quotaBar(4, 10)), '──────────');
 });
 
 test('renderSessionLine includes config counts when present', () => {
@@ -1695,10 +1703,31 @@ test('renderUsageLine uses custom usage palette overrides', () => {
 
   const line = withTerminal(120, () => renderUsageLine(ctx));
   assert.ok(line, 'should render usage line');
-  assert.ok(line.includes('\x1b[36m███'), `expected custom usage bar color, got: ${JSON.stringify(line)}`);
+  assert.ok(line.includes('\x1b[36m━━━'), `expected custom usage bar color, got: ${JSON.stringify(line)}`);
   assert.ok(line.includes('\x1b[36m25%\x1b[0m'), `expected custom usage percentage color, got: ${JSON.stringify(line)}`);
-  assert.ok(line.includes('\x1b[35m████████'), `expected custom usage warning color, got: ${JSON.stringify(line)}`);
+  assert.ok(line.includes('\x1b[35m━━━━━━━━'), `expected custom usage warning color, got: ${JSON.stringify(line)}`);
   assert.ok(line.includes('\x1b[35m80%\x1b[0m'), `expected custom usage warning percentage color, got: ${JSON.stringify(line)}`);
+});
+
+test('rendered context and usage bars use line-style defaults', () => {
+  const ctx = baseContext();
+  ctx.config.display.usageBarEnabled = true;
+  ctx.usageData = {
+    planName: 'Pro',
+    fiveHour: 20,
+    sevenDay: null,
+    fiveHourResetAt: null,
+    sevenDayResetAt: null,
+  };
+
+  const identityLine = stripAnsi(renderIdentityLine(ctx));
+  const usageLine = stripAnsi(withTerminal(120, () => renderUsageLine(ctx)) ?? '');
+
+  assert.ok(identityLine.includes('━'), `expected context line bar to use filled line character: ${identityLine}`);
+  assert.ok(identityLine.includes('─'), `expected context line bar to use empty line character: ${identityLine}`);
+  assert.ok(!identityLine.includes('█'), `context line should not use block filled default: ${identityLine}`);
+  assert.ok(!identityLine.includes('░'), `context line should not use shaded empty default: ${identityLine}`);
+  assert.ok(usageLine.includes('━━──────── 20%'), `expected usage line to use line-style bar: ${usageLine}`);
 });
 
 test('quotaBar and coloredBar use custom barFilled and barEmpty characters', () => {
@@ -1794,7 +1823,7 @@ test('render adds separator line when showSeparators is true and activity exists
   }
 
   assert.ok(logs.length > 1, 'should render multiple lines');
-  assert.ok(logs.some(l => l.includes('─')), 'should include separator line');
+  assert.ok(logs.some(l => /^─+$/.test(stripAnsi(l))), 'should include separator line');
 });
 
 test('render omits separator when showSeparators is true but no activity', () => {
@@ -1810,7 +1839,7 @@ test('render omits separator when showSeparators is true but no activity', () =>
     console.log = originalLog;
   }
 
-  assert.ok(!logs.some(l => l.includes('─')), 'should not include separator');
+  assert.ok(!logs.some(l => /^─+$/.test(stripAnsi(l))), 'should not include separator');
 });
 
 test('render preserves regular spaces instead of non-breaking spaces', () => {

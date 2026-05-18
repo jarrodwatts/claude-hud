@@ -87,7 +87,7 @@ Claude HUD gives you better insights into what's happening in your Claude Code s
 ### Default (2 lines)
 ```
 [Opus] │ my-project git:(main*)
-Context █████░░░░░ 45% │ Usage ██░░░░░░░░ 25% (1h 30m / 5h)
+Context ━━━━━───── 45% │ Usage ━━━─────── 25% (1h 30m / 5h)
 ```
 - **Line 1** — Model, provider label when positively identified (for example `Bedrock`, `Vertex`), project path, git branch
 - **Line 2** — Context bar (green → yellow → red) and usage rate limits
@@ -173,7 +173,7 @@ Chinese HUD labels are available as an explicit opt-in. English stays the defaul
 | `display.showModel` | boolean | true | Show model name `[Opus]` |
 | `display.showAddedDirs` | boolean | true | Show extra workspace directories from `/add-dir` (e.g. `+sparkle +lib-foo`); empty array renders nothing. In both layouts at most 5 dirs render (overflow shown as `+N more`) and basenames are truncated to 24 chars with `…` |
 | `display.addedDirsLayout` | `inline` \| `line` | `inline` | `inline` puts dirs next to the project name with a `+name` prefix per dir; `line` renders them on a separate `Added dirs: name1, name2` line (no `+` prefix, comma-separated) |
-| `display.showContextBar` | boolean | true | Show visual context bar `████░░░░░░` |
+| `display.showContextBar` | boolean | true | Show visual context bar `━━━━━─────` |
 | `display.contextValue` | `percent` \| `tokens` \| `remaining` \| `both` | `percent` | Context display format (`45%`, `45k/200k`, `55%` remaining, or `45% (45k/200k)`) |
 | `display.showConfigCounts` | boolean | false | Show CLAUDE.md, rules, MCPs, hooks counts |
 | `display.showCost` | boolean | false | Show session cost using Claude Code's native `cost.total_cost_usd` when available, with a local estimate fallback for direct Anthropic sessions |
@@ -211,8 +211,8 @@ Chinese HUD labels are available as an explicit opt-in. English stays the defaul
 | `colors.gitBranch` | color value | `cyan` | Color for the git branch and branch status text |
 | `colors.label` | color value | `dim` | Color for labels and secondary metadata such as `Context`, `Usage`, counts, and progress text |
 | `colors.custom` | color value | `208` | Color for the optional custom line |
-| `colors.barFilled` | string | `█` | Character used for the filled portion of progress bars |
-| `colors.barEmpty` | string | `░` | Character used for the empty portion of progress bars |
+| `colors.barFilled` | string | `━` | Character used for the filled portion of progress bars |
+| `colors.barEmpty` | string | `─` | Character used for the empty portion of progress bars |
 
 `colors.barFilled` and `colors.barEmpty` accept a single visible grapheme. Control characters, invisible format characters (bidi controls, zero-width joiners, variation selectors), line/paragraph separators, and noncharacters are rejected. Wide characters (emoji, CJK) may affect bar alignment depending on the terminal.
 
@@ -239,7 +239,7 @@ Free/weekly-only accounts render the weekly window by itself instead of showing 
 The 7-day percentage appears when above the `display.sevenDayThreshold` (default 80%):
 
 ```
-Context █████░░░░░ 45% │ Usage ██░░░░░░░░ 25% (1h 30m / 5h) | ██████████ 85% (2d / 7d)
+Context ━━━━━───── 45% │ Usage ━━━─────── 25% (1h 30m / 5h) | ━━━━━━━━━─ 85% (2d / 7d)
 ```
 
 To disable, set `display.showUsage` to `false`.

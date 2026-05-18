@@ -87,7 +87,7 @@ src/
 
 ```
 [Opus] │ my-project git:(main*)
-Context █████░░░░░ 45% │ Usage ██░░░░░░░░ 25% (1h 30m / 5h)
+Context ━━━━━───── 45% │ Usage ━━━─────── 25% (1h 30m / 5h)
 ```
 
 Lines 1-2 always shown. Additional lines are opt-in via config:

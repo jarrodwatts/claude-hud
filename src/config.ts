@@ -209,8 +209,8 @@ export const DEFAULT_CONFIG: HudConfig = {
     gitBranch: 'cyan',
     label: 'dim',
     custom: 208,
-    barFilled: '█',
-    barEmpty: '░',
+    barFilled: '━',
+    barEmpty: '─',
   },
 };
 

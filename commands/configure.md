@@ -13,7 +13,7 @@ Store current values and note whether config exists (determines which flow to us
 
 These are always enabled and NOT configurable:
 - Model name `[Opus]`
-- Context bar `████░░░░░░ 45%`
+- Context bar `━━━━━───── 45%`
 
 Advanced settings such as `colors.*`, `pathLevels`, `display.timeFormat`,
 `display.usageThreshold`, `display.usageValue`, `display.environmentThreshold`,
@@ -117,7 +117,7 @@ If user chooses "Enter custom text", use AskUserQuestion to get their text. Save
   - "Git status" - git:(main*) branch indicator
   - "Session name" - fix-auth-bug (session slug or custom title)
   - "Session tokens" - Tokens 12.8M (in: 7k, out: 28k, cache: 12.8M)
-  - "Usage bar style" - ██░░ 25% visual bar (only if usageBarEnabled is true)
+  - "Usage bar style" - ━─── 25% visual bar (only if usageBarEnabled is true)
   - "Compact usage" - 5h: 25% (1h 30m) shorter format (only if usageCompact is false)
 
 If more than 4 items ON, show Activity items (Tools, Agents, Todos, Project, Git) first.
@@ -132,7 +132,7 @@ Info items (Counts, Tokens, Usage, Speed, Duration) can be turned off via "Reset
   - "Token breakdown" - (in: 45k, cache: 12k)
   - "Output speed" - out: 42.1 tok/s
   - "Usage limits" - 5h: 25% | 7d: 10%
-  - "Usage bar style" - ██░░ 25% visual bar (only if usageBarEnabled is false)
+  - "Usage bar style" - ━─── 25% visual bar (only if usageBarEnabled is false)
   - "Compact usage" - 5h: 25% (1h 30m) shorter format (only if usageCompact is false)
   - "Session name" - fix-auth-bug (session slug or custom title)
   - "Session tokens" - Tokens 12.8M (in: 7k, out: 28k, cache: 12.8M)
@@ -270,7 +270,7 @@ If user chooses "Remove", set `display.customLine` to `""` in config.
 
 | Option | Config | Example |
 |--------|--------|---------|
-| Bar style | `usageBarEnabled: true` | `Usage ██░░ 25% (resets in 1h 30m)` |
+| Bar style | `usageBarEnabled: true` | `Usage ━─── 25% (resets in 1h 30m)` |
 | Text style | `usageBarEnabled: false` | `Usage 5h 25% (resets in 1h 30m)` |
 | Compact | `usageCompact: true` | `5h: 25% (1h 30m)` — no "Usage" label, shorter reset format |
 
@@ -322,14 +322,14 @@ Changes:
 2. **Preview of HUD (Expanded layout):**
 ```
 [Opus | Pro] │ my-project git:(main*)
-Context ████░░░░░ 45% │ Usage ██░░░░░░░░ 25% (1h 30m / 5h)
+Context ━━━━━───── 45% │ Usage ━━━─────── 25% (1h 30m / 5h)
 ◐ Edit: file.ts | ✓ Read ×3
 ▸ Fix auth bug (2/5)
 ```
 
 **Preview of HUD (Compact layout):**
 ```
-[Opus | Pro] ████░░░░░ 45% | my-project git:(main*) | 5h: 25% | ⏱️ 5m
+[Opus | Pro] ━━━━━───── 45% | my-project git:(main*) | 5h: 25% | ⏱️ 5m
 ◐ Edit: file.ts | ✓ Read ×3
 ▸ Fix auth bug (2/5)
 ```

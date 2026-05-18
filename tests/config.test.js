@@ -556,6 +556,8 @@ test('mergeConfig defaults colors to expected semantic palette', () => {
   assert.equal(config.colors.gitBranch, 'cyan');
   assert.equal(config.colors.label, 'dim');
   assert.equal(config.colors.custom, 208);
+  assert.equal(config.colors.barFilled, '━');
+  assert.equal(config.colors.barEmpty, '─');
 });
 
 test('mergeConfig accepts valid color overrides and filters invalid values', () => {
