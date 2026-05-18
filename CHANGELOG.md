@@ -4,6 +4,9 @@ All notable changes to Claude HUD will be documented in this file.
 
 ## [Unreleased]
 
+### Added
+- Traditional Chinese (`zh-Hant`) HUD labels alongside the existing Simplified Chinese (`zh`/`zh-Hans`) locale, with `zh-TW` accepted as an alias. Existing `zh` users are unaffected.
+
 ### Fixed
 - Windows + PowerShell `/claude-hud:setup` now writes a `statusline.ps1` wrapper with a guarded width fallback and corrected version-directory glob (#521).
 - Added Windows PowerShell 5.1 guidance for writing `settings.json` without a UTF-8 BOM.
