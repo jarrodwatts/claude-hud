@@ -348,6 +348,44 @@ test('render ignores BEL-terminated OSC 8 hyperlink sequences when measuring lin
   assert.ok(displayWidth(lines[0]) <= 47, 'visible width should respect terminal width');
 });
 
+test('render closes an OSC 8 hyperlink when truncation cuts inside it', () => {
+  const ctx = baseContext();
+  ctx.config.lineLayout = 'compact';
+  ctx.stdin.context_window.current_usage.input_tokens = 0;
+  ctx.config.display.showContextBar = false;
+  ctx.config.display.showConfigCounts = false;
+  ctx.config.display.showUsage = false;
+  ctx.stdin.cwd = '/tmp/p';
+  // Label is wider than the terminal so truncation must cut inside it.
+  const linkLabel = 'a-very-long-hyperlink-label-that-must-be-truncated';
+  ctx.extraLabel = `\x1b]8;;file:///tmp/p/x\x1b\\${linkLabel}\x1b]8;;\x1b\\`;
+
+  const logs = [];
+  const originalLog = console.log;
+  console.log = line => logs.push(line);
+  try {
+    // Drive render directly so logs retain ANSI/OSC sequences (the
+    // shared captureRender helper strips them before returning).
+    withTerminal(20, () => render(ctx));
+  } finally {
+    console.log = originalLog;
+  }
+
+  const rawLines = logs;
+  const truncated = rawLines.find(line => line.includes('...'));
+  assert.ok(truncated, 'one line should have been truncated with an ellipsis');
+
+  const sliceBeforeEllipsis = truncated.slice(0, truncated.indexOf('...'));
+  assert.ok(
+    /\x1b\]8;;[^\x07\x1b]+(?:\x07|\x1b\\)/.test(sliceBeforeEllipsis),
+    'the truncated slice should have opened an OSC 8 hyperlink',
+  );
+  assert.ok(
+    /\x1b\]8;;(?:\x07|\x1b\\)/.test(sliceBeforeEllipsis),
+    'the truncated slice should close the hyperlink before the ellipsis so the underline does not bleed past',
+  );
+});
+
 test('render does not wrap when no real terminal width is available', () => {
   const ctx = baseContext();
   ctx.stdin.model = { display_name: 'Sonnet 4.6' };
