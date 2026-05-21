@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.deepseek-balance</string>
+    <key>ProgramArguments</key>
+    <array>
+        <string>/usr/local/bin/node</string>
+        <string>/path/to/claude-hud/scripts/deepseek-balance.js</string>
+        <string>--output</string>
+        <string>/path/to/.claude/plugins/claude-hud/deepseek-balance.json</string>
+    </array>
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>DEEPSEEK_API_KEY</key>
+        <string>sk-your-key-here</string>
+    </dict>
+    <key>StartInterval</key>
+    <integer>600</integer>
+    <key>RunAtLoad</key>
+    <true/>
+    <key>StandardOutPath</key>
+    <string>/path/to/.claude/plugins/claude-hud/deepseek-balance.log</string>
+    <key>StandardErrorPath</key>
+    <string>/path/to/.claude/plugins/claude-hud/deepseek-balance.log</string>
+    <key>KeepAlive</key>
+    <false/>
+</dict>
+</plist>

@@ -257,6 +257,41 @@ ClaudeHUD 优先使用官方 statusline stdin 负载中的使用率数据。如�
 }
 ```
 
+### DeepSeek 余额显示
+
+如果你使用 **DeepSeek** 作为 Claude Code 的 API Provider（通过 Anthropic 兼容接口），ClaudeHUD 无法获取用量百分比。但可以通过外部快照显示 DeepSeek 账户余额。
+
+项目提供了一个 companion 脚本 `scripts/deepseek-balance.js`：
+
+```bash
+# 获取余额并写入文件
+DEEPSEEK_API_KEY=sk-your-key node scripts/deepseek-balance.js --output /path/to/balance.json
+```
+
+脚本输出格式：
+
+```json
+{
+  "updated_at": 1779356358855,
+  "balance_label": "余额 ¥108.50",
+  "five_hour": null,
+  "seven_day": null
+}
+```
+
+在 `~/.claude/plugins/claude-hud/config.json` 中配置外部用量路径：
+
+```json
+{
+  "display": {
+    "externalUsagePath": "/path/to/balance.json",
+    "externalUsageFreshnessMs": 600000
+  }
+}
+```
+
+HUD 将显示 `Usage: 余额 ¥108.50`。建议配合 launchd 或 crontab 每 5-10 分钟刷新一次。
+
 ### 配置示例
 
 ```json

@@ -118,3 +118,32 @@ Note: `statusLine` is NOT a valid plugin.json field. It must be configured in se
 
 - **Runtime**: Node.js 18+ or Bun
 - **Build**: TypeScript 5, ES2022 target, NodeNext modules
+
+## Companion Scripts
+
+### deepseek-balance.js — DeepSeek 余额显示
+
+`scripts/deepseek-balance.js` 是一个独立 Node.js 脚本，调用 DeepSeek API `GET /user/balance` 获取账户余额，输出为 ExternalUsageSnapshot JSON 格式。
+
+**用途：** 当 Claude Code 使用 DeepSeek 作为 API Provider（Anthropic 兼容接口）时，ClaudeHUD 无法获取 Anthropic 的速率限制百分比。此脚本通过 `balance_label` 字段显示 DeepSeek 余额。
+
+**使用：**
+```bash
+DEEPSEEK_API_KEY=sk-your-key node scripts/deepseek-balance.js --output /path/to/snapshot.json
+```
+
+**配置 claude-hud：**
+```json
+{
+  "display": {
+    "externalUsagePath": "/path/to/snapshot.json",
+    "externalUsageFreshnessMs": 600000
+  }
+}
+```
+
+**定时刷新（macOS launchd）：**
+将 `com.deepseek-balance.plist` 复制到 `~/Library/LaunchAgents/`，修改 API Key，然后：
+```bash
+launchctl load ~/Library/LaunchAgents/com.deepseek-balance.plist
+```
