@@ -273,7 +273,7 @@ DEEPSEEK_API_KEY=sk-your-key node scripts/deepseek-balance.js --output /path/to/
 ```json
 {
   "updated_at": 1779356358855,
-  "balance_label": "余额 ¥108.50",
+  "balance_label": "Balance ¥108.50",
   "five_hour": null,
   "seven_day": null
 }
@@ -290,7 +290,7 @@ DEEPSEEK_API_KEY=sk-your-key node scripts/deepseek-balance.js --output /path/to/
 }
 ```
 
-HUD 将显示 `Usage: 余额 ¥108.50`。建议配合 launchd 或 crontab 每 5-10 分钟刷新一次。
+HUD 将显示 `Usage: Balance ¥108.50`。建议配合 launchd 或 crontab 每 5-10 分钟刷新一次。
 
 ### 配置示例
 

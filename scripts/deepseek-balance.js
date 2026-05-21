@@ -22,7 +22,7 @@ Environment Variables:
 Output format:
   {
     "updated_at": 1779356358855,
-    "balance_label": "余额 ¥108.50",
+    "balance_label": "Balance ¥108.50",
     "five_hour": null,
     "seven_day": null
   }
@@ -92,7 +92,7 @@ function formatBalanceLabel(totalBalance, currency) {
   }
 
   const formatted = Number(totalBalance).toFixed(2);
-  return `余额 ${symbol}${formatted}`;
+  return `Balance ${symbol}${formatted}`;
 }
 
 async function fetchBalance(apiKey) {
