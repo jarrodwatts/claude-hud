@@ -10,8 +10,10 @@ import { getMemoryUsage } from "./memory.js";
 import { resolveEffortLevel } from "./effort.js";
 import { applyContextWindowFallback } from "./context-cache.js";
 import { getUsageFromExternalSnapshot } from "./external-usage.js";
+import { getDeepSeekUsage } from "./deepseek-balance.js";
 import { setLanguage, t } from "./i18n/index.js";
 export { getUsageFromExternalSnapshot } from "./external-usage.js";
+export { getDeepSeekUsage } from "./deepseek-balance.js";
 import { fileURLToPath } from "node:url";
 import { realpathSync } from "node:fs";
 export async function main(overrides = {}) {
@@ -19,6 +21,7 @@ export async function main(overrides = {}) {
         readStdin,
         getUsageFromStdin,
         getUsageFromExternalSnapshot,
+        getDeepSeekUsage,
         parseTranscript,
         countConfigs,
         getGitStatus,
@@ -61,6 +64,9 @@ export async function main(overrides = {}) {
         let usageData = null;
         if (config.display.showUsage !== false) {
             usageData = deps.getUsageFromStdin(stdin);
+            if (!usageData) {
+                usageData = (await deps.getDeepSeekUsage()) ?? null;
+            }
             if (!usageData) {
                 usageData = deps.getUsageFromExternalSnapshot(config, deps.now());
             }
