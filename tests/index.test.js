@@ -296,9 +296,10 @@ test("main includes usageData from stdin when available", async () => {
   });
 });
 
-test("main leaves usageData null when stdin rate limits are absent and external fallback is unavailable", async () => {
+test("main leaves usageData null when stdin rate limits are absent and all fallbacks are unavailable", async () => {
   let renderedContext;
   let externalCalls = 0;
+  let deepseekCalls = 0;
 
   await main({
     readStdin: async () => makeStdin({ rate_limits: null }),
@@ -306,6 +307,10 @@ test("main leaves usageData null when stdin rate limits are absent and external 
     countConfigs: async () => makeCounts(),
     loadConfig: async () => makeConfig(),
     getGitStatus: async () => null,
+    getDeepSeekUsage: async () => {
+      deepseekCalls += 1;
+      return null;
+    },
     getUsageFromExternalSnapshot: () => {
       externalCalls += 1;
       return null;
@@ -315,13 +320,106 @@ test("main leaves usageData null when stdin rate limits are absent and external 
     },
   });
 
+  assert.equal(deepseekCalls, 1);
   assert.equal(externalCalls, 1);
   assert.equal(renderedContext?.usageData, null);
 });
 
-test("main uses external usage fallback when stdin rate limits are absent", async () => {
+test("main uses deepseek usage when stdin rate limits are absent and deepseek has data", async () => {
+  let renderedContext;
+  let deepseekCalls = 0;
+  let externalCalls = 0;
+  const deepseekUsage = {
+    fiveHour: null,
+    sevenDay: null,
+    fiveHourResetAt: null,
+    sevenDayResetAt: null,
+    balanceLabel: "Balance ¥42.00",
+  };
+
+  await main({
+    readStdin: async () => makeStdin({ rate_limits: null }),
+    parseTranscript: async () => makeTranscript(),
+    countConfigs: async () => makeCounts(),
+    loadConfig: async () => makeConfig(),
+    getGitStatus: async () => null,
+    getDeepSeekUsage: async () => {
+      deepseekCalls += 1;
+      return deepseekUsage;
+    },
+    getUsageFromExternalSnapshot: () => {
+      externalCalls += 1;
+      return {
+        fiveHour: 99,
+        sevenDay: 99,
+        fiveHourResetAt: null,
+        sevenDayResetAt: null,
+      };
+    },
+    render: (ctx) => {
+      renderedContext = ctx;
+    },
+  });
+
+  assert.equal(deepseekCalls, 1);
+  assert.equal(externalCalls, 0, "external should not be called when deepseek returns data");
+  assert.equal(renderedContext?.usageData, deepseekUsage);
+});
+
+test("main prefers stdin usage over deepseek and external usage fallback", async () => {
+  let renderedContext;
+  let deepseekCalls = 0;
+  let externalCalls = 0;
+
+  await main({
+    readStdin: async () => makeStdin({
+      rate_limits: {
+        five_hour: { used_percentage: 21.9, resets_at: 1710000000 },
+        seven_day: { used_percentage: 55.2, resets_at: 1710600000 },
+      },
+    }),
+    parseTranscript: async () => makeTranscript(),
+    countConfigs: async () => makeCounts(),
+    loadConfig: async () => makeConfig(),
+    getGitStatus: async () => null,
+    getDeepSeekUsage: async () => {
+      deepseekCalls += 1;
+      return {
+        fiveHour: null,
+        sevenDay: null,
+        fiveHourResetAt: null,
+        sevenDayResetAt: null,
+        balanceLabel: "Balance ¥99.00",
+      };
+    },
+    getUsageFromExternalSnapshot: () => {
+      externalCalls += 1;
+      return {
+        fiveHour: 99,
+        sevenDay: 99,
+        fiveHourResetAt: null,
+        sevenDayResetAt: null,
+      };
+    },
+    render: (ctx) => {
+      renderedContext = ctx;
+    },
+  });
+
+  assert.equal(deepseekCalls, 0, "deepseek should not be called when stdin has rate limits");
+  assert.equal(externalCalls, 0, "external should not be called when stdin has rate limits");
+  assert.deepEqual(renderedContext?.usageData, {
+    fiveHour: 22,
+    sevenDay: 55,
+    fiveHourResetAt: new Date(1710000000 * 1000),
+    sevenDayResetAt: new Date(1710600000 * 1000),
+  });
+});
+
+test("main uses external usage fallback when stdin rate limits and deepseek are absent", async () => {
   let renderedContext;
   let externalCalls = 0;
+  let deepseekCalls = 0;
   const externalUsage = {
     fiveHour: 42,
     sevenDay: 85,
@@ -336,6 +434,10 @@ test("main uses external usage fallback when stdin rate limits are absent", asyn
     loadConfig: async () => makeConfig(),
     getGitStatus: async () => null,
     now: () => Date.UTC(2026, 3, 20, 12, 1, 0),
+    getDeepSeekUsage: async () => {
+      deepseekCalls += 1;
+      return null;
+    },
     getUsageFromExternalSnapshot: (config, now) => {
       externalCalls += 1;
       assert.equal(config.display.externalUsagePath, "");
@@ -347,6 +449,7 @@ test("main uses external usage fallback when stdin rate limits are absent", asyn
     },
   });
 
+  assert.equal(deepseekCalls, 1);
   assert.equal(externalCalls, 1);
   assert.deepEqual(renderedContext?.usageData, externalUsage);
 });

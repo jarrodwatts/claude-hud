@@ -10,10 +10,12 @@ import { getMemoryUsage } from "./memory.js";
 import { resolveEffortLevel } from "./effort.js";
 import { applyContextWindowFallback } from "./context-cache.js";
 import { getUsageFromExternalSnapshot } from "./external-usage.js";
+import { getDeepSeekUsage } from "./deepseek-balance.js";
 import { setLanguage, t } from "./i18n/index.js";
 import type { RenderContext } from "./types.js";
 
 export { getUsageFromExternalSnapshot } from "./external-usage.js";
+export { getDeepSeekUsage } from "./deepseek-balance.js";
 import { fileURLToPath } from "node:url";
 import { realpathSync } from "node:fs";
 
@@ -21,6 +23,7 @@ export type MainDeps = {
   readStdin: typeof readStdin;
   getUsageFromStdin: typeof getUsageFromStdin;
   getUsageFromExternalSnapshot: typeof getUsageFromExternalSnapshot;
+  getDeepSeekUsage: typeof getDeepSeekUsage;
   parseTranscript: typeof parseTranscript;
   countConfigs: typeof countConfigs;
   getGitStatus: typeof getGitStatus;
@@ -40,6 +43,7 @@ export async function main(overrides: Partial<MainDeps> = {}): Promise<void> {
     readStdin,
     getUsageFromStdin,
     getUsageFromExternalSnapshot,
+    getDeepSeekUsage,
     parseTranscript,
     countConfigs,
     getGitStatus,
@@ -90,6 +94,9 @@ export async function main(overrides: Partial<MainDeps> = {}): Promise<void> {
     let usageData: RenderContext["usageData"] = null;
     if (config.display.showUsage !== false) {
       usageData = deps.getUsageFromStdin(stdin);
+      if (!usageData) {
+        usageData = (await deps.getDeepSeekUsage()) ?? null;
+      }
       if (!usageData) {
         usageData = deps.getUsageFromExternalSnapshot(config, deps.now());
       }
