@@ -1,4 +1,4 @@
-import { test, beforeEach, afterEach } from "node:test";
+import { test } from "node:test";
 import assert from "node:assert/strict";
 import { mkdir, mkdtemp, rm, writeFile, readFile } from "node:fs/promises";
 import * as path from "node:path";
@@ -25,25 +25,6 @@ function setupTempDir() {
   };
 
   return { setup, cleanup: () => cleanup?.() };
-}
-
-/**
- * Clears the in-memory module cache so each test gets a fresh
- * import of deepseek-balance.js (which may have internal state).
- * The module path is resolved from the test file location.
- */
-function resetModule() {
-  const absolute = new URL(modulePath, import.meta.url);
-  const key = absolute.pathname;
-  for (const entry of [...Object.keys(import.meta.resolve ? {} : {})]) {
-    // no-op fallback for environments without resolve
-  }
-  delete process.env.CLAUDE_CONFIG_DIR;
-  // bust the node module cache for our module
-  const resolved = require?.resolve?.paths?.(key) ? key : key;
-  if (typeof require !== "undefined") {
-    delete require.cache[require.resolve(key)];
-  }
 }
 
 async function importModule() {
