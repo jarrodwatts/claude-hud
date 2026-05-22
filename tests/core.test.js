@@ -566,6 +566,59 @@ test('parseTranscript accumulates session token usage from assistant messages', 
   }
 });
 
+test('parseTranscript counts adjacent duplicate assistant usage once', async () => {
+  const usageEntry = {
+    type: 'assistant',
+    message: {
+      usage: {
+        input_tokens: 100,
+        output_tokens: 25,
+        cache_creation_input_tokens: 10,
+        cache_read_input_tokens: 5,
+      },
+    },
+  };
+
+  const result = await parseTempTranscript('session-tokens-adjacent-duplicate.jsonl', [
+    usageEntry,
+    usageEntry,
+  ]);
+
+  assert.deepEqual(result.sessionTokens, {
+    inputTokens: 100,
+    outputTokens: 25,
+    cacheCreationTokens: 10,
+    cacheReadTokens: 5,
+  });
+});
+
+test('parseTranscript counts identical assistant usage separated by another line twice', async () => {
+  const usageEntry = {
+    type: 'assistant',
+    message: {
+      usage: {
+        input_tokens: 100,
+        output_tokens: 25,
+        cache_creation_input_tokens: 10,
+        cache_read_input_tokens: 5,
+      },
+    },
+  };
+
+  const result = await parseTempTranscript('session-tokens-separated-duplicate.jsonl', [
+    usageEntry,
+    { type: 'user', timestamp: '2024-01-01T00:00:01.000Z' },
+    usageEntry,
+  ]);
+
+  assert.deepEqual(result.sessionTokens, {
+    inputTokens: 200,
+    outputTokens: 50,
+    cacheCreationTokens: 20,
+    cacheReadTokens: 10,
+  });
+});
+
 test('parseTranscript records the most recent compact_boundary and postTokens', async () => {
   const dir = await mkdtemp(path.join(tmpdir(), 'claude-hud-'));
   const filePath = path.join(dir, 'compact-boundary.jsonl');
