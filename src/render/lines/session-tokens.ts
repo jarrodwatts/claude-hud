@@ -1,5 +1,5 @@
 import type { RenderContext } from '../../types.js';
-import { label } from '../colors.js';
+import { green, yellow, red, label, dim, RESET } from '../colors.js';
 import { t } from '../../i18n/index.js';
 
 function formatTokens(n: number): string {
@@ -10,6 +10,10 @@ function formatTokens(n: number): string {
     return `${(n / 1000).toFixed(0)}k`;
   }
   return n.toString();
+}
+
+function getColorFn(percent: number) {
+  return percent >= 70 ? green : percent >= 40 ? yellow : red;
 }
 
 export function renderSessionTokensLine(ctx: RenderContext): string | null {
@@ -30,13 +34,24 @@ export function renderSessionTokensLine(ctx: RenderContext): string | null {
 
   const colors = ctx.config?.colors;
   const parts: string[] = [
-    `${t('format.in')}: ${formatTokens(tokens.inputTokens)}`,
-    `${t('format.out')}: ${formatTokens(tokens.outputTokens)}`,
+    `${t('format.totalIn')}: ${formatTokens(tokens.inputTokens)}`,
+    `${t('format.totalOut')}: ${formatTokens(tokens.outputTokens)}`,
   ];
 
   if (tokens.cacheCreationTokens > 0 || tokens.cacheReadTokens > 0) {
-    parts.push(`${t('format.cache')}: ${formatTokens(tokens.cacheCreationTokens + tokens.cacheReadTokens)}`);
+    parts.push(`${t('format.totalCache')}: ${formatTokens(tokens.cacheCreationTokens + tokens.cacheReadTokens)}`);
   }
 
-  return label(`${t('label.tokens')} ${formatTokens(total)} (${parts.join(', ')})`, colors);
+  // 会话平均命中率
+  const cacheTotal = tokens.inputTokens + tokens.cacheCreationTokens + tokens.cacheReadTokens;
+  let avgStr = '';
+  if (cacheTotal > 0) {
+    const hitRate = (tokens.cacheReadTokens / cacheTotal) * 100;
+    const percent = Math.min(100, Math.max(0, hitRate));
+    const percentStr = percent.toFixed(1);
+    const colorFn = getColorFn(parseFloat(percentStr));
+    avgStr = ` ${dim('│')} ${t('label.avg')} ${colorFn(`${percentStr}%`)}${RESET}`;
+  }
+
+  return label(`Tokens ${formatTokens(total)} (${parts.join(', ')})`, colors) + avgStr;
 }

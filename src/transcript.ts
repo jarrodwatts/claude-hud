@@ -9,11 +9,14 @@ import type { TranscriptData, ToolEntry, AgentEntry, TodoItem, SessionTokenUsage
 interface TranscriptLine {
   timestamp?: string;
   type?: string;
-  subtype?: string;
-  operation?: string;
-  content?: string;
   slug?: string;
   customTitle?: string;
+  usage?: {
+    input_tokens?: number;
+    output_tokens?: number;
+    cache_creation_input_tokens?: number;
+    cache_read_input_tokens?: number;
+  };
   message?: {
     content?: ContentBlock[];
     usage?: {
@@ -22,12 +25,6 @@ interface TranscriptLine {
       cache_creation_input_tokens?: number;
       cache_read_input_tokens?: number;
     };
-  };
-  compactMetadata?: {
-    trigger?: string;
-    preTokens?: number;
-    postTokens?: number;
-    durationMs?: number;
   };
 }
 
@@ -61,20 +58,14 @@ interface SerializedTranscriptData {
   todos: TodoItem[];
   sessionStart?: string;
   sessionName?: string;
-  lastAssistantResponseAt?: string;
   sessionTokens?: SessionTokenUsage;
-  lastCompactBoundaryAt?: string;
-  lastCompactPostTokens?: number;
 }
 
 interface TranscriptCacheFile {
-  version?: number;
   transcriptPath: string;
   transcriptState: TranscriptFileState;
   data: SerializedTranscriptData;
 }
-
-const TRANSCRIPT_CACHE_VERSION = 5;
 
 let createReadStreamImpl: typeof fs.createReadStream = fs.createReadStream;
 
@@ -103,14 +94,6 @@ function normalizeSessionTokens(tokens: unknown): SessionTokenUsage | undefined 
 function getTranscriptCachePath(transcriptPath: string, homeDir: string): string {
   const hash = createHash('sha256').update(path.resolve(transcriptPath)).digest('hex');
   return path.join(getHudPluginDir(homeDir), 'transcript-cache', `${hash}.json`);
-}
-
-function canonicalizeTranscriptPath(transcriptPath: string): string | null {
-  try {
-    return fs.realpathSync(transcriptPath);
-  } catch {
-    return null;
-  }
 }
 
 function readTranscriptFileState(transcriptPath: string): TranscriptFileState | null {
@@ -143,10 +126,7 @@ function serializeTranscriptData(data: TranscriptData): SerializedTranscriptData
     todos: data.todos.map((todo) => ({ ...todo })),
     sessionStart: data.sessionStart?.toISOString(),
     sessionName: data.sessionName,
-    lastAssistantResponseAt: data.lastAssistantResponseAt?.toISOString(),
     sessionTokens: data.sessionTokens,
-    lastCompactBoundaryAt: data.lastCompactBoundaryAt?.toISOString(),
-    lastCompactPostTokens: data.lastCompactPostTokens,
   };
 }
 
@@ -165,10 +145,7 @@ function deserializeTranscriptData(data: SerializedTranscriptData): TranscriptDa
     todos: data.todos.map((todo) => ({ ...todo })),
     sessionStart: data.sessionStart ? new Date(data.sessionStart) : undefined,
     sessionName: data.sessionName,
-    lastAssistantResponseAt: data.lastAssistantResponseAt ? new Date(data.lastAssistantResponseAt) : undefined,
     sessionTokens: normalizeSessionTokens(data.sessionTokens),
-    lastCompactBoundaryAt: data.lastCompactBoundaryAt ? new Date(data.lastCompactBoundaryAt) : undefined,
-    lastCompactPostTokens: typeof data.lastCompactPostTokens === 'number' ? data.lastCompactPostTokens : undefined,
   };
 }
 
@@ -178,10 +155,7 @@ function readTranscriptCache(transcriptPath: string, state: TranscriptFileState)
     const raw = fs.readFileSync(cachePath, 'utf8');
     const parsed = JSON.parse(raw) as TranscriptCacheFile;
     if (
-      parsed.version !== TRANSCRIPT_CACHE_VERSION
-      || !parsed.data
-      || !parsed.transcriptPath
-      || parsed.transcriptPath !== path.resolve(transcriptPath)
+      parsed.transcriptPath !== path.resolve(transcriptPath)
       || parsed.transcriptState?.mtimeMs !== state.mtimeMs
       || parsed.transcriptState?.size !== state.size
     ) {
@@ -199,12 +173,11 @@ function writeTranscriptCache(transcriptPath: string, state: TranscriptFileState
     const cachePath = getTranscriptCachePath(transcriptPath, os.homedir());
     fs.mkdirSync(path.dirname(cachePath), { recursive: true });
     const payload: TranscriptCacheFile = {
-      version: TRANSCRIPT_CACHE_VERSION,
       transcriptPath: path.resolve(transcriptPath),
       transcriptState: state,
       data: serializeTranscriptData(data),
     };
-    fs.writeFileSync(cachePath, JSON.stringify(payload), { encoding: 'utf8', mode: 0o600 });
+    fs.writeFileSync(cachePath, JSON.stringify(payload), 'utf8');
   } catch {
     // Cache failures are non-fatal; fall back to fresh parsing next time.
   }
@@ -221,17 +194,12 @@ export async function parseTranscript(transcriptPath: string): Promise<Transcrip
     return result;
   }
 
-  const canonicalTranscriptPath = canonicalizeTranscriptPath(transcriptPath);
-  if (!canonicalTranscriptPath) {
-    return result;
-  }
-
-  const transcriptState = readTranscriptFileState(canonicalTranscriptPath);
+  const transcriptState = readTranscriptFileState(transcriptPath);
   if (!transcriptState) {
     return result;
   }
 
-  const cached = readTranscriptCache(canonicalTranscriptPath, transcriptState);
+  const cached = readTranscriptCache(transcriptPath, transcriptState);
   if (cached) {
     return cached;
   }
@@ -240,33 +208,26 @@ export async function parseTranscript(transcriptPath: string): Promise<Transcrip
   const agentMap = new Map<string, AgentEntry>();
   let latestTodos: TodoItem[] = [];
   const taskIdToIndex = new Map<string, number>();
-  const queueCompletionMap = new Map<string, Date>();
   let latestSlug: string | undefined;
   let customTitle: string | undefined;
-  let lastCompactBoundaryAt: Date | undefined;
-  let lastCompactPostTokens: number | undefined;
   const sessionTokens: SessionTokenUsage = {
     inputTokens: 0,
     outputTokens: 0,
     cacheCreationTokens: 0,
     cacheReadTokens: 0,
   };
-  let lastUsageKey: string | undefined;
 
   let parsedCleanly = false;
 
   try {
-    const fileStream = createReadStreamImpl(canonicalTranscriptPath);
+    const fileStream = createReadStreamImpl(transcriptPath);
     const rl = readline.createInterface({
       input: fileStream,
       crlfDelay: Infinity,
     });
 
     for await (const line of rl) {
-      if (!line.trim()) {
-        lastUsageKey = undefined;
-        continue;
-      }
+      if (!line.trim()) continue;
 
       try {
         const entry = JSON.parse(line) as TranscriptLine;
@@ -275,54 +236,18 @@ export async function parseTranscript(transcriptPath: string): Promise<Transcrip
         } else if (typeof entry.slug === 'string') {
           latestSlug = entry.slug;
         }
-        // Accumulate token usage from assistant messages.
-        // Claude Code can write the same API response to the transcript 2-3 times
-        // consecutively (dual-logging). Skip consecutive duplicates to avoid inflating counts.
-        if (entry.type === 'assistant' && entry.message?.usage) {
-          const usage = entry.message.usage;
-          const key = `${usage.input_tokens}|${usage.output_tokens}|${usage.cache_creation_input_tokens}|${usage.cache_read_input_tokens}`;
-          if (key !== lastUsageKey) {
+        // Accumulate token usage from assistant messages
+        if (entry.type === 'assistant') {
+          const usage = entry.usage ?? entry.message?.usage;
+          if (usage) {
             sessionTokens.inputTokens += normalizeTokenCount(usage.input_tokens);
             sessionTokens.outputTokens += normalizeTokenCount(usage.output_tokens);
             sessionTokens.cacheCreationTokens += normalizeTokenCount(usage.cache_creation_input_tokens);
             sessionTokens.cacheReadTokens += normalizeTokenCount(usage.cache_read_input_tokens);
           }
-          lastUsageKey = key;
-        } else {
-          lastUsageKey = undefined;
-        }
-        // Track Claude Code's compact_boundary marker. Both manual (/compact)
-        // and auto compaction emit this system entry with compactMetadata; we
-        // take the most recent one's timestamp so callers can distinguish a
-        // legitimate post-compact zero frame from a transient stdin glitch.
-        if (entry.type === 'system' && entry.subtype === 'compact_boundary') {
-          const ts = entry.timestamp ? new Date(entry.timestamp) : null;
-          if (ts && !Number.isNaN(ts.getTime())) {
-            if (!lastCompactBoundaryAt || ts.getTime() > lastCompactBoundaryAt.getTime()) {
-              lastCompactBoundaryAt = ts;
-              const post = entry.compactMetadata?.postTokens;
-              lastCompactPostTokens = typeof post === 'number' && Number.isFinite(post) && post >= 0
-                ? Math.trunc(post)
-                : undefined;
-            }
-          }
-        }
-        // Capture accurate background-agent completion timestamps from queue-operation entries.
-        // The tool_result timestamp in the parent transcript is written at launch time, not
-        // when the agent actually finishes, so we override with the enqueue timestamp.
-        if (entry.type === 'queue-operation' && entry.operation === 'enqueue' && entry.content) {
-          const taskIdMatch = entry.content.match(/<task-id>([^<]+)<\/task-id>/);
-          const toolUseIdMatch = entry.content.match(/<tool-use-id>([^<]+)<\/tool-use-id>/);
-          if (taskIdMatch && toolUseIdMatch && entry.timestamp) {
-            const ts = new Date(entry.timestamp);
-            if (!Number.isNaN(ts.getTime())) {
-              queueCompletionMap.set(toolUseIdMatch[1], ts);
-            }
-          }
         }
         processEntry(entry, toolMap, agentMap, taskIdToIndex, latestTodos, result);
       } catch {
-        lastUsageKey = undefined;
         // Skip malformed lines
       }
     }
@@ -332,30 +257,13 @@ export async function parseTranscript(transcriptPath: string): Promise<Transcrip
     // Return partial results on error
   }
 
-  // Resolve agent completion: prefer queue-operation timestamps (accurate for
-  // background agents), fall back to tool_result timestamps (inline agents).
-  // Status is deferred so background agents show ◐ until they truly finish.
-  for (const [toolUseId, endTime] of queueCompletionMap) {
-    const agent = agentMap.get(toolUseId);
-    if (agent?.background) {
-      agent.endTime = endTime;
-      agent.status = 'completed';
-    }
-  }
-  for (const agent of agentMap.values()) {
-    if (agent.status === 'running' && agent.endTime) {
-      agent.status = 'completed';
-    }
-  }
   result.tools = Array.from(toolMap.values()).slice(-20);
   result.agents = Array.from(agentMap.values()).slice(-10);
   result.todos = latestTodos;
   result.sessionName = customTitle ?? latestSlug;
   result.sessionTokens = sessionTokens;
-  result.lastCompactBoundaryAt = lastCompactBoundaryAt;
-  result.lastCompactPostTokens = lastCompactPostTokens;
   if (parsedCleanly) {
-    writeTranscriptCache(canonicalTranscriptPath, transcriptState, result);
+    writeTranscriptCache(transcriptPath, transcriptState, result);
   }
 
   return result;
@@ -374,14 +282,9 @@ function processEntry(
   result: TranscriptData
 ): void {
   const timestamp = entry.timestamp ? new Date(entry.timestamp) : new Date();
-  const hasValidTimestamp = !Number.isNaN(timestamp.getTime());
 
-  if (!result.sessionStart && entry.timestamp && hasValidTimestamp) {
+  if (!result.sessionStart && entry.timestamp) {
     result.sessionStart = timestamp;
-  }
-
-  if (entry.type === 'assistant' && entry.timestamp && hasValidTimestamp) {
-    result.lastAssistantResponseAt = timestamp;
   }
 
   const content = entry.message?.content;
@@ -401,50 +304,39 @@ function processEntry(
         const input = block.input as Record<string, unknown>;
         const agentEntry: AgentEntry = {
           id: block.id,
-          type: (input?.subagent_type as string) ?? 'agent',
+          type: (input?.subagent_type as string) ?? 'unknown',
           model: (input?.model as string) ?? undefined,
           description: (input?.description as string) ?? undefined,
           status: 'running',
           startTime: timestamp,
-          background: (input?.run_in_background as boolean) === true,
         };
         agentMap.set(block.id, agentEntry);
       } else if (block.name === 'TodoWrite') {
         const input = block.input as { todos?: TodoItem[] };
         if (input?.todos && Array.isArray(input.todos)) {
-          // Build a FIFO queue of taskIds per content string, ordered by the
-          // old array position. Two todos that share the same content must
-          // each get their own taskId back after the rebuild, so we cannot
-          // collapse duplicates to one index.
+          // Build reverse map: content → taskIds from existing state
           const contentToTaskIds = new Map<string, string[]>();
-          const taskIdsByOldIndex: Array<[number, string]> = [];
           for (const [taskId, idx] of taskIdToIndex) {
             if (idx < latestTodos.length) {
-              taskIdsByOldIndex.push([idx, taskId]);
+              const content = latestTodos[idx].content;
+              const ids = contentToTaskIds.get(content) ?? [];
+              ids.push(taskId);
+              contentToTaskIds.set(content, ids);
             }
-          }
-          taskIdsByOldIndex.sort((a, b) => a[0] - b[0]);
-          for (const [idx, taskId] of taskIdsByOldIndex) {
-            const content = latestTodos[idx].content;
-            const ids = contentToTaskIds.get(content) ?? [];
-            ids.push(taskId);
-            contentToTaskIds.set(content, ids);
           }
 
           latestTodos.length = 0;
           taskIdToIndex.clear();
           latestTodos.push(...input.todos);
 
-          // Consume one queued taskId per new todo that matches by content,
-          // so duplicate-content items still each get their own taskId.
+          // Re-register taskId mappings for items whose content matches
           for (let i = 0; i < latestTodos.length; i++) {
             const ids = contentToTaskIds.get(latestTodos[i].content);
-            if (ids && ids.length > 0) {
-              const taskId = ids.shift() as string;
-              taskIdToIndex.set(taskId, i);
-              if (ids.length === 0) {
-                contentToTaskIds.delete(latestTodos[i].content);
+            if (ids) {
+              for (const taskId of ids) {
+                taskIdToIndex.set(taskId, i);
               }
+              contentToTaskIds.delete(latestTodos[i].content);
             }
           }
         }
@@ -492,7 +384,8 @@ function processEntry(
       }
 
       const agent = agentMap.get(block.tool_use_id);
-      if (agent && !agent.background) {
+      if (agent) {
+        agent.status = 'completed';
         agent.endTime = timestamp;
       }
     }
@@ -511,10 +404,6 @@ function extractTarget(toolName: string, input?: Record<string, unknown>): strin
       return input.pattern as string;
     case 'Grep':
       return input.pattern as string;
-    case 'Skill':
-      return typeof input.skill === 'string' && input.skill.trim().length > 0
-        ? input.skill
-        : undefined;
     case 'Bash':
       const cmd = input.command as string;
       return cmd?.slice(0, 30) + (cmd?.length > 30 ? '...' : '');
