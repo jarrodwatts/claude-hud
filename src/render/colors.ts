@@ -116,6 +116,15 @@ export function critical(text: string, colors?: Partial<HudColorOverrides>): str
   return colorize(text, resolveAnsi(colors?.critical, RED));
 }
 
+/**
+ * Paint text with an arbitrary color value (named preset, 256-color index, or
+ * #rrggbb hex). Falls back to cyan for unset/invalid values. Used by the
+ * configurable `panel` element where the color comes straight from user config.
+ */
+export function paint(text: string, value: HudColorValue | undefined): string {
+  return colorize(text, resolveAnsi(value, CYAN));
+}
+
 export interface ContextThresholds {
   warning?: number;
   critical?: number;

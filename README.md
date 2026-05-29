@@ -364,6 +364,74 @@ Example fallback snapshot:
 
 ---
 
+## The `panel` element (fork addition)
+
+> This element is added by this fork of [jarrodwatts/claude-hud](https://github.com/jarrodwatts/claude-hud). Everything else is upstream.
+
+`panel` is a generic, brand-able, **cache-fed** multi-line block you can drop anywhere in your `elementOrder`. It renders up to three lines and degrades silently — sections with no data simply don't appear:
+
+```
+⚡ ASTRA  📚 5.4k · 🔥 3 · 💎 1 · 🎩 €2.4k 30d     ← brand + chips (from cacheFile)
+VEN 14:00 Demo call                                ← TTL headline (from calendarCacheFile)
+load 1.2 · mem 41%                                 ← portable vitals (showVitals)
+```
+
+The HUD only **reads** the cache files — *you* decide what goes in them via any feeder (a cron job, a `SessionStart` hook, a script). This keeps the element 100% generic: the "ASTRA" look above is just an example theme, not hardcoded.
+
+### Enable it
+
+`panel` is opt-in. Add it to `elementOrder` and configure the `panel` block:
+
+```json
+{
+  "elementOrder": ["project", "context", "usage", "panel", "tools"],
+  "panel": {
+    "enabled": true,
+    "brand": "⚡ ASTRA",
+    "brandColor": "#00d4aa",
+    "cacheFile": "/tmp/hud-panel",
+    "calendarCacheFile": "/tmp/hud-panel-calendar",
+    "showVitals": true
+  }
+}
+```
+
+| Field | Type | Default | Description |
+|-------|------|---------|-------------|
+| `enabled` | boolean | `false` | Master switch. When false, renders nothing. |
+| `brand` | string | `""` | Label at the start of line 1 (e.g. `"⚡ ASTRA"`). Empty = no brand. |
+| `brandColor` | string\|number | `"cyan"` | Brand color: named preset, 256-color index, or `#rrggbb` hex. |
+| `cacheFile` | string | `""` | Path to chips cache (see contract below). |
+| `calendarCacheFile` | string | `""` | Path to TTL headline cache (see contract below). |
+| `showVitals` | boolean | `false` | Append a portable `load · mem%` line (Node `os`, no external scripts). |
+
+### Cache contract
+
+**`cacheFile`** — one line, pipe-delimited chips, each rendered as-is and joined by ` · `:
+
+```
+📚 5.4k|🔥 3|💎 1|🎩 €2.4k 30d
+```
+
+**`calendarCacheFile`** — `<expiry_unix>|<text>`. Once `now > expiry` the line disappears (a past event is never shown as upcoming). Without a numeric prefix, the raw text is shown:
+
+```
+1780057800|VEN 14:00 Demo call
+```
+
+### Example feeder (cron / hook)
+
+```bash
+# refresh the chips every few minutes
+printf '📚 %s|🔥 %s|💎 %s' "$(notes_count)" "$(leads)" "$(clients)" > /tmp/hud-panel
+# next event with a TTL so it self-expires
+printf '%s|%s' "$(next_event_end_unix)" "$(next_event_label)" > /tmp/hud-panel-calendar
+```
+
+> Note on vitals: on macOS `os.freemem()` under-reports free memory, so `mem %` skews high there — it's a lightweight indicator, not an exact gauge. Load average is omitted on Windows (unavailable via Node).
+
+---
+
 ## Requirements
 
 - Claude Code v1.0.80+

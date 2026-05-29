@@ -21,7 +21,7 @@ export type GitBranchOverflowMode = 'truncate' | 'wrap';
 export type ModelFormatMode = 'full' | 'compact' | 'short';
 export type TimeFormatMode = 'relative' | 'absolute' | 'both' | 'elapsed' | 'elapsedAndAbsolute';
 export type CustomLinePosition = 'first' | 'last';
-export type HudElement = 'project' | 'addedDirs' | 'context' | 'usage' | 'promptCache' | 'memory' | 'environment' | 'tools' | 'agents' | 'todos' | 'sessionTime';
+export type HudElement = 'project' | 'addedDirs' | 'context' | 'usage' | 'promptCache' | 'memory' | 'environment' | 'tools' | 'agents' | 'todos' | 'sessionTime' | 'panel';
 
 export type AddedDirsLayout = 'inline' | 'line';
 export type HudColorName =
@@ -36,6 +36,34 @@ export type HudColorName =
 
 /** A color value: named preset, 256-color index (0-255), or hex string (#rrggbb). */
 export type HudColorValue = HudColorName | number | string;
+
+/**
+ * Configuration for the optional generic `panel` element — a brand-able,
+ * cache-fed multi-line block. Everything is opt-in and degrades silently:
+ * sections with no data simply don't render. Cache files are written by
+ * whatever feeder the user wires up (cron, hook, script); the HUD only reads.
+ */
+export interface HudPanelConfig {
+  /** Master switch. When false the element renders nothing. */
+  enabled: boolean;
+  /** Brand label shown at the start of line 1 (e.g. "⚡ ASTRA"). Empty = none. */
+  brand: string;
+  /** Color for the brand label (named preset, 256-index, or #rrggbb). */
+  brandColor: HudColorValue;
+  /**
+   * Path to a chips cache file. Content is a single line of pipe-delimited
+   * chips, each rendered as-is, joined by " · ". E.g. "📚 5.4k|🔥 3|💎 1".
+   */
+  cacheFile: string;
+  /**
+   * Path to a headline cache file with optional TTL. Format:
+   * "<expiry_unix>|<text>" — once expired the line disappears (a past event
+   * is never shown as upcoming). Without a numeric prefix the raw text shows.
+   */
+  calendarCacheFile: string;
+  /** Append a portable machine-vitals line (load average + memory %). */
+  showVitals: boolean;
+}
 
 export interface HudColorOverrides {
   context: HudColorValue;
@@ -71,7 +99,9 @@ export const DEFAULT_MERGE_GROUPS: HudElement[][] = [
   ['context', 'usage'],
 ];
 
-const KNOWN_ELEMENTS = new Set<HudElement>(DEFAULT_ELEMENT_ORDER);
+// `panel` is opt-in (not in DEFAULT_ELEMENT_ORDER) but must be recognized so
+// users can place it in their own elementOrder without it being filtered out.
+const KNOWN_ELEMENTS = new Set<HudElement>([...DEFAULT_ELEMENT_ORDER, 'panel']);
 
 export interface HudConfig {
   language: Language;
@@ -139,6 +169,7 @@ export interface HudConfig {
     timeFormat: TimeFormatMode;
   };
   colors: HudColorOverrides;
+  panel: HudPanelConfig;
 }
 
 export const DEFAULT_CONFIG: HudConfig = {
@@ -220,6 +251,14 @@ export const DEFAULT_CONFIG: HudConfig = {
     custom: 208,
     barFilled: '█',
     barEmpty: '░',
+  },
+  panel: {
+    enabled: false,
+    brand: '',
+    brandColor: 'cyan',
+    cacheFile: '',
+    calendarCacheFile: '',
+    showVitals: false,
   },
 };
 
@@ -674,7 +713,24 @@ export function mergeConfig(userConfig: Partial<HudConfig>): HudConfig {
       : DEFAULT_CONFIG.colors.barEmpty,
   };
 
-  return { language, lineLayout, showSeparators, pathLevels, maxWidth, forceMaxWidth, elementOrder, gitStatus, display, colors };
+  const panel: HudPanelConfig = {
+    enabled: typeof migrated.panel?.enabled === 'boolean'
+      ? migrated.panel.enabled
+      : DEFAULT_CONFIG.panel.enabled,
+    brand: typeof migrated.panel?.brand === 'string'
+      ? migrated.panel.brand.slice(0, 40)
+      : DEFAULT_CONFIG.panel.brand,
+    brandColor: validateColorValue(migrated.panel?.brandColor)
+      ? migrated.panel.brandColor
+      : DEFAULT_CONFIG.panel.brandColor,
+    cacheFile: validateOptionalPath(migrated.panel?.cacheFile),
+    calendarCacheFile: validateOptionalPath(migrated.panel?.calendarCacheFile),
+    showVitals: typeof migrated.panel?.showVitals === 'boolean'
+      ? migrated.panel.showVitals
+      : DEFAULT_CONFIG.panel.showVitals,
+  };
+
+  return { language, lineLayout, showSeparators, pathLevels, maxWidth, forceMaxWidth, elementOrder, gitStatus, display, colors, panel };
 }
 
 export async function loadConfig(): Promise<HudConfig> {
