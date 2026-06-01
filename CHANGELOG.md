@@ -2,9 +2,10 @@
 
 All notable changes to Claude HUD will be documented in this file.
 
-## [Unreleased]
+## [0.1.1] - 2026-06-01
 
 ### Fixed
+- `/claude-hud:setup` no longer hardcodes the absolute runtime path in the generated statusLine command. Uses `command -v` for dynamic runtime resolution, so HUD automatically adapts when version managers (nvm, mise, asdf) switch Node.js versions.
 - Windows + PowerShell `/claude-hud:setup` now writes a `statusline.ps1` wrapper with a guarded width fallback and corrected version-directory glob (#521).
 - Added Windows PowerShell 5.1 guidance for writing `settings.json` without a UTF-8 BOM.
 

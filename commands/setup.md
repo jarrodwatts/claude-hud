@@ -3,7 +3,7 @@ description: Configure claude-hud as your statusline
 allowed-tools: Bash, Read, Edit, AskUserQuestion
 ---
 
-**Note**: Placeholders like `{RUNTIME_PATH}`, `{SOURCE}`, and `{GENERATED_COMMAND}` should be substituted with actual detected values.
+**Note**: `{SOURCE}` should be substituted with `src/index.ts` (for bun) or `dist/index.js` (for node). The runtime is resolved dynamically at execution time via `command -v`, avoiding hardcoded paths that break when version managers (nvm, mise, asdf) switch versions.
 
 ## Step 0: Detect Ghost Installation (Run First)
 
@@ -122,7 +122,7 @@ echo $OSTYPE
    ```
    If empty, the plugin is not installed. Go back to Step 0 to check for ghost installation or EXDEV issues. If Step 0 was clean, ask the user to install via `/plugin install claude-hud` first.
 
-2. Get runtime absolute path:
+2. Detect available runtime:
    - On `darwin` or `linux`, prefer bun for performance and fall back to node:
      ```bash
      command -v bun 2>/dev/null || command -v node 2>/dev/null
@@ -144,14 +144,18 @@ echo $OSTYPE
      - Bun from https://bun.sh/
    - After installation, ask the user to restart their shell and re-run `/claude-hud:setup`.
 
-3. Verify the runtime exists:
+   The return value tells you which runtime to use. The exact path is not needed — the generated command resolves the runtime dynamically with `command -v` at execution time, so it automatically adapts to version manager changes (nvm, mise, asdf).
+
+3. Verify the runtime works (optional sanity check):
    ```bash
-   ls -la {RUNTIME_PATH}
+   # Use whatever runtime was detected in step 2
+   node -e 'console.log("ok")' 2>/dev/null || echo "runtime check failed"
    ```
-   If it doesn't exist, re-detect or ask user to verify their installation.
+   If this fails, the runtime may be broken. Re-detect or ask user to verify their installation.
 
 4. Determine source file based on runtime:
-   - On `darwin` or `linux`, use `src/index.ts` when the runtime is bun. Otherwise use `dist/index.js`.
+   - If step 2 returned a `bun` path: use `src/index.ts` (bun has native TypeScript support).
+   - Otherwise: use `dist/index.js` (pre-compiled JavaScript for node).
    - On Windows, always use `dist/index.js`.
 
 5. Generate command (quotes around runtime path handle spaces):
@@ -176,12 +180,12 @@ echo $OSTYPE
 
    **When runtime is bun** - add `--env-file /dev/null` to prevent Bun from auto-loading project `.env` files:
    ```
-   bash -c 'cols=$(stty size </dev/tty 2>/dev/null | awk '"'"'{print $2}'"'"'); export COLUMNS=$(( ${cols:-120} > 4 ? ${cols:-120} - 4 : 1 )); plugin_dir=$(ls -d "${CLAUDE_CONFIG_DIR:-$HOME/.claude}"/plugins/cache/*/claude-hud/*/ 2>/dev/null | awk -F/ '"'"'{ print $(NF-1) "\t" $(0) }'"'"' | grep -E '"'"'^[0-9]+\.[0-9]+\.[0-9]+[[:space:]]'"'"' | sort -t. -k1,1n -k2,2n -k3,3n -k4,4n | tail -1 | cut -f2-); exec "{RUNTIME_PATH}" --env-file /dev/null "${plugin_dir}{SOURCE}"'
+   bash -c 'cols=$(stty size </dev/tty 2>/dev/null | awk '"'"'{print $2}'"'"'); export COLUMNS=$(( ${cols:-120} > 4 ? ${cols:-120} - 4 : 1 )); plugin_dir=$(ls -d "${CLAUDE_CONFIG_DIR:-$HOME/.claude}"/plugins/cache/*/claude-hud/*/ 2>/dev/null | awk -F/ '"'"'{ print $(NF-1) "\t" $(0) }'"'"' | grep -E '"'"'^[0-9]+\.[0-9]+\.[0-9]+[[:space:]]'"'"' | sort -t. -k1,1n -k2,2n -k3,3n -k4,4n | tail -1 | cut -f2-); exec "$(command -v bun)" --env-file /dev/null "${plugin_dir}{SOURCE}"'
    ```
 
    **When runtime is node**:
    ```
-   bash -c 'cols=$(stty size </dev/tty 2>/dev/null | awk '"'"'{print $2}'"'"'); export COLUMNS=$(( ${cols:-120} > 4 ? ${cols:-120} - 4 : 1 )); plugin_dir=$(ls -d "${CLAUDE_CONFIG_DIR:-$HOME/.claude}"/plugins/cache/*/claude-hud/*/ 2>/dev/null | awk -F/ '"'"'{ print $(NF-1) "\t" $(0) }'"'"' | grep -E '"'"'^[0-9]+\.[0-9]+\.[0-9]+[[:space:]]'"'"' | sort -t. -k1,1n -k2,2n -k3,3n -k4,4n | tail -1 | cut -f2-); exec "{RUNTIME_PATH}" "${plugin_dir}{SOURCE}"'
+   bash -c 'cols=$(stty size </dev/tty 2>/dev/null | awk '"'"'{print $2}'"'"'); export COLUMNS=$(( ${cols:-120} > 4 ? ${cols:-120} - 4 : 1 )); plugin_dir=$(ls -d "${CLAUDE_CONFIG_DIR:-$HOME/.claude}"/plugins/cache/*/claude-hud/*/ 2>/dev/null | awk -F/ '"'"'{ print $(NF-1) "\t" $(0) }'"'"' | grep -E '"'"'^[0-9]+\.[0-9]+\.[0-9]+[[:space:]]'"'"' | sort -t. -k1,1n -k2,2n -k3,3n -k4,4n | tail -1 | cut -f2-); exec "$(command -v node)" "${plugin_dir}{SOURCE}"'
    ```
 
 **Windows + Git Bash** (Platform: `win32`, Shell: `bash`):
@@ -195,7 +199,7 @@ On Windows require `node` and always use `dist/index.js`.
 Instead, use `sort -V` (GNU version sort, included with Git for Windows) which avoids nested single quotes entirely. Also avoid wrapping the generated command in a second `bash -c ...` layer. Claude Code is already invoking the statusline through bash, so the direct shell command lets `exec` replace that shell instead of spawning an extra bash wrapper first. The command still exports `COLUMNS` so the HUD receives the real terminal width, and it uses the marketplace-aware cache glob:
 
    ```
-   cols=$(stty size </dev/tty 2>/dev/null | awk '{print $2}'); export COLUMNS=$(( ${cols:-120} > 4 ? ${cols:-120} - 4 : 1 )); plugin_dir=$(ls -1d "${CLAUDE_CONFIG_DIR:-$HOME/.claude}"/plugins/cache/*/claude-hud/*/ 2>/dev/null | sort -V | tail -1); exec "{RUNTIME_PATH}" "${plugin_dir}{SOURCE}"
+   cols=$(stty size </dev/tty 2>/dev/null | awk '{print $2}'); export COLUMNS=$(( ${cols:-120} > 4 ? ${cols:-120} - 4 : 1 )); plugin_dir=$(ls -1d "${CLAUDE_CONFIG_DIR:-$HOME/.claude}"/plugins/cache/*/claude-hud/*/ 2>/dev/null | sort -V | tail -1); exec "$(command -v node)" "${plugin_dir}{SOURCE}"
    ```
 
 **Windows + PowerShell** (Platform: `win32`, Shell: `powershell`, `pwsh`, or `cmd`, OSTYPE: other/empty):
@@ -243,7 +247,7 @@ Instead, use `sort -V` (GNU version sort, included with Git for Windows) which a
        Sort-Object { [version]$_.Name } -Descending |
        Select-Object -First 1).FullName
    if (-not $pluginDir) { exit 0 }
-   & '{RUNTIME_PATH}' (Join-Path $pluginDir 'dist\index.js')
+   & (Get-Command node).Source (Join-Path $pluginDir 'dist\index.js')
    ```
 
    Write it using `[System.IO.File]::WriteAllText` with `New-Object System.Text.UTF8Encoding $false` so the file is UTF-8 without a BOM. A script block with `.ToString()` is the cleanest way to embed the body without here-string quoting pressure:
@@ -582,7 +586,7 @@ Use AskUserQuestion:
 2. **Verify config was applied**:
    - Read settings file (`${CLAUDE_CONFIG_DIR:-$HOME/.claude}/settings.json` on bash, or `settings.json` inside `$env:CLAUDE_CONFIG_DIR` when set, otherwise `Join-Path $HOME ".claude"` on PowerShell)
    - Check statusLine.command exists and looks correct
-   - If command contains a hardcoded version path (not using the dynamic version-lookup command), it may be a stale config from a previous setup
+     - If command contains a hardcoded version path (e.g. `/usr/local/bin/node` or a path with a version number like `v24.16.0`), the config is stale from a pre-0.1.1 setup — re-run `/claude-hud:setup` to regenerate with dynamic `command -v` resolution
 
 3. **Test the command manually** and capture error output:
    ```bash
@@ -591,11 +595,11 @@ Use AskUserQuestion:
 
 4. **Common issues to check**:
 
-   **"command not found" or empty output**:
-   - Runtime path might be wrong: `ls -la {RUNTIME_PATH}`
-   - On macOS with mise/nvm/asdf: the absolute path may have changed after a runtime update
-   - Symlinks may be stale: `command -v node` often returns a symlink that can break after version updates
-   - Solution: re-detect the runtime path (`command -v node` on Windows, `command -v bun` or `command -v node` on macOS/Linux), and verify with `realpath {RUNTIME_PATH}` (or `readlink -f {RUNTIME_PATH}`) to get the true absolute path
+    **"command not found" or empty output**:
+    - The generated command uses `command -v` for dynamic runtime resolution — if `node` or `bun` is in PATH, it should be found
+    - On macOS with mise/nvm/asdf: ensure the shell that launched Claude Code has the version manager initialized (check `~/.zshrc` or `~/.bashrc`)
+    - Symlinks may be stale: `command -v node` often returns a symlink that can break after version updates — check with `ls -la "$(command -v node)"`
+    - Solution: verify the runtime is in PATH (`command -v node` or `command -v bun`), and that the binary at that path actually exists and is executable
 
    **"No such file or directory" for plugin**:
    - Plugin might not be installed: `ls "${CLAUDE_CONFIG_DIR:-$HOME/.claude}"/plugins/cache/*/claude-hud/`
