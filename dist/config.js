@@ -123,7 +123,11 @@ function validateUsageValue(value) {
     return value === 'percent' || value === 'remaining';
 }
 function validateLanguage(value) {
-    return value === 'en' || value === 'zh' || value === 'zh-Hans';
+    return (value === 'en' ||
+        value === 'zh' ||
+        value === 'zh-Hans' ||
+        value === 'zh-Hant' ||
+        value === 'zh-TW');
 }
 function validateModelFormat(value) {
     return value === 'full' || value === 'compact' || value === 'short';
