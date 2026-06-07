@@ -53,6 +53,7 @@ test('loadConfig returns valid config structure', async () => {
   assert.equal(typeof config.display.showContextBar, 'boolean');
   assert.ok(['percent', 'tokens', 'remaining', 'both'].includes(config.display.contextValue), 'contextValue should be valid');
   assert.equal(typeof config.display.showConfigCounts, 'boolean');
+  assert.equal(typeof config.display.showConfigPaths, 'boolean');
   assert.equal(typeof config.display.showDuration, 'boolean');
   assert.equal(typeof config.display.showSpeed, 'boolean');
   assert.equal(typeof config.display.showTokenBreakdown, 'boolean');
@@ -151,6 +152,22 @@ test('mergeConfig defaults showPromptCache to false', () => {
 test('mergeConfig preserves explicit showPromptCache=true', () => {
   const config = mergeConfig({ display: { showPromptCache: true } });
   assert.equal(config.display.showPromptCache, true);
+});
+
+test('mergeConfig defaults showConfigPaths to false', () => {
+  const config = mergeConfig({});
+  assert.equal(config.display.showConfigPaths, false);
+  assert.equal(DEFAULT_CONFIG.display.showConfigPaths, false);
+});
+
+test('mergeConfig preserves explicit showConfigPaths=true', () => {
+  const config = mergeConfig({ display: { showConfigPaths: true } });
+  assert.equal(config.display.showConfigPaths, true);
+});
+
+test('mergeConfig falls back to default showConfigPaths for invalid values', () => {
+  assert.equal(mergeConfig({ display: { showConfigPaths: 'yes' } }).display.showConfigPaths, false);
+  assert.equal(mergeConfig({ display: { showConfigPaths: 1 } }).display.showConfigPaths, false);
 });
 
 test('mergeConfig defaults promptCacheTtlSeconds to 300', () => {

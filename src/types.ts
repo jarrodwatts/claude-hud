@@ -139,6 +139,7 @@ export interface RenderContext {
   stdin: StdinData;
   transcript: TranscriptData;
   claudeMdCount: number;
+  claudeMdPaths: string[];
   rulesCount: number;
   mcpCount: number;
   hooksCount: number;

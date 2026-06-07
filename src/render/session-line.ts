@@ -153,7 +153,11 @@ export function renderSessionLine(ctx: RenderContext): string {
 
     if (totalCounts > 0 && totalCounts >= envThreshold) {
       if (ctx.claudeMdCount > 0) {
-        parts.push(label(`${ctx.claudeMdCount} CLAUDE.md`, colors));
+        let claudeMd = `${ctx.claudeMdCount} CLAUDE.md`;
+        if (display?.showConfigPaths === true && ctx.claudeMdPaths.length > 0) {
+          claudeMd += ` (${ctx.claudeMdPaths.join(", ")})`;
+        }
+        parts.push(label(claudeMd, colors));
       }
 
       if (ctx.rulesCount > 0) {

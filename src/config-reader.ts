@@ -9,6 +9,8 @@ const debug = createDebug('config');
 
 export interface ConfigCounts {
   claudeMdCount: number;
+  /** Abbreviated paths of each detected CLAUDE.md file (home -> ~, project -> ./). */
+  claudeMdPaths: string[];
   rulesCount: number;
   mcpCount: number;
   hooksCount: number;
@@ -286,14 +288,42 @@ function writeConfigCache(key: ConfigCacheKey, data: ConfigCounts, homeDir: stri
   }
 }
 
+/**
+ * Render an absolute path in a compact, readable form for the statusline.
+ * Project files (inside cwd) become `./...`; files under the home directory
+ * become `~/...`; anything else is left absolute. cwd is checked first because
+ * a project usually lives under the home directory.
+ */
+function abbreviateConfigPath(absPath: string, homeDir: string, cwd?: string): string {
+  const toPosix = (p: string) => p.split(path.sep).join('/');
+  const isInside = (rel: string) => rel !== '' && !rel.startsWith('..') && !path.isAbsolute(rel);
+
+  if (cwd) {
+    const relFromCwd = path.relative(cwd, absPath);
+    if (isInside(relFromCwd)) {
+      return `./${toPosix(relFromCwd)}`;
+    }
+  }
+
+  const relFromHome = path.relative(homeDir, absPath);
+  if (isInside(relFromHome)) {
+    return `~/${toPosix(relFromHome)}`;
+  }
+
+  return absPath;
+}
+
 function computeConfigCountsFresh(cwd?: string): ConfigCounts {
-  let claudeMdCount = 0;
+  const claudeMdPaths: string[] = [];
   let rulesCount = 0;
   let hooksCount = 0;
   let outputStyle: string | undefined;
 
   const homeDir = os.homedir();
   const claudeDir = getClaudeConfigDir(homeDir);
+  const recordClaudeMd = (absPath: string) => {
+    claudeMdPaths.push(abbreviateConfigPath(absPath, homeDir, cwd));
+  };
 
   // Collect all MCP servers across scopes, then subtract disabled ones
   const userMcpServers = new Set<string>();
@@ -302,8 +332,9 @@ function computeConfigCountsFresh(cwd?: string): ConfigCounts {
   // === USER SCOPE ===
 
   // ~/.claude/CLAUDE.md
-  if (fs.existsSync(path.join(claudeDir, 'CLAUDE.md'))) {
-    claudeMdCount++;
+  const userClaudeMd = path.join(claudeDir, 'CLAUDE.md');
+  if (fs.existsSync(userClaudeMd)) {
+    recordClaudeMd(userClaudeMd);
   }
 
   // ~/.claude/rules/*.md
@@ -342,23 +373,27 @@ function computeConfigCountsFresh(cwd?: string): ConfigCounts {
 
   if (cwd) {
     // {cwd}/CLAUDE.md
-    if (fs.existsSync(path.join(cwd, 'CLAUDE.md'))) {
-      claudeMdCount++;
+    const projectClaudeMd = path.join(cwd, 'CLAUDE.md');
+    if (fs.existsSync(projectClaudeMd)) {
+      recordClaudeMd(projectClaudeMd);
     }
 
     // {cwd}/CLAUDE.local.md
-    if (fs.existsSync(path.join(cwd, 'CLAUDE.local.md'))) {
-      claudeMdCount++;
+    const projectClaudeLocalMd = path.join(cwd, 'CLAUDE.local.md');
+    if (fs.existsSync(projectClaudeLocalMd)) {
+      recordClaudeMd(projectClaudeLocalMd);
     }
 
     // {cwd}/.claude/CLAUDE.md (alternative location, skip when it is user scope)
-    if (!projectClaudeOverlapsUserScope && fs.existsSync(path.join(cwd, '.claude', 'CLAUDE.md'))) {
-      claudeMdCount++;
+    const projectDotClaudeMd = path.join(cwd, '.claude', 'CLAUDE.md');
+    if (!projectClaudeOverlapsUserScope && fs.existsSync(projectDotClaudeMd)) {
+      recordClaudeMd(projectDotClaudeMd);
     }
 
     // {cwd}/.claude/CLAUDE.local.md
-    if (fs.existsSync(path.join(cwd, '.claude', 'CLAUDE.local.md'))) {
-      claudeMdCount++;
+    const projectDotClaudeLocalMd = path.join(cwd, '.claude', 'CLAUDE.local.md');
+    if (fs.existsSync(projectDotClaudeLocalMd)) {
+      recordClaudeMd(projectDotClaudeLocalMd);
     }
 
     // {cwd}/.claude/rules/*.md (recursive)
@@ -406,7 +441,7 @@ function computeConfigCountsFresh(cwd?: string): ConfigCounts {
   // A server with the same name in both user and project scope counts as 2 (separate configs).
   const mcpCount = userMcpServers.size + projectMcpServers.size;
 
-  return { claudeMdCount, rulesCount, mcpCount, hooksCount, outputStyle };
+  return { claudeMdCount: claudeMdPaths.length, claudeMdPaths, rulesCount, mcpCount, hooksCount, outputStyle };
 }
 
 export async function countConfigs(cwd?: string): Promise<ConfigCounts> {
@@ -422,7 +457,14 @@ export async function countConfigs(cwd?: string): Promise<ConfigCounts> {
     : staticSentinelPaths;
   const currentSentinels = statSentinels(cacheValidationPaths);
 
-  if (cached && sentinelsMatch(cached.key.sentinels, currentSentinels)) {
+  // Array.isArray guard: a cache entry written before claudeMdPaths existed
+  // would lack the field; treat it as a miss so we recompute rather than
+  // returning undefined paths downstream.
+  if (
+    cached &&
+    Array.isArray(cached.data.claudeMdPaths) &&
+    sentinelsMatch(cached.key.sentinels, currentSentinels)
+  ) {
     return cached.data;
   }
 

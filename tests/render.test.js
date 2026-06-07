@@ -45,6 +45,7 @@ function baseContext() {
     },
     transcript: { tools: [], agents: [], todos: [], sessionTokens: undefined },
     claudeMdCount: 0,
+    claudeMdPaths: [],
     rulesCount: 0,
     mcpCount: 0,
     hooksCount: 0,
@@ -58,7 +59,7 @@ function baseContext() {
       pathLevels: 1,
       elementOrder: ['project', 'context', 'usage', 'promptCache', 'memory', 'environment', 'tools', 'agents', 'todos'],
       gitStatus: { enabled: true, showDirty: true, showAheadBehind: false, showFileStats: false, branchOverflow: 'truncate', pushWarningThreshold: 0, pushCriticalThreshold: 0 },
-      display: { showModel: true, showProject: true, showContextBar: true, contextValue: 'percent', showConfigCounts: true, showCost: false, showDuration: true, showSpeed: false, showTokenBreakdown: true, showUsage: true, usageValue: 'percent', usageBarEnabled: false, showResetLabel: true, showTools: true, showAgents: true, showTodos: true, showSessionTokens: false, showSessionName: false, showClaudeCodeVersion: false, showMemoryUsage: false, showPromptCache: false, promptCacheTtlSeconds: 300, showOutputStyle: false, mergeGroups: [['context', 'usage']], autocompactBuffer: 'enabled', usageThreshold: 0, sevenDayThreshold: 80, environmentThreshold: 0, customLine: '' },
+      display: { showModel: true, showProject: true, showContextBar: true, contextValue: 'percent', showConfigCounts: true, showConfigPaths: false, showCost: false, showDuration: true, showSpeed: false, showTokenBreakdown: true, showUsage: true, usageValue: 'percent', usageBarEnabled: false, showResetLabel: true, showTools: true, showAgents: true, showTodos: true, showSessionTokens: false, showSessionName: false, showClaudeCodeVersion: false, showMemoryUsage: false, showPromptCache: false, promptCacheTtlSeconds: 300, showOutputStyle: false, mergeGroups: [['context', 'usage']], autocompactBuffer: 'enabled', usageThreshold: 0, sevenDayThreshold: 80, environmentThreshold: 0, customLine: '' },
       colors: {
         context: 'green',
         usage: 'brightBlue',
@@ -752,6 +753,27 @@ test('renderEnvironmentLine appends output style after config counts', () => {
   const line = renderEnvironmentLine(ctx);
   assert.ok(line?.includes('1 CLAUDE.md'));
   assert.ok(line?.includes('style: learning'));
+});
+
+test('renderEnvironmentLine appends CLAUDE.md paths when showConfigPaths is true', () => {
+  const ctx = baseContext();
+  ctx.claudeMdCount = 2;
+  ctx.claudeMdPaths = ['~/.claude/CLAUDE.md', './CLAUDE.md'];
+  ctx.config.display.showConfigPaths = true;
+
+  const line = renderEnvironmentLine(ctx);
+  assert.ok(line?.includes('2 CLAUDE.md (~/.claude/CLAUDE.md, ./CLAUDE.md)'));
+});
+
+test('renderEnvironmentLine omits CLAUDE.md paths when showConfigPaths is false', () => {
+  const ctx = baseContext();
+  ctx.claudeMdCount = 2;
+  ctx.claudeMdPaths = ['~/.claude/CLAUDE.md', './CLAUDE.md'];
+  ctx.config.display.showConfigPaths = false;
+
+  const line = renderEnvironmentLine(ctx);
+  assert.ok(line?.includes('2 CLAUDE.md'));
+  assert.ok(!line?.includes('~/.claude/CLAUDE.md'));
 });
 
 test('renderProjectLine includes duration when showDuration is true', () => {

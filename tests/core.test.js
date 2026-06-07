@@ -1575,6 +1575,13 @@ test('countConfigs honors project and global config locations', async () => {
 
     const counts = await countConfigs(projectDir);
     assert.equal(counts.claudeMdCount, 5);
+    assert.deepEqual(counts.claudeMdPaths, [
+      '~/.claude/CLAUDE.md',
+      './CLAUDE.md',
+      './CLAUDE.local.md',
+      './.claude/CLAUDE.md',
+      './.claude/CLAUDE.local.md',
+    ]);
     assert.equal(counts.rulesCount, 3);
     assert.equal(counts.mcpCount, 4);
     assert.equal(counts.hooksCount, 2);

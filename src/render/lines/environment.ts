@@ -13,7 +13,11 @@ export function renderEnvironmentLine(ctx: RenderContext): string | null {
 
   if (showCounts && totalCounts >= threshold && totalCounts > 0) {
     if (ctx.claudeMdCount > 0) {
-      parts.push(`${ctx.claudeMdCount} CLAUDE.md`);
+      let claudeMd = `${ctx.claudeMdCount} CLAUDE.md`;
+      if (display?.showConfigPaths === true && ctx.claudeMdPaths.length > 0) {
+        claudeMd += ` (${ctx.claudeMdPaths.join(", ")})`;
+      }
+      parts.push(claudeMd);
     }
 
     if (ctx.rulesCount > 0) {
