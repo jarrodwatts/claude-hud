@@ -12,6 +12,7 @@ import { renderPromptCacheLine } from '../dist/render/lines/prompt-cache.js';
 import { renderToolsLine, shortenToolName } from '../dist/render/tools-line.js';
 import { renderAgentsLine } from '../dist/render/agents-line.js';
 import { renderTodosLine } from '../dist/render/todos-line.js';
+import { renderSkillsLine } from '../dist/render/skills-line.js';
 import { renderUsageLine } from '../dist/render/lines/usage.js';
 import { renderMemoryLine } from '../dist/render/lines/memory.js';
 import { renderIdentityLine } from '../dist/render/lines/identity.js';
@@ -2855,4 +2856,66 @@ test('renderSessionLine renders advisor inline on the same row (compact layout)'
   assert.ok(plain.includes('Advisor: Opus 4.7'), `advisor segment missing: ${plain}`);
   assert.ok(plain.includes('[Opus]'), 'model badge must still render first');
   assert.ok(!plain.includes('\n'), 'compact session line must remain one row');
+});
+
+test('renderSkillsLine returns null when there are no skills', () => {
+  const ctx = baseContext();
+  ctx.transcript.skills = [];
+  assert.equal(renderSkillsLine(ctx), null);
+  // also when the field is absent entirely
+  delete ctx.transcript.skills;
+  assert.equal(renderSkillsLine(ctx), null);
+});
+
+test('renderSkillsLine renders the lightning marker, label, and names', () => {
+  const ctx = baseContext();
+  ctx.transcript.skills = ['brainstorming', 'frontend-design', 'writing-plans'];
+  const line = stripAnsi(renderSkillsLine(ctx));
+  assert.ok(line.includes('⚡'), `expected lightning marker: ${line}`);
+  assert.ok(line.includes('Skills:'), `expected Skills label: ${line}`);
+  assert.ok(line.includes('brainstorming, frontend-design, writing-plans'), `expected names: ${line}`);
+});
+
+test('renderSkillsLine caps at 5 names with a +N more suffix', () => {
+  const ctx = baseContext();
+  ctx.transcript.skills = ['a', 'b', 'c', 'd', 'e', 'f', 'g'];
+  const line = stripAnsi(renderSkillsLine(ctx));
+  assert.ok(line.includes('a, b, c, d, e'), `expected first 5 names: ${line}`);
+  assert.ok(line.includes('+2 more'), `expected overflow indicator: ${line}`);
+  assert.ok(!line.includes('f') && !line.includes('g'), `should not show overflowed names: ${line}`);
+});
+
+test('renderSkillsLine shows no overflow suffix at exactly 5 names', () => {
+  const ctx = baseContext();
+  ctx.transcript.skills = ['a', 'b', 'c', 'd', 'e'];
+  const line = stripAnsi(renderSkillsLine(ctx));
+  assert.ok(!line.includes('more'), `expected no overflow suffix: ${line}`);
+});
+
+test('renderToolsLine suppresses the Skill tool when showSkills is enabled', () => {
+  const now = new Date();
+  const tools = [
+    { id: '1', name: 'Skill', target: 'brainstorming', status: 'completed', startTime: now, endTime: now },
+    { id: '2', name: 'Read', target: '/x', status: 'completed', startTime: now, endTime: now },
+  ];
+  const ctx = baseContext();
+  ctx.transcript.tools = tools;
+  ctx.config.display.showSkills = true;
+  const line = stripAnsi(renderToolsLine(ctx));
+  assert.ok(line.includes('Read'), `expected Read tool: ${line}`);
+  assert.ok(!line.includes('Skill'), `Skill should be suppressed when showSkills is on: ${line}`);
+});
+
+test('renderToolsLine keeps the Skill tool when showSkills is off', () => {
+  const now = new Date();
+  const tools = [
+    { id: '1', name: 'Skill', target: 'brainstorming', status: 'completed', startTime: now, endTime: now },
+    { id: '2', name: 'Read', target: '/x', status: 'completed', startTime: now, endTime: now },
+  ];
+  const ctx = baseContext();
+  ctx.transcript.tools = tools;
+  ctx.config.display.showSkills = false;
+  const line = stripAnsi(renderToolsLine(ctx));
+  assert.ok(line.includes('Skill'), `Skill should remain when showSkills is off: ${line}`);
+  assert.ok(line.includes('Read'), `expected Read tool: ${line}`);
 });

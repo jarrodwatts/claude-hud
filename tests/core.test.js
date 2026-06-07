@@ -998,6 +998,65 @@ test('parseTranscript leaves Skill target empty when input.skill is missing or i
   }
 });
 
+test('parseTranscript records a model-invoked Skill into skills (bare name) and as a tool', async () => {
+  const result = await parseTempTranscript('skill-tool.jsonl', [
+    { message: { content: [{ type: 'tool_use', id: 'tool-1', name: 'Skill', input: { skill: 'superpowers:brainstorming' } }] } },
+  ]);
+  assert.deepEqual(result.skills, ['brainstorming']);
+  assert.ok(result.tools.some((tool) => tool.name === 'Skill'), 'Skill is still recorded as a tool');
+});
+
+test('parseTranscript counts a skill load from the Base directory marker (start-anchored, isMeta user)', async () => {
+  const result = await parseTempTranscript('skill-marker.jsonl', [
+    { type: 'user', isMeta: true, message: { content: 'Base directory for this skill: /home/x/.claude/skills/frontend-design\n\n# Frontend Design\nbody' } },
+  ]);
+  assert.deepEqual(result.skills, ['frontend-design']);
+});
+
+test('parseTranscript counts a skill load when the marker is in a text-block array', async () => {
+  const result = await parseTempTranscript('skill-marker-array.jsonl', [
+    { type: 'user', isMeta: true, message: { content: [{ type: 'text', text: 'Base directory for this skill: /x/skills/prd-development\n# PRD' }] } },
+  ]);
+  assert.deepEqual(result.skills, ['prd-development']);
+});
+
+test('parseTranscript ignores the marker string when not at the start of the message (quoted in prose)', async () => {
+  const result = await parseTempTranscript('skill-marker-quoted.jsonl', [
+    { type: 'user', isMeta: true, message: { content: 'The output said "Base directory for this skill: /x/skills/frontend-design"' } },
+  ]);
+  assert.deepEqual(result.skills, []);
+});
+
+test('parseTranscript ignores the marker on a non-meta user message', async () => {
+  const result = await parseTempTranscript('skill-marker-nonmeta.jsonl', [
+    { type: 'user', message: { content: 'Base directory for this skill: /x/skills/frontend-design' } },
+  ]);
+  assert.deepEqual(result.skills, []);
+});
+
+test('parseTranscript ignores the marker on a non-user entry', async () => {
+  const result = await parseTempTranscript('skill-marker-assistant.jsonl', [
+    { type: 'assistant', isMeta: true, message: { content: 'Base directory for this skill: /x/skills/writing-plans' } },
+  ]);
+  assert.deepEqual(result.skills, []);
+});
+
+test('parseTranscript dedupes the same skill seen via both the Skill tool and the load marker', async () => {
+  const result = await parseTempTranscript('skill-dedup.jsonl', [
+    { message: { content: [{ type: 'tool_use', id: 'tool-1', name: 'Skill', input: { skill: 'superpowers:brainstorming' } }] } },
+    { type: 'user', isMeta: true, message: { content: 'Base directory for this skill: /x/skills/brainstorming\n# body' } },
+  ]);
+  assert.deepEqual(result.skills, ['brainstorming']);
+});
+
+test('parseTranscript resolves bare skill name from bundled-skills and trailing-slash marker paths', async () => {
+  const result = await parseTempTranscript('skill-bundled.jsonl', [
+    { type: 'user', isMeta: true, message: { content: 'Base directory for this skill: /private/tmp/claude/bundled-skills/2.1.158/abc123/run\n# body' } },
+    { type: 'user', isMeta: true, message: { content: 'Base directory for this skill: /x/skills/writing-plans/\n# body' } },
+  ]);
+  assert.deepEqual(result.skills, ['run', 'writing-plans']);
+});
+
 test('parseTranscript truncates long bash commands in targets', async () => {
   const dir = await mkdtemp(path.join(tmpdir(), 'claude-hud-'));
   const filePath = path.join(dir, 'bash.jsonl');
@@ -1423,6 +1482,59 @@ test('parseTranscript invalidates transcript cache entries from older cache vers
     assert.equal(result.sessionName, undefined);
     assert.equal(result.tools.length, 1);
     assert.equal(result.lastAssistantResponseAt?.toISOString(), '2024-01-01T00:00:00.000Z');
+  } finally {
+    restoreEnvVar('CLAUDE_CONFIG_DIR', originalConfigDir);
+    await rm(dir, { recursive: true, force: true });
+  }
+});
+
+test('parseTranscript round-trips skills through the transcript cache', async () => {
+  const dir = await mkdtemp(path.join(tmpdir(), 'claude-hud-skills-cache-'));
+  const configDir = path.join(dir, '.claude-test');
+  const transcriptPath = path.join(dir, 'skills-roundtrip.jsonl');
+  const originalConfigDir = process.env.CLAUDE_CONFIG_DIR;
+  process.env.CLAUDE_CONFIG_DIR = configDir;
+  await writeFile(transcriptPath, `${JSON.stringify({
+    type: 'user', isMeta: true,
+    message: { content: 'Base directory for this skill: /x/skills/devcontainer\n# body' },
+  })}\n`, 'utf8');
+
+  try {
+    const first = await parseTranscript(transcriptPath);   // computes + writes cache
+    assert.deepEqual(first.skills, ['devcontainer']);
+    const second = await parseTranscript(transcriptPath);  // served from cache
+    assert.deepEqual(second.skills, ['devcontainer']);
+  } finally {
+    restoreEnvVar('CLAUDE_CONFIG_DIR', originalConfigDir);
+    await rm(dir, { recursive: true, force: true });
+  }
+});
+
+test('parseTranscript tolerates a cache entry missing the skills field', async () => {
+  const dir = await mkdtemp(path.join(tmpdir(), 'claude-hud-skills-missing-'));
+  const configDir = path.join(dir, '.claude-test');
+  const transcriptPath = path.join(dir, 'skills-missing.jsonl');
+  const originalConfigDir = process.env.CLAUDE_CONFIG_DIR;
+  process.env.CLAUDE_CONFIG_DIR = configDir;
+  // Empty transcript so the result is skills:[] whether the cache hits or is recomputed.
+  await writeFile(transcriptPath, `${JSON.stringify({ type: 'assistant', timestamp: '2024-01-01T00:00:00.000Z', message: { content: [] } })}\n`, 'utf8');
+  fs.utimesSync(transcriptPath, 1710000300, 1710000300);
+
+  try {
+    const stat = fs.statSync(transcriptPath);
+    const cachePath = path.join(configDir, 'plugins', 'claude-hud', 'transcript-cache',
+      `${createHash('sha256').update(path.resolve(transcriptPath)).digest('hex')}.json`);
+    await mkdir(path.dirname(cachePath), { recursive: true });
+    // Cache at the current version but with no `skills` field (Array.isArray guard).
+    await writeFile(cachePath, JSON.stringify({
+      version: 8,
+      transcriptPath: path.resolve(transcriptPath),
+      transcriptState: { mtimeMs: stat.mtimeMs, size: stat.size },
+      data: { tools: [], agents: [], todos: [] },
+    }), 'utf8');
+
+    const result = await parseTranscript(transcriptPath);
+    assert.deepEqual(result.skills, []);
   } finally {
     restoreEnvVar('CLAUDE_CONFIG_DIR', originalConfigDir);
     await rm(dir, { recursive: true, force: true });

@@ -858,3 +858,30 @@ test('mergeConfig rejects non-string advisorOverride and non-boolean showAdvisor
   assert.equal(config.display.showAdvisor, false);
   assert.equal(config.display.advisorOverride, '');
 });
+
+test('mergeConfig defaults showSkills to false', () => {
+  assert.equal(mergeConfig({}).display.showSkills, false);
+});
+
+test('mergeConfig preserves explicit showSkills=true', () => {
+  assert.equal(mergeConfig({ display: { showSkills: true } }).display.showSkills, true);
+});
+
+test('mergeConfig falls back to default for non-boolean showSkills', () => {
+  assert.equal(mergeConfig({ display: { showSkills: 'yes' } }).display.showSkills, false);
+});
+
+test('mergeConfig keeps skills as a recognized element in elementOrder', () => {
+  const config = mergeConfig({ elementOrder: ['skills', 'project'] });
+  assert.deepEqual(config.elementOrder, ['skills', 'project']);
+});
+
+test('mergeConfig appends skills to a custom elementOrder when showSkills is enabled but skills is missing', () => {
+  const config = mergeConfig({ display: { showSkills: true }, elementOrder: ['project', 'tools'] });
+  assert.ok(config.elementOrder.includes('skills'), 'skills should be appended so an enabled skills line is never dropped');
+});
+
+test('mergeConfig does not append skills when showSkills is off', () => {
+  const config = mergeConfig({ elementOrder: ['project', 'tools'] });
+  assert.ok(!config.elementOrder.includes('skills'), 'skills should not be force-added when disabled');
+});

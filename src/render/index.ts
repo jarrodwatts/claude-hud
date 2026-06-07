@@ -5,6 +5,7 @@ import { renderSessionLine } from './session-line.js';
 import { renderToolsLine } from './tools-line.js';
 import { renderAgentsLine } from './agents-line.js';
 import { renderTodosLine } from './todos-line.js';
+import { renderSkillsLine } from './skills-line.js';
 import {
   renderIdentityLine,
   renderProjectLine,
@@ -306,7 +307,7 @@ function makeSeparator(length: number): string {
   return dim('─'.repeat(repeats));
 }
 
-const ACTIVITY_ELEMENTS = new Set<HudElement>(['tools', 'agents', 'todos']);
+const ACTIVITY_ELEMENTS = new Set<HudElement>(['tools', 'agents', 'todos', 'skills']);
 
 function buildMergeGroupLookup(mergeGroups: HudElement[][]): Map<HudElement, Set<HudElement>> {
   const lookup = new Map<HudElement, Set<HudElement>>();
@@ -367,6 +368,13 @@ function collectActivityLines(ctx: RenderContext): string[] {
     }
   }
 
+  if (display?.showSkills !== false) {
+    const skillsLine = renderSkillsLine(ctx);
+    if (skillsLine) {
+      activityLines.push(skillsLine);
+    }
+  }
+
   return activityLines;
 }
 
@@ -399,6 +407,8 @@ function renderElementLine(
       return display?.showAgents === false ? null : renderAgentsLine(ctx);
     case 'todos':
       return display?.showTodos === false ? null : renderTodosLine(ctx);
+    case 'skills':
+      return display?.showSkills === false ? null : renderSkillsLine(ctx);
     case 'sessionTime':
       return renderSessionTimeLine(ctx);
   }

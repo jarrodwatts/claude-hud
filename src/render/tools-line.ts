@@ -21,10 +21,17 @@ export function shortenToolName(name: string, maxLen: number): string {
 }
 
 export function renderToolsLine(ctx: RenderContext): string | null {
-  const { tools } = ctx.transcript;
   const colors = ctx.config?.colors;
   const toolNameMaxLength = ctx.config?.display?.toolNameMaxLength ?? 0;
   const toolsMaxVisible = ctx.config?.display?.toolsMaxVisible ?? 4;
+
+  // When the dedicated skills line is enabled, skills are surfaced there — drop the
+  // Skill tool from the tools line so each skill appears in exactly one place. Tied to
+  // the same condition that renders the skills line (see render/index.ts).
+  const skillsLineEnabled = ctx.config?.display?.showSkills !== false;
+  const tools = skillsLineEnabled
+    ? ctx.transcript.tools.filter((t) => t.name !== 'Skill')
+    : ctx.transcript.tools;
 
   if (tools.length === 0) {
     return null;

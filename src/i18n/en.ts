@@ -15,6 +15,7 @@ export const en: Messages = {
   "label.sessionStarted": "Started",
   "label.lastReply": "Last reply",
   "label.advisor": "Advisor",
+  "label.skills": "Skills",
 
   // Status
   "status.limitReached": "Limit reached",

@@ -121,6 +121,7 @@ export interface TranscriptData {
   tools: ToolEntry[];
   agents: AgentEntry[];
   todos: TodoItem[];
+  skills: string[];
   sessionStart?: Date;
   sessionName?: string;
   lastAssistantResponseAt?: Date;

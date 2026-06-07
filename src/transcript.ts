@@ -12,6 +12,7 @@ interface TranscriptLine {
   subtype?: string;
   operation?: string;
   content?: string;
+  isMeta?: boolean;
   slug?: string;
   customTitle?: string;
   // Top-level field stamped onto every assistant record after `/advisor` is
@@ -38,6 +39,7 @@ interface ContentBlock {
   type: string;
   id?: string;
   name?: string;
+  text?: string;
   input?: Record<string, unknown>;
   tool_use_id?: string;
   is_error?: boolean;
@@ -62,6 +64,7 @@ interface SerializedTranscriptData {
   tools: SerializedToolEntry[];
   agents: SerializedAgentEntry[];
   todos: TodoItem[];
+  skills: string[];
   sessionStart?: string;
   sessionName?: string;
   lastAssistantResponseAt?: string;
@@ -78,7 +81,7 @@ interface TranscriptCacheFile {
   data: SerializedTranscriptData;
 }
 
-const TRANSCRIPT_CACHE_VERSION = 7;
+const TRANSCRIPT_CACHE_VERSION = 8;
 
 // Hard cap on the advisor model ID captured from the transcript. Real Claude
 // model IDs (e.g. "claude-haiku-4-5-20251001") fit comfortably under this; the
@@ -151,6 +154,7 @@ function serializeTranscriptData(data: TranscriptData): SerializedTranscriptData
       endTime: agent.endTime?.toISOString(),
     })),
     todos: data.todos.map((todo) => ({ ...todo })),
+    skills: [...data.skills],
     sessionStart: data.sessionStart?.toISOString(),
     sessionName: data.sessionName,
     lastAssistantResponseAt: data.lastAssistantResponseAt?.toISOString(),
@@ -174,6 +178,7 @@ function deserializeTranscriptData(data: SerializedTranscriptData): TranscriptDa
       endTime: agent.endTime ? new Date(agent.endTime) : undefined,
     })),
     todos: data.todos.map((todo) => ({ ...todo })),
+    skills: Array.isArray(data.skills) ? [...data.skills] : [],
     sessionStart: data.sessionStart ? new Date(data.sessionStart) : undefined,
     sessionName: data.sessionName,
     lastAssistantResponseAt: data.lastAssistantResponseAt ? new Date(data.lastAssistantResponseAt) : undefined,
@@ -229,6 +234,7 @@ export async function parseTranscript(transcriptPath: string): Promise<Transcrip
     tools: [],
     agents: [],
     todos: [],
+    skills: [],
   };
 
   if (!transcriptPath || !fs.existsSync(transcriptPath)) {
@@ -349,6 +355,7 @@ export async function parseTranscript(transcriptPath: string): Promise<Transcrip
           }
         }
         processEntry(entry, toolMap, agentMap, taskIdToIndex, latestTodos, result);
+        detectSkillLoad(entry, result);
       } catch {
         lastUsageKey = undefined;
         // Skip malformed lines
@@ -377,6 +384,7 @@ export async function parseTranscript(transcriptPath: string): Promise<Transcrip
   }
   result.tools = Array.from(toolMap.values()).slice(-20);
   result.agents = Array.from(agentMap.values()).slice(-10);
+  result.skills = result.skills.slice(-20);
   result.todos = latestTodos;
   result.sessionName = customTitle ?? latestSlug;
   result.sessionTokens = sessionTokens;
@@ -392,6 +400,48 @@ export async function parseTranscript(transcriptPath: string): Promise<Transcrip
 
 export function _setCreateReadStreamForTests(impl: typeof fs.createReadStream | null): void {
   createReadStreamImpl = impl ?? fs.createReadStream;
+}
+
+// The harness prefixes a loaded skill's body with this line; the trailing token is the
+// skill's directory, whose basename is the skill name. Detection is gated on `isMeta` user
+// messages (see detectSkillLoad) — that gate is what excludes ordinary tool output and prose;
+// the `^` anchor additionally avoids matching the marker quoted later inside such a message.
+const SKILL_BASEDIR_PATTERN = /^Base directory for this skill:\s*(\S+)/;
+
+function getEntryText(content: ContentBlock[] | string | undefined): string {
+  if (typeof content === 'string') return content;
+  if (Array.isArray(content)) {
+    return content.map((block) => (block && typeof block.text === 'string' ? block.text : '')).join('');
+  }
+  return '';
+}
+
+/**
+ * Normalizes a skill identifier to its bare name so the two detection signals dedupe:
+ * the Skill tool reports `superpowers:brainstorming`, the load marker reports a path
+ * `.../skills/brainstorming`. Both reduce to `brainstorming`. Backslashes are normalized first
+ * so Windows marker paths (`C:\...\skills\brainstorming`) resolve correctly.
+ */
+function bareSkillName(raw: string): string {
+  const normalized = raw.replace(/\\/g, '/');
+  const segment = normalized.replace(/\/+$/, '').split('/').pop() ?? normalized;
+  return (segment.split(':').pop() ?? segment).trim();
+}
+
+/**
+ * Detects a skill load via the `Base directory for this skill: <path>` marker the harness
+ * injects as an `isMeta` user message when a folder-backed skill loads — observed for both
+ * model- (Skill tool) and user- (slash command) invoked loads. Robust: one explicit string
+ * + the path basename, no ordering/threshold heuristics.
+ */
+function detectSkillLoad(entry: TranscriptLine, result: TranscriptData): void {
+  if (entry.type !== 'user' || entry.isMeta !== true) return;
+  const match = SKILL_BASEDIR_PATTERN.exec(getEntryText(entry.message?.content).trimStart());
+  if (!match) return;
+  const name = bareSkillName(match[1]);
+  if (name && !result.skills.includes(name)) {
+    result.skills.push(name);
+  }
 }
 
 function processEntry(
@@ -425,6 +475,17 @@ function processEntry(
         status: 'running',
         startTime: timestamp,
       };
+
+      // Capture a model-invoked skill into the dedicated skills list (in addition to
+      // the tool entry below). The tools-line render suppresses the Skill tool when
+      // the skills element is enabled, so it shows in one place.
+      if (block.name === 'Skill') {
+        const raw = (block.input as { skill?: unknown })?.skill;
+        const skillName = typeof raw === 'string' ? bareSkillName(raw) : '';
+        if (skillName && !result.skills.includes(skillName)) {
+          result.skills.push(skillName);
+        }
+      }
 
       if (block.name === 'Task' || block.name === 'Agent') {
         const input = block.input as Record<string, unknown>;

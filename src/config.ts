@@ -21,7 +21,7 @@ export type GitBranchOverflowMode = 'truncate' | 'wrap';
 export type ModelFormatMode = 'full' | 'compact' | 'short';
 export type TimeFormatMode = 'relative' | 'absolute' | 'both' | 'elapsed' | 'elapsedAndAbsolute';
 export type CustomLinePosition = 'first' | 'last';
-export type HudElement = 'project' | 'addedDirs' | 'context' | 'usage' | 'promptCache' | 'memory' | 'environment' | 'tools' | 'agents' | 'todos' | 'sessionTime';
+export type HudElement = 'project' | 'addedDirs' | 'context' | 'usage' | 'promptCache' | 'memory' | 'environment' | 'tools' | 'agents' | 'todos' | 'skills' | 'sessionTime';
 
 export type AddedDirsLayout = 'inline' | 'line';
 export type HudColorName =
@@ -64,6 +64,7 @@ export const DEFAULT_ELEMENT_ORDER: HudElement[] = [
   'tools',
   'agents',
   'todos',
+  'skills',
   'sessionTime',
 ];
 
@@ -112,6 +113,7 @@ export interface HudConfig {
     toolsMaxVisible: number;
     showAgents: boolean;
     showTodos: boolean;
+    showSkills: boolean;
     showSessionName: boolean;
     showClaudeCodeVersion: boolean;
     showEffortLevel: boolean;
@@ -189,6 +191,7 @@ export const DEFAULT_CONFIG: HudConfig = {
     toolsMaxVisible: 4,
     showAgents: false,
     showTodos: false,
+    showSkills: false,
     showSessionName: false,
     showClaudeCodeVersion: false,
     showEffortLevel: false,
@@ -495,6 +498,7 @@ export function mergeConfig(userConfig: Partial<HudConfig>): HudConfig {
     : null;
 
   const elementOrder = validateElementOrder(migrated.elementOrder);
+  let resolvedElementOrder = elementOrder;
   const forceMaxWidth = typeof (migrated as Record<string, unknown>).forceMaxWidth === 'boolean'
     ? (migrated as Record<string, unknown>).forceMaxWidth as boolean
     : DEFAULT_CONFIG.forceMaxWidth;
@@ -585,6 +589,9 @@ export function mergeConfig(userConfig: Partial<HudConfig>): HudConfig {
     showTodos: typeof migrated.display?.showTodos === 'boolean'
       ? migrated.display.showTodos
       : DEFAULT_CONFIG.display.showTodos,
+    showSkills: typeof migrated.display?.showSkills === 'boolean'
+      ? migrated.display.showSkills
+      : DEFAULT_CONFIG.display.showSkills,
     showSessionName: typeof migrated.display?.showSessionName === 'boolean'
       ? migrated.display.showSessionName
       : DEFAULT_CONFIG.display.showSessionName,
@@ -658,6 +665,13 @@ export function mergeConfig(userConfig: Partial<HudConfig>): HudConfig {
     autoCompactWindow: validateAutoCompactWindow(migrated.display?.autoCompactWindow),
   };
 
+  // If the skills element is enabled but a custom elementOrder omits it (e.g. a config
+  // saved before this feature), append it so an enabled skills line is never silently
+  // dropped in expanded mode while the Skill tool is suppressed from the tools line.
+  if (display.showSkills && !resolvedElementOrder.includes('skills')) {
+    resolvedElementOrder = [...resolvedElementOrder, 'skills'];
+  }
+
   const colors = {
     context: validateColorValue(migrated.colors?.context)
       ? migrated.colors.context
@@ -700,7 +714,7 @@ export function mergeConfig(userConfig: Partial<HudConfig>): HudConfig {
       : DEFAULT_CONFIG.colors.barEmpty,
   };
 
-  return { language, lineLayout, showSeparators, pathLevels, maxWidth, forceMaxWidth, elementOrder, gitStatus, display, colors };
+  return { language, lineLayout, showSeparators, pathLevels, maxWidth, forceMaxWidth, elementOrder: resolvedElementOrder, gitStatus, display, colors };
 }
 
 export async function loadConfig(): Promise<HudConfig> {

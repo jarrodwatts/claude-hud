@@ -197,6 +197,7 @@ Chinese HUD labels are available as an explicit opt-in. English stays the defaul
 | `display.toolsMaxVisible` | number | `4` | Maximum completed tools shown on the tools line. `0` means unlimited |
 | `display.showAgents` | boolean | false | Show agents activity line |
 | `display.showTodos` | boolean | false | Show todos progress line |
+| `display.showSkills` | boolean | false | Show a `⚡ Skills:` line listing skills used this session. Detected from `Skill` tool calls and from the `Base directory for this skill:` load marker (so user-invoked `/skill` and auto-loaded skills are included), deduped to bare names. When on, the `Skill` tool is omitted from the tools line so each skill appears once. |
 | `display.showSessionName` | boolean | false | Show session slug or custom title from `/rename` |
 | `display.showAdvisor` | boolean | false | Inline the model configured via Claude Code's `/advisor` on the project line, e.g. `Advisor: Opus 4.7`. Read from the `advisorModel` field that Claude Code stamps on each assistant transcript record; sanitised and capped at 64 chars before rendering |
 | `display.advisorOverride` | string | `""` | Optional manual override for the displayed advisor label. When non-empty, replaces transcript-driven detection. Also sanitised and capped at 64 chars |
