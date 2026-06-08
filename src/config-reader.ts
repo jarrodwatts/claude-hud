@@ -108,6 +108,53 @@ function readStringSetting(filePath: string, key: string): string | undefined {
   return undefined;
 }
 
+/** Read a string[] setting from a JSON settings file (non-strings dropped). */
+function readArraySetting(filePath: string, key: string): string[] {
+  if (!fs.existsSync(filePath)) return [];
+  try {
+    const content = fs.readFileSync(filePath, 'utf8');
+    const config = JSON.parse(content);
+    if (Array.isArray(config[key])) {
+      return config[key].filter((v: unknown): v is string => typeof v === 'string');
+    }
+  } catch (error) {
+    debug(`Failed to read ${key} from ${filePath}:`, error);
+  }
+  return [];
+}
+
+/**
+ * Convert a claudeMdExcludes glob (e.g. `**\/monorepo/CLAUDE.md`) to an anchored
+ * RegExp. `**` matches across path separators, `*` within a segment, `?` one
+ * char. Paths are matched with `/` separators (callers normalize first).
+ */
+function globToRegExp(pattern: string): RegExp {
+  const normalized = pattern.replace(/\\/g, '/');
+  let re = '';
+  for (let i = 0; i < normalized.length; i++) {
+    const c = normalized[i];
+    if (c === '*') {
+      if (normalized[i + 1] === '*') {
+        re += '.*';
+        i++;
+      } else {
+        re += '[^/]*';
+      }
+    } else if (c === '?') {
+      re += '[^/]';
+    } else {
+      re += c.replace(/[.+^${}()|[\]\\]/g, '\\$&');
+    }
+  }
+  return new RegExp(`^${re}$`);
+}
+
+/** True if absPath matches any claudeMdExcludes glob pattern. */
+function matchesAnyGlob(absPath: string, patterns: RegExp[]): boolean {
+  const normalized = path.resolve(absPath).replace(/\\/g, '/');
+  return patterns.some((re) => re.test(normalized));
+}
+
 function countRulesInDir(rulesDir: string): number {
   if (!fs.existsSync(rulesDir)) return 0;
   let count = 0;
@@ -361,10 +408,24 @@ function computeConfigCountsFresh(cwd?: string): ConfigCounts {
 
   const homeDir = os.homedir();
   const claudeDir = getClaudeConfigDir(homeDir);
+
+  // claudeMdExcludes lets users skip specific CLAUDE.md files (glob patterns,
+  // merged across settings layers). Gather them up front so every scope below
+  // can be filtered. Managed-policy CLAUDE.md is exempt (cannot be excluded).
+  const excludePatterns = [
+    ...readArraySetting(path.join(claudeDir, 'settings.json'), 'claudeMdExcludes'),
+    ...readArraySetting(path.join(claudeDir, 'settings.local.json'), 'claudeMdExcludes'),
+    ...(cwd ? readArraySetting(path.join(cwd, '.claude', 'settings.json'), 'claudeMdExcludes') : []),
+    ...(cwd ? readArraySetting(path.join(cwd, '.claude', 'settings.local.json'), 'claudeMdExcludes') : []),
+  ].map(globToRegExp);
+
   // Dedupe by resolved absolute path so overlapping scopes (e.g. cwd under the
   // user .claude dir, or an ancestor that is also the user scope) count once.
   const seenClaudeMd = new Set<string>();
-  const recordClaudeMd = (absPath: string) => {
+  const recordClaudeMd = (absPath: string, managed = false) => {
+    if (!managed && matchesAnyGlob(absPath, excludePatterns)) {
+      return;
+    }
     const resolved = path.resolve(absPath);
     if (seenClaudeMd.has(resolved)) {
       return;
@@ -381,7 +442,7 @@ function computeConfigCountsFresh(cwd?: string): ConfigCounts {
   // Loaded first by Claude Code, ahead of user scope.
   const managedPolicyClaudeMd = getManagedPolicyClaudeMdPath();
   if (fs.existsSync(managedPolicyClaudeMd)) {
-    recordClaudeMd(managedPolicyClaudeMd);
+    recordClaudeMd(managedPolicyClaudeMd, true);
   }
 
   // === USER SCOPE ===

@@ -1648,6 +1648,40 @@ test('countConfigs cache: miss when an ancestor CLAUDE.md appears', async () => 
   }
 });
 
+test('countConfigs honors claudeMdExcludes glob patterns', async () => {
+  const homeDir = await mkdtemp(path.join(tmpdir(), 'claude-hud-home-'));
+  const originalHome = process.env.HOME;
+  process.env.HOME = homeDir;
+
+  try {
+    await mkdir(path.join(homeDir, '.claude'), { recursive: true });
+    await writeFile(path.join(homeDir, '.claude', 'CLAUDE.md'), 'global', 'utf8');
+
+    const repoRoot = path.join(homeDir, 'monorepo');
+    const cwd = path.join(repoRoot, 'services', 'api-gateway');
+    await mkdir(path.join(cwd, '.claude'), { recursive: true });
+    await writeFile(path.join(repoRoot, 'CLAUDE.md'), 'repo root', 'utf8');
+    await writeFile(path.join(cwd, 'CLAUDE.md'), 'gateway', 'utf8');
+
+    // Exclude the monorepo-root CLAUDE.md (mirrors the docs' example).
+    await writeFile(
+      path.join(cwd, '.claude', 'settings.local.json'),
+      JSON.stringify({ claudeMdExcludes: ['**/monorepo/CLAUDE.md'] }),
+      'utf8'
+    );
+
+    const counts = await countConfigs(cwd);
+    assert.equal(counts.claudeMdCount, 2, 'excluded repo-root CLAUDE.md should not be counted');
+    assert.deepEqual(counts.claudeMdPaths, [
+      '~/.claude/CLAUDE.md',
+      './CLAUDE.md',
+    ]);
+  } finally {
+    process.env.HOME = originalHome;
+    await rm(homeDir, { recursive: true, force: true });
+  }
+});
+
 test('countConfigs returns outputStyle with project local precedence', async () => {
   const homeDir = await mkdtemp(path.join(tmpdir(), 'claude-hud-home-'));
   const projectDir = await mkdtemp(path.join(tmpdir(), 'claude-hud-project-'));
