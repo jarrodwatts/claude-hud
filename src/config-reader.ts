@@ -174,6 +174,7 @@ function buildSentinelPaths(claudeDir: string, claudeConfigJsonPath: string, cwd
   // cache itself is stored under claudeDir/plugins/, which would change
   // claudeDir's mtime and immediately invalidate the cache on every write.
   const paths = [
+    getManagedPolicyClaudeMdPath(),
     path.join(claudeDir, 'CLAUDE.md'),
     path.join(claudeDir, 'rules'),
     path.join(claudeDir, 'settings.json'),
@@ -183,13 +184,19 @@ function buildSentinelPaths(claudeDir: string, claudeConfigJsonPath: string, cwd
 
   if (cwd) {
     paths.push(
-      cwd,
       path.join(cwd, '.claude'),
       path.join(cwd, '.claude', 'rules'),
       path.join(cwd, '.mcp.json'),
       path.join(cwd, '.claude', 'settings.json'),
       path.join(cwd, '.claude', 'settings.local.json'),
     );
+    // Sentinel every ancestor directory (root -> cwd, includes cwd). A
+    // directory's mtime changes when a CLAUDE.md is added/removed inside it,
+    // so this invalidates the cache when memory files appear/disappear anywhere
+    // up the tree.
+    for (const dir of ancestorDirsFromRoot(cwd)) {
+      paths.push(dir);
+    }
   }
 
   return paths;
@@ -313,6 +320,39 @@ function abbreviateConfigPath(absPath: string, homeDir: string, cwd?: string): s
   return absPath;
 }
 
+/**
+ * OS-specific managed-policy (enterprise) CLAUDE.md location that Claude Code
+ * loads first. Mirrors the documented paths in code.claude.com/docs/memory.
+ */
+function getManagedPolicyClaudeMdPath(): string {
+  switch (process.platform) {
+    case 'darwin':
+      return '/Library/Application Support/ClaudeCode/CLAUDE.md';
+    case 'win32':
+      return path.join(process.env.ProgramFiles || 'C:\\Program Files', 'ClaudeCode', 'CLAUDE.md');
+    default:
+      // Linux / WSL
+      return '/etc/claude-code/CLAUDE.md';
+  }
+}
+
+/**
+ * Directories from the filesystem root down to (and including) cwd, ordered
+ * root -> cwd. Claude Code loads CLAUDE.md/CLAUDE.local.md from every directory
+ * along this path, so we walk the same tree rather than only inspecting cwd.
+ */
+function ancestorDirsFromRoot(cwd: string): string[] {
+  const dirs: string[] = [];
+  let dir = path.resolve(cwd);
+  while (true) {
+    dirs.push(dir);
+    const parent = path.dirname(dir);
+    if (parent === dir) break; // reached the filesystem root
+    dir = parent;
+  }
+  return dirs.reverse();
+}
+
 function computeConfigCountsFresh(cwd?: string): ConfigCounts {
   const claudeMdPaths: string[] = [];
   let rulesCount = 0;
@@ -321,13 +361,28 @@ function computeConfigCountsFresh(cwd?: string): ConfigCounts {
 
   const homeDir = os.homedir();
   const claudeDir = getClaudeConfigDir(homeDir);
+  // Dedupe by resolved absolute path so overlapping scopes (e.g. cwd under the
+  // user .claude dir, or an ancestor that is also the user scope) count once.
+  const seenClaudeMd = new Set<string>();
   const recordClaudeMd = (absPath: string) => {
+    const resolved = path.resolve(absPath);
+    if (seenClaudeMd.has(resolved)) {
+      return;
+    }
+    seenClaudeMd.add(resolved);
     claudeMdPaths.push(abbreviateConfigPath(absPath, homeDir, cwd));
   };
 
   // Collect all MCP servers across scopes, then subtract disabled ones
   const userMcpServers = new Set<string>();
   const projectMcpServers = new Set<string>();
+
+  // === MANAGED POLICY (enterprise) SCOPE ===
+  // Loaded first by Claude Code, ahead of user scope.
+  const managedPolicyClaudeMd = getManagedPolicyClaudeMdPath();
+  if (fs.existsSync(managedPolicyClaudeMd)) {
+    recordClaudeMd(managedPolicyClaudeMd);
+  }
 
   // === USER SCOPE ===
 
@@ -372,16 +427,19 @@ function computeConfigCountsFresh(cwd?: string): ConfigCounts {
     : false;
 
   if (cwd) {
-    // {cwd}/CLAUDE.md
-    const projectClaudeMd = path.join(cwd, 'CLAUDE.md');
-    if (fs.existsSync(projectClaudeMd)) {
-      recordClaudeMd(projectClaudeMd);
-    }
+    // Walk every directory from the filesystem root down to cwd, matching
+    // Claude Code's memory discovery. At each level, CLAUDE.md then
+    // CLAUDE.local.md (e.g. a monorepo root's CLAUDE.md above the cwd).
+    for (const dir of ancestorDirsFromRoot(cwd)) {
+      const ancestorClaudeMd = path.join(dir, 'CLAUDE.md');
+      if (fs.existsSync(ancestorClaudeMd)) {
+        recordClaudeMd(ancestorClaudeMd);
+      }
 
-    // {cwd}/CLAUDE.local.md
-    const projectClaudeLocalMd = path.join(cwd, 'CLAUDE.local.md');
-    if (fs.existsSync(projectClaudeLocalMd)) {
-      recordClaudeMd(projectClaudeLocalMd);
+      const ancestorClaudeLocalMd = path.join(dir, 'CLAUDE.local.md');
+      if (fs.existsSync(ancestorClaudeLocalMd)) {
+        recordClaudeMd(ancestorClaudeLocalMd);
+      }
     }
 
     // {cwd}/.claude/CLAUDE.md (alternative location, skip when it is user scope)

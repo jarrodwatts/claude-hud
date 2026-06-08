@@ -1592,6 +1592,62 @@ test('countConfigs honors project and global config locations', async () => {
   }
 });
 
+test('countConfigs walks ancestor directories for CLAUDE.md (monorepo)', async () => {
+  const homeDir = await mkdtemp(path.join(tmpdir(), 'claude-hud-home-'));
+  const originalHome = process.env.HOME;
+  process.env.HOME = homeDir;
+
+  try {
+    // User scope.
+    await mkdir(path.join(homeDir, '.claude'), { recursive: true });
+    await writeFile(path.join(homeDir, '.claude', 'CLAUDE.md'), 'global', 'utf8');
+
+    // Monorepo root (an ancestor of cwd) plus a nested cwd, each with CLAUDE.md.
+    const repoRoot = path.join(homeDir, 'monorepo');
+    const cwd = path.join(repoRoot, 'services', 'api-gateway');
+    await mkdir(cwd, { recursive: true });
+    await writeFile(path.join(repoRoot, 'CLAUDE.md'), 'repo root', 'utf8');
+    await writeFile(path.join(cwd, 'CLAUDE.md'), 'gateway', 'utf8');
+
+    const counts = await countConfigs(cwd);
+    assert.equal(counts.claudeMdCount, 3);
+    assert.deepEqual(counts.claudeMdPaths, [
+      '~/.claude/CLAUDE.md',
+      '~/monorepo/CLAUDE.md',
+      './CLAUDE.md',
+    ]);
+  } finally {
+    process.env.HOME = originalHome;
+    await rm(homeDir, { recursive: true, force: true });
+  }
+});
+
+test('countConfigs cache: miss when an ancestor CLAUDE.md appears', async () => {
+  const homeDir = await mkdtemp(path.join(tmpdir(), 'claude-hud-cc-'));
+  const originalHome = process.env.HOME;
+  process.env.HOME = homeDir;
+
+  try {
+    await mkdir(path.join(homeDir, '.claude'), { recursive: true });
+    const repoRoot = path.join(homeDir, 'repo');
+    const cwd = path.join(repoRoot, 'pkg');
+    await mkdir(cwd, { recursive: true });
+
+    const first = await countConfigs(cwd);
+    assert.equal(first.claudeMdCount, 0);
+
+    // Create CLAUDE.md in the ancestor (repo root) — changes its dir mtime,
+    // which the ancestor sentinels must catch.
+    await writeFile(path.join(repoRoot, 'CLAUDE.md'), 'root', 'utf8');
+
+    const second = await countConfigs(cwd);
+    assert.equal(second.claudeMdCount, 1, 'Should detect ancestor CLAUDE.md via sentinel');
+  } finally {
+    process.env.HOME = originalHome;
+    await rm(homeDir, { recursive: true, force: true });
+  }
+});
+
 test('countConfigs returns outputStyle with project local precedence', async () => {
   const homeDir = await mkdtemp(path.join(tmpdir(), 'claude-hud-home-'));
   const projectDir = await mkdtemp(path.join(tmpdir(), 'claude-hud-project-'));
