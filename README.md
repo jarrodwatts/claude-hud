@@ -1,3 +1,5 @@
+[![MseeP.ai Security Assessment Badge](https://mseep.net/pr/jarrodwatts-claude-hud-badge.png)](https://mseep.ai/app/jarrodwatts-claude-hud)
+
 # Claude HUD
 
 A Claude Code plugin that shows what's happening — context usage, active tools, running agents, and todo progress. Always visible below your input.
