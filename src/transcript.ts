@@ -18,7 +18,7 @@ interface TranscriptLine {
   // set. Holds the canonical advisor model ID (e.g. "claude-opus-4-7").
   advisorModel?: string;
   message?: {
-    content?: ContentBlock[];
+    content?: ContentBlock[] | string;
     usage?: {
       input_tokens?: number;
       output_tokens?: number;
@@ -314,6 +314,7 @@ export async function parseTranscript(transcriptPath: string): Promise<Transcrip
   const skillSet = new Set<string>();
   const mcpServerSet = new Set<string>();
   const agentMap = new Map<string, AgentEntry>();
+  const runningSkillIds: string[] = [];
   let latestTodos: TodoItem[] = [];
   const taskIdToIndex = new Map<string, number>();
   const queueCompletionMap = new Map<string, Date>();
@@ -329,6 +330,7 @@ export async function parseTranscript(transcriptPath: string): Promise<Transcrip
     cacheReadTokens: 0,
   };
   let lastUsageKey: string | undefined;
+  let skillCmdCounter = 0;
 
   let parsedCleanly = false;
 
@@ -410,7 +412,7 @@ export async function parseTranscript(transcriptPath: string): Promise<Transcrip
             }
           }
         }
-        processEntry(entry, toolMap, skillSet, mcpServerSet, agentMap, taskIdToIndex, latestTodos, result);
+        processEntry(entry, toolMap, skillSet, mcpServerSet, agentMap, taskIdToIndex, latestTodos, runningSkillIds, result, skillCmdCounter++);
       } catch {
         lastUsageKey = undefined;
         // Skip malformed lines
@@ -437,7 +439,21 @@ export async function parseTranscript(transcriptPath: string): Promise<Transcrip
       agent.status = 'completed';
     }
   }
-  result.tools = Array.from(toolMap.values()).slice(-20);
+
+  // Complete any skills still marked as running at end of transcript
+  for (const sid of runningSkillIds) {
+    const skill = toolMap.get(sid);
+    if (skill && skill.status === 'running') {
+      skill.status = 'completed';
+      skill.endTime = skill.startTime;
+    }
+  }
+
+  // Keep last 20 tools but always include recent Skill entries (capped at 50)
+  const allTools = Array.from(toolMap.values());
+  const skillTools = allTools.filter(t => t.name === 'Skill').slice(-50);
+  const otherTools = allTools.filter(t => t.name !== 'Skill');
+  result.tools = [...skillTools, ...otherTools.slice(-20)];
   result.skills = Array.from(skillSet.values());
   result.mcpServers = Array.from(mcpServerSet.values());
   result.agents = Array.from(agentMap.values()).slice(-10);
@@ -466,7 +482,9 @@ function processEntry(
   agentMap: Map<string, AgentEntry>,
   taskIdToIndex: Map<string, number>,
   latestTodos: TodoItem[],
-  result: TranscriptData
+  runningSkillIds: string[],
+  result: TranscriptData,
+  skillCmdIndex: number
 ): void {
   const timestamp = entry.timestamp ? new Date(entry.timestamp) : new Date();
   const hasValidTimestamp = !Number.isNaN(timestamp.getTime());
@@ -480,7 +498,43 @@ function processEntry(
   }
 
   const content = entry.message?.content;
-  if (!content || !Array.isArray(content)) return;
+  if (!content) return;
+
+  // Handle string content (e.g. Skill invocations with <command-name> tags)
+  if (typeof content === 'string') {
+    const cmdMatch = content.match(/^<command-name>(\/[\w-]+)<\/command-name>/m);
+    if (cmdMatch && entry.type === 'user') {
+      const skillName = cmdMatch[1].replace(/^\//, '');
+      const skillId = `skill-cmd-${timestamp.getTime()}-${skillCmdIndex}`;
+      const normalizedSkill = normalizeSkillName(skillName);
+      if (normalizedSkill) {
+        skillSet.add(normalizedSkill);
+      }
+      toolMap.set(skillId, {
+        id: skillId,
+        name: 'Skill',
+        target: normalizedSkill,
+        status: 'running',
+        startTime: timestamp,
+      });
+      runningSkillIds.push(skillId);
+    }
+    return;
+  }
+
+  // Non-skill user message: complete all running skills (the skill session has ended)
+  if (entry.type === 'user' && Array.isArray(content) && runningSkillIds.length > 0) {
+    for (const sid of runningSkillIds) {
+      const skill = toolMap.get(sid);
+      if (skill && skill.status === 'running') {
+        skill.status = 'completed';
+        skill.endTime = timestamp;
+      }
+    }
+    runningSkillIds.length = 0;
+  }
+
+  if (!Array.isArray(content)) return;
 
   for (const block of content) {
     if (block.type === 'tool_use' && block.id && block.name) {

@@ -46,8 +46,10 @@ export function renderToolsLine(ctx: RenderContext): string | null {
 
   const toolCounts = new Map<string, number>();
   for (const tool of completedTools) {
-    const count = toolCounts.get(tool.name) ?? 0;
-    toolCounts.set(tool.name, count + 1);
+    // Aggregate all Skills under single "Skill" key
+    const key = tool.name === 'Skill' ? 'Skill' : tool.name;
+    const count = toolCounts.get(key) ?? 0;
+    toolCounts.set(key, count + 1);
   }
 
   const sortedTools = Array.from(toolCounts.entries())
