@@ -127,8 +127,18 @@ export async function main(overrides: Partial<MainDeps> = {}): Promise<void> {
         usageData = deps.getUsageFromExternalSnapshot(config, deps.now());
       } else if (config.display.externalUsagePath) {
         const ext = deps.getUsageFromExternalSnapshot(config, deps.now());
-        if (ext?.balanceLabel != null) {
-          usageData = { ...usageData, balanceLabel: ext.balanceLabel };
+        if (ext != null) {
+          usageData = {
+            ...usageData,
+            ...(ext.balanceLabel != null && { balanceLabel: ext.balanceLabel }),
+            // If stdin did not provide sevenDay (e.g. third-party clients like the
+            // Claudian Obsidian plugin that only surface five_hour), fall back to the
+            // external snapshot so the weekly limit still shows in the HUD.
+            ...(usageData.sevenDay == null && ext.sevenDay != null && {
+              sevenDay: ext.sevenDay,
+              sevenDayResetAt: ext.sevenDayResetAt ?? null,
+            }),
+          };
         }
       }
     }
