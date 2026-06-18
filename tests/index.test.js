@@ -431,6 +431,47 @@ test("main appends external balance label to stdin usage when snapshot path is c
   });
 });
 
+test("main fills missing seven-day usage from external snapshot", async () => {
+  let renderedContext;
+  let externalCalls = 0;
+
+  await main({
+    readStdin: async () => makeStdin({
+      rate_limits: {
+        five_hour: { used_percentage: 21.9, resets_at: 1710000000 },
+      },
+    }),
+    parseTranscript: async () => makeTranscript(),
+    countConfigs: async () => makeCounts(),
+    loadConfig: async () => makeConfig({
+      display: { externalUsagePath: "/tmp/usage.json" },
+    }),
+    getGitStatus: async () => null,
+    getUsageFromExternalSnapshot: () => {
+      externalCalls += 1;
+      return {
+        fiveHour: 99,
+        sevenDay: 85,
+        fiveHourResetAt: null,
+        sevenDayResetAt: new Date("2026-04-27T12:00:00.000Z"),
+        balanceLabel: "$12.34 / $20.00",
+      };
+    },
+    render: (ctx) => {
+      renderedContext = ctx;
+    },
+  });
+
+  assert.equal(externalCalls, 1);
+  assert.deepEqual(renderedContext?.usageData, {
+    fiveHour: 22,
+    sevenDay: 85,
+    fiveHourResetAt: new Date(1710000000 * 1000),
+    sevenDayResetAt: new Date("2026-04-27T12:00:00.000Z"),
+    balanceLabel: "$12.34 / $20.00",
+  });
+});
+
 test("main skips all usage loading when usage display is disabled", async () => {
   let renderedContext;
   let externalCalls = 0;
