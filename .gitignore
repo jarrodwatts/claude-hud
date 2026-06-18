@@ -57,3 +57,8 @@ temp/
 # Lock files (keep package-lock.json for npm)
 yarn.lock
 bun.lock
+
+# Beads / Dolt files (added by bd init)
+.dolt/
+*.db
+.beads-credential-key
