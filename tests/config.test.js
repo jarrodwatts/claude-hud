@@ -120,6 +120,19 @@ test('mergeConfig preserves explicit showSessionName=true', () => {
   assert.equal(config.display.showSessionName, true);
 });
 
+test('mergeConfig defaults provider options to off/empty', () => {
+  const config = mergeConfig({});
+  assert.equal(config.display.showProvider, false);
+  assert.equal(config.display.providerName, '');
+  assert.equal(DEFAULT_CONFIG.display.showProvider, false);
+});
+
+test('mergeConfig preserves provider options and caps providerName length', () => {
+  const config = mergeConfig({ display: { showProvider: true, providerName: 'x'.repeat(60) } });
+  assert.equal(config.display.showProvider, true);
+  assert.equal(config.display.providerName.length, 40);
+});
+
 test('mergeConfig defaults showClaudeCodeVersion to false', () => {
   const config = mergeConfig({});
   assert.equal(config.display.showClaudeCodeVersion, false);

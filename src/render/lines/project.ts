@@ -64,13 +64,26 @@ export function renderProjectLine(ctx: RenderContext): string | null {
 
   if (display?.showModel !== false) {
     const model = formatModelName(getModelName(ctx.stdin), ctx.config?.display?.modelFormat, ctx.config?.display?.modelOverride);
-    const providerLabel = getProviderLabel(ctx.stdin);
-    const modelQualifier = providerLabel ?? undefined;
-    let modelDisplay = modelQualifier ? `${model} | ${modelQualifier}` : model;
+
+    let effortSuffix = '';
     if (ctx.effortLevel && ctx.effortSymbol) {
-      modelDisplay += ` ${ctx.effortSymbol} ${ctx.effortLevel}`;
+      effortSuffix = ` ${ctx.effortSymbol} ${ctx.effortLevel}`;
     } else if (ctx.effortLevel) {
-      modelDisplay += ` ${ctx.effortLevel}`;
+      effortSuffix = ` ${ctx.effortLevel}`;
+    }
+
+    const autoProvider = getProviderLabel(ctx.stdin);
+    let modelDisplay: string;
+    if (display?.showProvider) {
+      // Provider (custom name, else auto-detected) leads the model name.
+      const providerLabel = display?.providerName?.trim() || autoProvider;
+      const core = `${model}${effortSuffix}`;
+      modelDisplay = providerLabel ? `${providerLabel} | ${core}` : core;
+    } else {
+      // Default: auto-detected provider trails the model name (legacy layout).
+      modelDisplay = autoProvider
+        ? `${model} | ${autoProvider}${effortSuffix}`
+        : `${model}${effortSuffix}`;
     }
     parts.push(modelColor(`[${modelDisplay}]`, colors));
   }
