@@ -1,0 +1,19 @@
+{
+  "$comment": "Per-token Anthropic pricing used for session cost estimation. Patterns are case-insensitive regexes tested (in order, first match wins) against the normalized model name (lowercased, 'claude ' prefix stripped, separators collapsed to single spaces — e.g. 'eu.anthropic.claude-opus-4-6-v1' becomes 'opus 4 6'). More specific model lines MUST come before broader fallbacks. Pricing matches Bedrock/Vertex and direct Anthropic API (identical per-token rates). Users can extend or override these via config.display.pricingOverrides, which are matched before this list.",
+  "cacheWriteMultiplier": 1.25,
+  "cacheReadMultiplier": 0.1,
+  "models": [
+    { "pattern": "\\bopus 4 6\\b", "inputUsdPerMillion": 5.5, "outputUsdPerMillion": 27.5 },
+    { "pattern": "\\bopus 4 5\\b", "inputUsdPerMillion": 5, "outputUsdPerMillion": 25 },
+    { "pattern": "\\bopus 4(?: \\d+)?\\b", "inputUsdPerMillion": 15, "outputUsdPerMillion": 75 },
+    { "pattern": "\\bsonnet 4(?: \\d+)?\\b", "inputUsdPerMillion": 3, "outputUsdPerMillion": 15 },
+    { "pattern": "\\bsonnet 3 7\\b", "inputUsdPerMillion": 3, "outputUsdPerMillion": 15 },
+    { "pattern": "\\bsonnet 3 5\\b", "inputUsdPerMillion": 3, "outputUsdPerMillion": 15 },
+    { "pattern": "\\bhaiku 4 5\\b", "inputUsdPerMillion": 1.1, "outputUsdPerMillion": 5.5 },
+    { "pattern": "\\bhaiku 4(?: \\d+)?\\b", "inputUsdPerMillion": 1, "outputUsdPerMillion": 5 },
+    { "pattern": "\\bhaiku 3 5\\b", "inputUsdPerMillion": 0.8, "outputUsdPerMillion": 4 },
+    { "pattern": "\\bopusplan\\b", "inputUsdPerMillion": 15, "outputUsdPerMillion": 75 },
+    { "pattern": "\\bsonnetplan\\b", "inputUsdPerMillion": 3, "outputUsdPerMillion": 15 },
+    { "pattern": "\\bhaikuplan\\b", "inputUsdPerMillion": 0.8, "outputUsdPerMillion": 4 }
+  ]
+}

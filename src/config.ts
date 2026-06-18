@@ -37,6 +37,18 @@ export type HudElement =
   | 'sessionTime';
 
 export type AddedDirsLayout = 'inline' | 'line';
+
+/**
+ * A user-supplied pricing rule for session cost estimation. `pattern` is a
+ * case-insensitive regex tested against the normalized model name (see
+ * pricing.json). Overrides are matched before the bundled defaults.
+ */
+export interface PricingOverride {
+  pattern: string;
+  inputUsdPerMillion: number;
+  outputUsdPerMillion: number;
+}
+
 export type HudColorName =
   | 'dim'
   | 'red'
@@ -114,6 +126,8 @@ export interface HudConfig {
     contextValue: ContextValueMode;
     showConfigCounts: boolean;
     showCost: boolean;
+    // User-supplied pricing rules, matched before the bundled pricing table.
+    pricingOverrides: PricingOverride[];
     showDuration: boolean;
     showSpeed: boolean;
     showTokenBreakdown: boolean;
@@ -196,6 +210,7 @@ export const DEFAULT_CONFIG: HudConfig = {
     contextValue: 'percent',
     showConfigCounts: false,
     showCost: false,
+    pricingOverrides: [],
     showDuration: false,
     showSpeed: false,
     showTokenBreakdown: true,
@@ -487,6 +502,41 @@ function validateOptionalPath(value: unknown): string {
   return typeof value === 'string' ? value.trim() : '';
 }
 
+function validatePricingOverrides(value: unknown): PricingOverride[] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  const result: PricingOverride[] = [];
+  for (const item of value) {
+    if (!item || typeof item !== 'object') {
+      continue;
+    }
+    const entry = item as Record<string, unknown>;
+    const { pattern, inputUsdPerMillion, outputUsdPerMillion } = entry;
+
+    if (typeof pattern !== 'string' || pattern.trim() === '') {
+      continue;
+    }
+    if (typeof inputUsdPerMillion !== 'number' || !Number.isFinite(inputUsdPerMillion) || inputUsdPerMillion < 0) {
+      continue;
+    }
+    if (typeof outputUsdPerMillion !== 'number' || !Number.isFinite(outputUsdPerMillion) || outputUsdPerMillion < 0) {
+      continue;
+    }
+    try {
+      // Reject patterns that don't compile as a regex.
+      new RegExp(pattern, 'i');
+    } catch {
+      continue;
+    }
+
+    result.push({ pattern, inputUsdPerMillion, outputUsdPerMillion });
+  }
+
+  return result;
+}
+
 function validateFreshnessMs(value: unknown): number {
   if (typeof value !== 'number' || !Number.isFinite(value)) {
     return DEFAULT_CONFIG.display.externalUsageFreshnessMs;
@@ -567,6 +617,7 @@ export function mergeConfig(userConfig: Partial<HudConfig>): HudConfig {
     showCost: typeof migrated.display?.showCost === 'boolean'
       ? migrated.display.showCost
       : DEFAULT_CONFIG.display.showCost,
+    pricingOverrides: validatePricingOverrides(migrated.display?.pricingOverrides),
     showDuration: typeof migrated.display?.showDuration === 'boolean'
       ? migrated.display.showDuration
       : DEFAULT_CONFIG.display.showDuration,

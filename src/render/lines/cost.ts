@@ -8,7 +8,9 @@ export function renderCostEstimate(ctx: RenderContext): string | null {
     return null;
   }
 
-  const cost = resolveSessionCost(ctx.stdin, ctx.transcript.sessionTokens);
+  const cost = resolveSessionCost(ctx.stdin, ctx.transcript.sessionTokens, {
+    pricingOverrides: ctx.config?.display?.pricingOverrides,
+  });
   if (!cost) {
     return null;
   }

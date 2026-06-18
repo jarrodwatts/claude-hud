@@ -1,9 +1,18 @@
+import { readFileSync } from 'node:fs';
+import * as path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import type { SessionTokenUsage, StdinData } from './types.js';
+import type { PricingOverride } from './config.js';
 import { isBedrockModelId, isVertexModelId } from './stdin.js';
 
 type ModelPricing = {
   inputUsdPerMillion: number;
   outputUsdPerMillion: number;
+};
+
+type PricingRule = {
+  pattern: RegExp;
+  pricing: ModelPricing;
 };
 
 export interface SessionCostEstimate {
@@ -19,25 +28,102 @@ export interface SessionCostDisplay {
   source: 'native' | 'estimate';
 }
 
-const TOKENS_PER_MILLION = 1_000_000;
-const CACHE_WRITE_MULTIPLIER = 1.25;
-const CACHE_READ_MULTIPLIER = 0.1;
+export interface CostOptions {
+  /** User-supplied pricing rules, matched before the bundled defaults. */
+  pricingOverrides?: PricingOverride[];
+}
 
-// Patterns are tried in order; the first match wins. Families with more specific
-// model lines (Haiku 4.x differs from Haiku 3.5) must come before any broader
-// fallback patterns to avoid silent under-pricing.
-const ANTHROPIC_MODEL_PRICING: Array<{ pattern: RegExp; pricing: ModelPricing }> = [
-  { pattern: /\bopus 4(?: \d+)?\b/i, pricing: { inputUsdPerMillion: 15, outputUsdPerMillion: 75 } },
-  { pattern: /\bsonnet 4(?: \d+)?\b/i, pricing: { inputUsdPerMillion: 3, outputUsdPerMillion: 15 } },
-  { pattern: /\bsonnet 3 7\b/i, pricing: { inputUsdPerMillion: 3, outputUsdPerMillion: 15 } },
-  { pattern: /\bsonnet 3 5\b/i, pricing: { inputUsdPerMillion: 3, outputUsdPerMillion: 15 } },
-  { pattern: /\bhaiku 4(?: \d+)?\b/i, pricing: { inputUsdPerMillion: 1, outputUsdPerMillion: 5 } },
-  { pattern: /\bhaiku 3 5\b/i, pricing: { inputUsdPerMillion: 0.8, outputUsdPerMillion: 4 } },
-  // Enterprise plan aliases (e.g. opusplan, sonnetplan, haikuplan)
-  { pattern: /\bopusplan\b/i, pricing: { inputUsdPerMillion: 15, outputUsdPerMillion: 75 } },
-  { pattern: /\bsonnetplan\b/i, pricing: { inputUsdPerMillion: 3, outputUsdPerMillion: 15 } },
-  { pattern: /\bhaikuplan\b/i, pricing: { inputUsdPerMillion: 0.8, outputUsdPerMillion: 4 } },
-];
+const TOKENS_PER_MILLION = 1_000_000;
+
+// Defensive fallback used only if the bundled pricing.json cannot be read
+// (e.g. a packaging mishap). Keeps cost estimation working with correct rates.
+const FALLBACK_PRICING_DATA: PricingData = {
+  cacheWriteMultiplier: 1.25,
+  cacheReadMultiplier: 0.1,
+  models: [
+    { pattern: '\\bopus 4 6\\b', inputUsdPerMillion: 5.5, outputUsdPerMillion: 27.5 },
+    { pattern: '\\bopus 4 5\\b', inputUsdPerMillion: 5, outputUsdPerMillion: 25 },
+    { pattern: '\\bopus 4(?: \\d+)?\\b', inputUsdPerMillion: 15, outputUsdPerMillion: 75 },
+    { pattern: '\\bsonnet 4(?: \\d+)?\\b', inputUsdPerMillion: 3, outputUsdPerMillion: 15 },
+    { pattern: '\\bsonnet 3 7\\b', inputUsdPerMillion: 3, outputUsdPerMillion: 15 },
+    { pattern: '\\bsonnet 3 5\\b', inputUsdPerMillion: 3, outputUsdPerMillion: 15 },
+    { pattern: '\\bhaiku 4 5\\b', inputUsdPerMillion: 1.1, outputUsdPerMillion: 5.5 },
+    { pattern: '\\bhaiku 4(?: \\d+)?\\b', inputUsdPerMillion: 1, outputUsdPerMillion: 5 },
+    { pattern: '\\bhaiku 3 5\\b', inputUsdPerMillion: 0.8, outputUsdPerMillion: 4 },
+    { pattern: '\\bopusplan\\b', inputUsdPerMillion: 15, outputUsdPerMillion: 75 },
+    { pattern: '\\bsonnetplan\\b', inputUsdPerMillion: 3, outputUsdPerMillion: 15 },
+    { pattern: '\\bhaikuplan\\b', inputUsdPerMillion: 0.8, outputUsdPerMillion: 4 },
+  ],
+};
+
+interface PricingEntry {
+  pattern: string;
+  inputUsdPerMillion: number;
+  outputUsdPerMillion: number;
+}
+
+interface PricingData {
+  cacheWriteMultiplier: number;
+  cacheReadMultiplier: number;
+  models: PricingEntry[];
+}
+
+function isPricingEntry(value: unknown): value is PricingEntry {
+  if (!value || typeof value !== 'object') {
+    return false;
+  }
+  const entry = value as Record<string, unknown>;
+  return typeof entry.pattern === 'string'
+    && typeof entry.inputUsdPerMillion === 'number'
+    && Number.isFinite(entry.inputUsdPerMillion)
+    && typeof entry.outputUsdPerMillion === 'number'
+    && Number.isFinite(entry.outputUsdPerMillion);
+}
+
+function loadPricingData(): PricingData {
+  try {
+    const here = path.dirname(fileURLToPath(import.meta.url));
+    const raw = readFileSync(path.join(here, 'pricing.json'), 'utf8');
+    const parsed = JSON.parse(raw) as Partial<PricingData>;
+    const models = Array.isArray(parsed.models) ? parsed.models.filter(isPricingEntry) : [];
+    if (models.length === 0) {
+      return FALLBACK_PRICING_DATA;
+    }
+    return {
+      cacheWriteMultiplier: typeof parsed.cacheWriteMultiplier === 'number' && Number.isFinite(parsed.cacheWriteMultiplier)
+        ? parsed.cacheWriteMultiplier
+        : FALLBACK_PRICING_DATA.cacheWriteMultiplier,
+      cacheReadMultiplier: typeof parsed.cacheReadMultiplier === 'number' && Number.isFinite(parsed.cacheReadMultiplier)
+        ? parsed.cacheReadMultiplier
+        : FALLBACK_PRICING_DATA.cacheReadMultiplier,
+      models,
+    };
+  } catch {
+    return FALLBACK_PRICING_DATA;
+  }
+}
+
+function compileRule(entry: PricingEntry): PricingRule | null {
+  try {
+    return {
+      pattern: new RegExp(entry.pattern, 'i'),
+      pricing: {
+        inputUsdPerMillion: entry.inputUsdPerMillion,
+        outputUsdPerMillion: entry.outputUsdPerMillion,
+      },
+    };
+  } catch {
+    return null;
+  }
+}
+
+// Parse and compile the bundled table once per process.
+const PRICING_DATA = loadPricingData();
+const CACHE_WRITE_MULTIPLIER = PRICING_DATA.cacheWriteMultiplier;
+const CACHE_READ_MULTIPLIER = PRICING_DATA.cacheReadMultiplier;
+const DEFAULT_PRICING_RULES: PricingRule[] = PRICING_DATA.models
+  .map(compileRule)
+  .filter((rule): rule is PricingRule => rule !== null);
 
 function normalizeModelName(modelName: string): string {
   return modelName
@@ -49,21 +135,32 @@ function normalizeModelName(modelName: string): string {
     .trim();
 }
 
-function matchAnthropicPricing(modelName: string): ModelPricing | null {
+function matchAnthropicPricing(modelName: string, rules: PricingRule[]): ModelPricing | null {
   const normalized = normalizeModelName(modelName);
-  for (const entry of ANTHROPIC_MODEL_PRICING) {
-    if (entry.pattern.test(normalized)) {
-      return entry.pricing;
+  for (const rule of rules) {
+    if (rule.pattern.test(normalized)) {
+      return rule.pricing;
     }
   }
   return null;
+}
+
+function buildPricingRules(overrides: PricingOverride[] | undefined): PricingRule[] {
+  if (!overrides || overrides.length === 0) {
+    return DEFAULT_PRICING_RULES;
+  }
+  // User overrides are matched first so they take precedence over defaults.
+  const compiledOverrides = overrides
+    .map(compileRule)
+    .filter((rule): rule is PricingRule => rule !== null);
+  return [...compiledOverrides, ...DEFAULT_PRICING_RULES];
 }
 
 function calculateUsd(tokens: number, usdPerMillion: number): number {
   return (tokens * usdPerMillion) / TOKENS_PER_MILLION;
 }
 
-function getAnthropicPricing(stdin: StdinData): ModelPricing | null {
+function getAnthropicPricing(stdin: StdinData, rules: PricingRule[]): ModelPricing | null {
   const candidates = [
     stdin.model?.display_name?.trim(),
     stdin.model?.id?.trim(),
@@ -74,7 +171,7 @@ function getAnthropicPricing(stdin: StdinData): ModelPricing | null {
       continue;
     }
 
-    const pricing = matchAnthropicPricing(candidate);
+    const pricing = matchAnthropicPricing(candidate, rules);
     if (pricing) {
       return pricing;
     }
@@ -86,6 +183,7 @@ function getAnthropicPricing(stdin: StdinData): ModelPricing | null {
 export function estimateSessionCost(
   stdin: StdinData,
   sessionTokens: SessionTokenUsage | undefined,
+  options: CostOptions = {},
 ): SessionCostEstimate | null {
   if (!sessionTokens) {
     return null;
@@ -99,12 +197,14 @@ export function estimateSessionCost(
     return null;
   }
 
-  const pricing = getAnthropicPricing(stdin);
+  const pricing = getAnthropicPricing(stdin, buildPricingRules(options.pricingOverrides));
   if (!pricing) {
     return null;
   }
 
-  const totalTokens = sessionTokens.inputTokens
+  const inputTokens = sessionTokens.inputTokens;
+
+  const totalTokens = inputTokens
     + sessionTokens.cacheCreationTokens
     + sessionTokens.cacheReadTokens
     + sessionTokens.outputTokens;
@@ -112,7 +212,7 @@ export function estimateSessionCost(
     return null;
   }
 
-  const inputUsd = calculateUsd(sessionTokens.inputTokens, pricing.inputUsdPerMillion);
+  const inputUsd = calculateUsd(inputTokens, pricing.inputUsdPerMillion);
   const cacheCreationUsd = calculateUsd(sessionTokens.cacheCreationTokens, pricing.inputUsdPerMillion * CACHE_WRITE_MULTIPLIER);
   const cacheReadUsd = calculateUsd(sessionTokens.cacheReadTokens, pricing.inputUsdPerMillion * CACHE_READ_MULTIPLIER);
   const outputUsd = calculateUsd(sessionTokens.outputTokens, pricing.outputUsdPerMillion);
@@ -132,6 +232,8 @@ function getNativeCostUsd(stdin: StdinData): number | null {
     return null;
   }
 
+  // Native total is unreliable for cloud billing (AWS/GCP handle it, and the
+  // value may be 0 or absent), so never trust it for Bedrock/Vertex.
   if (isBedrockModelId(stdin.model?.id)) {
     return null;
   }
@@ -146,6 +248,7 @@ function getNativeCostUsd(stdin: StdinData): number | null {
 export function resolveSessionCost(
   stdin: StdinData,
   sessionTokens: SessionTokenUsage | undefined,
+  options: CostOptions = {},
 ): SessionCostDisplay | null {
   const nativeCostUsd = getNativeCostUsd(stdin);
   if (nativeCostUsd !== null) {
@@ -155,7 +258,7 @@ export function resolveSessionCost(
     };
   }
 
-  const estimate = estimateSessionCost(stdin, sessionTokens);
+  const estimate = estimateSessionCost(stdin, sessionTokens, options);
   if (!estimate) {
     return null;
   }

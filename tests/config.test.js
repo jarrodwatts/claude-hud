@@ -120,6 +120,31 @@ test('mergeConfig preserves explicit showSessionName=true', () => {
   assert.equal(config.display.showSessionName, true);
 });
 
+test('mergeConfig defaults pricingOverrides to an empty array', () => {
+  const config = mergeConfig({});
+  assert.deepEqual(config.display.pricingOverrides, []);
+  assert.deepEqual(DEFAULT_CONFIG.display.pricingOverrides, []);
+});
+
+test('mergeConfig keeps only valid pricing overrides', () => {
+  const config = mergeConfig({
+    display: {
+      pricingOverrides: [
+        { pattern: 'my model', inputUsdPerMillion: 2, outputUsdPerMillion: 8 },
+        { pattern: '', inputUsdPerMillion: 1, outputUsdPerMillion: 1 }, // empty pattern
+        { pattern: 'bad', inputUsdPerMillion: -1, outputUsdPerMillion: 1 }, // negative
+        { pattern: '(', inputUsdPerMillion: 1, outputUsdPerMillion: 1 }, // invalid regex
+        { pattern: 'no prices' }, // missing prices
+        'not an object',
+      ],
+    },
+  });
+
+  assert.deepEqual(config.display.pricingOverrides, [
+    { pattern: 'my model', inputUsdPerMillion: 2, outputUsdPerMillion: 8 },
+  ]);
+});
+
 test('mergeConfig defaults showClaudeCodeVersion to false', () => {
   const config = mergeConfig({});
   assert.equal(config.display.showClaudeCodeVersion, false);

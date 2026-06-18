@@ -794,7 +794,7 @@ test('renderProjectLine falls back to an estimate when native cost is absent', (
   };
 
   const line = stripAnsi(renderProjectLine(ctx));
-  assert.ok(line.includes('Est. $5.47'), `expected fallback estimate, got: ${line}`);
+  assert.ok(line.includes('Est. $1.82'), `expected fallback estimate, got: ${line}`);
 });
 
 test('renderProjectLine hides cost for provider-routed sessions', () => {

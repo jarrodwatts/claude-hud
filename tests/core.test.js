@@ -421,7 +421,8 @@ test('resolveSessionCost falls back to transcript estimation when native cost is
 
   assert.ok(cost, 'expected fallback estimate');
   assert.equal(cost?.source, 'estimate');
-  assert.equal(formatUsd(cost?.totalUsd ?? 0), '$5.47');
+  // Opus 4.5 is priced at $5/M input, $25/M output (reduced from Opus 4.0).
+  assert.equal(formatUsd(cost?.totalUsd ?? 0), '$1.82');
 });
 
 test('resolveSessionCost ignores native cost for provider-routed sessions', () => {
@@ -490,10 +491,11 @@ test('estimateSessionCost prices Claude Haiku 4.5 (and future 4.x minors)', () =
 
   const haiku45 = estimateSessionCost({ model: { display_name: 'Claude Haiku 4.5' } }, tokens);
   assert.ok(haiku45, 'expected non-null estimate for Claude Haiku 4.5');
-  // 1M input @ $1 + 100k output @ $5 = $1 + $0.5 = $1.50
-  assert.equal(formatUsd(haiku45.totalUsd), '$1.50');
+  // Haiku 4.5 is priced at $1.1/M input, $5.5/M output.
+  // 1M input @ $1.1 + 100k output @ $5.5 = $1.1 + $0.55 = $1.65
+  assert.equal(formatUsd(haiku45.totalUsd), '$1.65');
 
-  // Bare "Haiku 4" (short name) should also match.
+  // Bare "Haiku 4" (short name) falls through to the generic Haiku 4 row.
   const haiku4Bare = estimateSessionCost({ model: { display_name: 'Claude Haiku 4' } }, tokens);
   assert.ok(haiku4Bare, 'expected non-null estimate for bare Claude Haiku 4');
   assert.equal(formatUsd(haiku4Bare.totalUsd), '$1.50');
@@ -503,6 +505,55 @@ test('estimateSessionCost prices Claude Haiku 4.5 (and future 4.x minors)', () =
   assert.ok(haiku35, 'expected non-null estimate for Claude Haiku 3.5');
   // 1M input @ $0.8 + 100k output @ $4 = $0.8 + $0.4 = $1.20
   assert.equal(formatUsd(haiku35.totalUsd), '$1.20');
+});
+
+test('estimateSessionCost distinguishes Opus 4.5 from 4.6 and the 4.0/4.1 fallback', () => {
+  const tokens = {
+    inputTokens: 1_000_000,
+    cacheCreationTokens: 0,
+    cacheReadTokens: 0,
+    outputTokens: 100_000,
+  };
+
+  // Opus 4.5: $5/M input, $25/M output → $5 + $2.50 = $7.50
+  const opus45 = estimateSessionCost({ model: { display_name: 'Claude Opus 4.5' } }, tokens);
+  assert.equal(formatUsd(opus45.totalUsd), '$7.50');
+
+  // Opus 4.6: $5.5/M input, $27.5/M output → $5.50 + $2.75 = $8.25
+  const opus46 = estimateSessionCost({ model: { display_name: 'Claude Opus 4.6' } }, tokens);
+  assert.equal(formatUsd(opus46.totalUsd), '$8.25');
+
+  // Opus 4.1 (and bare 4.0) keep the original $15/$75 pricing → $15 + $7.50 = $22.50
+  const opus41 = estimateSessionCost({ model: { display_name: 'Claude Opus 4.1' } }, tokens);
+  assert.equal(formatUsd(opus41.totalUsd), '$22.50');
+});
+
+test('estimateSessionCost applies user pricing overrides before bundled defaults', () => {
+  const tokens = {
+    inputTokens: 1_000_000,
+    cacheCreationTokens: 0,
+    cacheReadTokens: 0,
+    outputTokens: 100_000,
+  };
+
+  // A custom model the bundled table doesn't know about.
+  const custom = estimateSessionCost(
+    { model: { display_name: 'My Custom Model' } },
+    tokens,
+    { pricingOverrides: [{ pattern: 'my custom model', inputUsdPerMillion: 2, outputUsdPerMillion: 8 }] },
+  );
+  assert.ok(custom, 'expected override to price an otherwise-unknown model');
+  // 1M @ $2 + 100k @ $8 = $2 + $0.80 = $2.80
+  assert.equal(formatUsd(custom.totalUsd), '$2.80');
+
+  // Overrides take precedence over a default rule for the same model.
+  const overridden = estimateSessionCost(
+    { model: { display_name: 'Claude Opus 4.6' } },
+    tokens,
+    { pricingOverrides: [{ pattern: 'opus 4 6', inputUsdPerMillion: 1, outputUsdPerMillion: 1 }] },
+  );
+  // 1M @ $1 + 100k @ $1 = $1 + $0.10 = $1.10
+  assert.equal(formatUsd(overridden.totalUsd), '$1.10');
 });
 
 
