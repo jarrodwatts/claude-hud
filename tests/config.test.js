@@ -120,6 +120,17 @@ test('mergeConfig preserves explicit showSessionName=true', () => {
   assert.equal(config.display.showSessionName, true);
 });
 
+test('mergeConfig defaults showCostForCloudProviders to true', () => {
+  const config = mergeConfig({});
+  assert.equal(config.display.showCostForCloudProviders, true);
+  assert.equal(DEFAULT_CONFIG.display.showCostForCloudProviders, true);
+});
+
+test('mergeConfig preserves explicit showCostForCloudProviders=false', () => {
+  const config = mergeConfig({ display: { showCostForCloudProviders: false } });
+  assert.equal(config.display.showCostForCloudProviders, false);
+});
+
 test('mergeConfig defaults showClaudeCodeVersion to false', () => {
   const config = mergeConfig({});
   assert.equal(config.display.showClaudeCodeVersion, false);

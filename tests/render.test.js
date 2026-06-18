@@ -797,7 +797,7 @@ test('renderProjectLine falls back to an estimate when native cost is absent', (
   assert.ok(line.includes('Est. $5.47'), `expected fallback estimate, got: ${line}`);
 });
 
-test('renderProjectLine hides cost for provider-routed sessions', () => {
+test('renderProjectLine shows an estimate for provider-routed sessions by default', () => {
   process.env.CLAUDE_CODE_USE_BEDROCK = '1';
   try {
     const ctx = baseContext();
@@ -812,8 +812,16 @@ test('renderProjectLine hides cost for provider-routed sessions', () => {
       outputTokens: 50000,
     };
 
+    // Native cost (0) is ignored, but the token estimate is shown since
+    // Bedrock/Vertex use identical per-token pricing.
     const line = stripAnsi(renderProjectLine(ctx));
-    assert.ok(!line.includes('Cost '), 'cost should stay hidden when billing is routed through the provider');
+    assert.ok(line.includes('Est. $1.09'), `expected cloud estimate, got: ${line}`);
+
+    // showCostForCloudProviders: false suppresses it entirely.
+    ctx.config.display.showCostForCloudProviders = false;
+    const hidden = stripAnsi(renderProjectLine(ctx));
+    assert.ok(!hidden.includes('Est. $'), 'estimate should be hidden when opted out');
+    assert.ok(!hidden.includes('Cost '), 'native cost should stay hidden for cloud providers');
   } finally {
     delete process.env.CLAUDE_CODE_USE_BEDROCK;
   }

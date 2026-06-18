@@ -114,6 +114,9 @@ export interface HudConfig {
     contextValue: ContextValueMode;
     showConfigCounts: boolean;
     showCost: boolean;
+    // Allow the token-based cost estimate for Bedrock/Vertex (default true).
+    // Native cost stays suppressed for cloud providers regardless.
+    showCostForCloudProviders: boolean;
     showDuration: boolean;
     showSpeed: boolean;
     showTokenBreakdown: boolean;
@@ -196,6 +199,7 @@ export const DEFAULT_CONFIG: HudConfig = {
     contextValue: 'percent',
     showConfigCounts: false,
     showCost: false,
+    showCostForCloudProviders: true,
     showDuration: false,
     showSpeed: false,
     showTokenBreakdown: true,
@@ -567,6 +571,9 @@ export function mergeConfig(userConfig: Partial<HudConfig>): HudConfig {
     showCost: typeof migrated.display?.showCost === 'boolean'
       ? migrated.display.showCost
       : DEFAULT_CONFIG.display.showCost,
+    showCostForCloudProviders: typeof migrated.display?.showCostForCloudProviders === 'boolean'
+      ? migrated.display.showCostForCloudProviders
+      : DEFAULT_CONFIG.display.showCostForCloudProviders,
     showDuration: typeof migrated.display?.showDuration === 'boolean'
       ? migrated.display.showDuration
       : DEFAULT_CONFIG.display.showDuration,

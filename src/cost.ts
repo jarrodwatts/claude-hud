@@ -19,6 +19,16 @@ export interface SessionCostDisplay {
   source: 'native' | 'estimate';
 }
 
+export interface CostOptions {
+  /**
+   * When false, suppress the token-based estimate for Bedrock/Vertex. Defaults
+   * to true: cloud providers use the same per-token pricing as the direct API,
+   * so the estimate is just as accurate (it is only the *native* total that is
+   * unreliable for cloud billing).
+   */
+  showCostForCloudProviders?: boolean;
+}
+
 const TOKENS_PER_MILLION = 1_000_000;
 const CACHE_WRITE_MULTIPLIER = 1.25;
 const CACHE_READ_MULTIPLIER = 0.1;
@@ -86,16 +96,16 @@ function getAnthropicPricing(stdin: StdinData): ModelPricing | null {
 export function estimateSessionCost(
   stdin: StdinData,
   sessionTokens: SessionTokenUsage | undefined,
+  options: CostOptions = {},
 ): SessionCostEstimate | null {
   if (!sessionTokens) {
     return null;
   }
 
-  if (isBedrockModelId(stdin.model?.id)) {
-    return null;
-  }
-
-  if (isVertexModelId(stdin.model?.id)) {
+  // Bedrock/Vertex use identical per-token pricing, so the estimate is valid.
+  // Only suppress it when the user has explicitly opted out.
+  const isCloudProvider = isBedrockModelId(stdin.model?.id) || isVertexModelId(stdin.model?.id);
+  if (isCloudProvider && options.showCostForCloudProviders === false) {
     return null;
   }
 
@@ -104,7 +114,14 @@ export function estimateSessionCost(
     return null;
   }
 
-  const totalTokens = sessionTokens.inputTokens
+  // Some proxies (notably Bedrock via a local proxy on Claude Code v2.1.179+)
+  // report input_tokens: 0 in the transcript. Fall back to the live context
+  // input-token count from stdin so the estimate is not output-only.
+  const inputTokens = sessionTokens.inputTokens > 0
+    ? sessionTokens.inputTokens
+    : (stdin.context_window?.current_usage?.input_tokens ?? 0);
+
+  const totalTokens = inputTokens
     + sessionTokens.cacheCreationTokens
     + sessionTokens.cacheReadTokens
     + sessionTokens.outputTokens;
@@ -112,7 +129,7 @@ export function estimateSessionCost(
     return null;
   }
 
-  const inputUsd = calculateUsd(sessionTokens.inputTokens, pricing.inputUsdPerMillion);
+  const inputUsd = calculateUsd(inputTokens, pricing.inputUsdPerMillion);
   const cacheCreationUsd = calculateUsd(sessionTokens.cacheCreationTokens, pricing.inputUsdPerMillion * CACHE_WRITE_MULTIPLIER);
   const cacheReadUsd = calculateUsd(sessionTokens.cacheReadTokens, pricing.inputUsdPerMillion * CACHE_READ_MULTIPLIER);
   const outputUsd = calculateUsd(sessionTokens.outputTokens, pricing.outputUsdPerMillion);
@@ -132,6 +149,8 @@ function getNativeCostUsd(stdin: StdinData): number | null {
     return null;
   }
 
+  // Native total is unreliable for cloud billing (AWS/GCP handle it, and the
+  // value may be 0 or absent), so never trust it for Bedrock/Vertex.
   if (isBedrockModelId(stdin.model?.id)) {
     return null;
   }
@@ -146,6 +165,7 @@ function getNativeCostUsd(stdin: StdinData): number | null {
 export function resolveSessionCost(
   stdin: StdinData,
   sessionTokens: SessionTokenUsage | undefined,
+  options: CostOptions = {},
 ): SessionCostDisplay | null {
   const nativeCostUsd = getNativeCostUsd(stdin);
   if (nativeCostUsd !== null) {
@@ -155,7 +175,7 @@ export function resolveSessionCost(
     };
   }
 
-  const estimate = estimateSessionCost(stdin, sessionTokens);
+  const estimate = estimateSessionCost(stdin, sessionTokens, options);
   if (!estimate) {
     return null;
   }

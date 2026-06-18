@@ -177,7 +177,8 @@ Chinese HUD labels are available as an explicit opt-in. English stays the defaul
 | `display.contextValue` | `percent` \| `tokens` \| `remaining` \| `both` | `percent` | Context display format (`45%`, `45k/200k`, `55%` remaining, or `45% (45k/200k)`) |
 | `display.autoCompactWindow` | number \| `null` | `null` | When set to a positive number such as `200000`, compute the context percentage against this auto-compact window instead of the full model context window, matching the `/context` figure. Leave unset or `null` to preserve default full-window behavior. |
 | `display.showConfigCounts` | boolean | false | Show CLAUDE.md, rules, MCPs, hooks counts |
-| `display.showCost` | boolean | false | Show session cost using Claude Code's native `cost.total_cost_usd` when available, with a local estimate fallback for direct Anthropic sessions |
+| `display.showCost` | boolean | false | Show session cost using Claude Code's native `cost.total_cost_usd` when available, with a local token-based estimate fallback |
+| `display.showCostForCloudProviders` | boolean | true | Allow the token-based estimate for Bedrock/Vertex sessions (per-token pricing is identical to the direct API). Set `false` to hide cost entirely for cloud providers. The unreliable *native* total is always suppressed for cloud providers regardless |
 | `display.showOutputStyle` | boolean | false | Show the active Claude Code `outputStyle` from settings files as `style: <name>` |
 | `display.showDuration` | boolean | false | Show session duration `⏱️ 5m` |
 | `display.showSpeed` | boolean | false | Show output token speed `out: 42.1 tok/s` |
@@ -229,7 +230,9 @@ Supported color names: `dim`, `red`, `green`, `yellow`, `magenta`, `cyan`, `brig
 
 `display.showMemoryUsage` is fully opt-in and only renders in `expanded` layout. It reports approximate system RAM usage from the local machine, not precise memory pressure inside Claude Code or a specific process. The number may overstate actual pressure because reclaimable OS cache and buffers can still be counted as used memory.
 
-`display.showCost` is fully opt-in. ClaudeHUD prefers the native `cost.total_cost_usd` field that Claude Code provides on stdin when it is available. If that field is absent or invalid for a direct Anthropic session, ClaudeHUD falls back to the existing local transcript-based estimate so the cost line still works on older payloads. The native field is absent before the first API response in a session, so the cost display may stay hidden until then. ClaudeHUD also keeps the cost hidden for known routed providers such as Bedrock and Vertex AI, because cloud-provider billed sessions may report `$0.00` or omit the field even though the session was not literally free.
+`display.showCost` is fully opt-in. ClaudeHUD prefers the native `cost.total_cost_usd` field that Claude Code provides on stdin when it is available. If that field is absent or invalid, ClaudeHUD falls back to a local transcript-based estimate (labelled `Est.`) so the cost line still works on older payloads. The native field is absent before the first API response in a session, so the cost display may stay hidden until then.
+
+For routed providers such as Bedrock and Vertex AI, the *native* total is never trusted (cloud-billed sessions may report `$0.00` or omit the field). The token-based estimate, however, uses the same per-token pricing as the direct Anthropic API, so it is shown by default — set `display.showCostForCloudProviders` to `false` to suppress it. When a proxy reports `input_tokens: 0` in the transcript, the estimate falls back to the live context input-token count from stdin so it is not output-only.
 
 `display.showPromptCache` is fully opt-in. When enabled, ClaudeHUD looks at the timestamp of the last assistant response in the local transcript and shows a live countdown until the prompt cache expires. The default TTL is 5 minutes (`300` seconds). Set `display.promptCacheTtlSeconds` to `3600` if you want a 1-hour Max-style window. If the transcript does not have an assistant timestamp yet, the cache element stays hidden.
 

@@ -424,26 +424,50 @@ test('resolveSessionCost falls back to transcript estimation when native cost is
   assert.equal(formatUsd(cost?.totalUsd ?? 0), '$5.47');
 });
 
-test('resolveSessionCost ignores native cost for provider-routed sessions', () => {
+test('resolveSessionCost ignores native cost but still estimates for provider-routed sessions', () => {
   process.env.CLAUDE_CODE_USE_BEDROCK = '1';
   try {
-    const cost = resolveSessionCost(
-      {
-        model: { id: 'anthropic.claude-sonnet-4-20250514-v1:0' },
-        cost: { total_cost_usd: 0 },
-      },
-      {
-        inputTokens: 100000,
-        cacheCreationTokens: 10000,
-        cacheReadTokens: 20000,
-        outputTokens: 50000,
-      },
-    );
+    const stdin = {
+      model: { id: 'anthropic.claude-sonnet-4-20250514-v1:0' },
+      cost: { total_cost_usd: 0 },
+    };
+    const tokens = {
+      inputTokens: 100000,
+      cacheCreationTokens: 10000,
+      cacheReadTokens: 20000,
+      outputTokens: 50000,
+    };
 
-    assert.equal(cost, null);
+    // Native total is unreliable for cloud billing, but the token-based
+    // estimate uses identical per-token pricing, so it is shown by default.
+    const cost = resolveSessionCost(stdin, tokens);
+    assert.ok(cost, 'expected a token estimate for cloud-provider session');
+    assert.equal(cost?.source, 'estimate');
+    assert.equal(formatUsd(cost?.totalUsd ?? 0), '$1.09');
+
+    // Opting out suppresses the cloud-provider estimate entirely.
+    const optedOut = resolveSessionCost(stdin, tokens, { showCostForCloudProviders: false });
+    assert.equal(optedOut, null);
   } finally {
     delete process.env.CLAUDE_CODE_USE_BEDROCK;
   }
+});
+
+test('estimateSessionCost falls back to stdin context input tokens when transcript reports 0', () => {
+  const stdin = {
+    model: { display_name: 'Claude Sonnet 4.5' },
+    context_window: { current_usage: { input_tokens: 200000 } },
+  };
+  const estimate = estimateSessionCost(stdin, {
+    inputTokens: 0,
+    cacheCreationTokens: 0,
+    cacheReadTokens: 0,
+    outputTokens: 50000,
+  });
+
+  // input 200k @ $3 + output 50k @ $15 = $0.60 + $0.75 = $1.35
+  assert.ok(estimate, 'expected estimate using stdin input-token fallback');
+  assert.equal(formatUsd(estimate.totalUsd), '$1.35');
 });
 
 test('resolveSessionCost falls back when native cost is invalid', () => {
