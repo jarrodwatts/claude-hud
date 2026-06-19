@@ -4,6 +4,18 @@ All notable changes to Claude HUD will be documented in this file.
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-06-19
+
+### Added
+- Add `display.showProvider` and `display.providerName` so custom proxy users can optionally show provider labels before the model name in compact and expanded layouts (#629).
+
+### Changed
+- Extract shared model badge formatting so compact and expanded layouts keep provider labels and effort suffixes consistent (#629).
+
+### Fixed
+- Harden and document external usage snapshot read paths as absolute-only, with focused regression coverage for relative-path rejection (#637).
+- Add regression coverage for private `speed-cache` directory and cache file permissions introduced by the cache hardening work (#637).
+
 ## [0.2.1] - 2026-06-18
 
 ### Fixed
