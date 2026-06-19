@@ -85,6 +85,11 @@ test('getUsageFromExternalSnapshot parses a fresh snapshot', async () => {
   }
 });
 
+test('getUsageFromExternalSnapshot ignores relative read paths', () => {
+  const usage = getUsageFromExternalSnapshot(makeConfig('usage.json'), Date.now());
+  assert.equal(usage, null);
+});
+
 test('writeExternalUsageSnapshot writes stdin rate limits to the configured path', async () => {
   const dir = await mkdtemp(path.join(tmpdir(), 'claude-hud-external-usage-write-'));
   const filePath = path.join(dir, 'usage.json');

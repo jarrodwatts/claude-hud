@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtemp, writeFile, rm } from 'node:fs/promises';
+import { mkdtemp, readdir, rm, stat, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { getOutputSpeed } from '../dist/speed-tracker.js';
@@ -152,6 +152,12 @@ test('getOutputSpeed creates fallback cache under CLAUDE_CONFIG_DIR by default',
     const defaultCacheDir = path.join(tempHome, '.claude', 'plugins', 'claude-hud', 'speed-cache');
     assert.equal(existsSync(customCacheDir), true);
     assert.equal(existsSync(defaultCacheDir), false);
+    assert.equal((await stat(customCacheDir)).mode & 0o777, 0o700);
+
+    const cacheFiles = await readdir(customCacheDir);
+    const fileSizeCache = cacheFiles.find((name) => name.endsWith('.json.fs'));
+    assert.ok(fileSizeCache, `expected file-size cache in ${cacheFiles.join(', ')}`);
+    assert.equal((await stat(path.join(customCacheDir, fileSizeCache))).mode & 0o777, 0o600);
   } finally {
     restoreEnvVar('HOME', originalHome);
     restoreEnvVar('CLAUDE_CONFIG_DIR', originalConfigDir);
@@ -311,6 +317,12 @@ test('getOutputSpeed writes cache under CLAUDE_CONFIG_DIR by default', async () 
     const defaultCacheDir = path.join(tempHome, '.claude', 'plugins', 'claude-hud', 'speed-cache');
     assert.equal(existsSync(customCacheDir), true);
     assert.equal(existsSync(defaultCacheDir), false);
+    assert.equal((await stat(customCacheDir)).mode & 0o777, 0o700);
+
+    const cacheFiles = await readdir(customCacheDir);
+    const speedCache = cacheFiles.find((name) => name.endsWith('.json'));
+    assert.ok(speedCache, `expected speed cache in ${cacheFiles.join(', ')}`);
+    assert.equal((await stat(path.join(customCacheDir, speedCache))).mode & 0o777, 0o600);
   } finally {
     restoreEnvVar('HOME', originalHome);
     restoreEnvVar('CLAUDE_CONFIG_DIR', originalConfigDir);
