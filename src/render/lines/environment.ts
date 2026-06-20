@@ -13,19 +13,19 @@ export function renderEnvironmentLine(ctx: RenderContext): string | null {
 
   if (showCounts && totalCounts >= threshold && totalCounts > 0) {
     if (ctx.claudeMdCount > 0) {
-      parts.push(`${ctx.claudeMdCount} CLAUDE.md`);
+      parts.push(`CLAUDE.md`);
     }
 
     if (ctx.rulesCount > 0) {
-      parts.push(`${ctx.rulesCount} ${t("label.rules")}`);
+      parts.push(`${t("label.rules")}`);
     }
 
     if (ctx.mcpCount > 0) {
-      parts.push(`${ctx.mcpCount} MCPs`);
+      parts.push(`MCPs`);
     }
 
     if (ctx.hooksCount > 0) {
-      parts.push(`${ctx.hooksCount} ${t("label.hooks")}`);
+      parts.push(`${t("label.hooks")}`);
     }
   }
 
