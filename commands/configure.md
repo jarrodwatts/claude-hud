@@ -91,7 +91,7 @@ Save as `language: "en"` or `language: "zh-Hans"`.
   - "Session duration" - ⏱️ 5m
   - "Session name" - fix-auth-bug (session slug or custom title)
   - "Session tokens" - Tokens 12.8M (in: 7k, out: 28k, cache: 12.8M)
-  - "Reasoning level" - ◑ high (low/medium/high/xhigh/max effort)
+  - "Reasoning level" - ◑ high (low/medium/high/xhigh/max, or ultracode(xhigh))
   - "Output style" - style: explanatory (current output style name)
   - "Session cost" - 💰 $0.42
   - "Routed provider cost" - 💰 $0.42 for Bedrock/Vertex (only if Session cost is on)
@@ -140,7 +140,7 @@ If user chooses "Enter custom text", use AskUserQuestion to get their text. Save
   - "Git status" - git:(main*) branch indicator
   - "Session name" - fix-auth-bug (session slug or custom title)
   - "Session tokens" - Tokens 12.8M (in: 7k, out: 28k, cache: 12.8M)
-  - "Reasoning level" - ◑ high (low/medium/high/xhigh/max effort)
+  - "Reasoning level" - ◑ high (low/medium/high/xhigh/max, or ultracode(xhigh))
   - "Output style" - style: explanatory (current output style name)
   - "Session cost" - 💰 $0.42
   - "Routed provider cost" - 💰 $0.42 for Bedrock/Vertex (only if Session cost is on)
@@ -174,7 +174,7 @@ Info items (Counts, Tokens, Usage, Speed, Duration) can be turned off via "Reset
   - "Session name" - fix-auth-bug (session slug or custom title)
   - "Session tokens" - Tokens 12.8M (in: 7k, out: 28k, cache: 12.8M)
   - "Session duration" - ⏱️ 5m
-  - "Reasoning level" - ◑ high (low/medium/high/xhigh/max effort)
+  - "Reasoning level" - ◑ high (low/medium/high/xhigh/max, or ultracode(xhigh))
   - "Output style" - style: explanatory (current output style name)
   - "Session cost" - 💰 $0.42
   - "Routed provider cost" - 💰 $0.42 for Bedrock/Vertex (only if Session cost is on)

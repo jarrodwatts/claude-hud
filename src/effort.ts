@@ -1,11 +1,13 @@
-import { execFileSync } from 'node:child_process';
-import { createDebug } from './debug.js';
-
-const debug = createDebug('effort');
-
 export interface EffortInfo {
   level: string;
   symbol: string;
+}
+
+export interface ResolveEffortOptions {
+  // Current ultracode effort state from the transcript (see transcript.ts).
+  // stdin reports ultracode as a normal level, so this is the only signal that
+  // distinguishes it.
+  ultracodeActive?: boolean;
 }
 
 const KNOWN_SYMBOLS: Record<string, string> = {
@@ -38,26 +40,30 @@ export type StdinEffortInput = string | StdinEffort | null | undefined;
  * 1. stdin.effort as non-empty string — original PR #471 future-proofed path.
  * 2. stdin.effort as object with string `level` — Claude Code 2.1.115+ schema
  *    (e.g., `{ "level": "max" }`).
- * 3. Parent process CLI args — `--effort` flag captured from ppid.
- * 4. null.
+ * 3. null.
+ *
+ * When the transcript marks ultracode active (`options.ultracodeActive`), the
+ * reported level is wrapped as `ultracode(<level>)` — the level is taken as-is,
+ * not assumed to be `xhigh`.
  *
  * Non-matching inputs (numbers, booleans, arrays, objects without a string
- * `level`) fall through to step 3 rather than crashing.
+ * `level`) return null rather than crashing.
  */
 export function resolveEffortLevel(
-  stdinEffort?: StdinEffortInput
+  stdinEffort?: StdinEffortInput,
+  options: ResolveEffortOptions = {},
 ): EffortInfo | null {
   const fromStdin = extractEffortString(stdinEffort);
-  if (fromStdin) {
-    return formatEffort(fromStdin);
+  if (!fromStdin) {
+    return null;
   }
 
-  const cliEffort = readParentProcessEffort();
-  if (cliEffort) {
-    return formatEffort(cliEffort);
-  }
-
-  return null;
+  const info = formatEffort(fromStdin);
+  // Ultracode reaches stdin as a normal level, so the transcript marker is the
+  // only signal; wrap the reported level rather than assuming xhigh.
+  return options.ultracodeActive === true
+    ? { level: `ultracode(${info.level})`, symbol: info.symbol }
+    : info;
 }
 
 function extractEffortString(value: unknown): string | null {
@@ -74,32 +80,10 @@ function extractEffortString(value: unknown): string | null {
 }
 
 function formatEffort(level: string): EffortInfo {
-  const normalized = level.toLowerCase().trim();
-  const symbol = KNOWN_SYMBOLS[normalized] ?? '';
-  return { level: normalized, symbol };
+  const normalized = normalizeEffort(level);
+  return { level: normalized, symbol: KNOWN_SYMBOLS[normalized] ?? '' };
 }
 
-function readParentProcessEffort(): string | null {
-  if (process.platform === 'win32') {
-    return null;
-  }
-
-  try {
-    const ppid = process.ppid;
-    if (!ppid || ppid <= 1) {
-      return null;
-    }
-
-    const output = execFileSync('ps', ['-o', 'args=', '-p', String(ppid)], {
-      encoding: 'utf8',
-      timeout: 500,
-      stdio: ['pipe', 'pipe', 'pipe'],
-    }).trim();
-
-    const match = output.match(/--effort[= ]+(\w+)/);
-    return match?.[1] ?? null;
-  } catch (err) {
-    debug('Failed to read parent process effort:', err instanceof Error ? err.message : err);
-    return null;
-  }
+function normalizeEffort(level: string | null | undefined): string {
+  return level?.toLowerCase().trim() ?? '';
 }

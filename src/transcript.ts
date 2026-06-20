@@ -23,7 +23,9 @@ interface TranscriptLine {
   advisorModel?: string;
   message?: {
     id?: unknown;
-    content?: ContentBlock[];
+    // Usually an array of content blocks, but slash-command records (e.g.
+    // `/effort`) store their output as a raw string.
+    content?: ContentBlock[] | string;
     usage?: {
       input_tokens?: number;
       output_tokens?: number;
@@ -36,6 +38,11 @@ interface TranscriptLine {
     preTokens?: number;
     postTokens?: number;
     durationMs?: number;
+  };
+  // Harness state markers; `ultra_effort_enter` / `ultra_effort_exit` track
+  // entering / leaving ultracode effort.
+  attachment?: {
+    type?: string;
   };
 }
 
@@ -77,6 +84,7 @@ interface SerializedTranscriptData {
   lastCompactPostTokens?: number;
   compactionCount?: number;
   advisorModel?: string;
+  ultracodeActive?: boolean;
 }
 
 interface TranscriptCacheFile {
@@ -86,7 +94,7 @@ interface TranscriptCacheFile {
   data: SerializedTranscriptData;
 }
 
-const TRANSCRIPT_CACHE_VERSION = 10;
+const TRANSCRIPT_CACHE_VERSION = 11;
 const MCP_TOOL_NAME_PATTERN = /^mcp__(.+?)__(.+)$/;
 const ACTIVITY_NAME_MAX_LEN = 64;
 const MESSAGE_ID_MAX_LEN = 128;
@@ -229,6 +237,7 @@ function serializeTranscriptData(data: TranscriptData): SerializedTranscriptData
     lastCompactPostTokens: data.lastCompactPostTokens,
     compactionCount: data.compactionCount,
     advisorModel: data.advisorModel,
+    ultracodeActive: data.ultracodeActive,
   };
 }
 
@@ -259,6 +268,7 @@ function deserializeTranscriptData(data: SerializedTranscriptData): TranscriptDa
     advisorModel: typeof data.advisorModel === 'string' && data.advisorModel.length > 0
       ? data.advisorModel.slice(0, ADVISOR_MODEL_MAX_LEN)
       : undefined,
+    ultracodeActive: typeof data.ultracodeActive === 'boolean' ? data.ultracodeActive : undefined,
   };
 }
 
@@ -350,6 +360,7 @@ export async function parseTranscript(transcriptPath: string): Promise<Transcrip
   let latestSlug: string | undefined;
   let customTitle: string | undefined;
   let latestAdvisorModel: string | undefined;
+  let latestUltracodeActive: boolean | undefined;
   let lastCompactBoundaryAt: Date | undefined;
   let lastCompactPostTokens: number | undefined;
   let compactionCount = 0;
@@ -396,6 +407,30 @@ export async function parseTranscript(transcriptPath: string): Promise<Transcrip
           && entry.advisorModel.length > 0
         ) {
           latestAdvisorModel = entry.advisorModel.slice(0, ADVISOR_MODEL_MAX_LEN);
+        }
+        // Current ultracode state, distinguishable only from the transcript
+        // (stdin reports it as plain `xhigh`). Two signals update this in file
+        // order, last wins: the self-correcting ultra_effort_enter/exit
+        // attachment (can lag a turn) and the immediate `/effort` command output.
+        if (entry.type === 'attachment') {
+          const attachmentType = entry.attachment?.type;
+          if (attachmentType === 'ultra_effort_enter') {
+            latestUltracodeActive = true;
+          } else if (attachmentType === 'ultra_effort_exit') {
+            latestUltracodeActive = false;
+          }
+        }
+        // The `/effort` command-output signal. Anchored at the start of a *user*
+        // record's string content, so prose quoting the phrase can't flip state.
+        // Brittle by necessity — couples to Claude Code's /effort wording; if that
+        // changes, the label falls back to the (laggier) attachments.
+        if (entry.type === 'user' && typeof entry.message?.content === 'string') {
+          const effortCommandMatch = entry.message.content.match(
+            /^<local-command-stdout>Set effort level to (\w+)/,
+          );
+          if (effortCommandMatch) {
+            latestUltracodeActive = effortCommandMatch[1].toLowerCase() === 'ultracode';
+          }
         }
         // Accumulate token usage from assistant messages.
         // Claude Code can write the same API response to the transcript 2-3 times
@@ -499,6 +534,7 @@ export async function parseTranscript(transcriptPath: string): Promise<Transcrip
   result.lastCompactPostTokens = lastCompactPostTokens;
   result.compactionCount = compactionCount;
   result.advisorModel = latestAdvisorModel;
+  result.ultracodeActive = latestUltracodeActive;
   if (parsedCleanly) {
     writeTranscriptCache(canonicalTranscriptPath, transcriptState, result);
   }

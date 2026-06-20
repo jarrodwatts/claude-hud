@@ -138,6 +138,10 @@ export interface TranscriptData {
   // after `/advisor` is set (e.g. "claude-opus-4-7"). undefined when /advisor
   // is off or no assistant turn has happened yet.
   advisorModel?: string;
+  // Current ultracode effort state from the most recent transcript signal
+  // (`ultra_effort_enter`/`ultra_effort_exit` attachment or `/effort` output).
+  // undefined when ultracode was never entered this session.
+  ultracodeActive?: boolean;
 }
 
 export interface RenderContext {

@@ -4,9 +4,15 @@ All notable changes to Claude HUD will be documented in this file.
 
 ## [Unreleased]
 
+### Changed
+- Show ultracode sessions as `ultracode(xhigh)` in the effort label, detected from the transcript (`ultra_effort_enter` / `ultra_effort_exit` attachment markers and `/effort` command output, latest wins) so it tracks runtime `/effort` changes.
+
 ### Fixed
 - Show cache creation and cache read tokens in compact session-token summaries (#653).
 - Count symlinked rule files and directories with cycle-safe, bounded traversal and cache invalidation (#644).
+
+### Removed
+- Drop the `ps`-based parent-process `--effort` fallback (#471); the effort label now comes solely from Claude Code's stdin, which carries the level directly.
 
 ## [0.3.0] - 2026-06-19
 

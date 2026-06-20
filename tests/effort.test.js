@@ -1,4 +1,4 @@
-import { describe, it, beforeEach, afterEach } from 'node:test';
+import { describe, it } from 'node:test';
 import assert from 'node:assert';
 import { resolveEffortLevel } from '../dist/effort.js';
 
@@ -22,33 +22,41 @@ describe('resolveEffortLevel', () => {
       assert.deepStrictEqual(resolveEffortLevel('max'), { level: 'max', symbol: '●' });
     });
 
+    it('wraps the reported level (not a hardcoded xhigh) when the marker is active', () => {
+      const result = resolveEffortLevel('max', { ultracodeActive: true });
+      assert.deepStrictEqual(result, { level: 'ultracode(max)', symbol: '●' });
+    });
+
+    it('annotates xhigh as ultracode(xhigh) when the transcript marker is active', () => {
+      const result = resolveEffortLevel('xhigh', { ultracodeActive: true });
+      assert.deepStrictEqual(result, { level: 'ultracode(xhigh)', symbol: '◕' });
+    });
+
+    it('keeps plain xhigh when the ultracode marker is inactive', () => {
+      const result = resolveEffortLevel('xhigh', { ultracodeActive: false });
+      assert.deepStrictEqual(result, { level: 'xhigh', symbol: '◕' });
+    });
+
+    it('keeps plain xhigh when no ultracode marker is present', () => {
+      const result = resolveEffortLevel('xhigh');
+      assert.deepStrictEqual(result, { level: 'xhigh', symbol: '◕' });
+    });
+
     it('handles unknown future effort levels with empty symbol', () => {
       const result = resolveEffortLevel('turbo');
       assert.deepStrictEqual(result, { level: 'turbo', symbol: '' });
     });
 
     it('returns null when stdin effort is null', () => {
-      const result = resolveEffortLevel(null);
-      // Falls through to parent process detection (may or may not find effort)
-      // We just verify it doesn't throw
-      assert.ok(result === null || typeof result.level === 'string');
+      assert.strictEqual(resolveEffortLevel(null), null);
     });
 
     it('returns null when stdin effort is undefined', () => {
-      const result = resolveEffortLevel(undefined);
-      assert.ok(result === null || typeof result.level === 'string');
+      assert.strictEqual(resolveEffortLevel(undefined), null);
     });
 
     it('returns null for empty string', () => {
-      const result = resolveEffortLevel('');
-      assert.ok(result === null || typeof result.level === 'string');
-    });
-  });
-
-  describe('stdin takes priority over parent process', () => {
-    it('uses stdin value even if parent process has different effort', () => {
-      const result = resolveEffortLevel('low');
-      assert.strictEqual(result?.level, 'low');
+      assert.strictEqual(resolveEffortLevel(''), null);
     });
   });
 
@@ -69,41 +77,40 @@ describe('resolveEffortLevel', () => {
       assert.deepStrictEqual(resolveEffortLevel({ level: 'xhigh' }), { level: 'xhigh', symbol: '◕' });
     });
 
+    it('annotates object xhigh as ultracode(xhigh) when the transcript marker is active', () => {
+      const result = resolveEffortLevel({ level: 'xhigh' }, { ultracodeActive: true });
+      assert.deepStrictEqual(result, { level: 'ultracode(xhigh)', symbol: '◕' });
+    });
+
     it('tolerates extra fields in effort object (forward-compat)', () => {
       const result = resolveEffortLevel({ level: 'max', budget: 32000, extra: 'ignored' });
       assert.deepStrictEqual(result, { level: 'max', symbol: '●' });
     });
 
-    it('falls through when object has no level field', () => {
-      const result = resolveEffortLevel({});
-      assert.ok(result === null || typeof result.level === 'string');
+    it('returns null when object has no level field', () => {
+      assert.strictEqual(resolveEffortLevel({}), null);
     });
 
-    it('falls through when object.level is null', () => {
-      const result = resolveEffortLevel({ level: null });
-      assert.ok(result === null || typeof result.level === 'string');
+    it('returns null when object.level is null', () => {
+      assert.strictEqual(resolveEffortLevel({ level: null }), null);
     });
 
-    it('falls through when object.level is not a string', () => {
-      const result = resolveEffortLevel({ level: 42 });
-      assert.ok(result === null || typeof result.level === 'string');
+    it('returns null when object.level is not a string', () => {
+      assert.strictEqual(resolveEffortLevel({ level: 42 }), null);
     });
   });
 
   describe('defensive handling of unexpected types (no crash)', () => {
-    it('does not crash on numeric effort value', () => {
-      const result = resolveEffortLevel(42);
-      assert.ok(result === null || typeof result.level === 'string');
+    it('returns null on numeric effort value', () => {
+      assert.strictEqual(resolveEffortLevel(42), null);
     });
 
-    it('does not crash on boolean effort value', () => {
-      const result = resolveEffortLevel(true);
-      assert.ok(result === null || typeof result.level === 'string');
+    it('returns null on boolean effort value', () => {
+      assert.strictEqual(resolveEffortLevel(true), null);
     });
 
-    it('does not crash on array effort value', () => {
-      const result = resolveEffortLevel(['max']);
-      assert.ok(result === null || typeof result.level === 'string');
+    it('returns null on array effort value', () => {
+      assert.strictEqual(resolveEffortLevel(['max']), null);
     });
   });
 });

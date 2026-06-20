@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtemp, readdir, rm, writeFile, mkdir } from 'node:fs/promises';
+import { mkdtemp, readFile, readdir, rm, writeFile, mkdir } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { createHash } from 'node:crypto';
 import path from 'node:path';
@@ -848,6 +848,90 @@ test('parseTranscript captures the last assistant response timestamp', async () 
   } finally {
     await rm(dir, { recursive: true, force: true });
   }
+});
+
+const ULTRA_ENTER = { type: 'attachment', attachment: { type: 'ultra_effort_enter' } };
+const ULTRA_EXIT = { type: 'attachment', attachment: { type: 'ultra_effort_exit' } };
+const effortCmd = (level) => ({
+  type: 'user',
+  message: { content: `<local-command-stdout>Set effort level to ${level} (this session only): x</local-command-stdout>` },
+});
+
+test('parseTranscript reads ultracode attachment and /effort signals from a realistic transcript fixture', async () => {
+  const fixturePath = fileURLToPath(new URL('./fixtures/transcript-ultracode.jsonl', import.meta.url));
+  const entries = (await readFile(fixturePath, 'utf8'))
+    .trim()
+    .split('\n')
+    .map(line => JSON.parse(line));
+
+  const afterAttachment = await parseTempTranscript('ultra-fixture-enter.jsonl', entries.slice(0, 1));
+  assert.equal(afterAttachment.ultracodeActive, true);
+
+  const afterXhigh = await parseTempTranscript('ultra-fixture-xhigh.jsonl', entries.slice(0, 2));
+  assert.equal(afterXhigh.ultracodeActive, false);
+
+  const afterUltracode = await parseTempTranscript('ultra-fixture-active.jsonl', entries);
+  assert.equal(afterUltracode.ultracodeActive, true);
+});
+
+test('parseTranscript: no ultracode signal leaves ultracodeActive undefined', async () => {
+  const result = await parseTempTranscript('ultra-none.jsonl', [{ type: 'user', message: { content: 'hi' } }]);
+  assert.equal(result.ultracodeActive, undefined);
+});
+
+test('parseTranscript: ultracode active from an enter attachment alone', async () => {
+  const result = await parseTempTranscript('ultra-enter-only.jsonl', [ULTRA_ENTER]);
+  assert.equal(result.ultracodeActive, true);
+});
+
+test('parseTranscript: enter then exit attachment clears ultracode', async () => {
+  const result = await parseTempTranscript('ultra-exit.jsonl', [ULTRA_ENTER, ULTRA_EXIT]);
+  assert.equal(result.ultracodeActive, false);
+});
+
+test('parseTranscript: runtime /effort ultracode is active', async () => {
+  const result = await parseTempTranscript('ultra-cmd.jsonl', [effortCmd('high'), effortCmd('ultracode')]);
+  assert.equal(result.ultracodeActive, true);
+});
+
+test('parseTranscript: /effort xhigh clears a stale enter marker before the exit attachment lands (regression)', async () => {
+  // The exit attachment lags a turn behind a runtime /effort change, so the
+  // immediate /effort output must clear the label during that lag window.
+  const result = await parseTempTranscript('ultra-lag.jsonl', [ULTRA_ENTER, effortCmd('xhigh')]);
+  assert.equal(result.ultracodeActive, false);
+});
+
+test('parseTranscript: the latest effort signal wins regardless of kind', async () => {
+  const exitThenCmd = await parseTempTranscript('ultra-order-a.jsonl', [ULTRA_EXIT, effortCmd('ultracode')]);
+  assert.equal(exitThenCmd.ultracodeActive, true);
+  const cmdThenExit = await parseTempTranscript('ultra-order-b.jsonl', [effortCmd('ultracode'), ULTRA_EXIT]);
+  assert.equal(cmdThenExit.ultracodeActive, false);
+});
+
+test('parseTranscript: a quoted /effort phrase mid-message does not flip ultracode (regression)', async () => {
+  // Prose that merely quotes the command output (tag not at the start of the
+  // record) must not be mistaken for a real /effort record.
+  const quoted = {
+    type: 'user',
+    message: { content: 'I will run /effort. <local-command-stdout>Set effort level to ultracode (this session only): x</local-command-stdout>' },
+  };
+  const result = await parseTempTranscript('ultra-quoted.jsonl', [ULTRA_EXIT, quoted]);
+  assert.equal(result.ultracodeActive, false);
+});
+
+test('parseTranscript: marker text in prose does not trigger ultracode (pollution guard)', async () => {
+  // Ordinary conversation arrives as an array of text blocks, never a raw
+  // string, so prose mentioning the marker must not match.
+  const prose = await parseTempTranscript('ultra-prose.jsonl', [
+    { type: 'assistant', message: { content: [{ type: 'text', text: 'Run /effort then "Set effort level to ultracode".' }] } },
+  ]);
+  assert.equal(prose.ultracodeActive, undefined);
+  // A string that merely contains the command wrapper (not at the start) must
+  // not match either — the regex is anchored to the start of the stdout block.
+  const quoted = await parseTempTranscript('ultra-quoted.jsonl', [
+    { type: 'user', message: { content: 'I pasted: <local-command-stdout>Set effort level to ultracode</local-command-stdout>' } },
+  ]);
+  assert.equal(quoted.ultracodeActive, undefined);
 });
 
 test('parseTranscript ignores malformed session token values', async () => {
