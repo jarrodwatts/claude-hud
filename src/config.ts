@@ -167,6 +167,14 @@ export interface HudConfig {
     externalUsageFreshnessMs: number;
     modelFormat: ModelFormatMode;
     modelOverride: string;
+    // Controls which source the model name comes from:
+    //   "auto"      — Use stdin model for Claude models, transcript model for
+    //                 non-Claude (proxy redirect detection). Default.
+    //   "stdin"     — Always use the model Claude Code reports (display_name).
+    //   "transcript"— Always use the model from the API response (message.model).
+    //                 Best for proxy users (cc-switch, LiteLLM, etc.) who want
+    //                 the actual served model, not the configured one.
+    modelSource: 'auto' | 'stdin' | 'transcript';
     // Show the provider label (custom name or auto-detected Bedrock/Vertex/
     // Enterprise) BEFORE the model name on the project line. Default off.
     showProvider: boolean;
@@ -257,6 +265,7 @@ export const DEFAULT_CONFIG: HudConfig = {
     externalUsageFreshnessMs: 300000,
     modelFormat: 'full',
     modelOverride: '',
+    modelSource: 'auto',
     showProvider: false,
     providerName: '',
     customLine: '',
@@ -710,6 +719,9 @@ export function mergeConfig(userConfig: Partial<HudConfig>): HudConfig {
     modelOverride: typeof migrated.display?.modelOverride === 'string'
       ? migrated.display.modelOverride.slice(0, 80)
       : DEFAULT_CONFIG.display.modelOverride,
+    modelSource: ['auto', 'stdin', 'transcript'].includes(migrated.display?.modelSource as string)
+      ? (migrated.display!.modelSource as 'auto' | 'stdin' | 'transcript')
+      : DEFAULT_CONFIG.display.modelSource,
     showProvider: typeof migrated.display?.showProvider === 'boolean'
       ? migrated.display.showProvider
       : DEFAULT_CONFIG.display.showProvider,

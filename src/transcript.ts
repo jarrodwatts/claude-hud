@@ -26,6 +26,7 @@ interface TranscriptLine {
     // Usually an array of content blocks, but slash-command records (e.g.
     // `/effort`) store their output as a raw string.
     content?: ContentBlock[] | string;
+    model?: string;
     usage?: {
       input_tokens?: number;
       output_tokens?: number;
@@ -85,6 +86,7 @@ interface SerializedTranscriptData {
   compactionCount?: number;
   advisorModel?: string;
   ultracodeActive?: boolean;
+  lastAssistantModel?: string;
 }
 
 interface TranscriptCacheFile {
@@ -238,6 +240,7 @@ function serializeTranscriptData(data: TranscriptData): SerializedTranscriptData
     compactionCount: data.compactionCount,
     advisorModel: data.advisorModel,
     ultracodeActive: data.ultracodeActive,
+    lastAssistantModel: data.lastAssistantModel,
   };
 }
 
@@ -269,6 +272,9 @@ function deserializeTranscriptData(data: SerializedTranscriptData): TranscriptDa
       ? data.advisorModel.slice(0, ADVISOR_MODEL_MAX_LEN)
       : undefined,
     ultracodeActive: typeof data.ultracodeActive === 'boolean' ? data.ultracodeActive : undefined,
+    lastAssistantModel: typeof data.lastAssistantModel === 'string' && data.lastAssistantModel.length > 0
+      ? data.lastAssistantModel
+      : undefined,
   };
 }
 
@@ -431,6 +437,12 @@ export async function parseTranscript(transcriptPath: string): Promise<Transcrip
           if (effortCommandMatch) {
             latestUltracodeActive = effortCommandMatch[1].toLowerCase() === 'ultracode';
           }
+        }
+        // Capture the actual model from the assistant message's `model` field.
+        // This reflects what the API actually served, which may differ from the
+        // model Claude Code thinks it's using (e.g. proxy redirect via cc-switch).
+        if (entry.type === 'assistant' && typeof entry.message?.model === 'string') {
+          result.lastAssistantModel = entry.message.model;
         }
         // Accumulate token usage from assistant messages.
         // Claude Code can write the same API response to the transcript 2-3 times
