@@ -1,6 +1,8 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { setLanguage, getLanguage, getCanonicalLanguage, isCjkLanguage, t } from "../dist/i18n/index.js";
+import { en } from "../dist/i18n/en.js";
+import { zhHant } from "../dist/i18n/zh-Hant.js";
 import { mergeConfig } from "../dist/config.js";
 import { renderSessionTokensLine } from "../dist/render/lines/session-tokens.js";
 
@@ -157,4 +159,83 @@ test("t() resolves translations via canonical mapping for zh-Hans", () => {
 test("mergeConfig accepts zh-Hans as valid language", () => {
   const config = mergeConfig({ language: "zh-Hans" });
   assert.equal(config.language, "zh-Hans");
+});
+
+// zh-Hant / zh-TW
+
+test("t() returns Traditional Chinese strings when language is zh-Hant", () => {
+  setLanguage("zh-Hant");
+  assert.equal(t("label.context"), "上下文");
+  assert.equal(t("label.usage"), "用量");
+  assert.equal(t("label.approxRam"), "記憶體");
+  assert.equal(t("label.promptCache"), "快取");
+  assert.equal(t("label.rules"), "規則");
+  assert.equal(t("label.hooks"), "Hook");
+  assert.equal(t("status.limitReached"), "已達上限");
+  assert.equal(t("status.allTodosComplete"), "全部完成");
+  assert.equal(t("format.in"), "輸入");
+  assert.equal(t("format.cache"), "快取");
+  assert.equal(t("format.out"), "輸出");
+  assert.equal(t("format.absoluteTime"), "{time}");
+  assert.equal(t("format.relativeTime"), "{value} 前");
+  setLanguage("en");
+});
+
+test("Traditional Chinese locale defines every English message key", () => {
+  assert.deepEqual(Object.keys(zhHant).sort(), Object.keys(en).sort());
+});
+
+test("t() returns Traditional Chinese strings when language is zh-TW", () => {
+  setLanguage("zh-TW");
+  assert.equal(t("label.approxRam"), "記憶體");
+  assert.equal(t("label.promptCache"), "快取");
+  assert.equal(t("status.limitReached"), "已達上限");
+  setLanguage("en");
+});
+
+test("getCanonicalLanguage resolves zh-Hant to zh-Hant", () => {
+  setLanguage("zh-Hant");
+  assert.equal(getCanonicalLanguage(), "zh-Hant");
+  setLanguage("en");
+});
+
+test("getCanonicalLanguage resolves zh-TW alias to zh-Hant", () => {
+  setLanguage("zh-TW");
+  assert.equal(getCanonicalLanguage(), "zh-Hant");
+  setLanguage("en");
+});
+
+test("isCjkLanguage returns true for zh-Hant", () => {
+  setLanguage("zh-Hant");
+  assert.equal(isCjkLanguage(), true);
+  setLanguage("en");
+});
+
+test("isCjkLanguage returns true for zh-TW", () => {
+  setLanguage("zh-TW");
+  assert.equal(isCjkLanguage(), true);
+  setLanguage("en");
+});
+
+test("renderSessionTokensLine uses Traditional Chinese labels for zh-Hant", () => {
+  setLanguage("zh-Hant");
+  const line = stripAnsi(renderSessionTokensLine(makeCtx()) ?? "");
+  assert.ok(line.includes("Token"), `expected 'Token' in ${line}`);
+  assert.ok(line.includes("輸入:"), `expected '輸入:' in ${line}`);
+  assert.ok(line.includes("輸出:"), `expected '輸出:' in ${line}`);
+  assert.ok(line.includes("快取:"), `expected '快取:' in ${line}`);
+  assert.ok(!line.includes("in:"), `unexpected bare 'in:' in zh-Hant output: ${line}`);
+  assert.ok(!line.includes("out:"), `unexpected bare 'out:' in zh-Hant output: ${line}`);
+  assert.ok(!line.includes("cache:"), `unexpected bare 'cache:' in zh-Hant output: ${line}`);
+  setLanguage("en");
+});
+
+test("mergeConfig accepts zh-Hant as valid language", () => {
+  const config = mergeConfig({ language: "zh-Hant" });
+  assert.equal(config.language, "zh-Hant");
+});
+
+test("mergeConfig accepts zh-TW as valid language", () => {
+  const config = mergeConfig({ language: "zh-TW" });
+  assert.equal(config.language, "zh-TW");
 });

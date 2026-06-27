@@ -313,7 +313,7 @@ function validateUsageValue(value: unknown): value is UsageValueMode {
 }
 
 function validateLanguage(value: unknown): value is Language {
-  return value === 'en' || value === 'zh' || value === 'zh-Hans';
+  return value === 'en' || value === 'zh' || value === 'zh-Hans' || value === 'zh-Hant' || value === 'zh-TW';
 }
 
 function validateModelFormat(value: unknown): value is ModelFormatMode {

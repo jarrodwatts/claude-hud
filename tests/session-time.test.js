@@ -172,3 +172,22 @@ test('renders localized labels and relative suffix', () => {
     setLanguage('en');
   }
 });
+
+test('renders Traditional Chinese relative time through the locale pattern', () => {
+  setLanguage('zh-Hant');
+  try {
+    const lastReply = new Date(2026, 4, 8, 10, 0, 0);
+    const now = lastReply.getTime() + 5 * 60 * 1000;
+    const ctx = makeCtx({
+      display: { showLastResponseAt: true },
+      transcript: { lastAssistantResponseAt: lastReply },
+    });
+
+    const result = renderSessionTimeLine(ctx, () => now);
+    assert.ok(result);
+    assert.ok(result.includes('上次回覆:'));
+    assert.ok(result.includes('5m 前'));
+  } finally {
+    setLanguage('en');
+  }
+});

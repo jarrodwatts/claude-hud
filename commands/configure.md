@@ -67,9 +67,10 @@ Questions: **Turn Off → Turn On → Git Style → Layout/Reset → Language �
 - multiSelect: false
 - options:
   - "English (Recommended)" - Default, simplest onboarding path
-  - "中文" - Show HUD labels and status text in Chinese
+  - "简体中文" - Show HUD labels and status text in Simplified Chinese
+  - "繁體中文" - Show HUD labels and status text in Traditional Chinese
 
-Save as `language: "en"` or `language: "zh-Hans"`.
+Save as `language: "en"`, `language: "zh-Hans"`, or `language: "zh-Hant"`.
 
 ### Q4: Turn Off (based on chosen preset)
 - header: "Turn Off"
@@ -211,16 +212,18 @@ Info items (Counts, Tokens, Usage, Speed, Duration) can be turned off via "Reset
 
 ### Q5: Language
 - header: "Language"
-- question: "Update HUD label language? (current: '{English or 中文}')"
+- question: "Update HUD label language? (current: '{English, 简体中文, or 繁體中文}')"
 - multiSelect: false
 - options:
   - "Keep current" - No change
   - "English (Recommended)" - Use English HUD labels
-  - "中文" - Use Chinese HUD labels
+  - "简体中文" - Use Simplified Chinese HUD labels
+  - "繁體中文" - Use Traditional Chinese HUD labels
 
 If user chooses "Keep current", leave `language` unchanged.
 If user chooses "English (Recommended)", save `language: "en"`.
-If user chooses "中文", save `language: "zh-Hans"`.
+If user chooses "简体中文", save `language: "zh-Hans"`.
+If user chooses "繁體中文", save `language: "zh-Hant"`.
 
 ### Q6: Custom Line (optional)
 - header: "Custom Line"
@@ -270,7 +273,8 @@ If user chooses "Remove", set `display.customLine` to `""` in config.
 | Option | Config |
 |--------|--------|
 | English (Recommended) | `language: "en"` |
-| 中文 | `language: "zh-Hans"` |
+| 简体中文 | `language: "zh-Hans"` |
+| 繁體中文 | `language: "zh-Hant"` |
 
 ---
 

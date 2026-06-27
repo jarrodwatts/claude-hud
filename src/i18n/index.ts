@@ -1,15 +1,18 @@
 import type { Language, MessageKey, Messages } from "./types.js";
 import { en } from "./en.js";
 import { zhHans } from "./zh-Hans.js";
+import { zhHant } from "./zh-Hant.js";
 
 export type { Language, MessageKey, Messages };
 
-type CanonicalLanguage = "en" | "zh-Hans";
+type CanonicalLanguage = "en" | "zh-Hans" | "zh-Hant";
 
-const locales: Record<CanonicalLanguage | "zh", Messages> = {
+const locales: Record<CanonicalLanguage | "zh" | "zh-TW", Messages> = {
   en,
   zh: zhHans,
   "zh-Hans": zhHans,
+  "zh-Hant": zhHant,
+  "zh-TW": zhHant,
 };
 
 // Resolve short language tags to canonical BCP 47 forms.
@@ -19,6 +22,8 @@ const CANONICAL: Record<Language, CanonicalLanguage> = {
   "en": "en",
   "zh": "zh-Hans",
   "zh-Hans": "zh-Hans",
+  "zh-Hant": "zh-Hant",
+  "zh-TW": "zh-Hant",
 };
 
 let currentLanguage: Language = "en";
@@ -38,7 +43,8 @@ export function getCanonicalLanguage(): CanonicalLanguage {
 
 // https://www.unicode.org/reports/tr11/
 export function isCjkLanguage(): boolean {
-  return getCanonicalLanguage() === "zh-Hans";
+  const canon = getCanonicalLanguage();
+  return canon === "zh-Hans" || canon === "zh-Hant";
 }
 
 export function t(key: MessageKey): string {
