@@ -608,10 +608,11 @@ test('parseTranscript accumulates session token usage from assistant messages', 
   }
 });
 
-test('parseTranscript counts adjacent duplicate assistant usage once', async () => {
+test('parseTranscript deduplicates adjacent duplicate assistant usage by message.id', async () => {
   const usageEntry = {
     type: 'assistant',
     message: {
+      id: 'msg-001',
       usage: {
         input_tokens: 100,
         output_tokens: 25,
@@ -634,10 +635,11 @@ test('parseTranscript counts adjacent duplicate assistant usage once', async () 
   });
 });
 
-test('parseTranscript counts identical assistant usage separated by another line twice', async () => {
+test('parseTranscript deduplicates non-consecutive duplicate assistant usage by message.id', async () => {
   const usageEntry = {
     type: 'assistant',
     message: {
+      id: 'msg-002',
       usage: {
         input_tokens: 100,
         output_tokens: 25,
@@ -654,10 +656,10 @@ test('parseTranscript counts identical assistant usage separated by another line
   ]);
 
   assert.deepEqual(result.sessionTokens, {
-    inputTokens: 200,
-    outputTokens: 50,
-    cacheCreationTokens: 20,
-    cacheReadTokens: 10,
+    inputTokens: 100,
+    outputTokens: 25,
+    cacheCreationTokens: 10,
+    cacheReadTokens: 5,
   });
 });
 
