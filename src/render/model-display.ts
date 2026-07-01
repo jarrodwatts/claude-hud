@@ -17,5 +17,5 @@ export function formatModelDisplay(model: string, ctx: RenderContext): string {
     return providerLabel ? `${providerLabel} | ${core}` : core;
   }
 
-  return autoProvider ? `${model} | ${autoProvider}${effortSuffix}` : `${model}${effortSuffix}`;
+  return autoProvider ? `${model}${effortSuffix} | ${autoProvider}` : `${model}${effortSuffix}`;
 }

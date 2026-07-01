@@ -15,7 +15,7 @@ import { formatTokens, formatContextValue } from '../utils/format.js';
 import { createDebug } from '../debug.js';
 import { formatModelDisplay } from './model-display.js';
 
-const debug = createDebug('context');
+const debug = createDebug('session-line');
 
 /**
  * Renders the full session line (model + context bar + project + git + counts + usage + duration).
@@ -143,7 +143,7 @@ export function renderSessionLine(ctx: RenderContext): string {
   }
 
   // Config counts (respects environmentThreshold)
-  if (display?.showConfigCounts !== false) {
+  if (display?.showConfigCounts === true) {
     const totalCounts = ctx.claudeMdCount + ctx.rulesCount + ctx.mcpCount + ctx.hooksCount;
     const envThreshold = display?.environmentThreshold ?? 0;
 
@@ -297,7 +297,7 @@ export function renderSessionLine(ctx: RenderContext): string {
     }
   }
 
-  if (display?.showDuration !== false && ctx.sessionDuration) {
+  if (display?.showDuration === true && ctx.sessionDuration) {
     parts.push(label(`⏱️  ${ctx.sessionDuration}`, colors));
   }
 

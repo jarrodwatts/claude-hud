@@ -135,7 +135,7 @@ export function renderProjectLine(ctx: RenderContext): string | null {
     parts.push(label(ctx.extraLabel, colors));
   }
 
-  if (display?.showDuration !== false && ctx.sessionDuration) {
+  if (display?.showDuration === true && ctx.sessionDuration) {
     parts.push(label(`⏱️  ${ctx.sessionDuration}`, colors));
   }
 

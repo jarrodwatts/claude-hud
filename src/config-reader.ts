@@ -5,7 +5,7 @@ import { createHash } from 'node:crypto';
 import { createDebug } from './debug.js';
 import { getClaudeConfigDir, getClaudeConfigJsonPath, getHudPluginDir } from './claude-config-dir.js';
 
-const debug = createDebug('config');
+const debug = createDebug('config-reader');
 
 export interface ConfigCounts {
   claudeMdCount: number;
