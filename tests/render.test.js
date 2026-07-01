@@ -887,6 +887,52 @@ test('renderProjectLine hides cost for provider-routed sessions', () => {
   }
 });
 
+test('renderProjectLine shows the estimate for provider-routed sessions when showRoutedCost is on', () => {
+  const ctx = baseContext();
+  ctx.stdin.cwd = '/tmp/my-project';
+  ctx.stdin.model = { id: 'anthropic.claude-sonnet-4-20250514-v1:0' };
+  ctx.config.display.showCost = true;
+  ctx.config.display.showRoutedCost = true;
+  ctx.stdin.cost = { total_cost_usd: 0 };
+  ctx.transcript.sessionTokens = {
+    inputTokens: 100000,
+    cacheCreationTokens: 10000,
+    cacheReadTokens: 20000,
+    outputTokens: 50000,
+  };
+
+  const line = stripAnsi(renderProjectLine(ctx));
+  assert.ok(line.includes('Est. $1.09'), `expected routed estimate, got: ${line}`);
+});
+
+test('renderProjectLine shows native cost for provider-routed sessions when showRoutedCost is on', () => {
+  const ctx = baseContext();
+  ctx.stdin.cwd = '/tmp/my-project';
+  ctx.stdin.model = { id: 'anthropic.claude-sonnet-4-20250514-v1:0' };
+  ctx.config.display.showCost = true;
+  ctx.config.display.showRoutedCost = true;
+  ctx.stdin.cost = { total_cost_usd: 2.54 };
+
+  const line = stripAnsi(renderProjectLine(ctx));
+  assert.ok(line.includes('Cost $2.54'), `expected native routed cost, got: ${line}`);
+});
+
+test('renderProjectLine keeps routed cost hidden when showRoutedCost is on but showCost is off', () => {
+  const ctx = baseContext();
+  ctx.stdin.model = { id: 'anthropic.claude-sonnet-4-20250514-v1:0' };
+  ctx.config.display.showCost = false;
+  ctx.config.display.showRoutedCost = true;
+  ctx.transcript.sessionTokens = {
+    inputTokens: 100000,
+    cacheCreationTokens: 10000,
+    cacheReadTokens: 20000,
+    outputTokens: 50000,
+  };
+
+  const line = stripAnsi(renderProjectLine(ctx));
+  assert.ok(!line.includes('Est.') && !line.includes('Cost '), `cost should stay hidden without showCost, got: ${line}`);
+});
+
 test('renderProjectLine translates native cost label when Chinese is enabled', () => {
   const ctx = baseContext();
   ctx.stdin.cwd = '/tmp/my-project';

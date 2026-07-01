@@ -67,6 +67,7 @@ test('loadConfig returns valid config structure', async () => {
   assert.equal(typeof config.display.showPromptCache, 'boolean');
   assert.equal(typeof config.display.promptCacheTtlSeconds, 'number');
   assert.equal(typeof config.display.showCost, 'boolean');
+  assert.equal(typeof config.display.showRoutedCost, 'boolean');
   assert.equal(typeof config.display.showOutputStyle, 'boolean');
   assert.equal(typeof config.display.externalUsagePath, 'string');
   assert.equal(typeof config.display.externalUsageFreshnessMs, 'number');
@@ -131,6 +132,17 @@ test('mergeConfig preserves provider options and caps providerName length', () =
   const config = mergeConfig({ display: { showProvider: true, providerName: 'x'.repeat(60) } });
   assert.equal(config.display.showProvider, true);
   assert.equal(config.display.providerName.length, 40);
+});
+
+test('mergeConfig defaults showRoutedCost to false', () => {
+  const config = mergeConfig({});
+  assert.equal(config.display.showRoutedCost, false);
+  assert.equal(DEFAULT_CONFIG.display.showRoutedCost, false);
+});
+
+test('mergeConfig preserves explicit showRoutedCost=true', () => {
+  const config = mergeConfig({ display: { showRoutedCost: true } });
+  assert.equal(config.display.showRoutedCost, true);
 });
 
 test('mergeConfig defaults showClaudeCodeVersion to false', () => {

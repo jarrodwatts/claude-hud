@@ -18,6 +18,31 @@ test('estimateSessionCost returns null for Vertex model IDs', () => {
   assert.equal(result, null);
 });
 
+test('estimateSessionCost estimates Bedrock cost when allowRoutedCost is set', () => {
+  const tokens = { inputTokens: 1000000, outputTokens: 1000000, cacheCreationTokens: 0, cacheReadTokens: 0 };
+  const result = estimateSessionCost(
+    { model: { id: 'us.anthropic.claude-sonnet-4-20250514-v1:0' } },
+    tokens,
+    { allowRoutedCost: true },
+  );
+  assert.ok(result);
+  // Sonnet 4 pricing: 1M * $3/M input, 1M * $15/M output
+  assert.equal(result.inputUsd, 3);
+  assert.equal(result.outputUsd, 15);
+});
+
+test('estimateSessionCost estimates Vertex cost when allowRoutedCost is set', () => {
+  const tokens = { inputTokens: 1000000, outputTokens: 1000000, cacheCreationTokens: 0, cacheReadTokens: 0 };
+  const result = estimateSessionCost(
+    { model: { id: 'publishers/anthropic/models/claude-sonnet-4@20250514' } },
+    tokens,
+    { allowRoutedCost: true },
+  );
+  assert.ok(result);
+  assert.equal(result.inputUsd, 3);
+  assert.equal(result.outputUsd, 15);
+});
+
 test('estimateSessionCost returns null when no model matches pricing', () => {
   const tokens = { inputTokens: 1000, outputTokens: 500, cacheCreationTokens: 0, cacheReadTokens: 0 };
   const result = estimateSessionCost({ model: { display_name: 'Unknown Model XYZ' } }, tokens);
@@ -114,6 +139,40 @@ test('resolveSessionCost ignores native cost for Vertex models', () => {
   const tokens = { inputTokens: 1000, outputTokens: 500, cacheCreationTokens: 0, cacheReadTokens: 0 };
   const result = resolveSessionCost(stdin, tokens);
   assert.equal(result, null);
+});
+
+test('resolveSessionCost estimates routed provider cost when allowRoutedCost is set', () => {
+  const stdin = { model: { id: 'us.anthropic.claude-sonnet-4-20250514-v1:0', display_name: 'Sonnet' } };
+  const tokens = { inputTokens: 1000000, outputTokens: 0, cacheCreationTokens: 0, cacheReadTokens: 0 };
+  const result = resolveSessionCost(stdin, tokens, { allowRoutedCost: true });
+  assert.ok(result);
+  assert.equal(result.source, 'estimate');
+  assert.equal(result.totalUsd, 3);
+});
+
+test('resolveSessionCost prefers positive native cost for routed providers when allowRoutedCost is set', () => {
+  const stdin = {
+    model: { id: 'us.anthropic.claude-sonnet-4-20250514-v1:0', display_name: 'Sonnet' },
+    cost: { total_cost_usd: 2.54 },
+  };
+  const tokens = { inputTokens: 1000000, outputTokens: 0, cacheCreationTokens: 0, cacheReadTokens: 0 };
+  const result = resolveSessionCost(stdin, tokens, { allowRoutedCost: true });
+  assert.ok(result);
+  assert.equal(result.source, 'native');
+  assert.equal(result.totalUsd, 2.54);
+});
+
+test('resolveSessionCost falls back to estimate when routed native cost is zero', () => {
+  const stdin = {
+    model: { id: 'us.anthropic.claude-sonnet-4-20250514-v1:0', display_name: 'Sonnet' },
+    cost: { total_cost_usd: 0 },
+  };
+  const tokens = { inputTokens: 1000000, outputTokens: 0, cacheCreationTokens: 0, cacheReadTokens: 0 };
+  const result = resolveSessionCost(stdin, tokens, { allowRoutedCost: true });
+  assert.ok(result);
+  // $0.00 is unreliable at session start, so fall back to the estimate
+  assert.equal(result.source, 'estimate');
+  assert.equal(result.totalUsd, 3);
 });
 
 test('resolveSessionCost falls back to estimate when native cost is NaN', () => {

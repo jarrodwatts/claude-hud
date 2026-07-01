@@ -117,6 +117,9 @@ export interface HudConfig {
     contextValue: ContextValueMode;
     showConfigCounts: boolean;
     showCost: boolean;
+    // Also show cost for routed providers (Bedrock/Vertex) that `showCost`
+    // hides by default. Requires `showCost` too. Default off.
+    showRoutedCost: boolean;
     showDuration: boolean;
     showSpeed: boolean;
     showTokenBreakdown: boolean;
@@ -205,6 +208,7 @@ export const DEFAULT_CONFIG: HudConfig = {
     contextValue: 'percent',
     showConfigCounts: false,
     showCost: false,
+    showRoutedCost: false,
     showDuration: false,
     showSpeed: false,
     showTokenBreakdown: true,
@@ -578,6 +582,9 @@ export function mergeConfig(userConfig: Partial<HudConfig>): HudConfig {
     showCost: typeof migrated.display?.showCost === 'boolean'
       ? migrated.display.showCost
       : DEFAULT_CONFIG.display.showCost,
+    showRoutedCost: typeof migrated.display?.showRoutedCost === 'boolean'
+      ? migrated.display.showRoutedCost
+      : DEFAULT_CONFIG.display.showRoutedCost,
     showDuration: typeof migrated.display?.showDuration === 'boolean'
       ? migrated.display.showDuration
       : DEFAULT_CONFIG.display.showDuration,

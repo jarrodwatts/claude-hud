@@ -93,6 +93,7 @@ Save as `language: "en"` or `language: "zh-Hans"`.
   - "Reasoning level" - ◑ high (low/medium/high/xhigh/max effort)
   - "Output style" - style: explanatory (current output style name)
   - "Session cost" - 💰 $0.42
+  - "Routed provider cost" - 💰 $0.42 for Bedrock/Vertex (only if Session cost is on)
   - "Skills activity" - active skills count
   - "MCP status" - MCP server status
   - "Memory usage" - process memory footprint
@@ -141,6 +142,7 @@ If user chooses "Enter custom text", use AskUserQuestion to get their text. Save
   - "Reasoning level" - ◑ high (low/medium/high/xhigh/max effort)
   - "Output style" - style: explanatory (current output style name)
   - "Session cost" - 💰 $0.42
+  - "Routed provider cost" - 💰 $0.42 for Bedrock/Vertex (only if Session cost is on)
   - "Skills activity" - active skills count
   - "MCP status" - MCP server status
   - "Memory usage" - process memory footprint
@@ -174,6 +176,7 @@ Info items (Counts, Tokens, Usage, Speed, Duration) can be turned off via "Reset
   - "Reasoning level" - ◑ high (low/medium/high/xhigh/max effort)
   - "Output style" - style: explanatory (current output style name)
   - "Session cost" - 💰 $0.42
+  - "Routed provider cost" - 💰 $0.42 for Bedrock/Vertex (only if Session cost is on)
   - "Skills activity" - active skills count
   - "MCP status" - MCP server status
   - "Memory usage" - process memory footprint
@@ -299,6 +302,7 @@ If user chooses "Remove", set `display.customLine` to `""` in config.
 | Token breakdown | `display.showTokenBreakdown` |
 | Output speed | `display.showSpeed` |
 | Session cost | `display.showCost` |
+| Routed provider cost | `display.showRoutedCost` |
 | Usage limits | `display.showUsage` |
 | Usage bar style | `display.usageBarEnabled` |
 | Compact usage | `display.usageCompact` |
