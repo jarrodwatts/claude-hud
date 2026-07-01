@@ -35,6 +35,7 @@ export type HudElement =
   | 'tools'
   | 'skills'
   | 'mcp'
+  | 'ssh'
   | 'agents'
   | 'todos'
   | 'sessionTime';
@@ -80,6 +81,7 @@ export const DEFAULT_ELEMENT_ORDER: HudElement[] = [
   'tools',
   'skills',
   'mcp',
+  'ssh',
   'agents',
   'todos',
   'sessionTime',
@@ -128,6 +130,10 @@ export interface HudConfig {
     showTools: boolean;
     showSkills: boolean;
     showMcp: boolean;
+    // Show SSH destinations connected to this session (main agent + subagents),
+    // parsed from `ssh ...` Bash commands in the transcript. Opt-in. See
+    // src/ssh-targets.ts and src/render/ssh-line.ts.
+    showSsh: boolean;
     toolNameMaxLength: number;
     toolsMaxVisible: number;
     showAgents: boolean;
@@ -216,6 +222,7 @@ export const DEFAULT_CONFIG: HudConfig = {
     showTools: false,
     showSkills: false,
     showMcp: false,
+    showSsh: false,
     toolNameMaxLength: 0,
     toolsMaxVisible: 4,
     showAgents: false,
@@ -611,6 +618,9 @@ export function mergeConfig(userConfig: Partial<HudConfig>): HudConfig {
     showMcp: typeof migrated.display?.showMcp === 'boolean'
       ? migrated.display.showMcp
       : DEFAULT_CONFIG.display.showMcp,
+    showSsh: typeof migrated.display?.showSsh === 'boolean'
+      ? migrated.display.showSsh
+      : DEFAULT_CONFIG.display.showSsh,
     toolNameMaxLength: validateNonNegativeInteger(
       migrated.display?.toolNameMaxLength,
       DEFAULT_CONFIG.display.toolNameMaxLength,

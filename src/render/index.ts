@@ -4,6 +4,7 @@ import type { RenderContext } from '../types.js';
 import { renderSessionLine } from './session-line.js';
 import { renderToolsLine } from './tools-line.js';
 import { renderSkillsLine, renderMcpLine } from './skills-mcp-line.js';
+import { renderSshLine } from './ssh-line.js';
 import { renderAgentsLine } from './agents-line.js';
 import { renderTodosLine } from './todos-line.js';
 import {
@@ -308,7 +309,7 @@ function makeSeparator(length: number): string {
   return dim('─'.repeat(repeats));
 }
 
-const ACTIVITY_ELEMENTS = new Set<HudElement>(['tools', 'skills', 'mcp', 'agents', 'todos']);
+const ACTIVITY_ELEMENTS = new Set<HudElement>(['tools', 'skills', 'mcp', 'ssh', 'agents', 'todos']);
 
 function buildMergeGroupLookup(mergeGroups: HudElement[][]): Map<HudElement, Set<HudElement>> {
   const lookup = new Map<HudElement, Set<HudElement>>();
@@ -369,6 +370,13 @@ function collectActivityLines(ctx: RenderContext): string[] {
     }
   }
 
+  if (display?.showSsh === true) {
+    const sshLine = renderSshLine(ctx);
+    if (sshLine) {
+      activityLines.push(sshLine);
+    }
+  }
+
   if (display?.showAgents !== false) {
     const agentsLine = renderAgentsLine(ctx);
     if (agentsLine) {
@@ -415,6 +423,8 @@ function renderElementLine(
       return display?.showSkills === true ? renderSkillsLine(ctx) : null;
     case 'mcp':
       return display?.showMcp === true ? renderMcpLine(ctx) : null;
+    case 'ssh':
+      return display?.showSsh === true ? renderSshLine(ctx) : null;
     case 'agents':
       return display?.showAgents === false ? null : renderAgentsLine(ctx);
     case 'todos':

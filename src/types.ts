@@ -117,6 +117,20 @@ export interface SessionTokenUsage {
   cacheReadTokens: number;
 }
 
+/**
+ * An SSH destination the session connected to, parsed from `ssh ...` Bash
+ * commands in the transcript. `source` distinguishes the main agent from a
+ * subagent (each subagent transcript is a separate source, identified by
+ * `agentId`). `lastSeen` (ms epoch) orders sources by recency.
+ */
+export interface SshTarget {
+  host: string;
+  port: number;
+  source: 'main' | 'subagent';
+  agentId?: string;
+  lastSeen: number;
+}
+
 export interface TranscriptData {
   tools: ToolEntry[];
   skills: string[];
@@ -132,6 +146,9 @@ export interface TranscriptData {
   // Number of compact_boundary entries (manual /compact or auto compaction)
   // with a valid timestamp seen in the transcript.
   compactionCount?: number;
+  // SSH destinations connected to during this session (main agent + subagents).
+  // Populated only when display.showSsh is enabled. See ssh-targets.ts.
+  sshTargets?: SshTarget[];
   // Advisor model ID for the current session, captured from the top-level
   // `advisorModel` field that Claude Code stamps onto every assistant record
   // after `/advisor` is set (e.g. "claude-opus-4-7"). undefined when /advisor

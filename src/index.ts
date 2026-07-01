@@ -1,5 +1,6 @@
 import { readStdin, getUsageFromStdin } from "./stdin.js";
 import { parseTranscript } from "./transcript.js";
+import { collectSshTargets } from "./ssh-targets.js";
 import { render } from "./render/index.js";
 import { countConfigs } from "./config-reader.js";
 import { getGitStatus } from "./git.js";
@@ -23,6 +24,7 @@ export type MainDeps = {
   getUsageFromExternalSnapshot: typeof getUsageFromExternalSnapshot;
   writeExternalUsageSnapshot: typeof writeExternalUsageSnapshot;
   parseTranscript: typeof parseTranscript;
+  collectSshTargets: typeof collectSshTargets;
   countConfigs: typeof countConfigs;
   getGitStatus: typeof getGitStatus;
   loadConfig: typeof loadConfig;
@@ -64,6 +66,7 @@ export async function main(overrides: Partial<MainDeps> = {}): Promise<void> {
     getUsageFromExternalSnapshot,
     writeExternalUsageSnapshot,
     parseTranscript,
+    collectSshTargets,
     countConfigs,
     getGitStatus,
     loadConfig,
@@ -106,6 +109,13 @@ export async function main(overrides: Partial<MainDeps> = {}): Promise<void> {
 
     const config = await deps.loadConfig();
     setLanguage(config.language);
+
+    // SSH targets are opt-in and read extra files (the session's subagent
+    // transcripts), so only gather them when the element is enabled.
+    if (config.display.showSsh) {
+      transcript.sshTargets = deps.collectSshTargets(transcriptPath);
+    }
+
     const gitStatus = config.gitStatus.enabled
       ? await deps.getGitStatus(stdin.cwd)
       : null;

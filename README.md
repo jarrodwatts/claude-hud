@@ -161,7 +161,7 @@ Chinese HUD labels are available as an explicit opt-in. English stays the defaul
 | `pathLevels` | 1-3 | 1 | Directory levels to show in project path |
 | `maxWidth` | number \| `null` | `null` | Optional fallback width used only when terminal width detection fails completely |
 | `forceMaxWidth` | boolean | false | Always use `maxWidth` when it is set, even if terminal width detection returns a smaller value |
-| `elementOrder` | string[] | `["project","addedDirs","context","usage","promptCache","memory","environment","tools","skills","mcp","agents","todos","sessionTime"]` | Expanded-mode element order. Omit entries to hide them in expanded mode. Existing configs keep their explicit order until updated. |
+| `elementOrder` | string[] | `["project","addedDirs","context","usage","promptCache","memory","environment","tools","skills","mcp","ssh","agents","todos","sessionTime"]` | Expanded-mode element order. Omit entries to hide them in expanded mode. Existing configs keep their explicit order until updated. |
 | `display.mergeGroups` | string[][] | `[["context","usage"]]` | Expanded-mode groups that should share a line when adjacent. Set `[]` to disable merged lines. |
 | `gitStatus.enabled` | boolean | true | Show git branch in HUD |
 | `gitStatus.showDirty` | boolean | true | Show `*` for uncommitted changes |
@@ -197,6 +197,7 @@ Chinese HUD labels are available as an explicit opt-in. English stays the defaul
 | `display.showTools` | boolean | false | Show tools activity line |
 | `display.showSkills` | boolean | false | Show active Skills detected from `Skill` tool invocations |
 | `display.showMcp` | boolean | false | Show active MCP servers detected from `mcp__server__tool` invocations |
+| `display.showSsh` | boolean | false | Show SSH destinations this session connected to, parsed from `ssh …` Bash commands in the transcript. Session-scoped: the main agent plus up to 3 subagents (their own transcripts), one `host:port` per source, most recent first, e.g. `⚡ SSH main 44.245.72.210:22 · sub#a4ad71 10.0.0.5:2222` |
 | `display.toolNameMaxLength` | number | `0` | Maximum displayed tool-name length. `0` keeps full names; MCP names may shorten to their final segment when truncating |
 | `display.toolsMaxVisible` | number | `4` | Maximum completed tools shown on the tools line. `0` means unlimited |
 | `display.showAgents` | boolean | false | Show agents activity line |

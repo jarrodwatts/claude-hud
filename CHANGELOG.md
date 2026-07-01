@@ -4,6 +4,9 @@ All notable changes to Claude HUD will be documented in this file.
 
 ## [Unreleased]
 
+### Added
+- Add `display.showSsh` (opt-in) — a session-scoped `ssh` element that shows the SSH destinations the session connected to, parsed from `ssh …` Bash commands in the transcript. Includes the main agent plus up to 3 subagents (read from `<session>/subagents/*.jsonl`), one `host:port` per source, most recent first, e.g. `⚡ SSH main 44.245.72.210:22 · sub#a4ad71 10.0.0.5:2222`.
+
 ## [0.3.0] - 2026-06-19
 
 ### Added
