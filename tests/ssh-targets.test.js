@@ -170,3 +170,27 @@ test('collectSshTargets returns just the main target when no subagents dir exist
 test('collectSshTargets returns [] for a missing transcript', () => {
   assert.deepEqual(collectSshTargets('/no/such/transcript.jsonl'), []);
 });
+
+test('collectSshTargets is session-scoped: it ignores sibling sessions in the same project dir', async (t) => {
+  const dir = await mkdtemp(path.join(tmpdir(), 'sshhud-'));
+  t.after(() => rm(dir, { recursive: true, force: true }));
+
+  // Session A (the one we query) + its subagent.
+  const aPath = path.join(dir, 'sess-A.jsonl');
+  await writeFile(aPath, bashLine('ssh a-user@10.0.0.1'));
+  const aSub = path.join(dir, 'sess-A', 'subagents');
+  await mkdir(aSub, { recursive: true });
+  await writeFile(path.join(aSub, 'agent-a1.jsonl'), bashLine('ssh a-sub@10.0.0.2'));
+
+  // Sibling session B with different hosts — must never leak into A's result.
+  const bPath = path.join(dir, 'sess-B.jsonl');
+  await writeFile(bPath, bashLine('ssh b-user@192.168.9.9'));
+  const bSub = path.join(dir, 'sess-B', 'subagents');
+  await mkdir(bSub, { recursive: true });
+  await writeFile(path.join(bSub, 'agent-b1.jsonl'), bashLine('ssh b-sub@192.168.9.10'));
+
+  const hosts = collectSshTargets(aPath).map(target => target.host);
+  assert.deepEqual([...hosts].sort(), ['10.0.0.1', '10.0.0.2']);
+  assert.ok(!hosts.includes('192.168.9.9'), 'must not include sibling session host');
+  assert.ok(!hosts.includes('192.168.9.10'), 'must not include sibling subagent host');
+});
