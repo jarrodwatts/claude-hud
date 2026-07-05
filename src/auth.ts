@@ -1,6 +1,7 @@
 import * as fs from 'node:fs';
 import * as os from 'node:os';
 import { getClaudeConfigJsonPath } from './claude-config-dir.js';
+import { sanitizeDisplayText } from './utils/sanitize.js';
 
 /**
  * Authentication info for the current Claude Code login, derived from the
@@ -16,10 +17,10 @@ export interface AuthInfo {
 
 const EMPTY_AUTH_INFO: AuthInfo = { method: null, user: null };
 
-// Strip control/format characters so values from claude.json can never
-// smuggle escape sequences into the terminal.
+// Strip ANSI sequences and control/bidi characters so values from
+// claude.json can never smuggle escape sequences into the terminal.
 function sanitizeValue(value: string): string {
-  return value.replace(/[\p{Cc}\p{Cf}]/gu, '').trim();
+  return sanitizeDisplayText(value).trim();
 }
 
 function readString(obj: Record<string, unknown>, key: string): string | null {

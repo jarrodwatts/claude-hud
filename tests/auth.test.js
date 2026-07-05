@@ -52,14 +52,14 @@ test('deriveAuthInfo returns nulls for missing/invalid input', () => {
   assert.deepEqual(deriveAuthInfo({ oauthAccount: 42 }, {}), { method: null, user: null });
 });
 
-test('deriveAuthInfo strips control characters from values', () => {
+test('deriveAuthInfo strips ANSI sequences and control characters from values', () => {
   const info = deriveAuthInfo({
     oauthAccount: {
       emailAddress: 'evil\x1b[31m@example.com',
       organizationType: 'claude_max',
     },
   }, {});
-  assert.equal(info.user, 'evil[31m');
+  assert.equal(info.user, 'evil');
 });
 
 test('truncateUser truncates with ellipsis and honors 0 = full', () => {
