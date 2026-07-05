@@ -10,6 +10,7 @@ import { renderAdvisorLine } from './advisor.js';
 import { normalizeAddedDirs, sanitize as sanitizeDisplayText, basenameOf, truncateBasename, MAX_RENDERED_ADDED_DIRS } from './added-dirs.js';
 import { hyperlink, getFileHref, safeHyperlink } from '../../utils/hyperlinks.js';
 import { formatModelDisplay } from '../model-display.js';
+import { formatAuthSegment } from '../../auth.js';
 
 function resolvePathWithinCwd(cwd: string, candidatePath: string): string | null {
   const resolvedCwd = path.resolve(cwd);
@@ -149,6 +150,11 @@ export function renderProjectLine(ctx: RenderContext): string | null {
     if (speed !== null) {
       parts.push(label(`${t('format.out')}: ${speed.toFixed(1)} ${t('format.tokPerSec')}`, colors));
     }
+  }
+
+  const authSegment = formatAuthSegment(ctx.authInfo, display);
+  if (authSegment) {
+    parts.push(label(authSegment, colors));
   }
 
   if (customLine && customLinePosition === 'last') {

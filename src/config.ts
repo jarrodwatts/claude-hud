@@ -133,6 +133,13 @@ export interface HudConfig {
     showAgents: boolean;
     showTodos: boolean;
     showSessionName: boolean;
+    // Show the auth method (subscription plan) for the current login,
+    // e.g. "Claude Max 20x", as its own segment at the end of the first line.
+    showAuth: boolean;
+    // Show the logged-in account (email local part) next to the auth method.
+    showAuthUser: boolean;
+    // Max characters of the account name to display (0 = full).
+    authUserLength: number;
     showClaudeCodeVersion: boolean;
     showEffortLevel: boolean;
     showMemoryUsage: boolean;
@@ -221,6 +228,9 @@ export const DEFAULT_CONFIG: HudConfig = {
     showAgents: false,
     showTodos: false,
     showSessionName: false,
+    showAuth: false,
+    showAuthUser: false,
+    authUserLength: 8,
     showClaudeCodeVersion: false,
     showEffortLevel: false,
     showMemoryUsage: false,
@@ -628,6 +638,16 @@ export function mergeConfig(userConfig: Partial<HudConfig>): HudConfig {
     showSessionName: typeof migrated.display?.showSessionName === 'boolean'
       ? migrated.display.showSessionName
       : DEFAULT_CONFIG.display.showSessionName,
+    showAuth: typeof migrated.display?.showAuth === 'boolean'
+      ? migrated.display.showAuth
+      : DEFAULT_CONFIG.display.showAuth,
+    showAuthUser: typeof migrated.display?.showAuthUser === 'boolean'
+      ? migrated.display.showAuthUser
+      : DEFAULT_CONFIG.display.showAuthUser,
+    authUserLength: validateNonNegativeInteger(
+      migrated.display?.authUserLength,
+      DEFAULT_CONFIG.display.authUserLength,
+    ),
     showClaudeCodeVersion: typeof migrated.display?.showClaudeCodeVersion === 'boolean'
       ? migrated.display.showClaudeCodeVersion
       : DEFAULT_CONFIG.display.showClaudeCodeVersion,

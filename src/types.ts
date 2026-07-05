@@ -1,5 +1,6 @@
 import type { HudConfig } from './config.js';
 import type { GitStatus } from './git.js';
+import type { AuthInfo } from './auth.js';
 
 export interface StdinData {
   transcript_path?: string;
@@ -156,4 +157,7 @@ export interface RenderContext {
   claudeCodeVersion?: string;
   effortLevel?: string;
   effortSymbol?: string;
+  // Auth method + account for the current login (see auth.ts). Only populated
+  // when display.showAuth or display.showAuthUser is enabled.
+  authInfo?: AuthInfo | null;
 }

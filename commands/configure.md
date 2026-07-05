@@ -24,7 +24,8 @@ Advanced settings such as `colors.*`, `pathLevels`, `maxWidth`, `forceMaxWidth`,
 `display.autoCompactWindow`, `display.promptCacheTtlSeconds`,
 `display.usageThreshold`, `display.sevenDayThreshold`,
 `display.environmentThreshold`, `display.contextWarningThreshold`,
-`display.contextCriticalThreshold`, `display.advisorOverride`, and the
+`display.contextCriticalThreshold`, `display.advisorOverride`,
+`display.showAuth`, `display.showAuthUser`, `display.authUserLength`, and the
 `display.externalUsage*` keys are preserved when saving but are not edited by
 this guided flow.
 
@@ -305,6 +306,8 @@ If user chooses "Remove", set `display.customLine` to `""` in config.
 | Usage value | `display.usageValue` |
 | Usage reset label | `display.showResetLabel` |
 | Session name | `display.showSessionName` |
+| Auth method | `display.showAuth` (plan label, e.g. "Claude Max 20x", own segment at end of first line) |
+| Auth user | `display.showAuthUser` (login account, truncated to `display.authUserLength` chars, 0 = full) |
 | Session duration | `display.showDuration` |
 | Session tokens | `display.showSessionTokens` |
 | Session start date | `display.showSessionStartDate` |

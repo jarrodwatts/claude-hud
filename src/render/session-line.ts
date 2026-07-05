@@ -12,6 +12,7 @@ import { t } from '../i18n/index.js';
 import type { TimeFormatMode, UsageValueMode } from '../config.js';
 import { formatResetTime } from './format-reset-time.js';
 import { formatTokens, formatContextValue } from '../utils/format.js';
+import { formatAuthSegment } from '../auth.js';
 import { createDebug } from '../debug.js';
 import { formatModelDisplay } from './model-display.js';
 
@@ -325,6 +326,11 @@ export function renderSessionLine(ctx: RenderContext): string {
 
   if (ctx.extraLabel) {
     parts.push(label(ctx.extraLabel, colors));
+  }
+
+  const authSegment = formatAuthSegment(ctx.authInfo, display);
+  if (authSegment) {
+    parts.push(label(authSegment, colors));
   }
 
   if (customLine && customLinePosition === 'last') {
