@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import * as path from "node:path";
 import { tmpdir } from "node:os";
+import { fileURLToPath } from "node:url";
 import { DEFAULT_CONFIG } from "../dist/config.js";
 import { setLanguage } from "../dist/i18n/index.js";
 import { formatSessionDuration, main } from "../dist/index.js";
@@ -158,7 +159,7 @@ test("index entrypoint runs when executed directly", async () => {
     process.env.CLAUDE_CONFIG_DIR = dir;
     setLanguage("en");
     const moduleUrl = new URL("../dist/index.js", import.meta.url);
-    process.argv[1] = new URL(moduleUrl).pathname;
+    process.argv[1] = fileURLToPath(moduleUrl);
     Object.defineProperty(process.stdin, "isTTY", {
       value: true,
       configurable: true,
