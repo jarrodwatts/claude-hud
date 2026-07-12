@@ -16,6 +16,11 @@ export interface AuthInfo {
 }
 
 const EMPTY_AUTH_INFO: AuthInfo = { method: null, user: null };
+const API_KEY_AUTH_INFO: AuthInfo = { method: 'API Key', user: null };
+
+function hasApiKey(env: NodeJS.ProcessEnv): boolean {
+  return typeof env.ANTHROPIC_API_KEY === 'string' && env.ANTHROPIC_API_KEY.trim().length > 0;
+}
 
 // Strip ANSI sequences and control/bidi characters so values from
 // claude.json can never smuggle escape sequences into the terminal.
@@ -58,6 +63,12 @@ function extractTierSuffix(rateLimitTier: string): string | null {
  * Pure so it can be tested without touching the filesystem.
  */
 export function deriveAuthInfo(claudeJson: unknown, env: NodeJS.ProcessEnv = process.env): AuthInfo {
+  // ANTHROPIC_API_KEY takes precedence at runtime. oauthAccount can remain in
+  // claude.json after a user switches to API-key authentication.
+  if (hasApiKey(env)) {
+    return API_KEY_AUTH_INFO;
+  }
+
   const root = (claudeJson && typeof claudeJson === 'object')
     ? claudeJson as Record<string, unknown>
     : null;
@@ -66,10 +77,6 @@ export function deriveAuthInfo(claudeJson: unknown, env: NodeJS.ProcessEnv = pro
     : null;
 
   if (!account) {
-    // No OAuth login recorded — an exported key is the only signal left.
-    if (env.ANTHROPIC_API_KEY) {
-      return { method: 'API Key', user: null };
-    }
     return EMPTY_AUTH_INFO;
   }
 
@@ -92,6 +99,11 @@ export function deriveAuthInfo(claudeJson: unknown, env: NodeJS.ProcessEnv = pro
 
 /** Reads auth info for the current login. Never throws. */
 export function readAuthInfo(): AuthInfo {
+  // Avoid reading a stale OAuth profile when the active source is an API key.
+  if (hasApiKey(process.env)) {
+    return API_KEY_AUTH_INFO;
+  }
+
   try {
     const configJsonPath = getClaudeConfigJsonPath(os.homedir());
     const content = fs.readFileSync(configJsonPath, 'utf-8');

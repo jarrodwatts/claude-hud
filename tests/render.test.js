@@ -1016,6 +1016,27 @@ test('renderProjectLine can give git its own segment for wrapping', () => {
   assert.ok(line.includes('my-project │ git:(feature/add-auth)'), 'git should render as a separate segment');
 });
 
+test('renderSessionLine shows the enabled auth segment in compact layout', () => {
+  const ctx = baseContext();
+  ctx.authInfo = { method: 'Claude Max 20x', user: 'someone.long' };
+  ctx.config.display.showAuth = true;
+  ctx.config.display.showAuthUser = true;
+  ctx.config.display.authUserLength = 8;
+
+  const line = stripAnsi(renderSessionLine(ctx));
+  assert.ok(line.includes('Claude Max 20x · someone.…'));
+});
+
+test('renderProjectLine shows the enabled auth segment in expanded layout', () => {
+  const ctx = baseContext();
+  ctx.config.lineLayout = 'expanded';
+  ctx.authInfo = { method: 'API Key', user: null };
+  ctx.config.display.showAuth = true;
+
+  const line = stripAnsi(renderProjectLine(ctx) ?? '');
+  assert.ok(line.includes('API Key'));
+});
+
 test('renderToolsLine renders running and completed tools', () => {
   const ctx = baseContext();
   ctx.transcript.tools = [
