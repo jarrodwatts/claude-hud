@@ -42,6 +42,11 @@ export interface StdinData {
             used_percentage?: number | null;
             resets_at?: number | null;
         } | null;
+        model_scoped?: Array<{
+            display_name?: string | null;
+            utilization?: number | null;
+            resets_at?: string | number | null;
+        }> | null;
     } | null;
     effort?: string | {
         level?: string | null;
@@ -76,6 +81,11 @@ export interface UsageData {
     fiveHourResetAt: Date | null;
     sevenDayResetAt: Date | null;
     balanceLabel?: string | null;
+    modelScoped?: Array<{
+        label: string;
+        percent: number;
+        resetAt: Date | null;
+    }>;
 }
 export interface ExternalUsageSnapshot {
     five_hour?: {

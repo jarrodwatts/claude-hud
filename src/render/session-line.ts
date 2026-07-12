@@ -172,7 +172,8 @@ export function renderSessionLine(ctx: RenderContext): string {
     const showResetLabel = display?.showResetLabel ?? true;
     const usageValueMode = display?.usageValue ?? 'percent';
 
-    const hasWindowData = ctx.usageData.fiveHour !== null || ctx.usageData.sevenDay !== null;
+    const modelScopedEntries = ctx.usageData.modelScoped ?? [];
+    const hasWindowData = ctx.usageData.fiveHour !== null || ctx.usageData.sevenDay !== null || modelScopedEntries.length > 0;
     if (isLimitReached(ctx.usageData)) {
       const resetTime = ctx.usageData.fiveHour === 100
         ? formatResetTime(ctx.usageData.fiveHourResetAt, timeFormat)
@@ -191,7 +192,11 @@ export function renderSessionLine(ctx: RenderContext): string {
       const usageThreshold = display?.usageThreshold ?? 0;
       const fiveHour = ctx.usageData.fiveHour;
       const sevenDay = ctx.usageData.sevenDay;
-      const effectiveUsage = Math.max(fiveHour ?? 0, sevenDay ?? 0);
+      const effectiveUsage = Math.max(
+        fiveHour ?? 0,
+        sevenDay ?? 0,
+        ...modelScopedEntries.map((entry) => entry.percent),
+      );
 
       if ((hasWindowData || !ctx.usageData.balanceLabel) && effectiveUsage >= usageThreshold) {
         const usageBarEnabled = display?.usageBarEnabled ?? true;
@@ -212,6 +217,12 @@ export function renderSessionLine(ctx: RenderContext): string {
           } else if (sevenDayPart) {
             parts.push(sevenDayPart);
           }
+
+          // Minimal form: no reset suffix (duplicates the weekly window's) to
+          // keep the line short enough not to wrap.
+          for (const entry of modelScopedEntries) {
+            parts.push(formatCompactWindowPart(entry.label, entry.percent, null, timeFormat, colors, usageValueMode));
+          }
         } else if (fiveHour === null && sevenDay !== null) {
           const weeklyOnlyPart = formatUsageWindowPart({
             label: t('label.weekly'),
@@ -226,6 +237,10 @@ export function renderSessionLine(ctx: RenderContext): string {
             usageValueMode,
           });
           parts.push(weeklyOnlyPart);
+
+          for (const entry of modelScopedEntries) {
+            parts.push(formatModelScopedPart(entry, colors, usageValueMode));
+          }
         } else {
           const fiveHourPart = formatUsageWindowPart({
             label: '5h',
@@ -257,6 +272,10 @@ export function renderSessionLine(ctx: RenderContext): string {
             parts.push(sevenDayPart);
           } else {
             parts.push(`${label(t('label.usage'), colors)} ${fiveHourPart}`);
+          }
+
+          for (const entry of modelScopedEntries) {
+            parts.push(formatModelScopedPart(entry, colors, usageValueMode));
           }
         }
       }
@@ -344,6 +363,20 @@ export function renderSessionLine(ctx: RenderContext): string {
   }
 
   return line;
+}
+
+/**
+ * Formats a per-model weekly usage bucket (e.g. "Fable") as a minimal
+ * "label percent" pair — no bar and no reset suffix. The reset time would
+ * duplicate the Weekly window's (same weekly bucket), and the extra width
+ * makes the usage line wrap in narrower terminals.
+ */
+function formatModelScopedPart(
+  entry: { label: string; percent: number; resetAt: Date | null },
+  colors?: RenderContext['config']['colors'],
+  usageValueMode: UsageValueMode = 'percent',
+): string {
+  return `${label(entry.label, colors)} ${formatUsagePercent(entry.percent, colors, usageValueMode)}`;
 }
 
 function formatCompactWindowPart(

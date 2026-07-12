@@ -44,6 +44,14 @@ export interface StdinData {
       used_percentage?: number | null;
       resets_at?: number | null;
     } | null;
+    // Claude Code 2.1.206+ schema for per-model weekly usage buckets (e.g. "Fable").
+    // Not currently emitted (feature-gated) — see src/model-usage.ts for the live
+    // OAuth-usage-API fallback used while this stays absent from stdin.
+    model_scoped?: Array<{
+      display_name?: string | null;
+      utilization?: number | null;
+      resets_at?: string | number | null;
+    }> | null;
   } | null;
   // Claude Code 2.1.115+ exposes effort as an object: { level: "max" }.
   // Earlier versions (≤2.1.114) did not send this field at all. The bare-string
@@ -83,6 +91,10 @@ export interface UsageData {
   fiveHourResetAt: Date | null;
   sevenDayResetAt: Date | null;
   balanceLabel?: string | null;  // optional raw balance text (e.g. "¥6.35")
+  // Per-model weekly usage buckets (e.g. "Fable"), sourced from stdin
+  // rate_limits.model_scoped when present, otherwise from the OAuth usage
+  // API fallback (src/model-usage.ts).
+  modelScoped?: Array<{ label: string; percent: number; resetAt: Date | null }>;
 }
 
 export interface ExternalUsageSnapshot {

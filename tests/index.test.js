@@ -192,6 +192,7 @@ test("main executes the happy path", async () => {
       countConfigs: async () => makeCounts({ outputStyle: "tech-leader" }),
       loadConfig: async () => makeConfig(),
       getGitStatus: async () => null,
+      getModelScopedUsage: async () => null,
       render: (ctx) => {
         renderedContext = ctx;
       },
@@ -225,6 +226,7 @@ test("main passes compact transcript metadata to context fallback", async () => 
     countConfigs: async () => makeCounts(),
     loadConfig: async () => makeConfig(),
     getGitStatus: async () => null,
+    getModelScopedUsage: async () => null,
     render: () => {},
   });
 
@@ -255,6 +257,7 @@ test("main includes git status in render context", async () => {
       deletedCount: 0,
       untrackedCount: 0,
     }),
+    getModelScopedUsage: async () => null,
     render: (ctx) => {
       renderedContext = ctx;
     },
@@ -282,6 +285,7 @@ test("main includes usageData from stdin when available", async () => {
       externalCalls += 1;
       return null;
     },
+    getModelScopedUsage: async () => null,
     render: (ctx) => {
       renderedContext = ctx;
     },
@@ -310,6 +314,7 @@ test("main leaves usageData null when stdin rate limits are absent and external 
       externalCalls += 1;
       return null;
     },
+    getModelScopedUsage: async () => null,
     render: (ctx) => {
       renderedContext = ctx;
     },
@@ -342,6 +347,7 @@ test("main uses external usage fallback when stdin rate limits are absent", asyn
       assert.equal(now, Date.UTC(2026, 3, 20, 12, 1, 0));
       return externalUsage;
     },
+    getModelScopedUsage: async () => null,
     render: (ctx) => {
       renderedContext = ctx;
     },
@@ -375,6 +381,7 @@ test("main prefers stdin usage over external usage fallback", async () => {
         sevenDayResetAt: null,
       };
     },
+    getModelScopedUsage: async () => null,
     render: (ctx) => {
       renderedContext = ctx;
     },
@@ -416,6 +423,7 @@ test("main appends external balance label to stdin usage when snapshot path is c
         balanceLabel: "$12.34 / $20.00",
       };
     },
+    getModelScopedUsage: async () => null,
     render: (ctx) => {
       renderedContext = ctx;
     },
@@ -457,6 +465,7 @@ test("main fills missing seven-day usage from external snapshot", async () => {
         balanceLabel: "$12.34 / $20.00",
       };
     },
+    getModelScopedUsage: async () => null,
     render: (ctx) => {
       renderedContext = ctx;
     },
@@ -491,6 +500,7 @@ test("main skips all usage loading when usage display is disabled", async () => 
       externalCalls += 1;
       return null;
     },
+    getModelScopedUsage: async () => null,
     render: (ctx) => {
       renderedContext = ctx;
     },
@@ -517,6 +527,7 @@ test("main includes Claude Code version in render context only when enabled", as
       lookupCalls += 1;
       return "2.1.81";
     },
+    getModelScopedUsage: async () => null,
     render: (ctx) => {
       renderedContext = ctx;
     },
@@ -541,6 +552,7 @@ test("main skips Claude Code version lookup when disabled", async () => {
       lookupCalls += 1;
       return "2.1.81";
     },
+    getModelScopedUsage: async () => null,
     render: () => {},
   });
 
@@ -570,6 +582,7 @@ test("main includes memoryUsage in render context only for expanded layout when 
       lookupCalls += 1;
       return mockMemoryUsage;
     },
+    getModelScopedUsage: async () => null,
     render: (ctx) => {
       renderedContext = ctx;
     },
@@ -595,6 +608,7 @@ test("main skips memoryUsage lookup for compact layout even when enabled", async
       lookupCalls += 1;
       return null;
     },
+    getModelScopedUsage: async () => null,
     render: () => {},
   });
 

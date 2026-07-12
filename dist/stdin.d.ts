@@ -18,6 +18,15 @@ export declare function isVertexModelId(modelId?: string): boolean;
 export declare function isEnterpriseModelId(modelId?: string): boolean;
 export declare function getProviderLabel(stdin: StdinData): string | null;
 export declare function shouldHideUsage(stdin: StdinData): boolean;
+type ModelScopedStdinEntry = NonNullable<NonNullable<StdinData['rate_limits']>['model_scoped']>[number];
+/**
+ * Parses `rate_limits.model_scoped` (Claude Code 2.1.206+ schema, currently
+ * feature-gated and not emitted) into the HUD's internal per-model usage
+ * shape. Entries missing a usable display_name or a finite utilization are
+ * dropped; percentages are clamped to 0-100 and rounded; labels are
+ * sanitized against escape/control-char injection and length-capped.
+ */
+export declare function parseModelScopedFromStdin(entries: ModelScopedStdinEntry[] | null | undefined): NonNullable<UsageData['modelScoped']>;
 export declare function getUsageFromStdin(stdin: StdinData): UsageData | null;
 /**
  * Strips redundant context-window size suffixes from model display names.

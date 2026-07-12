@@ -33,7 +33,8 @@ export function renderUsageLine(
 
   const usageLabel = progressLabel("label.usage", colors, alignLabels);
   const balanceLabel = ctx.usageData.balanceLabel ?? null;
-  const hasWindowData = ctx.usageData.fiveHour !== null || ctx.usageData.sevenDay !== null;
+  const modelScopedEntries = ctx.usageData.modelScoped ?? [];
+  const hasWindowData = ctx.usageData.fiveHour !== null || ctx.usageData.sevenDay !== null || modelScopedEntries.length > 0;
 
   if (balanceLabel && !hasWindowData) {
     return `${usageLabel} ${balanceLabel}`;
@@ -66,7 +67,7 @@ export function renderUsageLine(
   const fiveHour = ctx.usageData.fiveHour;
   const sevenDay = ctx.usageData.sevenDay;
 
-  const effectiveUsage = Math.max(fiveHour ?? 0, sevenDay ?? 0);
+  const effectiveUsage = Math.max(fiveHour ?? 0, sevenDay ?? 0, ...modelScopedEntries.map((entry) => entry.percent));
   if (effectiveUsage < threshold) {
     return balanceLabel ? `${usageLabel} ${balanceLabel}` : null;
   }
@@ -80,12 +81,16 @@ export function renderUsageLine(
     const sevenDayPart = (sevenDay !== null && (fiveHour === null || sevenDay >= sevenDayThreshold))
       ? formatCompactWindowPart("7d", sevenDay, ctx.usageData.sevenDayResetAt, SEVEN_DAY_WINDOW_MS, timeFormat, colors, usageValueMode)
       : null;
+    // Minimal form: no reset suffix (duplicates the weekly window's) to keep
+    // the line short enough not to wrap.
+    const modelScopedCompactParts = modelScopedEntries.map((entry) =>
+      formatCompactWindowPart(entry.label, entry.percent, null, SEVEN_DAY_WINDOW_MS, timeFormat, colors, usageValueMode)
+    );
 
-    if (fiveHourPart && sevenDayPart) {
-      return appendBalance(`${fiveHourPart} | ${sevenDayPart}`, balanceLabel);
-    }
-    const compactLine = fiveHourPart ?? sevenDayPart;
-    return compactLine ? appendBalance(compactLine, balanceLabel) : null;
+    const compactParts = [fiveHourPart, sevenDayPart, ...modelScopedCompactParts].filter(
+      (part): part is string => Boolean(part)
+    );
+    return compactParts.length > 0 ? appendBalance(compactParts.join(" | "), balanceLabel) : null;
   }
 
   const usageBarEnabled = display?.usageBarEnabled ?? true;
@@ -107,7 +112,11 @@ export function renderUsageLine(
       alignLabels,
       usageValueMode,
     });
-    return appendBalance(`${usageLabel} ${weeklyOnlyPart}`, balanceLabel);
+    const weeklyModelScopedParts = formatModelScopedParts(modelScopedEntries, {
+      colors,
+      usageValueMode,
+    });
+    return appendBalance(`${usageLabel} ${[weeklyOnlyPart, ...weeklyModelScopedParts].join(" | ")}`, balanceLabel);
   }
 
   const fiveHourPart = formatUsageWindowPart({
@@ -120,6 +129,11 @@ export function renderUsageLine(
     barWidth,
     timeFormat,
     showResetLabel,
+    usageValueMode,
+  });
+
+  const modelScopedParts = formatModelScopedParts(modelScopedEntries, {
+    colors,
     usageValueMode,
   });
 
@@ -139,10 +153,31 @@ export function renderUsageLine(
       alignLabels,
       usageValueMode,
     });
-    return appendBalance(`${usageLabel} ${fiveHourPart} | ${sevenDayPart}`, balanceLabel);
+    return appendBalance(`${usageLabel} ${[fiveHourPart, sevenDayPart, ...modelScopedParts].join(" | ")}`, balanceLabel);
   }
 
-  return appendBalance(`${usageLabel} ${fiveHourPart}`, balanceLabel);
+  return appendBalance(`${usageLabel} ${[fiveHourPart, ...modelScopedParts].join(" | ")}`, balanceLabel);
+}
+
+/**
+ * Formats per-model weekly usage buckets (e.g. "Fable") as a minimal
+ * "label percent" pair — no bar and no reset suffix. The reset time would
+ * duplicate the Weekly window's (same weekly bucket), and the extra width
+ * makes the usage line wrap in narrower terminals.
+ */
+function formatModelScopedParts(
+  entries: NonNullable<RenderContext["usageData"]>["modelScoped"],
+  opts: {
+    colors?: RenderContext["config"]["colors"];
+    usageValueMode: UsageValueMode;
+  },
+): string[] {
+  if (!entries || entries.length === 0) {
+    return [];
+  }
+  return entries.map((entry) =>
+    `${label(entry.label, opts.colors)} ${formatUsagePercent(entry.percent, opts.colors, opts.usageValueMode)}`
+  );
 }
 
 function appendBalance(line: string, balanceLabel: string | null): string {

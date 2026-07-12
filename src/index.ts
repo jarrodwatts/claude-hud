@@ -10,6 +10,7 @@ import { getMemoryUsage } from "./memory.js";
 import { resolveEffortLevel } from "./effort.js";
 import { applyContextWindowFallback } from "./context-cache.js";
 import { getUsageFromExternalSnapshot, writeExternalUsageSnapshot } from "./external-usage.js";
+import { getModelScopedUsage } from "./model-usage.js";
 import { setLanguage, t } from "./i18n/index.js";
 import type { RenderContext } from "./types.js";
 
@@ -22,6 +23,7 @@ export type MainDeps = {
   getUsageFromStdin: typeof getUsageFromStdin;
   getUsageFromExternalSnapshot: typeof getUsageFromExternalSnapshot;
   writeExternalUsageSnapshot: typeof writeExternalUsageSnapshot;
+  getModelScopedUsage: typeof getModelScopedUsage;
   parseTranscript: typeof parseTranscript;
   countConfigs: typeof countConfigs;
   getGitStatus: typeof getGitStatus;
@@ -63,6 +65,7 @@ export async function main(overrides: Partial<MainDeps> = {}): Promise<void> {
     getUsageFromStdin,
     getUsageFromExternalSnapshot,
     writeExternalUsageSnapshot,
+    getModelScopedUsage,
     parseTranscript,
     countConfigs,
     getGitStatus,
@@ -139,6 +142,20 @@ export async function main(overrides: Partial<MainDeps> = {}): Promise<void> {
               sevenDayResetAt: ext.sevenDayResetAt ?? null,
             }),
           };
+        }
+      }
+
+      // Claude Code's statusline stdin doesn't emit rate_limits.model_scoped
+      // yet (feature-gated as of 2.1.206). Until it does, fall back to the
+      // OAuth usage API for per-model (e.g. "Fable") weekly usage. stdin
+      // always takes priority when it does provide model_scoped data.
+      const hasModelScoped = (usageData?.modelScoped?.length ?? 0) > 0;
+      if (!hasModelScoped) {
+        const modelScoped = await deps.getModelScopedUsage();
+        if (modelScoped && modelScoped.length > 0) {
+          usageData = usageData
+            ? { ...usageData, modelScoped }
+            : { fiveHour: null, sevenDay: null, fiveHourResetAt: null, sevenDayResetAt: null, modelScoped };
         }
       }
     }

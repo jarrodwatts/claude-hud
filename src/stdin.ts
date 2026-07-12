@@ -2,6 +2,7 @@ import type { StdinData, UsageData } from './types.js';
 import type { ModelFormatMode } from './config.js';
 import { AUTOCOMPACT_BUFFER_PERCENT } from './constants.js';
 import { createDebug } from './debug.js';
+import { sanitizeDisplayText } from './utils/sanitize.js';
 
 const debug = createDebug('stdin');
 
@@ -304,6 +305,81 @@ function parseRateLimitResetAt(value: number | null | undefined): Date | null {
   return new Date(value * 1000);
 }
 
+const MODEL_SCOPED_LABEL_MAX_LEN = 20;
+
+type ModelScopedStdinEntry = NonNullable<NonNullable<StdinData['rate_limits']>['model_scoped']>[number];
+
+function parseModelScopedResetAt(value: string | number | null | undefined): Date | null {
+  if (value === null || value === undefined) {
+    return null;
+  }
+
+  if (typeof value === 'number') {
+    if (!Number.isFinite(value) || value <= 0) {
+      return null;
+    }
+    // Heuristic: values below 1e12 are epoch seconds, otherwise epoch millis.
+    const ms = value < 1e12 ? value * 1000 : value;
+    return new Date(ms);
+  }
+
+  if (typeof value === 'string') {
+    const trimmed = value.trim();
+    if (!trimmed) {
+      return null;
+    }
+    const parsed = new Date(trimmed);
+    return Number.isNaN(parsed.getTime()) ? null : parsed;
+  }
+
+  return null;
+}
+
+/**
+ * Parses `rate_limits.model_scoped` (Claude Code 2.1.206+ schema, currently
+ * feature-gated and not emitted) into the HUD's internal per-model usage
+ * shape. Entries missing a usable display_name or a finite utilization are
+ * dropped; percentages are clamped to 0-100 and rounded; labels are
+ * sanitized against escape/control-char injection and length-capped.
+ */
+export function parseModelScopedFromStdin(
+  entries: ModelScopedStdinEntry[] | null | undefined,
+): NonNullable<UsageData['modelScoped']> {
+  if (!Array.isArray(entries) || entries.length === 0) {
+    return [];
+  }
+
+  const result: NonNullable<UsageData['modelScoped']> = [];
+  for (const entry of entries) {
+    const rawName = entry?.display_name;
+    if (typeof rawName !== 'string') {
+      continue;
+    }
+    const trimmedName = rawName.trim();
+    if (!trimmedName) {
+      continue;
+    }
+
+    const utilization = entry?.utilization;
+    if (typeof utilization !== 'number' || !Number.isFinite(utilization)) {
+      continue;
+    }
+
+    const sanitized = sanitizeDisplayText(trimmedName).trim().slice(0, MODEL_SCOPED_LABEL_MAX_LEN);
+    if (!sanitized) {
+      continue;
+    }
+
+    result.push({
+      label: sanitized,
+      percent: Math.round(Math.min(100, Math.max(0, utilization))),
+      resetAt: parseModelScopedResetAt(entry?.resets_at),
+    });
+  }
+
+  return result;
+}
+
 export function getUsageFromStdin(stdin: StdinData): UsageData | null {
   const rateLimits = stdin.rate_limits;
   if (!rateLimits) {
@@ -312,7 +388,9 @@ export function getUsageFromStdin(stdin: StdinData): UsageData | null {
 
   const fiveHour = parseRateLimitPercent(rateLimits.five_hour?.used_percentage);
   const sevenDay = parseRateLimitPercent(rateLimits.seven_day?.used_percentage);
-  if (fiveHour === null && sevenDay === null) {
+  const modelScoped = parseModelScopedFromStdin(rateLimits.model_scoped);
+
+  if (fiveHour === null && sevenDay === null && modelScoped.length === 0) {
     return null;
   }
 
@@ -321,6 +399,7 @@ export function getUsageFromStdin(stdin: StdinData): UsageData | null {
     sevenDay,
     fiveHourResetAt: parseRateLimitResetAt(rateLimits.five_hour?.resets_at),
     sevenDayResetAt: parseRateLimitResetAt(rateLimits.seven_day?.resets_at),
+    ...(modelScoped.length > 0 && { modelScoped }),
   };
 }
 
