@@ -744,6 +744,40 @@ test('renderSessionLine keeps the legacy trailing provider label when showProvid
   }
 });
 
+test('renderProjectLine keeps effort attached to the model before a trailing provider', () => {
+  process.env.CLAUDE_CODE_USE_BEDROCK = '1';
+  try {
+    const ctx = baseContext();
+    ctx.config.lineLayout = 'expanded';
+    ctx.stdin.model = { display_name: 'Claude Opus 4.6' };
+    ctx.effortLevel = 'xhigh';
+    ctx.effortSymbol = '◕';
+
+    const line = stripAnsi(renderProjectLine(ctx) ?? '');
+    assert.ok(line.includes('[Claude Opus 4.6 ◕ xhigh | Bedrock]'), `got: ${line}`);
+    assert.ok(!line.includes('Bedrock ◕ xhigh'), `effort must not attach to provider: ${line}`);
+  } finally {
+    delete process.env.CLAUDE_CODE_USE_BEDROCK;
+  }
+});
+
+test('renderSessionLine keeps effort attached to the model before a trailing provider', () => {
+  process.env.CLAUDE_CODE_USE_BEDROCK = '1';
+  try {
+    const ctx = baseContext();
+    ctx.config.lineLayout = 'compact';
+    ctx.stdin.model = { display_name: 'Claude Opus 4.6' };
+    ctx.effortLevel = 'xhigh';
+    ctx.effortSymbol = '◕';
+
+    const line = stripAnsi(renderSessionLine(ctx));
+    assert.ok(line.includes('[Claude Opus 4.6 ◕ xhigh | Bedrock]'), `got: ${line}`);
+    assert.ok(!line.includes('Bedrock ◕ xhigh'), `effort must not attach to provider: ${line}`);
+  } finally {
+    delete process.env.CLAUDE_CODE_USE_BEDROCK;
+  }
+});
+
 test('renderProjectLine uses configurable element colors', () => {
   const ctx = baseContext();
   ctx.stdin.cwd = '/tmp/my-project';
@@ -831,6 +865,32 @@ test('renderEnvironmentLine appends output style after config counts', () => {
   assert.ok(line?.includes('style: learning'));
 });
 
+test('renderEnvironmentLine treats missing showConfigCounts as disabled in expanded layout', () => {
+  const ctx = baseContext();
+  ctx.config.lineLayout = 'expanded';
+  delete ctx.config.display.showConfigCounts;
+  ctx.claudeMdCount = 2;
+  ctx.rulesCount = 1;
+  ctx.mcpCount = 3;
+  ctx.hooksCount = 4;
+
+  assert.equal(renderEnvironmentLine(ctx), null);
+});
+
+test('renderSessionLine treats missing showConfigCounts as disabled in compact layout', () => {
+  const ctx = baseContext();
+  ctx.config.lineLayout = 'compact';
+  delete ctx.config.display.showConfigCounts;
+  ctx.claudeMdCount = 2;
+  ctx.rulesCount = 1;
+  ctx.mcpCount = 3;
+  ctx.hooksCount = 4;
+
+  const line = stripAnsi(renderSessionLine(ctx));
+  assert.ok(!line.includes('CLAUDE.md'), `config counts must remain opt-in: ${line}`);
+  assert.ok(!line.includes('MCPs'), `config counts must remain opt-in: ${line}`);
+});
+
 test('renderProjectLine includes duration when showDuration is true', () => {
   const ctx = baseContext();
   ctx.stdin.cwd = '/tmp/my-project';
@@ -909,6 +969,26 @@ test('renderProjectLine omits duration when showDuration is false', () => {
   ctx.sessionDuration = '12m 34s';
   const line = renderProjectLine(ctx);
   assert.ok(!line?.includes('12m 34s'), 'should not include session duration when disabled');
+});
+
+test('renderProjectLine treats missing showDuration as disabled in expanded layout', () => {
+  const ctx = baseContext();
+  ctx.config.lineLayout = 'expanded';
+  delete ctx.config.display.showDuration;
+  ctx.sessionDuration = '12m 34s';
+
+  const line = stripAnsi(renderProjectLine(ctx) ?? '');
+  assert.ok(!line.includes('12m 34s'), `duration must remain opt-in: ${line}`);
+});
+
+test('renderSessionLine treats missing showDuration as disabled in compact layout', () => {
+  const ctx = baseContext();
+  ctx.config.lineLayout = 'compact';
+  delete ctx.config.display.showDuration;
+  ctx.sessionDuration = '12m 34s';
+
+  const line = stripAnsi(renderSessionLine(ctx));
+  assert.ok(!line.includes('12m 34s'), `duration must remain opt-in: ${line}`);
 });
 
 test('renderProjectLine includes speed when showSpeed is true and speed is available', async () => {
