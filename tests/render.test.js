@@ -1905,6 +1905,25 @@ test('renderSessionLine displays usage percentages (7d hidden when low)', () => 
   assert.ok(line.includes('6%'), 'should include 5h percentage');
 });
 
+test('default merged config hides low weekly usage in compact and expanded layouts', () => {
+  const ctx = baseContext();
+  ctx.config = mergeConfig({});
+  ctx.usageData = {
+    planName: 'Pro',
+    fiveHour: 10,
+    sevenDay: 0,
+    fiveHourResetAt: null,
+    sevenDayResetAt: null,
+  };
+
+  const compactLine = stripAnsi(renderSessionLine(ctx));
+  const expandedLine = stripAnsi(renderUsageLine(ctx) ?? '');
+  assert.ok(compactLine.includes('Usage'), `compact usage should include the 5h window: ${compactLine}`);
+  assert.ok(!compactLine.includes('Weekly'), `compact usage should hide low weekly usage: ${compactLine}`);
+  assert.ok(expandedLine.includes('Usage'), `expanded usage should include the 5h window: ${expandedLine}`);
+  assert.ok(!expandedLine.includes('Weekly'), `expanded usage should hide low weekly usage: ${expandedLine}`);
+});
+
 test('renderSessionLine displays external balance labels', () => {
   const ctx = baseContext();
   ctx.usageData = {
@@ -2055,7 +2074,7 @@ test('renderSessionLine shows 7d reset countdown in text-only mode', () => {
 
 test('renderSessionLine respects sevenDayThreshold override', () => {
   const ctx = baseContext();
-  ctx.config.display.sevenDayThreshold = 0;
+  ctx.config = mergeConfig({ display: { sevenDayThreshold: 0 } });
   ctx.usageData = {
     planName: 'Pro',
     fiveHour: 10,

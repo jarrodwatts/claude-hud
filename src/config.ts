@@ -480,9 +480,9 @@ function migrateConfig(userConfig: Partial<HudConfig> & LegacyConfig): Partial<H
   return migrated;
 }
 
-function validateThreshold(value: unknown, max = 100): number {
-  if (typeof value !== 'number') return 0;
-  return Math.max(0, Math.min(max, value));
+function validateThreshold(value: unknown, fallback: number): number {
+  if (typeof value !== 'number' || !Number.isFinite(value)) return fallback;
+  return Math.max(0, Math.min(100, value));
 }
 
 function validateContextThreshold(value: unknown, fallback: number): number {
@@ -708,9 +708,18 @@ export function mergeConfig(userConfig: Partial<HudConfig>): HudConfig {
       migrated.display?.contextCriticalThreshold,
       DEFAULT_CONFIG.display.contextCriticalThreshold,
     ),
-    usageThreshold: validateThreshold(migrated.display?.usageThreshold, 100),
-    sevenDayThreshold: validateThreshold(migrated.display?.sevenDayThreshold, 100),
-    environmentThreshold: validateThreshold(migrated.display?.environmentThreshold, 100),
+    usageThreshold: validateThreshold(
+      migrated.display?.usageThreshold,
+      DEFAULT_CONFIG.display.usageThreshold,
+    ),
+    sevenDayThreshold: validateThreshold(
+      migrated.display?.sevenDayThreshold,
+      DEFAULT_CONFIG.display.sevenDayThreshold,
+    ),
+    environmentThreshold: validateThreshold(
+      migrated.display?.environmentThreshold,
+      DEFAULT_CONFIG.display.environmentThreshold,
+    ),
     externalUsagePath: validateOptionalPath(migrated.display?.externalUsagePath),
     externalUsageWritePath: validateOptionalPath(migrated.display?.externalUsageWritePath),
     externalUsageFreshnessMs: validateFreshnessMs(migrated.display?.externalUsageFreshnessMs),

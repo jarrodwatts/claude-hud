@@ -252,6 +252,35 @@ test('mergeConfig falls back to defaults for invalid context thresholds', () => 
   assert.equal(config.display.contextCriticalThreshold, 85);
 });
 
+test('mergeConfig defaults display thresholds from DEFAULT_CONFIG', () => {
+  const config = mergeConfig({});
+  assert.equal(config.display.usageThreshold, DEFAULT_CONFIG.display.usageThreshold);
+  assert.equal(config.display.sevenDayThreshold, DEFAULT_CONFIG.display.sevenDayThreshold);
+  assert.equal(config.display.environmentThreshold, DEFAULT_CONFIG.display.environmentThreshold);
+});
+
+test('mergeConfig preserves and clamps explicit display thresholds', () => {
+  const config = mergeConfig({
+    display: { usageThreshold: -10, sevenDayThreshold: 42, environmentThreshold: 150 },
+  });
+  assert.equal(config.display.usageThreshold, 0);
+  assert.equal(config.display.sevenDayThreshold, 42);
+  assert.equal(config.display.environmentThreshold, 100);
+});
+
+test('mergeConfig falls back to defaults for invalid display thresholds', () => {
+  const config = mergeConfig({
+    display: { usageThreshold: 'always', sevenDayThreshold: Number.NaN, environmentThreshold: null },
+  });
+  assert.equal(config.display.usageThreshold, DEFAULT_CONFIG.display.usageThreshold);
+  assert.equal(config.display.sevenDayThreshold, DEFAULT_CONFIG.display.sevenDayThreshold);
+  assert.equal(config.display.environmentThreshold, DEFAULT_CONFIG.display.environmentThreshold);
+  assert.equal(
+    mergeConfig({ display: { sevenDayThreshold: Number.POSITIVE_INFINITY } }).display.sevenDayThreshold,
+    DEFAULT_CONFIG.display.sevenDayThreshold,
+  );
+});
+
 test('mergeConfig preserves valid git branch overflow modes', () => {
   assert.equal(mergeConfig({ gitStatus: { branchOverflow: 'wrap' } }).gitStatus.branchOverflow, 'wrap');
   assert.equal(mergeConfig({ gitStatus: { branchOverflow: 'truncate' } }).gitStatus.branchOverflow, 'truncate');
