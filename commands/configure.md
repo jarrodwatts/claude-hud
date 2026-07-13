@@ -19,7 +19,7 @@ enabled — toggle them by editing `config.json` directly if needed:
 
 Advanced settings such as `colors.*`, `pathLevels`, `maxWidth`, `forceMaxWidth`,
 `elementOrder`, `display.mergeGroups`, `display.timeFormat`, `display.contextValue`,
-`display.modelFormat`, `display.modelOverride`, `display.showProvider`,
+`display.modelFormat`, `display.modelOverride`, `display.modelSource`, `display.showProvider`,
 `display.providerName`, `display.autocompactBuffer`,
 `display.autoCompactWindow`, `display.promptCacheTtlSeconds`,
 `display.usageThreshold`, `display.sevenDayThreshold`,

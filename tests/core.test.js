@@ -7,7 +7,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { _setCreateReadStreamForTests, parseTranscript } from '../dist/transcript.js';
 import { countConfigs } from '../dist/config-reader.js';
-import { getContextPercent, getBufferedPercent, getModelName, getProviderLabel, getUsageFromStdin, isBedrockModelId, stripContextSuffix, formatModelName } from '../dist/stdin.js';
+import { getContextPercent, getBufferedPercent, getModelName, getProviderLabel, getUsageFromStdin, isBedrockModelId, stripContextSuffix, formatModelName, resolveModelName } from '../dist/stdin.js';
 import { estimateSessionCost, resolveSessionCost, formatUsd } from '../dist/cost.js';
 import * as fs from 'node:fs';
 
@@ -375,6 +375,42 @@ test('formatModelName override replaces model name entirely', () => {
   assert.equal(formatModelName('Opus 4.6', 'full', ''), 'Opus 4.6');
 });
 
+test('resolveModelName preserves stdin as the default source', () => {
+  const stdin = { model: { display_name: 'Claude Opus' } };
+  const transcript = { lastAssistantModel: 'glm-5.2' };
+
+  assert.equal(resolveModelName(stdin, transcript), 'Claude Opus');
+  assert.equal(resolveModelName(stdin, transcript, 'stdin'), 'Claude Opus');
+});
+
+test('resolveModelName supports opt-in auto and transcript sources', () => {
+  const stdin = { model: { display_name: 'Claude Opus' } };
+
+  assert.equal(resolveModelName(stdin, { lastAssistantModel: 'glm-5.2' }, 'auto'), 'glm-5.2');
+  assert.equal(resolveModelName(stdin, { lastAssistantModel: 'claude-sonnet-4-6' }, 'auto'), 'Claude Opus');
+  assert.equal(resolveModelName(stdin, { lastAssistantModel: 'claude-sonnet-4-6' }, 'transcript'), 'claude-sonnet-4-6');
+});
+
+test('resolveModelName falls back to stdin when the transcript model is missing', () => {
+  const stdin = { model: { display_name: 'Claude Opus' } };
+
+  assert.equal(resolveModelName(stdin, undefined, 'auto'), 'Claude Opus');
+  assert.equal(resolveModelName(stdin, {}, 'transcript'), 'Claude Opus');
+});
+
+test('resolveModelName sanitizes and caps transcript models at the render boundary', () => {
+  const malicious = `proxy-\x1b[31mred\x1b[0m\x1b]8;;https://evil.test\x07link\x1b]8;;\x07\u202E${'x'.repeat(100)}`;
+  const resolved = resolveModelName(
+    { model: { display_name: 'Claude Opus' } },
+    { lastAssistantModel: malicious },
+    'transcript',
+  );
+
+  assert.ok(resolved.startsWith('proxy-redlink'));
+  assert.equal(resolved.length, 80);
+  assert.doesNotMatch(resolved, /[\x1b\u202E]/u);
+});
+
 test('bedrock model detection recognizes bedrock ids', () => {
   assert.ok(isBedrockModelId('anthropic.claude-3-5-sonnet-20240620-v1:0'));
   assert.ok(isBedrockModelId('eu.anthropic.claude-opus-4-5-20251101-v1:0'));
@@ -606,6 +642,17 @@ test('parseTranscript accumulates session token usage from assistant messages', 
   } finally {
     await rm(dir, { recursive: true, force: true });
   }
+});
+
+test('parseTranscript sanitizes and caps assistant model IDs at ingestion', async () => {
+  const malicious = `proxy-\x1b[31mred\x1b[0m\x1b]8;;https://evil.test\x07link\x1b]8;;\x07\u202E${'x'.repeat(100)}`;
+  const result = await parseTempTranscript('transcript-model-sanitization.jsonl', [
+    { type: 'assistant', message: { model: malicious } },
+  ]);
+
+  assert.ok(result.lastAssistantModel?.startsWith('proxy-redlink'));
+  assert.equal(result.lastAssistantModel?.length, 80);
+  assert.doesNotMatch(result.lastAssistantModel ?? '', /[\x1b\u202E]/u);
 });
 
 test('parseTranscript deduplicates adjacent duplicate assistant usage by message.id', async () => {
@@ -1590,6 +1637,39 @@ test('parseTranscript reuses cached data when transcript state is unchanged', as
     assert.equal(second.tools.length, 1);
     assert.equal(second.tools[0].target, '/tmp/original.txt');
     assert.equal(second.compactionCount, 1);
+  } finally {
+    restoreEnvVar('CLAUDE_CONFIG_DIR', originalConfigDir);
+    await rm(dir, { recursive: true, force: true });
+  }
+});
+
+test('parseTranscript sanitizes and caps a poisoned cached model ID', async () => {
+  const dir = await mkdtemp(path.join(tmpdir(), 'claude-hud-transcript-cache-'));
+  const configDir = path.join(dir, '.claude-test');
+  const transcriptPath = path.join(dir, 'cache-model-poison.jsonl');
+  const originalConfigDir = process.env.CLAUDE_CONFIG_DIR;
+  const line = `${JSON.stringify({
+    type: 'assistant',
+    message: { model: 'safe-model' },
+  })}\n`;
+  const malicious = `cache-\x1b[31mred\x1b[0m\x1b]8;;https://evil.test\x07link\x1b]8;;\x07\u202E${'x'.repeat(100)}`;
+
+  process.env.CLAUDE_CONFIG_DIR = configDir;
+  await writeFile(transcriptPath, line, 'utf8');
+
+  try {
+    const first = await parseTranscript(transcriptPath);
+    assert.equal(first.lastAssistantModel, 'safe-model');
+
+    const cachePath = await getTranscriptCacheFile(configDir);
+    const cache = JSON.parse(fs.readFileSync(cachePath, 'utf8'));
+    cache.data.lastAssistantModel = malicious;
+    await writeFile(cachePath, JSON.stringify(cache), 'utf8');
+
+    const second = await parseTranscript(transcriptPath);
+    assert.ok(second.lastAssistantModel?.startsWith('cache-redlink'));
+    assert.equal(second.lastAssistantModel?.length, 80);
+    assert.doesNotMatch(second.lastAssistantModel ?? '', /[\x1b\u202E]/u);
   } finally {
     restoreEnvVar('CLAUDE_CONFIG_DIR', originalConfigDir);
     await rm(dir, { recursive: true, force: true });

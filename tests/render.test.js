@@ -534,6 +534,18 @@ test('renderSessionLine applies modelOverride', () => {
   assert.ok(!line.includes('Claude Opus'));
 });
 
+test('renderSessionLine renders a sanitized opt-in transcript model', () => {
+  const ctx = baseContext();
+  ctx.stdin.model = { display_name: 'Claude Opus' };
+  ctx.transcript.lastAssistantModel = 'proxy-\x1b[31mred\x1b[0m\x1b]8;;https://evil.test\x07link\x1b]8;;\x07\u202E';
+  ctx.config.display.modelSource = 'transcript';
+
+  const line = stripAnsi(renderSessionLine(ctx));
+  assert.ok(line.includes('[proxy-redlink]'), `got: ${line}`);
+  assert.ok(!line.includes('Claude Opus'));
+  assert.doesNotMatch(line, /[\x1b\u202E]/u);
+});
+
 test('renderProjectLine includes session name when showSessionName is true', () => {
   const ctx = baseContext();
   ctx.stdin.cwd = '/tmp/my-project';
@@ -674,6 +686,18 @@ test('renderProjectLine modelOverride takes precedence over modelFormat', () => 
   ctx.config.display.modelOverride = 'My Custom Model';
   const line = stripAnsi(renderProjectLine(ctx) ?? '');
   assert.ok(line.includes('My Custom Model'));
+});
+
+test('renderProjectLine renders a sanitized opt-in auto transcript model', () => {
+  const ctx = baseContext();
+  ctx.stdin.model = { display_name: 'Claude Opus' };
+  ctx.transcript.lastAssistantModel = 'glm-\x1b[31mred\x1b[0m\x1b]8;;https://evil.test\x07link\x1b]8;;\x07\u202E';
+  ctx.config.display.modelSource = 'auto';
+
+  const line = stripAnsi(renderProjectLine(ctx) ?? '');
+  assert.ok(line.includes('[glm-redlink]'), `got: ${line}`);
+  assert.ok(!line.includes('Claude Opus'));
+  assert.doesNotMatch(line, /[\x1b\u202E]/u);
 });
 
 test('renderProjectLine shows custom provider before the model when showProvider is on', () => {

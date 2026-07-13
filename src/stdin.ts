@@ -2,6 +2,7 @@ import type { StdinData, UsageData, TranscriptData } from './types.js';
 import type { ModelFormatMode } from './config.js';
 import { AUTOCOMPACT_BUFFER_PERCENT } from './constants.js';
 import { createDebug } from './debug.js';
+import { sanitizeTranscriptModel } from './model-source.js';
 
 const debug = createDebug('stdin');
 
@@ -262,17 +263,19 @@ function isClaudeModel(model?: string): boolean {
  * - "stdin":      Always use the model from Claude Code's stdin (display_name).
  * - "transcript": Always use the model from the API response (message.model).
  *                 Falls back to stdin when transcript has no assistant messages yet.
- * - "auto" (default): Use stdin for Claude models, transcript for non-Claude.
+ * - "auto": Use stdin for Claude models, transcript for non-Claude.
  *                      Detects proxy redirects (cc-switch, LiteLLM, etc.) that
  *                      serve a different model than what Claude Code requested.
  */
 export function resolveModelName(
   stdin: StdinData,
   transcript: TranscriptData | undefined,
-  modelSource: 'auto' | 'stdin' | 'transcript' = 'auto',
+  modelSource: 'auto' | 'stdin' | 'transcript' = 'stdin',
 ): string {
   const stdinModel = getModelName(stdin);
-  const transcriptModel = transcript?.lastAssistantModel;
+  // Treat TranscriptData as untrusted at the render boundary too. Callers and
+  // poisoned cache objects can bypass parse-time normalization.
+  const transcriptModel = sanitizeTranscriptModel(transcript?.lastAssistantModel);
 
   if (modelSource === 'stdin' || !transcriptModel) {
     return stdinModel;

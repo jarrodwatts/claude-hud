@@ -144,7 +144,8 @@ export interface TranscriptData {
   ultracodeActive?: boolean;
   // Model ID from the most recent assistant message's `message.model` field.
   // This reflects what the API actually served — may differ from stdin.model
-  // when a proxy (e.g. cc-switch) routes to a different model.
+  // when a proxy (e.g. cc-switch) routes to a different model. Transcript
+  // parsing sanitizes terminal controls and caps the retained value at 80 chars.
   lastAssistantModel?: string;
 }
 

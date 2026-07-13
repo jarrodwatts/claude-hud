@@ -169,8 +169,9 @@ export interface HudConfig {
     modelOverride: string;
     // Controls which source the model name comes from:
     //   "auto"      — Use stdin model for Claude models, transcript model for
-    //                 non-Claude (proxy redirect detection). Default.
+    //                 non-Claude (proxy redirect detection). Opt-in.
     //   "stdin"     — Always use the model Claude Code reports (display_name).
+    //                 Default; preserves existing behavior.
     //   "transcript"— Always use the model from the API response (message.model).
     //                 Best for proxy users (cc-switch, LiteLLM, etc.) who want
     //                 the actual served model, not the configured one.
@@ -265,7 +266,7 @@ export const DEFAULT_CONFIG: HudConfig = {
     externalUsageFreshnessMs: 300000,
     modelFormat: 'full',
     modelOverride: '',
-    modelSource: 'auto',
+    modelSource: 'stdin',
     showProvider: false,
     providerName: '',
     customLine: '',
