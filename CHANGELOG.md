@@ -4,6 +4,11 @@ All notable changes to Claude HUD will be documented in this file.
 
 ## [Unreleased]
 
+## [0.4.1] - 2026-07-14
+
+### Fixed
+- Restore the default 80% weekly-usage threshold when the setting is omitted or invalid, preventing the weekly segment from appearing at 0% while preserving the existing usage and environment defaults (#662).
+
 ## [0.4.0] - 2026-07-13
 
 ### Added
