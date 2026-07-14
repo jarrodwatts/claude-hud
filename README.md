@@ -81,6 +81,7 @@ Claude HUD gives you better insights into what's happening in your Claude Code s
 | **Tool activity** | Watch Claude read, edit, and search files as it happens |
 | **Agent tracking** | See which subagents are running and what they're doing |
 | **Todo progress** | Track task completion in real-time |
+| **Git actions** | Run `/claude-hud:git` for fetch, pull, branch switching, branch creation, push, and status checks |
 
 ## What You See
 
@@ -89,6 +90,17 @@ Claude HUD gives you better insights into what's happening in your Claude Code s
 [Opus] │ my-project git:(main*)
 Context █████░░░░░ 45% │ Usage ██░░░░░░░░ 25% (1h 30m / 5h)
 ```
+
+### Git Actions
+
+The HUD shows branch state inline, and `/claude-hud:git` provides an interactive menu for common Git operations:
+
+- refresh remote state with `git fetch --prune`
+- pull the current branch with `git pull --ff-only`
+- switch to a local or remote branch
+- create a new branch
+- push the current branch and set upstream when needed
+- show status without changing anything
 - **Line 1** — Model, provider label when positively identified (for example `Bedrock`, `Vertex`), project path, git branch
 - **Line 2** — Context bar (green → yellow → red) and usage rate limits
 

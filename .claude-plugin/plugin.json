@@ -8,7 +8,8 @@
   },
   "commands": [
     "./commands/setup.md",
-    "./commands/configure.md"
+    "./commands/configure.md",
+    "./commands/git.md"
   ],
   "homepage": "https://github.com/jarrodwatts/claude-hud",
   "repository": "https://github.com/jarrodwatts/claude-hud",

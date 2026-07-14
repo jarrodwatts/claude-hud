@@ -4,6 +4,11 @@ All notable changes to Claude HUD will be documented in this file.
 
 ## [Unreleased]
 
+## [0.4.3] - 2026-07-14
+
+### Added
+- Add `/claude-hud:git`, an interactive Git action menu for common workspace operations including fetch, pull, branch switching, branch creation, and push.
+
 ## [0.4.2] - 2026-07-14
 
 ### Fixed
