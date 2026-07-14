@@ -123,9 +123,14 @@ test('runExtraCmd returns label from valid JSON output', async () => {
   assert.equal(result, 'test');
 });
 
-test('runExtraCmd returns null for non-JSON output', async () => {
-  const result = await runExtraCmd('echo "not json"');
-  assert.equal(result, null);
+test('runExtraCmd returns the last non-empty line from plain output', async () => {
+  const result = await runExtraCmd('printf "setup\\nnot json\\n"');
+  assert.equal(result, 'not json');
+});
+
+test('runExtraCmd summarizes plain npm-style success output', async () => {
+  const result = await runExtraCmd('printf "> app@1.0.0 test\\n> node --test\\n\\n# pass 3\\n"');
+  assert.equal(result, '# pass 3');
 });
 
 test('runExtraCmd returns null for JSON without label field', async () => {

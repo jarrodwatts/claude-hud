@@ -4,6 +4,13 @@ All notable changes to Claude HUD will be documented in this file.
 
 ## [Unreleased]
 
+## [0.4.2] - 2026-07-14
+
+### Fixed
+- Show a useful git ref for detached HEAD sessions by preferring exact tags and falling back to a short detached commit label.
+- Preserve slash-separated branch names in GitHub branch links so clicking the HUD branch opens the expected remote branch.
+- Allow `--extra-cmd` to summarize plain successful command output, so local checks such as `npm test` can produce a HUD label without wrapping their output in JSON.
+
 ## [0.4.1] - 2026-07-14
 
 ### Fixed

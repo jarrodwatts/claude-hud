@@ -39,12 +39,7 @@ export async function getGitBranch(cwd?: string): Promise<string | null> {
   if (!cwd) return null;
 
   try {
-    const { stdout } = await execFileAsync(
-      'git',
-      ['rev-parse', '--abbrev-ref', 'HEAD'],
-      { cwd, timeout: 1000, encoding: 'utf8', windowsHide: true }
-    );
-    return stdout.trim() || null;
+    return await resolveGitRef(cwd);
   } catch (err) {
     debug('Failed to get git branch:', err instanceof Error ? err.message : err);
     return null;
@@ -56,12 +51,7 @@ export async function getGitStatus(cwd?: string): Promise<GitStatus | null> {
 
   try {
     // Get branch name
-    const { stdout: branchOut } = await execFileAsync(
-      'git',
-      ['rev-parse', '--abbrev-ref', 'HEAD'],
-      { cwd, timeout: 1000, encoding: 'utf8', windowsHide: true }
-    );
-    const branch = branchOut.trim();
+    const branch = await resolveGitRef(cwd);
     if (!branch) return null;
 
     // Check for dirty state and parse file stats
@@ -134,7 +124,7 @@ export async function getGitStatus(cwd?: string): Promise<GitStatus | null> {
         .replace(/^ssh:\/\/git@github\.com\//, 'https://github.com/')
         .replace(/\.git$/, '');
       if (httpsBase.startsWith('https://github.com/')) {
-        branchUrl = `${httpsBase}/tree/${encodeURIComponent(branch)}`;
+        branchUrl = `${httpsBase}/tree/${encodeGitHubRef(branch)}`;
       }
     } catch (err) {
       debug('Failed to get remote URL:', err instanceof Error ? err.message : err);
@@ -145,6 +135,42 @@ export async function getGitStatus(cwd?: string): Promise<GitStatus | null> {
     debug('getGitStatus failed:', err instanceof Error ? err.message : err);
     return null;
   }
+}
+
+async function resolveGitRef(cwd: string): Promise<string | null> {
+  const { stdout: branchOut } = await execFileAsync(
+    'git',
+    ['rev-parse', '--abbrev-ref', 'HEAD'],
+    { cwd, timeout: 1000, encoding: 'utf8', windowsHide: true }
+  );
+  const branch = branchOut.trim();
+  if (branch && branch !== 'HEAD') {
+    return branch;
+  }
+
+  try {
+    const { stdout: tagOut } = await execFileAsync(
+      'git',
+      ['describe', '--tags', '--exact-match', 'HEAD'],
+      { cwd, timeout: 1000, encoding: 'utf8', windowsHide: true }
+    );
+    const tag = tagOut.trim();
+    if (tag) return tag;
+  } catch {
+    // Detached commits often are not tagged; fall back to a short commit id.
+  }
+
+  const { stdout: shortShaOut } = await execFileAsync(
+    'git',
+    ['rev-parse', '--short', 'HEAD'],
+    { cwd, timeout: 1000, encoding: 'utf8', windowsHide: true }
+  );
+  const shortSha = shortShaOut.trim();
+  return shortSha ? `detached:${shortSha}` : null;
+}
+
+function encodeGitHubRef(ref: string): string {
+  return ref.split('/').map(encodeURIComponent).join('/');
 }
 
 /**

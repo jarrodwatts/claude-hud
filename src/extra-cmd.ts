@@ -77,8 +77,13 @@ export function parseExtraCmdArg(
 }
 
 /**
- * Execute a command and parse JSON output expecting { label: string }
- * Returns null on any error (timeout, parse failure, missing label)
+ * Execute a command and parse output.
+ *
+ * Preferred output is JSON shaped as { label: string }. For simple local
+ * checks such as `npm test`, plain stdout is also accepted and summarized
+ * from the last non-empty line.
+ *
+ * Returns null on command errors, timeouts, or empty output.
  *
  * SECURITY NOTE: The cmd parameter is sourced exclusively from CLI arguments
  * (--extra-cmd) typed by the user. Since the user controls their own shell,
@@ -91,27 +96,45 @@ export async function runExtraCmd(cmd: string, timeout: number = TIMEOUT_MS): Pr
       maxBuffer: MAX_BUFFER,
       windowsHide: true,
     });
-    const data: unknown = JSON.parse(stdout.trim());
-    if (
-      typeof data === 'object' &&
-      data !== null &&
-      'label' in data &&
-      typeof (data as ExtraLabel).label === 'string'
-    ) {
-      let label = sanitize((data as ExtraLabel).label);
-      if (label.length > MAX_LABEL_LENGTH) {
-        label = label.slice(0, MAX_LABEL_LENGTH - 1) + '…';
-      }
-      return label;
+    const output = stdout.trim();
+    if (!output) {
+      debug('Command produced empty stdout');
+      return null;
     }
-    debug(`Command output missing 'label' field or invalid type: ${JSON.stringify(data)}`);
-    return null;
+
+    let label: string;
+    try {
+      const data: unknown = JSON.parse(output);
+      if (
+        typeof data === 'object' &&
+        data !== null &&
+        'label' in data &&
+        typeof (data as ExtraLabel).label === 'string'
+      ) {
+        label = (data as ExtraLabel).label;
+      } else {
+        debug(`Command output missing 'label' field or invalid type: ${JSON.stringify(data)}`);
+        return null;
+      }
+    } catch (err) {
+      if (!(err instanceof SyntaxError)) {
+        throw err;
+      }
+      label = summarizePlainOutput(output);
+    }
+
+    label = sanitize(label);
+    if (!label) {
+      return null;
+    }
+    if (label.length > MAX_LABEL_LENGTH) {
+      label = label.slice(0, MAX_LABEL_LENGTH - 1) + '…';
+    }
+    return label;
   } catch (err) {
     if (err instanceof Error) {
       if (err.message.includes('TIMEOUT') || err.message.includes('killed')) {
         debug(`Command timed out after ${timeout}ms: ${cmd}`);
-      } else if (err instanceof SyntaxError) {
-        debug(`Failed to parse JSON output: ${err.message}`);
       } else {
         debug(`Command failed: ${err.message}`);
       }
@@ -120,4 +143,13 @@ export async function runExtraCmd(cmd: string, timeout: number = TIMEOUT_MS): Pr
     }
     return null;
   }
+}
+
+function summarizePlainOutput(output: string): string {
+  const lines = output
+    .split(/\r?\n/)
+    .map(line => line.trim())
+    .filter(Boolean);
+
+  return lines.at(-1) ?? '';
 }

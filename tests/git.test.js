@@ -52,6 +52,40 @@ test('getGitBranch returns custom branch name', async () => {
   }
 });
 
+test('getGitBranch returns an exact tag name for detached tagged HEAD', async () => {
+  const dir = await mkdtemp(path.join(tmpdir(), 'claude-hud-git-'));
+  try {
+    execFileSync('git', ['init'], { cwd: dir, stdio: 'ignore' });
+    execFileSync('git', ['config', 'user.email', 'test@test.com'], { cwd: dir, stdio: 'ignore' });
+    execFileSync('git', ['config', 'user.name', 'Test'], { cwd: dir, stdio: 'ignore' });
+    execFileSync('git', ['commit', '--allow-empty', '-m', 'init'], { cwd: dir, stdio: 'ignore' });
+    execFileSync('git', ['tag', 'v1.2.3'], { cwd: dir, stdio: 'ignore' });
+    execFileSync('git', ['checkout', '--detach', 'HEAD'], { cwd: dir, stdio: 'ignore' });
+
+    const result = await getGitBranch(dir);
+    assert.equal(result, 'v1.2.3');
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
+});
+
+test('getGitBranch returns a detached short sha label for untagged detached HEAD', async () => {
+  const dir = await mkdtemp(path.join(tmpdir(), 'claude-hud-git-'));
+  try {
+    execFileSync('git', ['init'], { cwd: dir, stdio: 'ignore' });
+    execFileSync('git', ['config', 'user.email', 'test@test.com'], { cwd: dir, stdio: 'ignore' });
+    execFileSync('git', ['config', 'user.name', 'Test'], { cwd: dir, stdio: 'ignore' });
+    execFileSync('git', ['commit', '--allow-empty', '-m', 'init'], { cwd: dir, stdio: 'ignore' });
+    const fullSha = execFileSync('git', ['rev-parse', 'HEAD'], { cwd: dir, encoding: 'utf8' }).trim();
+    execFileSync('git', ['checkout', '--detach', fullSha], { cwd: dir, stdio: 'ignore' });
+
+    const result = await getGitBranch(dir);
+    assert.match(result ?? '', /^detached:[0-9a-f]{7,}$/);
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
+});
+
 // getGitStatus tests
 test('getGitStatus returns null when cwd is undefined', async () => {
   const result = await getGitStatus(undefined);
@@ -369,7 +403,7 @@ test('getGitStatus builds branchUrl from HTTPS origin remotes', async () => {
     execFileSync('git', ['remote', 'add', 'origin', 'https://github.com/example/claude-hud.git'], { cwd: dir, stdio: 'ignore' });
 
     const result = await getGitStatus(dir);
-    assert.equal(result?.branchUrl, 'https://github.com/example/claude-hud/tree/feature%2Ftest-branch');
+    assert.equal(result?.branchUrl, 'https://github.com/example/claude-hud/tree/feature/test-branch');
   } finally {
     await rm(dir, { recursive: true, force: true });
   }
@@ -386,7 +420,7 @@ test('getGitStatus builds branchUrl from SSH origin remotes', async () => {
     execFileSync('git', ['remote', 'add', 'origin', 'git@github.com:example/claude-hud.git'], { cwd: dir, stdio: 'ignore' });
 
     const result = await getGitStatus(dir);
-    assert.equal(result?.branchUrl, 'https://github.com/example/claude-hud/tree/feature%2Ftest-branch');
+    assert.equal(result?.branchUrl, 'https://github.com/example/claude-hud/tree/feature/test-branch');
   } finally {
     await rm(dir, { recursive: true, force: true });
   }
