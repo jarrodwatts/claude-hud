@@ -4,6 +4,15 @@ All notable changes to Claude HUD will be documented in this file.
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-07-16
+
+### Added
+- Render bounded model-scoped weekly usage windows from Claude Code statusline input in expanded and compact layouts, including remaining-value, reset-time, threshold, and custom-color modes (#669).
+
+### Security
+- Sanitize and bound model-scoped usage labels and values before terminal rendering, and keep scoped-only input from overwriting shared external usage snapshots (#669).
+- Clean compiled output before every build and enforce source-to-artifact parity so removed modules cannot remain in release packages (#670).
+
 ## [0.4.2] - 2026-07-15
 
 ### Fixed
