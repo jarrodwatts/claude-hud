@@ -8,10 +8,11 @@
     "dist/",
     "src/",
     "commands/",
+    "scripts/clean-dist.mjs",
     ".claude-plugin/"
   ],
   "scripts": {
-    "build": "tsc",
+    "build": "node scripts/clean-dist.mjs && tsc",
     "dev": "tsc --watch",
     "test": "npm run build && node --test",
     "test:coverage": "npm run build && c8 --reporter=text --reporter=lcov node --test",
