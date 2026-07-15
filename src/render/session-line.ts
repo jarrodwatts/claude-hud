@@ -174,8 +174,34 @@ export function renderSessionLine(ctx: RenderContext): string {
     const usageCompact = display?.usageCompact ?? false;
     const showResetLabel = display?.showResetLabel ?? true;
     const usageValueMode = display?.usageValue ?? 'percent';
+    const scopedWindows = ctx.usageData.scopedWindows ?? [];
+    const hasGenericWindowData = ctx.usageData.fiveHour !== null || ctx.usageData.sevenDay !== null;
+    const hasWindowData = hasGenericWindowData || scopedWindows.length > 0;
+    const scopedParts = scopedWindows.map((window) =>
+      usageCompact
+        ? formatCompactWindowPart(
+            window.label,
+            window.percent,
+            window.resetAt,
+            timeFormat,
+            colors,
+            usageValueMode,
+          )
+        : formatUsageWindowPart({
+            label: window.label,
+            percent: window.percent,
+            resetAt: window.resetAt,
+            colors,
+            usageBarEnabled: display?.usageBarEnabled ?? true,
+            barWidth,
+            timeFormat,
+            showResetLabel,
+            forceLabel: true,
+            usageValueMode,
+            windowDurationLabel: '7d',
+          }),
+    );
 
-    const hasWindowData = ctx.usageData.fiveHour !== null || ctx.usageData.sevenDay !== null;
     if (isLimitReached(ctx.usageData)) {
       const resetTime = ctx.usageData.fiveHour === 100
         ? formatResetTime(ctx.usageData.fiveHourResetAt, timeFormat)
@@ -190,11 +216,16 @@ export function renderSessionLine(ctx: RenderContext): string {
           : '';
         parts.push(critical(`⚠ ${t('status.limitReached')}${resetSuffix}`, colors));
       }
+      parts.push(...scopedParts);
     } else {
       const usageThreshold = display?.usageThreshold ?? 0;
       const fiveHour = ctx.usageData.fiveHour;
       const sevenDay = ctx.usageData.sevenDay;
-      const effectiveUsage = Math.max(fiveHour ?? 0, sevenDay ?? 0);
+      const effectiveUsage = Math.max(
+        fiveHour ?? 0,
+        sevenDay ?? 0,
+        ...scopedWindows.map((window) => window.percent ?? 0),
+      );
 
       if ((hasWindowData || !ctx.usageData.balanceLabel) && effectiveUsage >= usageThreshold) {
         const usageBarEnabled = display?.usageBarEnabled ?? true;
@@ -215,6 +246,7 @@ export function renderSessionLine(ctx: RenderContext): string {
           } else if (sevenDayPart) {
             parts.push(sevenDayPart);
           }
+          parts.push(...scopedParts);
         } else if (fiveHour === null && sevenDay !== null) {
           const weeklyOnlyPart = formatUsageWindowPart({
             label: t('label.weekly'),
@@ -229,7 +261,8 @@ export function renderSessionLine(ctx: RenderContext): string {
             usageValueMode,
           });
           parts.push(weeklyOnlyPart);
-        } else {
+          parts.push(...scopedParts);
+        } else if (hasGenericWindowData || !hasWindowData) {
           const fiveHourPart = formatUsageWindowPart({
             label: '5h',
             percent: fiveHour,
@@ -261,6 +294,11 @@ export function renderSessionLine(ctx: RenderContext): string {
           } else {
             parts.push(`${label(t('label.usage'), colors)} ${fiveHourPart}`);
           }
+          parts.push(...scopedParts);
+        } else if (scopedParts.length > 0) {
+          const [firstScopedPart, ...remainingScopedParts] = scopedParts;
+          parts.push(`${label(t('label.usage'), colors)} ${firstScopedPart}`);
+          parts.push(...remainingScopedParts);
         }
       }
     }
@@ -393,6 +431,7 @@ function formatUsageWindowPart({
   showResetLabel,
   forceLabel = false,
   usageValueMode = 'percent',
+  windowDurationLabel,
 }: {
   label: string;
   percent: number | null;
@@ -404,6 +443,7 @@ function formatUsageWindowPart({
   showResetLabel: boolean;
   forceLabel?: boolean;
   usageValueMode?: UsageValueMode;
+  windowDurationLabel?: string;
 }): string {
   const usageDisplay = formatUsagePercent(percent, colors, usageValueMode);
   const reset = formatResetTime(resetAt, timeFormat);
@@ -415,7 +455,7 @@ function formatUsageWindowPart({
     // Relative mode keeps the upstream "(duration / windowLabel)" pattern (e.g. "2h 30m / 5h").
     // Absolute/both modes use the preposition form instead — "(at 14:30 / 5h)" is incoherent.
     const barReset = timeFormat === 'relative'
-      ? (reset ? `${reset} / ${windowLabel}` : null)
+      ? (reset ? `${reset} / ${windowDurationLabel ?? windowLabel}` : null)
       : (reset ? (showResetLabel ? `${t(resetsKey)} ${reset}` : reset) : null);
     const body = barReset
       ? `${quotaBar(percent ?? 0, barWidth, colors)} ${usageDisplay} (${barReset})`

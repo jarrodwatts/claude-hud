@@ -48,7 +48,7 @@ export interface StdinData {
     /**
      * Model-scoped weekly windows (e.g. the Fable weekly quota shown on /usage).
      * Additive field — Claude Code's internal status schema defines it as
-     * { display_name, utilization (0-1 fraction), resets_at (ISO-8601) } and only
+     * { display_name, utilization (0-100 percent), resets_at (ISO-8601) } and only
      * includes it when the server returns per-model windows.
      */
     model_scoped?: Array<{
@@ -102,7 +102,7 @@ export interface UsageData {
 /** One model-scoped weekly quota window (e.g. label "Fable", used percent 0-100). */
 export interface ScopedUsageWindow {
   label: string;
-  percent: number;
+  percent: number | null;
   resetAt: Date | null;
 }
 

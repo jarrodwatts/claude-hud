@@ -252,6 +252,30 @@ test('writeExternalUsageSnapshot is a no-op without parsed stdin rate limits', a
   }
 });
 
+test('writeExternalUsageSnapshot does not replace shared limits with scoped-only usage', async () => {
+  const dir = await mkdtemp(path.join(tmpdir(), 'claude-hud-external-write-'));
+  const filePath = path.join(dir, 'usage.json');
+
+  try {
+    const wrote = writeExternalUsageSnapshot(
+      makeWriteConfig(filePath),
+      {
+        fiveHour: null,
+        sevenDay: null,
+        fiveHourResetAt: null,
+        sevenDayResetAt: null,
+        scopedWindows: [{ label: 'Fable', percent: 38, resetAt: null }],
+      },
+      Date.now(),
+    );
+
+    assert.equal(wrote, false);
+    assert.equal(fs.existsSync(filePath), false);
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
+});
+
 test('writeExternalUsageSnapshot removes temp files when atomic rename fails', async () => {
   const dir = await mkdtemp(path.join(tmpdir(), 'claude-hud-external-usage-write-'));
   const filePath = path.join(dir, 'usage.json');

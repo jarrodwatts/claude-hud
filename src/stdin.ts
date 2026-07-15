@@ -7,6 +7,10 @@ import { sanitizeDisplayText } from './utils/sanitize.js';
 
 const debug = createDebug('stdin');
 
+const SCOPED_USAGE_MAX_WINDOWS = 8;
+const SCOPED_USAGE_LABEL_MAX_LENGTH = 64;
+const SCOPED_USAGE_RESET_MAX_LENGTH = 64;
+
 type StdinStream = Pick<NodeJS.ReadStream, 'setEncoding' | 'on' | 'off' | 'pause'> & {
   isTTY?: boolean;
 };
@@ -373,8 +377,9 @@ export function getUsageFromStdin(stdin: StdinData): UsageData | null {
 
 /**
  * Parses `rate_limits.model_scoped` (model-scoped weekly windows, e.g. Fable).
- * The upstream schema carries `utilization` as a 0-1 fraction — convert to the
- * 0-100 percent scale the rest of UsageData uses. Malformed entries are dropped.
+ * The upstream schema carries `utilization` on the same 0-100 scale used by
+ * the generic rate-limit windows. Malformed entries are dropped, and both the
+ * retained entry count and label size are bounded because stdin is untrusted.
  */
 function parseScopedWindows(modelScoped: unknown): ScopedUsageWindow[] {
   if (!Array.isArray(modelScoped)) {
@@ -382,19 +387,32 @@ function parseScopedWindows(modelScoped: unknown): ScopedUsageWindow[] {
   }
   const windows: ScopedUsageWindow[] = [];
   for (const raw of modelScoped) {
+    if (windows.length >= SCOPED_USAGE_MAX_WINDOWS) {
+      break;
+    }
     const entry = raw as { display_name?: unknown; utilization?: unknown; resets_at?: unknown } | null;
-    const label = typeof entry?.display_name === 'string' ? sanitizeDisplayText(entry.display_name).trim() : '';
+    const label = typeof entry?.display_name === 'string'
+      ? sanitizeDisplayText(entry.display_name).trim().slice(0, SCOPED_USAGE_LABEL_MAX_LENGTH)
+      : '';
+    if (!label) {
+      continue;
+    }
     const utilization = entry?.utilization;
-    if (!label || typeof utilization !== 'number' || !Number.isFinite(utilization)) {
+    const percent = utilization === null
+      ? null
+      : parseRateLimitPercent(utilization as number | undefined);
+    if (utilization !== null && percent === null) {
       continue;
     }
     const resetAtRaw = entry?.resets_at;
-    const resetAt = typeof resetAtRaw === 'string' && !Number.isNaN(Date.parse(resetAtRaw))
+    const resetAt = typeof resetAtRaw === 'string'
+      && resetAtRaw.length <= SCOPED_USAGE_RESET_MAX_LENGTH
+      && !Number.isNaN(Date.parse(resetAtRaw))
       ? new Date(resetAtRaw)
       : null;
     windows.push({
       label,
-      percent: Math.max(0, Math.min(100, utilization * 100)),
+      percent,
       resetAt,
     });
   }

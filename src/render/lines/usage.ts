@@ -33,7 +33,10 @@ export function renderUsageLine(
 
   const usageLabel = progressLabel("label.usage", colors, alignLabels);
   const balanceLabel = ctx.usageData.balanceLabel ?? null;
-  const hasWindowData = ctx.usageData.fiveHour !== null || ctx.usageData.sevenDay !== null;
+  const scopedWindows = ctx.usageData.scopedWindows ?? [];
+  const hasWindowData = ctx.usageData.fiveHour !== null
+    || ctx.usageData.sevenDay !== null
+    || scopedWindows.length > 0;
 
   if (balanceLabel && !hasWindowData) {
     return `${usageLabel} ${balanceLabel}`;
@@ -45,23 +48,17 @@ export function renderUsageLine(
   const usageCompact = display?.usageCompact ?? false;
   const usageValueMode = display?.usageValue ?? 'percent';
   const barWidthForScoped = getAdaptiveBarWidth();
-  // Model-scoped weekly windows (e.g. Fable) — same window style, but a distinct
-  // normal-range color (Claude orange 208) so the scoped quota is instantly
-  // distinguishable from the generic 5h/7d windows. Warning/critical thresholds
-  // keep the shared palette. Override via colors.usage as usual.
-  const scopedColors = { ...(colors ?? {}), usage: 208 as const };
-  const scopedWindows = ctx.usageData.scopedWindows ?? [];
   const scopedSuffix = scopedWindows.length
     ? ' | ' + scopedWindows
         .map((w) =>
           usageCompact
-            ? formatCompactWindowPart(w.label, w.percent, w.resetAt, SEVEN_DAY_WINDOW_MS, timeFormat, scopedColors, usageValueMode)
+            ? formatCompactWindowPart(w.label, w.percent, w.resetAt, SEVEN_DAY_WINDOW_MS, timeFormat, colors, usageValueMode)
             : formatUsageWindowPart({
                 label: w.label,
                 percent: w.percent,
                 resetAt: w.resetAt,
                 windowMs: SEVEN_DAY_WINDOW_MS,
-                colors: scopedColors,
+                colors,
                 usageBarEnabled: display?.usageBarEnabled ?? true,
                 barWidth: barWidthForScoped,
                 timeFormat,
@@ -81,21 +78,25 @@ export function renderUsageLine(
         ? formatResetTime(ctx.usageData.fiveHourResetAt, limitTimeFormat)
         : formatResetTime(ctx.usageData.sevenDayResetAt, limitTimeFormat);
     if (usageCompact) {
-      return appendBalance(critical(`⚠ Limit${resetTime ? ` (${resetTime})` : ""}`, colors), balanceLabel);
+      return appendBalance(`${critical(`⚠ Limit${resetTime ? ` (${resetTime})` : ""}`, colors)}${scopedSuffix}`, balanceLabel);
     }
     const resetSuffix = resetTime
       ? showResetLabel
         ? ` (${t(resetsKey)} ${resetTime})`
         : ` (${resetTime})`
       : "";
-    return appendBalance(`${usageLabel} ${critical(`⚠ ${t("status.limitReached")}${resetSuffix}`, colors)}`, balanceLabel);
+    return appendBalance(`${usageLabel} ${critical(`⚠ ${t("status.limitReached")}${resetSuffix}`, colors)}${scopedSuffix}`, balanceLabel);
   }
 
   const threshold = display?.usageThreshold ?? 0;
   const fiveHour = ctx.usageData.fiveHour;
   const sevenDay = ctx.usageData.sevenDay;
 
-  const effectiveUsage = Math.max(fiveHour ?? 0, sevenDay ?? 0);
+  const effectiveUsage = Math.max(
+    fiveHour ?? 0,
+    sevenDay ?? 0,
+    ...scopedWindows.map((window) => window.percent ?? 0),
+  );
   if (effectiveUsage < threshold) {
     return balanceLabel ? `${usageLabel} ${balanceLabel}` : null;
   }
@@ -122,6 +123,14 @@ export function renderUsageLine(
 
   const usageBarEnabled = display?.usageBarEnabled ?? true;
   const barWidth = getAdaptiveBarWidth();
+
+  if (fiveHour === null && sevenDay === null) {
+    return scopedSuffix
+      ? appendBalance(`${usageLabel} ${scopedSuffix.slice(3)}`, balanceLabel)
+      : balanceLabel
+        ? `${usageLabel} ${balanceLabel}`
+        : null;
+  }
 
   if (fiveHour === null && sevenDay !== null) {
     const weeklyOnlyPart = formatUsageWindowPart({
