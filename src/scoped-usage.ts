@@ -24,6 +24,7 @@
 import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 import { spawnSync, spawn } from 'node:child_process';
 import type { ScopedUsageWindow } from './types.js';
 
@@ -92,14 +93,18 @@ export function getScopedUsage(now: number = Date.now(), options: ScopedUsageOpt
 function triggerBackgroundRefresh(dir: string, now: number): void {
   try {
     fs.mkdirSync(dir, { recursive: true, mode: 0o700 });
+    const marker = refreshMarkerPath(dir);
     try {
-      const markerAge = now - fs.statSync(refreshMarkerPath(dir)).mtimeMs;
+      const markerAge = now - fs.statSync(marker).mtimeMs;
       if (markerAge < REFRESH_MARKER_TTL_MS) return; // refresh already in flight
+      fs.unlinkSync(marker); // stale marker (crashed refresh) — clear before retry
     } catch {
       // no marker — proceed
     }
-    fs.writeFileSync(refreshMarkerPath(dir), String(now), { mode: 0o600 });
-    const child = spawn(process.execPath, [fileURLToPathSafe(import.meta.url), '--refresh'], {
+    // 'wx' creates atomically: if two statusline instances race here, exactly
+    // one wins and spawns the refresh; the loser throws EEXIST into the catch.
+    fs.writeFileSync(marker, String(now), { mode: 0o600, flag: 'wx' });
+    const child = spawn(process.execPath, [fileURLToPath(import.meta.url), '--refresh'], {
       detached: true,
       stdio: 'ignore',
     });
@@ -107,10 +112,6 @@ function triggerBackgroundRefresh(dir: string, now: number): void {
   } catch {
     // best-effort — the HUD must never break on refresh scheduling
   }
-}
-
-function fileURLToPathSafe(url: string): string {
-  return url.startsWith('file://') ? new URL(url).pathname : url;
 }
 
 // ── Refresh path (runs in a detached child, never in the render path) ──
@@ -203,6 +204,16 @@ export async function refreshScopedUsage(options: RefreshOptions = {}): Promise<
   }
 }
 
-if (process.argv.includes('--refresh')) {
+// Refresh entrypoint — only when this file itself is executed with --refresh
+// (argv check alone would run on mere import from another --refresh process).
+const isDirectRun = (() => {
+  try {
+    return Boolean(process.argv[1]) && pathToFileURL(process.argv[1]).href === import.meta.url;
+  } catch {
+    return false;
+  }
+})();
+
+if (isDirectRun && process.argv.includes('--refresh')) {
   void refreshScopedUsage();
 }
