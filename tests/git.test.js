@@ -59,7 +59,7 @@ test('getGitBranch returns an exact tag name for detached tagged HEAD', async ()
     execFileSync('git', ['config', 'user.email', 'test@test.com'], { cwd: dir, stdio: 'ignore' });
     execFileSync('git', ['config', 'user.name', 'Test'], { cwd: dir, stdio: 'ignore' });
     execFileSync('git', ['commit', '--allow-empty', '-m', 'init'], { cwd: dir, stdio: 'ignore' });
-    execFileSync('git', ['tag', 'v1.2.3'], { cwd: dir, stdio: 'ignore' });
+    execFileSync('git', ['-c', 'tag.gpgSign=false', 'tag', 'v1.2.3'], { cwd: dir, stdio: 'ignore' });
     execFileSync('git', ['checkout', '--detach', 'HEAD'], { cwd: dir, stdio: 'ignore' });
 
     const result = await getGitBranch(dir);
@@ -421,6 +421,26 @@ test('getGitStatus builds branchUrl from SSH origin remotes', async () => {
 
     const result = await getGitStatus(dir);
     assert.equal(result?.branchUrl, 'https://github.com/example/claude-hud/tree/feature/test-branch');
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
+});
+
+test('getGitStatus links an untagged detached HEAD to its commit', async () => {
+  const dir = await mkdtemp(path.join(tmpdir(), 'claude-hud-git-'));
+  try {
+    execFileSync('git', ['init'], { cwd: dir, stdio: 'ignore' });
+    execFileSync('git', ['config', 'user.email', 'test@test.com'], { cwd: dir, stdio: 'ignore' });
+    execFileSync('git', ['config', 'user.name', 'Test'], { cwd: dir, stdio: 'ignore' });
+    execFileSync('git', ['commit', '--allow-empty', '-m', 'init'], { cwd: dir, stdio: 'ignore' });
+    const fullSha = execFileSync('git', ['rev-parse', 'HEAD'], { cwd: dir, encoding: 'utf8' }).trim();
+    execFileSync('git', ['checkout', '--detach', fullSha], { cwd: dir, stdio: 'ignore' });
+    execFileSync('git', ['remote', 'add', 'origin', 'https://github.com/example/claude-hud.git'], { cwd: dir, stdio: 'ignore' });
+
+    const result = await getGitStatus(dir);
+    const shortSha = execFileSync('git', ['rev-parse', '--short', 'HEAD'], { cwd: dir, encoding: 'utf8' }).trim();
+    assert.equal(result?.branch, `detached:${shortSha}`);
+    assert.equal(result?.branchUrl, `https://github.com/example/claude-hud/commit/${shortSha}`);
   } finally {
     await rm(dir, { recursive: true, force: true });
   }

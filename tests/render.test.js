@@ -1194,6 +1194,16 @@ test('renderSessionLine displays branch with slashes', () => {
   assert.ok(line.includes('feature/add-auth'));
 });
 
+test('renderSessionLine strips control and bidi characters from git refs', () => {
+  const ctx = baseContext();
+  ctx.stdin.cwd = '/tmp/my-project';
+  ctx.gitStatus = { branch: 'release/\u202Eevil\u0007', isDirty: false, ahead: 0, behind: 0 };
+  const line = renderSessionLine(ctx);
+  assert.ok(line.includes('release/evil'));
+  assert.ok(!line.includes('\u202E'));
+  assert.ok(!line.includes('\u0007'));
+});
+
 test('renderSessionLine can give git its own segment for wrapping', () => {
   const ctx = baseContext();
   ctx.stdin.cwd = '/tmp/my-project';

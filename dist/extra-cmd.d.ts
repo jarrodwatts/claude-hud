@@ -13,13 +13,8 @@ export declare function sanitize(input: string): string;
  */
 export declare function parseExtraCmdArg(argv?: string[], env?: NodeJS.ProcessEnv): string | null;
 /**
- * Execute a command and parse output.
- *
- * Preferred output is JSON shaped as { label: string }. For simple local
- * checks such as `npm test`, plain stdout is also accepted and summarized
- * from the last non-empty line.
- *
- * Returns null on command errors, timeouts, or empty output.
+ * Execute a command and parse JSON output expecting { label: string }
+ * Returns null on any error (timeout, parse failure, missing label)
  *
  * SECURITY NOTE: The cmd parameter is sourced exclusively from CLI arguments
  * (--extra-cmd) typed by the user. Since the user controls their own shell,

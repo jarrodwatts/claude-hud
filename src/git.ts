@@ -124,7 +124,7 @@ export async function getGitStatus(cwd?: string): Promise<GitStatus | null> {
         .replace(/^ssh:\/\/git@github\.com\//, 'https://github.com/')
         .replace(/\.git$/, '');
       if (httpsBase.startsWith('https://github.com/')) {
-        branchUrl = `${httpsBase}/tree/${encodeGitHubRef(branch)}`;
+        branchUrl = buildGitHubRefUrl(httpsBase, branch);
       }
     } catch (err) {
       debug('Failed to get remote URL:', err instanceof Error ? err.message : err);
@@ -171,6 +171,15 @@ async function resolveGitRef(cwd: string): Promise<string | null> {
 
 function encodeGitHubRef(ref: string): string {
   return ref.split('/').map(encodeURIComponent).join('/');
+}
+
+function buildGitHubRefUrl(httpsBase: string, ref: string): string {
+  const detachedMatch = ref.match(/^detached:([0-9a-f]+)$/);
+  if (detachedMatch) {
+    return `${httpsBase}/commit/${detachedMatch[1]}`;
+  }
+
+  return `${httpsBase}/tree/${encodeGitHubRef(ref)}`;
 }
 
 /**

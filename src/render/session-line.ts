@@ -16,6 +16,7 @@ import { formatAuthSegment } from '../auth.js';
 import { createDebug } from '../debug.js';
 import { formatModelDisplay } from './model-display.js';
 import { formatSessionTokenSummary } from './lines/session-tokens.js';
+import { sanitizeDisplayText } from '../utils/sanitize.js';
 
 const debug = createDebug('session-line');
 
@@ -89,7 +90,7 @@ export function renderSessionLine(ctx: RenderContext): string {
   const branchOverflow = gitConfig?.branchOverflow ?? 'truncate';
 
   if (showGit && ctx.gitStatus) {
-    const gitParts: string[] = [ctx.gitStatus.branch];
+    const gitParts: string[] = [sanitizeDisplayText(ctx.gitStatus.branch)];
 
     // Show dirty indicator
     if ((gitConfig?.showDirty ?? true) && ctx.gitStatus.isDirty) {

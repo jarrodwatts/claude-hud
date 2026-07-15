@@ -128,9 +128,9 @@ test('runExtraCmd returns the last non-empty line from plain output', async () =
   assert.equal(result, 'not json');
 });
 
-test('runExtraCmd summarizes plain npm-style success output', async () => {
-  const result = await runExtraCmd('printf "> app@1.0.0 test\\n> node --test\\n\\n# pass 3\\n"');
-  assert.equal(result, '# pass 3');
+test('runExtraCmd sanitizes terminal escapes from plain output', async () => {
+  const result = await runExtraCmd('printf "plain\\033[31mred\\033[0m\\n"');
+  assert.equal(result, 'plainred');
 });
 
 test('runExtraCmd returns null for JSON without label field', async () => {

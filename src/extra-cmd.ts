@@ -79,9 +79,8 @@ export function parseExtraCmdArg(
 /**
  * Execute a command and parse output.
  *
- * Preferred output is JSON shaped as { label: string }. For simple local
- * checks such as `npm test`, plain stdout is also accepted and summarized
- * from the last non-empty line.
+ * Preferred output is JSON shaped as { label: string }. Plain stdout is also
+ * accepted and summarized from the last non-empty line.
  *
  * Returns null on command errors, timeouts, or empty output.
  *
