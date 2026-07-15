@@ -1,4 +1,5 @@
 import { readStdin, getUsageFromStdin } from "./stdin.js";
+import { getScopedUsage } from './scoped-usage.js';
 import { parseTranscript } from "./transcript.js";
 import { render } from "./render/index.js";
 import { countConfigs } from "./config-reader.js";
@@ -143,6 +144,14 @@ export async function main(overrides: Partial<MainDeps> = {}): Promise<void> {
             }),
           };
         }
+      }
+    }
+
+    // Model-scoped weekly windows (e.g. Fable) — opt-in, OAuth usage API via SWR file cache.
+    if (usageData && config.display.showScopedUsage === true && config.display.showUsage !== false) {
+      const scopedWindows = getScopedUsage(deps.now());
+      if (scopedWindows.length > 0) {
+        usageData = { ...usageData, scopedWindows };
       }
     }
 

@@ -124,6 +124,13 @@ export interface HudConfig {
     showSpeed: boolean;
     showTokenBreakdown: boolean;
     showUsage: boolean;
+    /**
+     * Opt-in: show model-scoped weekly quota windows (e.g. the Fable window)
+     * fetched from the OAuth usage API via a background-refreshed file cache.
+     * Off by default because it reads the Claude Code OAuth token
+     * (macOS keychain / ~/.claude/.credentials.json) outside the render path.
+     */
+    showScopedUsage: boolean;
     usageValue: UsageValueMode;
     usageBarEnabled: boolean;
     showResetLabel: boolean;
@@ -229,6 +236,7 @@ export const DEFAULT_CONFIG: HudConfig = {
     showSpeed: false,
     showTokenBreakdown: true,
     showUsage: true,
+    showScopedUsage: false,
     usageValue: 'percent',
     usageBarEnabled: true,
     showResetLabel: true,
@@ -617,6 +625,9 @@ export function mergeConfig(userConfig: Partial<HudConfig>): HudConfig {
     showUsage: typeof migrated.display?.showUsage === 'boolean'
       ? migrated.display.showUsage
       : DEFAULT_CONFIG.display.showUsage,
+    showScopedUsage: typeof migrated.display?.showScopedUsage === 'boolean'
+      ? migrated.display.showScopedUsage
+      : DEFAULT_CONFIG.display.showScopedUsage,
     usageValue: validateUsageValue(migrated.display?.usageValue)
       ? migrated.display.usageValue
       : DEFAULT_CONFIG.display.usageValue,

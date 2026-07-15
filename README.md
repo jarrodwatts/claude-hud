@@ -186,6 +186,7 @@ Simplified and Traditional Chinese HUD labels are available as explicit opt-ins.
 | `display.showDuration` | boolean | false | Show session duration `⏱️ 5m` |
 | `display.showSpeed` | boolean | false | Show output token speed `out: 42.1 tok/s` |
 | `display.showUsage` | boolean | true | Show Claude subscriber usage limits when available |
+| `display.showScopedUsage` | boolean | false | Opt-in: also show model-scoped weekly quota windows (e.g. Fable) fetched from the OAuth usage API via a background-refreshed cache. Requires access to the Claude Code credential store (macOS keychain / `~/.claude/.credentials.json`) |
 | `display.usageValue` | `percent` \| `remaining` | `percent` | Usage display format (`25%` used, or `75%` remaining) |
 | `display.usageBarEnabled` | boolean | true | Display usage as visual bar instead of text |
 | `display.usageCompact` | boolean | false | Display usage in a shorter text form such as `5h: 25% (1h 30m)`; takes precedence over `display.usageBarEnabled` |

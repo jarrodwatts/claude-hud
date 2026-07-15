@@ -289,3 +289,51 @@ test('renderUsageLine elapsedAndAbsolute format for limit uses absolute', () => 
   assert.ok(line.includes('Limit reached'));
   assert.ok(line.includes('resets at'));
 });
+
+// ── Model-scoped weekly windows (e.g. Fable) ──
+
+test('renderUsageLine appends scoped model windows after the shared windows', () => {
+  const ctx = baseContext();
+  ctx.usageData.fiveHour = 40;
+  ctx.usageData.scopedWindows = [
+    { label: 'Fable', percent: 38, resetAt: new Date(Date.now() + 60 * 60 * 1000) },
+  ];
+
+  const line = stripAnsi(renderUsageLine(ctx));
+
+  assert.match(line, /Fable/);
+  assert.match(line, /38%/);
+  // Shared 5h window still renders first.
+  assert.match(line, /40%.*Fable/s);
+});
+
+test('renderUsageLine renders scoped windows in compact mode', () => {
+  const ctx = baseContext();
+  ctx.config.display.usageCompact = true;
+  ctx.usageData.fiveHour = 40;
+  ctx.usageData.scopedWindows = [{ label: 'Fable', percent: 38, resetAt: null }];
+
+  const line = stripAnsi(renderUsageLine(ctx));
+
+  assert.match(line, /Fable: 38%/);
+});
+
+test('renderUsageLine respects usageValue remaining for scoped windows', () => {
+  const ctx = baseContext();
+  ctx.config.display.usageValue = 'remaining';
+  ctx.usageData.fiveHour = 40;
+  ctx.usageData.scopedWindows = [{ label: 'Fable', percent: 38, resetAt: null }];
+
+  const line = stripAnsi(renderUsageLine(ctx));
+
+  assert.match(line, /Fable.*62%/s);
+});
+
+test('renderUsageLine is unchanged when scopedWindows is absent', () => {
+  const withScoped = baseContext();
+  withScoped.usageData.fiveHour = 40;
+
+  const line = stripAnsi(renderUsageLine(withScoped));
+
+  assert.doesNotMatch(line, /Fable/);
+});

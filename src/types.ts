@@ -84,6 +84,15 @@ export interface UsageData {
   fiveHourResetAt: Date | null;
   sevenDayResetAt: Date | null;
   balanceLabel?: string | null;  // optional raw balance text (e.g. "¥6.35")
+  /** Model-scoped weekly windows (e.g. Fable) from the OAuth usage API — see scoped-usage.ts. */
+  scopedWindows?: ScopedUsageWindow[];
+}
+
+/** One model-scoped weekly quota window (e.g. label "Fable", used percent). */
+export interface ScopedUsageWindow {
+  label: string;
+  percent: number;
+  resetAt: Date | null;
 }
 
 export interface ExternalUsageSnapshot {
