@@ -45,6 +45,17 @@ export interface StdinData {
       used_percentage?: number | null;
       resets_at?: number | null;
     } | null;
+    /**
+     * Model-scoped weekly windows (e.g. the Fable weekly quota shown on /usage).
+     * Additive field — Claude Code's internal status schema defines it as
+     * { display_name, utilization (0-1 fraction), resets_at (ISO-8601) } and only
+     * includes it when the server returns per-model windows.
+     */
+    model_scoped?: Array<{
+      display_name?: string | null;
+      utilization?: number | null;
+      resets_at?: string | null;
+    }> | null;
   } | null;
   // Claude Code 2.1.115+ exposes effort as an object: { level: "max" }.
   // Earlier versions (≤2.1.114) did not send this field at all. The bare-string
@@ -84,6 +95,15 @@ export interface UsageData {
   fiveHourResetAt: Date | null;
   sevenDayResetAt: Date | null;
   balanceLabel?: string | null;  // optional raw balance text (e.g. "¥6.35")
+  /** Model-scoped weekly windows (e.g. Fable) from stdin rate_limits.model_scoped. */
+  scopedWindows?: ScopedUsageWindow[];
+}
+
+/** One model-scoped weekly quota window (e.g. label "Fable", used percent 0-100). */
+export interface ScopedUsageWindow {
+  label: string;
+  percent: number;
+  resetAt: Date | null;
 }
 
 export interface ExternalUsageSnapshot {

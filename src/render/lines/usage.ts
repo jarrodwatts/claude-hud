@@ -44,6 +44,35 @@ export function renderUsageLine(
   const resetsKey = limitResetTimeFormat(timeFormat) === 'absolute' ? "format.resets" : "format.resetsIn";
   const usageCompact = display?.usageCompact ?? false;
   const usageValueMode = display?.usageValue ?? 'percent';
+  const barWidthForScoped = getAdaptiveBarWidth();
+  // Model-scoped weekly windows (e.g. Fable) — same window style, but a distinct
+  // normal-range color (Claude orange 208) so the scoped quota is instantly
+  // distinguishable from the generic 5h/7d windows. Warning/critical thresholds
+  // keep the shared palette. Override via colors.usage as usual.
+  const scopedColors = { ...(colors ?? {}), usage: 208 as const };
+  const scopedWindows = ctx.usageData.scopedWindows ?? [];
+  const scopedSuffix = scopedWindows.length
+    ? ' | ' + scopedWindows
+        .map((w) =>
+          usageCompact
+            ? formatCompactWindowPart(w.label, w.percent, w.resetAt, SEVEN_DAY_WINDOW_MS, timeFormat, scopedColors, usageValueMode)
+            : formatUsageWindowPart({
+                label: w.label,
+                percent: w.percent,
+                resetAt: w.resetAt,
+                windowMs: SEVEN_DAY_WINDOW_MS,
+                colors: scopedColors,
+                usageBarEnabled: display?.usageBarEnabled ?? true,
+                barWidth: barWidthForScoped,
+                timeFormat,
+                showResetLabel,
+                forceLabel: true,
+                alignLabels,
+                usageValueMode,
+              }),
+        )
+        .join(' | ')
+    : '';
 
   if (isLimitReached(ctx.usageData)) {
     const limitTimeFormat = limitResetTimeFormat(timeFormat);
@@ -82,10 +111,13 @@ export function renderUsageLine(
       : null;
 
     if (fiveHourPart && sevenDayPart) {
-      return appendBalance(`${fiveHourPart} | ${sevenDayPart}`, balanceLabel);
+      return appendBalance(`${fiveHourPart} | ${sevenDayPart}${scopedSuffix}`, balanceLabel);
     }
     const compactLine = fiveHourPart ?? sevenDayPart;
-    return compactLine ? appendBalance(compactLine, balanceLabel) : null;
+    if (compactLine) {
+      return appendBalance(`${compactLine}${scopedSuffix}`, balanceLabel);
+    }
+    return scopedSuffix ? appendBalance(scopedSuffix.slice(3), balanceLabel) : null;
   }
 
   const usageBarEnabled = display?.usageBarEnabled ?? true;
@@ -107,7 +139,7 @@ export function renderUsageLine(
       alignLabels,
       usageValueMode,
     });
-    return appendBalance(`${usageLabel} ${weeklyOnlyPart}`, balanceLabel);
+    return appendBalance(`${usageLabel} ${weeklyOnlyPart}${scopedSuffix}`, balanceLabel);
   }
 
   const fiveHourPart = formatUsageWindowPart({
@@ -139,10 +171,10 @@ export function renderUsageLine(
       alignLabels,
       usageValueMode,
     });
-    return appendBalance(`${usageLabel} ${fiveHourPart} | ${sevenDayPart}`, balanceLabel);
+    return appendBalance(`${usageLabel} ${fiveHourPart} | ${sevenDayPart}${scopedSuffix}`, balanceLabel);
   }
 
-  return appendBalance(`${usageLabel} ${fiveHourPart}`, balanceLabel);
+  return appendBalance(`${usageLabel} ${fiveHourPart}${scopedSuffix}`, balanceLabel);
 }
 
 function appendBalance(line: string, balanceLabel: string | null): string {
