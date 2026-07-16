@@ -4,6 +4,11 @@ All notable changes to Claude HUD will be documented in this file.
 
 ## [Unreleased]
 
+## [0.5.1] - 2026-07-17
+
+### Fixed
+- Align context, usage, and opt-in memory progress bars by terminal cell width in CJK locales, including merged and narrow layouts (#673).
+
 ## [0.5.0] - 2026-07-16
 
 ### Added
