@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { setLanguage } from "../dist/i18n/index.js";
 import {
   paddedLabel,
+  progressLabel,
   _plainTextWidth,
   _maxLabelWidth,
 } from "../dist/render/lines/label-align.js";
@@ -47,6 +48,34 @@ test("English labels are right-padded to equal visual width (7)", () => {
   assert.equal(_plainTextWidth(context), 7);
   assert.equal(_plainTextWidth(usage), 7);
   assert.equal(_plainTextWidth(weekly), 7);
+});
+
+test("memory label participates in alignment only when memory is visible", () => {
+  setLanguage("en");
+
+  assert.equal(_maxLabelWidth(), 7);
+  assert.equal(_maxLabelWidth(true), 10);
+
+  const options = { includeMemoryInWidth: true };
+  const context = stripAnsi(paddedLabel("label.context", undefined, options));
+  const usage = stripAnsi(paddedLabel("label.usage", undefined, options));
+  const memory = stripAnsi(paddedLabel("label.approxRam", undefined, options));
+
+  assert.equal(context, "Context   ");
+  assert.equal(usage, "Usage     ");
+  assert.equal(memory, "Approx RAM");
+  assert.equal(_plainTextWidth(context), 10);
+  assert.equal(_plainTextWidth(usage), 10);
+  assert.equal(_plainTextWidth(memory), 10);
+});
+
+test("progressLabel preserves the legacy boolean alignment argument", () => {
+  setLanguage("en");
+
+  assert.equal(
+    stripAnsi(progressLabel("label.usage", undefined, true)),
+    stripAnsi(progressLabel("label.usage", undefined, { align: true })),
+  );
 });
 
 test("Chinese labels are right-padded correctly (CJK awareness)", () => {

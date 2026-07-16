@@ -9,7 +9,15 @@ const PROGRESS_LABEL_KEYS: MessageKey[] = [
   "label.context",
   "label.usage",
   "label.weekly",
+  "label.approxRam",
 ];
+
+export interface ProgressLabelOptions {
+  align?: boolean;
+  includeMemoryInWidth?: boolean;
+}
+
+export type ProgressLabelInput = boolean | ProgressLabelOptions;
 
 /**
  * Compute the visual width of a plain-text string (no ANSI).
@@ -30,10 +38,13 @@ function plainTextWidth(str: string): number {
   return width;
 }
 
-/** Compute the max visual width across the three progress-bar labels. */
-function maxLabelWidth(): number {
+/** Compute the max visual width across the progress-bar labels in view. */
+function maxLabelWidth(includeMemory = false): number {
   let max = 0;
   for (const key of PROGRESS_LABEL_KEYS) {
+    if (key === "label.approxRam" && !includeMemory) {
+      continue;
+    }
     const w = plainTextWidth(t(key));
     if (w > max) max = w;
   }
@@ -48,9 +59,10 @@ function maxLabelWidth(): number {
 export function paddedLabel(
   key: MessageKey,
   colors?: Partial<HudColorOverrides>,
+  options: Pick<ProgressLabelOptions, "includeMemoryInWidth"> = {},
 ): string {
   const text = t(key);
-  const pad = maxLabelWidth() - plainTextWidth(text);
+  const pad = maxLabelWidth(options.includeMemoryInWidth) - plainTextWidth(text);
   const padded = pad > 0 ? text + " ".repeat(pad) : text;
   return label(padded, colors);
 }
@@ -58,9 +70,12 @@ export function paddedLabel(
 export function progressLabel(
   key: MessageKey,
   colors?: Partial<HudColorOverrides>,
-  align = false,
+  options: ProgressLabelInput = {},
 ): string {
-  return align ? paddedLabel(key, colors) : label(t(key), colors);
+  const normalized = typeof options === "boolean" ? { align: options } : options;
+  return normalized.align
+    ? paddedLabel(key, colors, normalized)
+    : label(t(key), colors);
 }
 
 // Exported for testing only.

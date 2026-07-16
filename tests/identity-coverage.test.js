@@ -145,13 +145,15 @@ test('renderIdentityLine uses autoCompactWindow for token display', () => {
   assert.ok(line.includes('10k/100k'));
 });
 
-test('renderIdentityLine supports alignLabels parameter', () => {
+test('renderIdentityLine supports progress label alignment options', () => {
   const ctx = baseContext();
   const lineNoAlign = stripAnsi(renderIdentityLine(ctx, false));
   const lineAlign = stripAnsi(renderIdentityLine(ctx, true));
+  const lineAlignOptions = stripAnsi(renderIdentityLine(ctx, { align: true }));
   // Both should contain Context label
   assert.ok(lineNoAlign.includes('Context'));
   assert.ok(lineAlign.includes('Context'));
+  assert.equal(lineAlignOptions, lineAlign);
 });
 
 test('renderIdentityLine disables autocompact buffer when set to disabled', () => {

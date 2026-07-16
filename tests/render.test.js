@@ -595,6 +595,136 @@ test('renderMemoryLine stays hidden in compact layout even when enabled', () => 
   assert.equal(renderMemoryLine(ctx), null);
 });
 
+test('render expanded layout aligns context and memory bars in CJK locales', () => {
+  const ctx = baseContext();
+  ctx.config.language = 'zh-Hans';
+  ctx.config.lineLayout = 'expanded';
+  ctx.config.elementOrder = ['context', 'memory'];
+  ctx.config.display.showMemoryUsage = true;
+  ctx.memoryUsage = {
+    totalBytes: 16 * 1024 ** 3,
+    usedBytes: 10 * 1024 ** 3,
+    freeBytes: 6 * 1024 ** 3,
+    usedPercent: 63,
+  };
+
+  setLanguage('zh-Hans');
+  try {
+    const lines = captureRenderLines(ctx).map(stripAnsi);
+    const contextLine = lines.find(line => line.includes('上下文'));
+    const memoryLine = lines.find(line => line.includes('内存'));
+
+    assert.ok(contextLine?.startsWith('上下文 '), `got: ${contextLine}`);
+    assert.ok(memoryLine?.startsWith('内存   '), `got: ${memoryLine}`);
+  } finally {
+    setLanguage('en');
+  }
+});
+
+test('render expanded layout aligns a combined progress row with separate memory', () => {
+  const ctx = baseContext();
+  ctx.config.lineLayout = 'expanded';
+  ctx.config.elementOrder = ['context', 'usage', 'memory'];
+  ctx.config.display.showMemoryUsage = true;
+  ctx.usageData = {
+    planName: 'Team',
+    fiveHour: 45,
+    sevenDay: 20,
+    fiveHourResetAt: null,
+    sevenDayResetAt: null,
+  };
+  ctx.memoryUsage = {
+    totalBytes: 16 * 1024 ** 3,
+    usedBytes: 10 * 1024 ** 3,
+    freeBytes: 6 * 1024 ** 3,
+    usedPercent: 63,
+  };
+
+  const lines = withTerminal(160, () => captureRenderLines(ctx)).map(stripAnsi);
+  const combinedLine = lines.find(line => line.includes('Context') && line.includes('Usage'));
+  const memoryLine = lines.find(line => line.includes('Approx RAM'));
+
+  assert.ok(combinedLine?.startsWith('Context    '), `got: ${combinedLine}`);
+  assert.ok(combinedLine?.includes('Usage     '), `got: ${combinedLine}`);
+  assert.ok(memoryLine?.startsWith('Approx RAM '), `got: ${memoryLine}`);
+});
+
+test('render expanded layout aligns memory only after a custom merged row wraps', () => {
+  const ctx = baseContext();
+  ctx.config.lineLayout = 'expanded';
+  ctx.config.elementOrder = ['context', 'memory'];
+  ctx.config.display.showMemoryUsage = true;
+  ctx.config.display.mergeGroups = [['context', 'memory']];
+  ctx.memoryUsage = {
+    totalBytes: 16 * 1024 ** 3,
+    usedBytes: 10 * 1024 ** 3,
+    freeBytes: 6 * 1024 ** 3,
+    usedPercent: 63,
+  };
+
+  const combined = withTerminal(160, () => captureRenderLines(ctx)).map(stripAnsi);
+  assert.equal(combined.length, 1);
+  assert.ok(combined[0].startsWith('Context '), `got: ${combined[0]}`);
+  assert.ok(!combined[0].startsWith('Context    '), `wide merged labels should stay compact: ${combined[0]}`);
+
+  const stacked = withTerminal(24, () => captureRenderLines(ctx)).map(stripAnsi);
+  const contextLine = stacked.find(line => line.includes('Context'));
+  const memoryLine = stacked.find(line => line.includes('Approx RAM'));
+  assert.ok(contextLine?.startsWith('Context    '), `got: ${contextLine}`);
+  assert.ok(memoryLine?.startsWith('Approx RAM '), `got: ${memoryLine}`);
+});
+
+test('render expanded layout aligns memory when a hidden merge peer leaves it alone', () => {
+  const ctx = baseContext();
+  ctx.config.lineLayout = 'expanded';
+  ctx.config.elementOrder = ['context', 'usage', 'memory'];
+  ctx.config.display.showMemoryUsage = true;
+  ctx.config.display.mergeGroups = [['usage', 'memory']];
+  ctx.usageData = null;
+  ctx.memoryUsage = {
+    totalBytes: 16 * 1024 ** 3,
+    usedBytes: 10 * 1024 ** 3,
+    freeBytes: 6 * 1024 ** 3,
+    usedPercent: 63,
+  };
+
+  setLanguage('zh-Hans');
+  try {
+    const lines = captureRenderLines(ctx).map(stripAnsi);
+    const contextLine = lines.find(line => line.includes('上下文'));
+    const memoryLine = lines.find(line => line.includes('内存'));
+
+    assert.ok(contextLine?.startsWith('上下文 '), `got: ${contextLine}`);
+    assert.ok(memoryLine?.startsWith('内存   '), `got: ${memoryLine}`);
+  } finally {
+    setLanguage('en');
+  }
+});
+
+test('render expanded layout keeps a lone memory progress label compact', () => {
+  const ctx = baseContext();
+  ctx.config.lineLayout = 'expanded';
+  ctx.config.elementOrder = ['usage', 'memory'];
+  ctx.config.display.showMemoryUsage = true;
+  ctx.config.display.mergeGroups = [['usage', 'memory']];
+  ctx.usageData = null;
+  ctx.memoryUsage = {
+    totalBytes: 16 * 1024 ** 3,
+    usedBytes: 10 * 1024 ** 3,
+    freeBytes: 6 * 1024 ** 3,
+    usedPercent: 63,
+  };
+
+  setLanguage('zh-Hans');
+  try {
+    const [memoryLine] = captureRenderLines(ctx).map(stripAnsi);
+    assert.ok(memoryLine.startsWith('内存 '), `got: ${memoryLine}`);
+    assert.ok(!memoryLine.startsWith('内存   '), `lone labels should not pad: ${memoryLine}`);
+  } finally {
+    setLanguage('en');
+  }
+});
+
 test('renderProjectLine includes extraLabel when present', () => {
   const ctx = baseContext();
   ctx.stdin.cwd = '/tmp/my-project';
@@ -906,6 +1036,7 @@ test('label color overrides apply across shared secondary text surfaces', () => 
   assert.ok(renderIdentityLine(ctx).includes(`${expected}Context\x1b[0m`));
   assert.ok(renderUsageLine(ctx)?.includes(`${expected}Usage\x1b[0m`));
   assert.ok(renderUsageLine(ctx, true)?.includes(`${expected}Usage  \x1b[0m`));
+  assert.ok(renderUsageLine(ctx, { align: true })?.includes(`${expected}Usage  \x1b[0m`));
   assert.ok(renderEnvironmentLine(ctx)?.includes(`${expected}2 CLAUDE.md | 1 rules\x1b[0m`));
   assert.ok(renderMemoryLine({ ...ctx, config: { ...ctx.config, lineLayout: 'expanded', display: { ...ctx.config.display, showMemoryUsage: true } } })?.includes(`${expected}Approx RAM\x1b[0m`));
   assert.ok(renderToolsLine(ctx)?.includes(`${expected}: src/index.ts\x1b[0m`));
