@@ -18,7 +18,7 @@ enabled — toggle them by editing `config.json` directly if needed:
 - Context bar `████░░░░░░ 45%`
 
 Advanced settings such as `colors.*`, `pathLevels`, `maxWidth`, `forceMaxWidth`,
-`elementOrder`, `display.mergeGroups`, `display.timeFormat`, `display.contextValue`,
+`elementOrder`, `projectLineOrder`, `display.mergeGroups`, `display.timeFormat`, `display.contextValue`,
 `display.modelFormat`, `display.modelOverride`, `display.modelSource`, `display.showProvider`,
 `display.providerName`, `display.autocompactBuffer`,
 `display.autoCompactWindow`, `display.promptCacheTtlSeconds`,

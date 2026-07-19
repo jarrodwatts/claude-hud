@@ -3739,3 +3739,87 @@ test('agents line renders the compacted model beside the agent type', () => {
 
   assert.match(output, /general-purpose \[sonnet-5\]: review the diff/);
 });
+
+test('renderProjectLine keeps the default first-line order when projectLineOrder is absent', () => {
+  const ctx = baseContext();
+  ctx.stdin.cwd = '/tmp/my-project';
+  ctx.gitStatus = { branch: 'main', isDirty: false, ahead: 0, behind: 0 };
+  const line = stripAnsi(renderProjectLine(ctx));
+  const segments = line.split(' │ ');
+  assert.ok(segments[0].startsWith('[Opus'), `model badge should come first, got: ${line}`);
+  assert.ok(segments[1].includes('my-project'), `project should come second, got: ${line}`);
+  assert.ok(segments[1].includes('git:(main)'), 'project and git stay one segment');
+});
+
+test('renderProjectLine honors projectLineOrder with project before model', () => {
+  const ctx = baseContext();
+  ctx.stdin.cwd = '/tmp/my-project';
+  ctx.gitStatus = { branch: 'main', isDirty: true, ahead: 0, behind: 0 };
+  ctx.config.projectLineOrder = mergeConfig({ projectLineOrder: ['project', 'model'] }).projectLineOrder;
+  const line = stripAnsi(renderProjectLine(ctx));
+  const segments = line.split(' │ ');
+  assert.ok(segments[0].includes('my-project'), `project should come first, got: ${line}`);
+  assert.ok(segments[0].includes('git:(main*)'), 'git stays attached to the project segment');
+  assert.ok(segments[1].startsWith('[Opus'), `model badge should come second, got: ${line}`);
+});
+
+test('renderProjectLine orders trailing segments like sessionName ahead of the line', () => {
+  const ctx = baseContext();
+  ctx.stdin.cwd = '/tmp/my-project';
+  ctx.transcript.sessionName = 'Renamed Session';
+  ctx.config.display.showSessionName = true;
+  ctx.config.projectLineOrder = mergeConfig({ projectLineOrder: ['sessionName'] }).projectLineOrder;
+  const line = stripAnsi(renderProjectLine(ctx));
+  const segments = line.split(' │ ');
+  assert.equal(segments[0], 'Renamed Session');
+  assert.ok(segments[1].startsWith('[Opus'), `remaining segments keep default order, got: ${line}`);
+  assert.ok(segments[2].includes('my-project'));
+});
+
+test('renderProjectLine keeps project and git adjacent in wrap mode when reordered', () => {
+  const ctx = baseContext();
+  ctx.stdin.cwd = '/tmp/my-project';
+  ctx.gitStatus = { branch: 'a-very-long-branch-name', isDirty: false, ahead: 0, behind: 0 };
+  ctx.config.gitStatus.branchOverflow = 'wrap';
+  ctx.config.projectLineOrder = mergeConfig({ projectLineOrder: ['project', 'model'] }).projectLineOrder;
+  const line = stripAnsi(renderProjectLine(ctx));
+  const segments = line.split(' │ ');
+  assert.ok(segments[0].includes('my-project'), `got: ${line}`);
+  assert.ok(segments[1].includes('git:(a-very-long-branch-name)'), 'git part follows project part');
+  assert.ok(segments[2].startsWith('[Opus'), 'model badge comes after both project parts');
+});
+
+test('renderProjectLine keeps the custom line pinned first regardless of projectLineOrder', () => {
+  const ctx = baseContext();
+  ctx.stdin.cwd = '/tmp/my-project';
+  ctx.config.display.customLine = 'MY LABEL';
+  ctx.config.display.customLinePosition = 'first';
+  ctx.config.projectLineOrder = mergeConfig({ projectLineOrder: ['project', 'model'] }).projectLineOrder;
+  const line = stripAnsi(renderProjectLine(ctx));
+  const segments = line.split(' │ ');
+  assert.equal(segments[0], 'MY LABEL');
+  assert.ok(segments[1].includes('my-project'));
+  assert.ok(segments[2].startsWith('[Opus'));
+});
+
+test('renderSessionLine honors projectLineOrder while compact-only parts keep their slots', () => {
+  const ctx = baseContext();
+  ctx.stdin.cwd = '/tmp/my-project';
+  ctx.claudeMdCount = 2;
+  ctx.config.projectLineOrder = mergeConfig({ projectLineOrder: ['project', 'model'] }).projectLineOrder;
+  const line = stripAnsi(renderSessionLine(ctx));
+  const segments = line.split(' | ');
+  assert.ok(segments[0].includes('my-project'), `project should lead, got: ${line}`);
+  assert.ok(segments[1].includes('[Opus'), 'model + context cluster moves as one segment');
+  assert.ok(segments[1].includes('%'), 'context value stays attached to the model cluster');
+  assert.ok(segments[2].includes('2 CLAUDE.md'), 'compact-only config counts keep their slot');
+});
+
+test('renderSessionLine keeps the default compact order when projectLineOrder is absent', () => {
+  const ctx = baseContext();
+  ctx.stdin.cwd = '/tmp/my-project';
+  const line = stripAnsi(renderSessionLine(ctx));
+  const segments = line.split(' | ');
+  assert.ok(segments[0].includes('[Opus'), `model cluster should lead by default, got: ${line}`);
+  assert.ok(segments[1].includes('my-project'));
+});
