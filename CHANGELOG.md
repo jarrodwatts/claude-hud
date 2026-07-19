@@ -4,6 +4,9 @@ All notable changes to Claude HUD will be documented in this file.
 
 ## [Unreleased]
 
+### Added
+- Support `pathLevels: "full"` to show the entire absolute working directory in the project badge, instead of being capped at the last 3 segments.
+
 ## [0.5.1] - 2026-07-17
 
 ### Fixed

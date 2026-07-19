@@ -24,6 +24,14 @@ export type GitBranchOverflowMode = 'truncate' | 'wrap';
 export type ModelFormatMode = 'full' | 'compact' | 'short';
 export type TimeFormatMode = 'relative' | 'absolute' | 'both' | 'elapsed' | 'elapsedAndAbsolute';
 export type CustomLinePosition = 'first' | 'last';
+
+/**
+ * Controls how many directory segments of cwd are shown in the project badge.
+ *
+ *   1 | 2 | 3: Show the last N segments (e.g. 2 -> "ai_workspace/knowledge-forge")
+ *   'full':    Show the entire absolute path from root (e.g. "/Users/name/…")
+ */
+export type PathLevels = 1 | 2 | 3 | 'full';
 export type HudElement =
   | 'project'
   | 'addedDirs'
@@ -95,7 +103,7 @@ export interface HudConfig {
   language: Language;
   lineLayout: LineLayoutType;
   showSeparators: boolean;
-  pathLevels: 1 | 2 | 3;
+  pathLevels: PathLevels;
   maxWidth: number | null;
   forceMaxWidth: boolean;
   elementOrder: HudElement[];
@@ -298,8 +306,8 @@ export function getConfigPath(): string {
   return path.join(getHudPluginDir(homeDir), 'config.json');
 }
 
-function validatePathLevels(value: unknown): value is 1 | 2 | 3 {
-  return value === 1 || value === 2 || value === 3;
+function validatePathLevels(value: unknown): value is PathLevels {
+  return value === 1 || value === 2 || value === 3 || value === 'full';
 }
 
 function validateLineLayout(value: unknown): value is LineLayoutType {
@@ -472,7 +480,7 @@ function migrateConfig(userConfig: Partial<HudConfig> & LegacyConfig): Partial<H
       const obj = userConfig.layout as Record<string, unknown>;
       if (typeof obj.lineLayout === 'string') migrated.lineLayout = obj.lineLayout as any;
       if (typeof obj.showSeparators === 'boolean') migrated.showSeparators = obj.showSeparators;
-      if (typeof obj.pathLevels === 'number') migrated.pathLevels = obj.pathLevels as any;
+      if (typeof obj.pathLevels === 'number' || obj.pathLevels === 'full') migrated.pathLevels = obj.pathLevels as any;
     }
     delete migrated.layout;
   }

@@ -24,8 +24,8 @@ function restoreEnvVar(name, value) {
 test('loadConfig returns valid config structure', async () => {
   const config = await loadConfig();
 
-  // pathLevels must be 1, 2, or 3
-  assert.ok([1, 2, 3].includes(config.pathLevels), 'pathLevels should be 1, 2, or 3');
+  // pathLevels must be 1, 2, 3, or 'full'
+  assert.ok([1, 2, 3, 'full'].includes(config.pathLevels), 'pathLevels should be 1, 2, 3, or "full"');
 
   // lineLayout must be valid
   const validLineLayouts = ['compact', 'expanded'];
@@ -463,6 +463,16 @@ test('loadConfig reads user config from CLAUDE_CONFIG_DIR', async () => {
     restoreEnvVar('CLAUDE_CONFIG_DIR', originalConfigDir);
     await rm(customConfigDir, { recursive: true, force: true });
   }
+});
+
+test('mergeConfig accepts pathLevels: "full"', () => {
+  const config = mergeConfig({ pathLevels: 'full' });
+  assert.equal(config.pathLevels, 'full');
+});
+
+test('mergeConfig rejects invalid pathLevels, falls back to default', () => {
+  const config = mergeConfig({ pathLevels: 4 });
+  assert.equal(config.pathLevels, DEFAULT_CONFIG.pathLevels);
 });
 
 // --- migrateConfig tests (via mergeConfig) ---

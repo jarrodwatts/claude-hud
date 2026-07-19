@@ -78,9 +78,12 @@ export function renderSessionLine(ctx: RenderContext): string {
     // Split by both Unix (/) and Windows (\) separators for cross-platform support
     const segments = ctx.stdin.cwd.split(/[/\\]/).filter(Boolean);
     const pathLevels = ctx.config?.pathLevels ?? 1;
+    const isAbsolute = /^[/\\]/.test(ctx.stdin.cwd);
+    const shown = pathLevels === 'full' ? segments : segments.slice(-pathLevels);
+    const showsFromRoot = isAbsolute && shown.length === segments.length;
     // Always join with forward slash for consistent display
     // Handle root path (/) which results in empty segments
-    const projectPath = segments.length > 0 ? segments.slice(-pathLevels).join('/') : '/';
+    const projectPath = shown.length > 0 ? `${showsFromRoot ? '/' : ''}${shown.join('/')}` : '/';
     projectPart = projectColor(projectPath, colors);
   }
 

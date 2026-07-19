@@ -358,6 +358,22 @@ test('renderSessionLine handles root path gracefully', () => {
   assert.ok(line.includes('[Opus]'));
 });
 
+test('renderSessionLine displays full absolute path when pathLevels is "full"', () => {
+  const ctx = baseContext();
+  ctx.config.pathLevels = 'full';
+  ctx.stdin.cwd = '/Users/jarrod/dev/my-project';
+  const line = stripAnsi(renderSessionLine(ctx));
+  assert.ok(line.includes('/Users/jarrod/dev/my-project'));
+});
+
+test('renderSessionLine full path on Windows cwd omits leading slash', { skip: process.platform !== 'win32' }, () => {
+  const ctx = baseContext();
+  ctx.config.pathLevels = 'full';
+  ctx.stdin.cwd = 'C:\\Users\\jarrod\\my-project';
+  const line = stripAnsi(renderSessionLine(ctx));
+  assert.ok(line.includes('Users/jarrod/my-project'));
+});
+
 test('renderSessionLine supports token-based context display', () => {
   const ctx = baseContext();
   ctx.config.display.contextValue = 'tokens';
@@ -545,6 +561,14 @@ test('renderSessionLine renders a sanitized opt-in transcript model', () => {
   assert.ok(line.includes('[proxy-redlink]'), `got: ${line}`);
   assert.ok(!line.includes('Claude Opus'));
   assert.doesNotMatch(line, /[\x1b\u202E]/u);
+});
+
+test('renderProjectLine displays full absolute path when pathLevels is "full"', () => {
+  const ctx = baseContext();
+  ctx.config.pathLevels = 'full';
+  ctx.stdin.cwd = '/Users/jarrod/dev/my-project';
+  const line = stripAnsi(renderProjectLine(ctx) ?? '');
+  assert.ok(line.includes('/Users/jarrod/dev/my-project'));
 });
 
 test('renderProjectLine includes session name when showSessionName is true', () => {

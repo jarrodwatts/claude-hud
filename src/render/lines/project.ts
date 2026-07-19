@@ -43,7 +43,12 @@ export function renderProjectLine(ctx: RenderContext): string | null {
   if (display?.showProject !== false && ctx.stdin.cwd) {
     const segments = ctx.stdin.cwd.split(/[/\\]/).filter(Boolean);
     const pathLevels = ctx.config?.pathLevels ?? 1;
-    const projectPath = sanitizeDisplayText(segments.length > 0 ? segments.slice(-pathLevels).join('/') : '/');
+    const isAbsolute = /^[/\\]/.test(ctx.stdin.cwd);
+    const shown = pathLevels === 'full' ? segments : segments.slice(-pathLevels);
+    const showsFromRoot = isAbsolute && shown.length === segments.length;
+    const projectPath = sanitizeDisplayText(
+      shown.length > 0 ? `${showsFromRoot ? '/' : ''}${shown.join('/')}` : '/'
+    );
     const coloredProject = projectColor(projectPath, colors);
     projectPart = safeHyperlink(getFileHref(ctx.stdin.cwd), coloredProject);
   }
