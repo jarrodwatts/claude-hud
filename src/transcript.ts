@@ -35,6 +35,13 @@ interface TranscriptLine {
       cache_read_input_tokens?: number;
     };
   };
+  // Result payload the harness stamps onto the record carrying a tool_result
+  // block. For Agent calls it reports `resolvedModel`, the model the subagent
+  // actually runs on — the only source when the caller inherits the session
+  // model instead of passing `model` explicitly.
+  toolUseResult?: {
+    resolvedModel?: unknown;
+  };
   compactMetadata?: {
     trigger?: string;
     preTokens?: number;
@@ -97,7 +104,7 @@ interface TranscriptCacheFile {
   data: SerializedTranscriptData;
 }
 
-const TRANSCRIPT_CACHE_VERSION = 12;
+const TRANSCRIPT_CACHE_VERSION = 13;
 const MCP_TOOL_NAME_PATTERN = /^mcp__(.+?)__(.+)$/;
 const ACTIVITY_NAME_MAX_LEN = 64;
 const MESSAGE_ID_MAX_LEN = 128;
@@ -256,6 +263,7 @@ function deserializeTranscriptData(data: SerializedTranscriptData): TranscriptDa
     mcpServers: normalizeNameList(data.mcpServers),
     agents: data.agents.map((agent) => ({
       ...agent,
+      model: sanitizeTranscriptModel(agent.model),
       startTime: new Date(agent.startTime),
       endTime: agent.endTime ? new Date(agent.endTime) : undefined,
     })),
@@ -611,7 +619,7 @@ function processEntry(
         const agentEntry: AgentEntry = {
           id: block.id,
           type: (input?.subagent_type as string) ?? 'agent',
-          model: (input?.model as string) ?? undefined,
+          model: sanitizeTranscriptModel(input?.model),
           description: (input?.description as string) ?? undefined,
           status: 'running',
           startTime: timestamp,
@@ -701,8 +709,17 @@ function processEntry(
       }
 
       const agent = agentMap.get(block.tool_use_id);
-      if (agent && !agent.background) {
-        agent.endTime = timestamp;
+      if (agent) {
+        // `resolvedModel` is the model the subagent actually ran on, so it wins
+        // over the caller's `model` input (an alias like "opus", and absent
+        // entirely whenever the subagent inherits the session model).
+        const resolvedModel = sanitizeTranscriptModel(entry.toolUseResult?.resolvedModel);
+        if (resolvedModel) {
+          agent.model = resolvedModel;
+        }
+        if (!agent.background) {
+          agent.endTime = timestamp;
+        }
       }
     }
   }

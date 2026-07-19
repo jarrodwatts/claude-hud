@@ -34,6 +34,65 @@ export function renderAgentsLine(ctx: RenderContext): string | null {
   return lines.join('\n');
 }
 
+/**
+ * Compacts an agent model into a statusline-sized label.
+ *
+ * The transcript reports raw model IDs (e.g. "claude-opus-4-8[1m]",
+ * "claude-haiku-4-5-20251001"), which are far too long to sit inside an agent
+ * line. Family plus version is the part that carries meaning, so the wrapper
+ * bits are dropped: the "claude-" prefix, the bracketed context-window variant,
+ * and the trailing release date.
+ *
+ * Anything that does not look like a model ID — notably the short aliases a
+ * caller can pass as `model` ("opus", "sonnet", "haiku") — is returned
+ * unchanged, so explicit overrides keep rendering the way they always have.
+ */
+export function formatAgentModel(model: string | undefined): string | undefined {
+  if (!model) return undefined;
+
+  const cleaned = model
+    .replace(/\[[^\]]*\]$/, '')
+    .trim()
+    .toLowerCase()
+    .replace(/^claude-/, '');
+  if (!cleaned) return undefined;
+
+  const tokens = cleaned.split('-').filter(Boolean);
+  if (tokens.length === 0) return undefined;
+
+  // Trailing release date (e.g. "-20251001") carries nothing for a reader.
+  if (/^\d{8}$/.test(tokens[tokens.length - 1])) {
+    tokens.pop();
+  }
+
+  const familyIndex = tokens.findIndex((token) => !/^\d+$/.test(token));
+  if (familyIndex === -1) return tokens.join('-');
+
+  const family = tokens[familyIndex];
+  // Version sits after the family in current IDs ("sonnet-4-6") and before it in
+  // older ones ("3-7-sonnet"), so read whichever side carries it.
+  const after = readVersionTokens(tokens, familyIndex + 1, 1);
+  const version = after.length > 0
+    ? after
+    : readVersionTokens(tokens, familyIndex - 1, -1).reverse();
+
+  return version.length > 0 ? `${family}-${version.join('.')}` : family;
+}
+
+// Two components is what a Claude version carries ("4-8" -> 4.8); stopping
+// there also keeps the label bounded, matching normalizeBedrockModelLabel.
+const MAX_VERSION_PARTS = 2;
+
+function readVersionTokens(tokens: string[], startIndex: number, step: -1 | 1): string[] {
+  const parts: string[] = [];
+  for (let i = startIndex; i >= 0 && i < tokens.length; i += step) {
+    if (!/^\d+$/.test(tokens[i])) break;
+    parts.push(tokens[i]);
+    if (parts.length === MAX_VERSION_PARTS) break;
+  }
+  return parts;
+}
+
 function getStatusIcon(
   status: AgentEntry['status']
 ): string {
@@ -52,7 +111,8 @@ function formatAgent(
 ): string {
   const statusIcon = getStatusIcon(agent.status);
   const type = magenta(agent.type);
-  const model = agent.model ? label(`[${agent.model}]`, colors) : '';
+  const modelLabel = formatAgentModel(agent.model);
+  const model = modelLabel ? label(`[${modelLabel}]`, colors) : '';
   const desc = agent.description
     ? label(`: ${truncateString(agent.description, 40)}`, colors)
     : '';

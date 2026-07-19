@@ -6,6 +6,7 @@ import { createHash } from 'node:crypto';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { _setCreateReadStreamForTests, parseTranscript } from '../dist/transcript.js';
+import { TRANSCRIPT_MODEL_MAX_LEN } from '../dist/model-source.js';
 import { countConfigs } from '../dist/config-reader.js';
 import { getContextPercent, getBufferedPercent, getModelName, getProviderLabel, getUsageFromStdin, isBedrockModelId, stripContextSuffix, formatModelName, resolveModelName } from '../dist/stdin.js';
 import { estimateSessionCost, resolveSessionCost, formatUsd } from '../dist/cost.js';
@@ -2763,4 +2764,117 @@ test('parseTranscript caps oversized advisorModel at the transcript length limit
     typeof result.advisorModel === 'string' && result.advisorModel.length <= 64,
     `expected capped advisorModel, got length ${result.advisorModel?.length}`,
   );
+});
+
+function agentLaunchEntries(toolUseId, input, toolUseResult) {
+  const entries = [
+    {
+      timestamp: '2026-07-19T10:00:00.000Z',
+      message: {
+        content: [
+          { type: 'tool_use', id: toolUseId, name: 'Agent', input },
+        ],
+      },
+    },
+    {
+      timestamp: '2026-07-19T10:00:00.040Z',
+      message: {
+        content: [
+          { type: 'tool_result', tool_use_id: toolUseId, content: 'launched' },
+        ],
+      },
+    },
+  ];
+  if (toolUseResult) {
+    entries[1].toolUseResult = toolUseResult;
+  }
+  return entries;
+}
+
+test('parseTranscript reads the agent model from toolUseResult.resolvedModel', async () => {
+  const result = await parseTempTranscript(
+    'agent-resolved-model.jsonl',
+    agentLaunchEntries(
+      'agent-resolved',
+      { subagent_type: 'general-purpose', description: 'inherits the session model' },
+      { status: 'async_launched', isAsync: true, resolvedModel: 'claude-sonnet-5[1m]' },
+    ),
+  );
+
+  assert.equal(result.agents.length, 1);
+  assert.equal(result.agents[0]?.model, 'claude-sonnet-5[1m]');
+});
+
+test('parseTranscript prefers resolvedModel over the model passed by the caller', async () => {
+  const result = await parseTempTranscript(
+    'agent-resolved-wins.jsonl',
+    agentLaunchEntries(
+      'agent-both',
+      { subagent_type: 'Explore', model: 'opus' },
+      { status: 'completed', resolvedModel: 'claude-opus-4-8[1m]' },
+    ),
+  );
+
+  assert.equal(result.agents[0]?.model, 'claude-opus-4-8[1m]');
+});
+
+test('parseTranscript keeps the caller model when no resolvedModel is reported', async () => {
+  const result = await parseTempTranscript(
+    'agent-no-resolved.jsonl',
+    agentLaunchEntries('agent-alias', { subagent_type: 'Explore', model: 'haiku' }, null),
+  );
+
+  assert.equal(result.agents[0]?.model, 'haiku');
+});
+
+test('parseTranscript leaves the agent model unset when neither source reports one', async () => {
+  const result = await parseTempTranscript(
+    'agent-no-model.jsonl',
+    agentLaunchEntries('agent-none', { subagent_type: 'Explore' }, { status: 'completed' }),
+  );
+
+  assert.equal(result.agents[0]?.model, undefined);
+});
+
+test('parseTranscript caps an oversized resolvedModel at the model length limit', async () => {
+  const result = await parseTempTranscript(
+    'agent-oversized-model.jsonl',
+    agentLaunchEntries(
+      'agent-oversized',
+      { subagent_type: 'Explore' },
+      { status: 'completed', resolvedModel: 'claude-' + 'x'.repeat(500) },
+    ),
+  );
+
+  assert.ok(
+    typeof result.agents[0]?.model === 'string'
+      && result.agents[0].model.length <= TRANSCRIPT_MODEL_MAX_LEN,
+    `expected capped agent model, got length ${result.agents[0]?.model?.length}`,
+  );
+});
+
+test('parseTranscript strips terminal escapes from resolvedModel', async () => {
+  const result = await parseTempTranscript(
+    'agent-escape-model.jsonl',
+    agentLaunchEntries(
+      'agent-escape',
+      { subagent_type: 'Explore' },
+      { status: 'completed', resolvedModel: '\u001b[31mclaude-opus-4-8\u001b[0m' },
+    ),
+  );
+
+  assert.equal(result.agents[0]?.model, 'claude-opus-4-8');
+});
+
+test('parseTranscript ignores a non-string resolvedModel', async () => {
+  const result = await parseTempTranscript(
+    'agent-bad-model.jsonl',
+    agentLaunchEntries(
+      'agent-bad',
+      { subagent_type: 'Explore', model: 'sonnet' },
+      { status: 'completed', resolvedModel: { id: 'claude-opus-4-8' } },
+    ),
+  );
+
+  assert.equal(result.agents[0]?.model, 'sonnet');
 });

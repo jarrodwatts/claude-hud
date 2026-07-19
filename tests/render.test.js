@@ -9,6 +9,7 @@ import { render } from '../dist/render/index.js';
 import { mergeConfig } from '../dist/config.js';
 import { parseTranscript } from '../dist/transcript.js';
 import { renderSessionLine } from '../dist/render/session-line.js';
+import { formatAgentModel } from '../dist/render/agents-line.js';
 import { renderProjectLine, renderGitFilesLine } from '../dist/render/lines/project.js';
 import { renderPromptCacheLine } from '../dist/render/lines/prompt-cache.js';
 import { renderToolsLine, shortenToolName } from '../dist/render/tools-line.js';
@@ -3609,4 +3610,49 @@ test('renderSessionLine renders advisor inline on the same row (compact layout)'
   assert.ok(plain.includes('Advisor: Opus 4.7'), `advisor segment missing: ${plain}`);
   assert.ok(plain.includes('[Opus]'), 'model badge must still render first');
   assert.ok(!plain.includes('\n'), 'compact session line must remain one row');
+});
+
+test('formatAgentModel compacts raw model IDs to family and version', () => {
+  assert.equal(formatAgentModel('claude-sonnet-5[1m]'), 'sonnet-5');
+  assert.equal(formatAgentModel('claude-opus-4-8[1m]'), 'opus-4.8');
+  assert.equal(formatAgentModel('claude-sonnet-4-6'), 'sonnet-4.6');
+  assert.equal(formatAgentModel('claude-haiku-4-5-20251001'), 'haiku-4.5');
+  assert.equal(formatAgentModel('claude-fable-5'), 'fable-5');
+});
+
+test('formatAgentModel reads the version from either side of the family', () => {
+  assert.equal(formatAgentModel('claude-3-7-sonnet-20250219'), 'sonnet-3.7');
+  assert.equal(formatAgentModel('claude-3-5-haiku-20241022'), 'haiku-3.5');
+});
+
+test('formatAgentModel leaves short aliases untouched', () => {
+  assert.equal(formatAgentModel('opus'), 'opus');
+  assert.equal(formatAgentModel('sonnet'), 'sonnet');
+  assert.equal(formatAgentModel('haiku'), 'haiku');
+  assert.equal(formatAgentModel('opusplan'), 'opusplan');
+});
+
+test('formatAgentModel drops values that carry no model name', () => {
+  assert.equal(formatAgentModel(undefined), undefined);
+  assert.equal(formatAgentModel(''), undefined);
+  assert.equal(formatAgentModel('   '), undefined);
+  assert.equal(formatAgentModel('claude-'), undefined);
+});
+
+test('agents line renders the compacted model beside the agent type', () => {
+  const ctx = baseContext();
+  ctx.transcript.agents = [
+    {
+      id: 'agent-1',
+      type: 'general-purpose',
+      model: 'claude-sonnet-5[1m]',
+      description: 'review the diff',
+      status: 'running',
+      startTime: new Date(Date.now() - 5000),
+    },
+  ];
+
+  const output = captureRenderLines(ctx).join('\n');
+
+  assert.match(output, /general-purpose \[sonnet-5\]: review the diff/);
 });
