@@ -11,6 +11,7 @@ import { normalizeAddedDirs, sanitize as sanitizeDisplayText, basenameOf, trunca
 import { hyperlink, getFileHref, safeHyperlink } from '../../utils/hyperlinks.js';
 import { formatModelDisplay } from '../model-display.js';
 import { formatAuthSegment } from '../../auth.js';
+import { formatProjectPath } from '../project-path.js';
 
 function resolvePathWithinCwd(cwd: string, candidatePath: string): string | null {
   const resolvedCwd = path.resolve(cwd);
@@ -41,14 +42,8 @@ export function renderProjectLine(ctx: RenderContext): string | null {
 
   let projectPart: string | null = null;
   if (display?.showProject !== false && ctx.stdin.cwd) {
-    const segments = ctx.stdin.cwd.split(/[/\\]/).filter(Boolean);
     const pathLevels = ctx.config?.pathLevels ?? 1;
-    const isAbsolute = /^[/\\]/.test(ctx.stdin.cwd);
-    const shown = pathLevels === 'full' ? segments : segments.slice(-pathLevels);
-    const showsFromRoot = isAbsolute && shown.length === segments.length;
-    const projectPath = sanitizeDisplayText(
-      shown.length > 0 ? `${showsFromRoot ? '/' : ''}${shown.join('/')}` : '/'
-    );
+    const projectPath = formatProjectPath(ctx.stdin.cwd, pathLevels);
     const coloredProject = projectColor(projectPath, colors);
     projectPart = safeHyperlink(getFileHref(ctx.stdin.cwd), coloredProject);
   }

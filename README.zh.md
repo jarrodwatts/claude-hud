@@ -163,7 +163,7 @@ Claude Code → stdin JSON → claude-hud → stdout → 在终端中显示
 |------|------|--------|------|
 | `language` | `en` \| `zh` \| `zh-Hans` \| `zh-Hant` \| `zh-TW` | `en` | HUD 标签语言。设为 `zh` 或 `zh-Hans` 启用简体中文，设为 `zh-Hant` 或 `zh-TW` 启用繁体中文 |
 | `lineLayout` | string | `expanded` | 布局：`expanded`（多行）或 `compact`（单行） |
-| `pathLevels` | 1-3 | 1 | 项目路径显示的目录层级数 |
+| `pathLevels` | 1-3 \| `full` | 1 | 项目路径显示的目录层级数，或设为 `full` 显示完整绝对路径 |
 | `maxWidth` | number \| `null` | `null` | 可选的回退宽度，仅在终端宽度检测完全失败时使用 |
 | `forceMaxWidth` | boolean | false | 当设置了 `maxWidth` 时始终使用它，即使终端宽度检测返回更小的值 |
 | `elementOrder` | string[] | `["project","context","usage","promptCache","memory","environment","tools","agents","todos","sessionTime"]` | 展开模式下元素的顺序。省略的条目在展开模式下隐藏。现有配置会保留其显式顺序直到更新 |
@@ -380,7 +380,7 @@ CLAUDE_HUD_DISABLE=1 claude
 
 **配置不生效？**
 - 检查 JSON 语法错误：无效的 JSON 会静默回退到默认值
-- 确保值有效：`pathLevels` 必须是 1、2 或 3；`lineLayout` 必须是 `expanded` 或 `compact`；`maxWidth` 必须是正数
+- 确保值有效：`pathLevels` 必须是 1、2、3 或 `full`；`lineLayout` 必须是 `expanded` 或 `compact`；`maxWidth` 必须是正数
 - 删除配置文件并运行 `/claude-hud:configure` 重新生成
 
 **Git 状态缺失？**

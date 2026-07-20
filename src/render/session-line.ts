@@ -17,6 +17,7 @@ import { createDebug } from '../debug.js';
 import { formatModelDisplay } from './model-display.js';
 import { formatSessionTokenSummary } from './lines/session-tokens.js';
 import { sanitizeDisplayText } from '../utils/sanitize.js';
+import { formatProjectPath } from './project-path.js';
 
 const debug = createDebug('session-line');
 
@@ -75,15 +76,8 @@ export function renderSessionLine(ctx: RenderContext): string {
   // Project path + git status
   let projectPart: string | null = null;
   if (display?.showProject !== false && ctx.stdin.cwd) {
-    // Split by both Unix (/) and Windows (\) separators for cross-platform support
-    const segments = ctx.stdin.cwd.split(/[/\\]/).filter(Boolean);
     const pathLevels = ctx.config?.pathLevels ?? 1;
-    const isAbsolute = /^[/\\]/.test(ctx.stdin.cwd);
-    const shown = pathLevels === 'full' ? segments : segments.slice(-pathLevels);
-    const showsFromRoot = isAbsolute && shown.length === segments.length;
-    // Always join with forward slash for consistent display
-    // Handle root path (/) which results in empty segments
-    const projectPath = shown.length > 0 ? `${showsFromRoot ? '/' : ''}${shown.join('/')}` : '/';
+    const projectPath = formatProjectPath(ctx.stdin.cwd, pathLevels);
     projectPart = projectColor(projectPath, colors);
   }
 
