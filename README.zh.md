@@ -342,7 +342,7 @@ ClaudeHUD 优先使用官方 statusline stdin 负载中的使用率数据。如�
 
 ### 自动刷新
 
-Claude Code 只在交互之后（新消息、`/compact` 完成、权限模式变更）才会重新运行状态栏，因此与时间相关的 HUD 信息——会话时长、使用量重置倒计时、提示词缓存倒计时——在消息之间会停止更新。要让它们持续跳动，可以在 `~/.claude/settings.json` 的 `statusLine` 条目中添加 `refreshInterval`（秒，最小值 1）：
+Claude Code 只在交互之后（新的助手消息、`/compact` 完成、权限模式变更、vim 模式切换）才会重新运行状态栏，因此与时间相关的 HUD 信息——会话时长、使用量重置倒计时、提示词缓存倒计时——在消息之间会停止更新。要让它们持续跳动，可以在 `~/.claude/settings.json` 的 `statusLine` 条目中添加 `refreshInterval`（秒，最小值 1）：
 
 ```json
 {
