@@ -59,6 +59,11 @@ Run this command in Claude Code:
 /plugin install claude-hud
 ```
 
+Then reload plugins so the setup skill is available in this session:
+```
+/reload-plugins
+```
+
 ### Step 4: Configure the Statusline
 
 Run this command in Claude Code:

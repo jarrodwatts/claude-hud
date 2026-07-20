@@ -25,7 +25,7 @@ Claude Code → stdin JSON → parse → render lines → stdout → Claude Code
            ↘ transcript_path → parse JSONL → tools/agents/todos
 ```
 
-**Key insight**: The statusline is invoked by Claude Code after each interaction (new assistant message, `/compact` finishing, permission-mode changes), debounced at 300ms — not on a fixed polling loop. Each invocation:
+**Key insight**: The statusline is invoked by Claude Code after each interaction (new assistant message, `/compact` finishing, permission-mode changes, vim-mode toggles), debounced at 300ms — not on a fixed polling loop. Each invocation:
 1. Receives JSON via stdin (model, context, tokens - native accurate data)
 2. Parses the transcript JSONL file for tools, agents, and todos
 3. Renders multi-line output to stdout

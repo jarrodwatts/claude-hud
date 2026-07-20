@@ -56,7 +56,7 @@ export function isHudDisabled(env: NodeJS.ProcessEnv = process.env): boolean {
 export async function main(overrides: Partial<MainDeps> = {}): Promise<void> {
   if (isHudDisabled()) {
     // Print nothing so Claude Code renders an empty statusline, and skip all
-    // work (stdin parse, transcript scan, git) for the ~300ms polling loop.
+    // work (stdin parse, transcript scan, git) on each event-driven refresh.
     return;
   }
 

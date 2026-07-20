@@ -12,7 +12,8 @@ const CACHE_DIRNAME = "context-cache";
 
 /**
  * Minimum interval between cache rewrites for the same session.
- * Status line runs every ~300ms so this keeps the steady-state write path cheap
+ * Status line refreshes are event-driven and can fire in rapid bursts
+ * (debounced at 300ms), so this keeps the steady-state write path cheap
  * while still refreshing the fallback snapshot regularly.
  */
 const WRITE_TTL_MS = 3_000;

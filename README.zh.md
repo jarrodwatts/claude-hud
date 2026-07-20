@@ -123,7 +123,7 @@ Claude Code → stdin JSON → claude-hud → stdout → 在终端中显示
 - 来自 Claude Code 的原生 Token 数据（非估算）
 - 适配 Claude Code 报告的上下文窗口大小，包括最新的 1M 上下文会话
 - 解析转录文件以获取工具/Agent 活动
-- 在每次交互后重新渲染（新消息、`/compact`、权限变更），带 300ms 防抖
+- 在每次交互后重新渲染（新的助手消息、`/compact`、权限变更、vim 模式切换），带 300ms 防抖
 
 ---
 
