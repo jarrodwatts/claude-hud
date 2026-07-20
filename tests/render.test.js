@@ -3857,3 +3857,32 @@ test('renderSessionLine preserves the native compact order with all keyed segmen
   assert.equal(segments[7], 'Claude Max 20x');
   assert.equal(segments[8], 'TAIL');
 });
+
+test('full project paths stay sanitized when projectLineOrder moves them first', () => {
+  const ctx = baseContext();
+  ctx.stdin.cwd = '/safe/\u001b]8;;https://evil.example\u0007project\u202E';
+  ctx.config = mergeConfig({
+    lineLayout: 'compact',
+    pathLevels: 'full',
+    projectLineOrder: ['project', 'model'],
+    display: { showUsage: false },
+  });
+
+  const rawCompact = renderSessionLine(ctx);
+  const rawExpanded = renderProjectLine(ctx);
+
+  assert.ok(!rawCompact.includes('\u001b]8;;https://evil.example'), 'attacker OSC target leaked into compact output');
+  assert.ok(!rawExpanded.includes('\u001b]8;;https://evil.example'), 'attacker OSC target leaked into expanded output');
+  assert.ok(!rawCompact.includes('\u202e'), 'bidi override leaked into compact output');
+  assert.ok(!rawExpanded.includes('\u202e'), 'bidi override leaked into expanded output');
+
+  const compact = stripAnsi(rawCompact);
+  const expanded = stripAnsi(rawExpanded);
+
+  assert.ok(compact.startsWith('/safe/project | [Opus'), `sanitized path should lead: ${compact}`);
+  assert.ok(expanded.startsWith('/safe/project │ [Opus'), `sanitized path should lead: ${expanded}`);
+  assert.ok(!compact.includes('evil.example'), `OSC payload leaked into compact output: ${compact}`);
+  assert.ok(!expanded.includes('evil.example'), `OSC payload leaked into expanded output: ${expanded}`);
+  assert.doesNotMatch(compact, /[\u0000-\u001f\u007f-\u009f\u202a-\u202e\u2066-\u2069]/i);
+  assert.doesNotMatch(expanded, /[\u0000-\u001f\u007f-\u009f\u202a-\u202e\u2066-\u2069]/i);
+});
