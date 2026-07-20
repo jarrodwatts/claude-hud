@@ -16,12 +16,17 @@ Real-time statusline showing context usage, active tools, running agents, and to
 /plugin install claude-hud
 ```
 
+Then reload plugins (no restart needed):
+```
+/reload-plugins
+```
+
 **Step 3: Configure the statusline**
 ```
 /claude-hud:setup
 ```
 
-Done. Restart Claude Code to load the new statusLine config, then the HUD will appear.
+Done. Claude Code reloads settings automatically — the HUD appears after your next message, no restart needed. (On older Claude Code versions, restart if it doesn't show.)
 
 ---
 
@@ -67,7 +72,7 @@ This adds the statusLine configuration to the user's settings.json.
 
 Tell the user:
 - Installation complete
-- Restart Claude Code to load the statusline config, then the HUD will appear
+- Settings reload automatically — the HUD appears after their next message, no restart needed (on older Claude Code versions, restart if it doesn't show)
 - It shows: context usage, active tools, running agents, and todo progress
 
 ### Step 6: Ask About Starring (Optional)
@@ -378,7 +383,7 @@ Technical documentation for agents who need to understand, modify, or debug Clau
     1. Clone the repo or navigate to the plugin directory
     2. Make changes following the file_structure section
     3. Run npm run build to compile
-    4. Restart Claude Code to see changes
+    4. Changes appear on the next statusline refresh — send a message to trigger one (no restart needed; the statusLine command re-runs each refresh)
   </modify>
 
   <debug>

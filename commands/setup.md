@@ -77,21 +77,19 @@ Remove-Item -Recurse -Force (Join-Path $claudeDir "plugins\cache\temp_local_*") 
 '{"version": 2, "plugins": {}}' | Set-Content (Join-Path $claudeDir "plugins\installed_plugins.json")
 ```
 
-After cleanup, tell user to **restart Claude Code** and run `/plugin install claude-hud` again.
+After cleanup, tell user to run `/plugin install claude-hud` again followed by `/reload-plugins` — no restart needed. (Restart Claude Code only if the reinstall still misbehaves; the fresh session re-reads the plugin registry from scratch.)
 
 ### Linux: Cross-Device Filesystem Check
 
-**On Linux only**, if install keeps failing, check for EXDEV issue:
+**On Linux only**, if install fails with `EXDEV: cross-device link not permitted`, check whether `/tmp` and home are on different filesystems:
 ```bash
 [ "$(df --output=source ~ /tmp 2>/dev/null | tail -2 | uniq | wc -l)" = "2" ] && echo "CROSS_DEVICE"
 ```
 
-If this outputs `CROSS_DEVICE`, `/tmp` and home are on different filesystems. This causes `EXDEV: cross-device link not permitted` during installation. Workaround:
+The underlying Claude Code bug ([#14799](https://github.com/anthropics/claude-code/issues/14799)) has been fixed, so this mostly affects older Claude Code versions — suggest updating Claude Code first. If updating isn't an option and the check outputs `CROSS_DEVICE`, the workaround is:
 ```bash
 mkdir -p ~/.cache/tmp && TMPDIR=~/.cache/tmp claude /plugin install claude-hud
 ```
-
-This is a [Claude Code platform limitation](https://github.com/anthropics/claude-code/issues/14799).
 
 ---
 
@@ -158,9 +156,12 @@ echo $OSTYPE
 
    The command exports `COLUMNS` so the HUD knows the real terminal width.
    Claude Code pipes the subprocess stdout, so `process.stdout.columns` is
-   unavailable at runtime. Prefer Claude Code's inherited positive-integer
-   `COLUMNS`, then try `stty size </dev/tty`, then fall back to 120. The `- 4`
-   accounts for Claude Code's input area padding (2 columns on each side).
+   unavailable at runtime. Since Claude Code v2.1.153, `COLUMNS` and `LINES`
+   are set natively to the current terminal dimensions before the statusLine
+   command runs, so the inherited `COLUMNS` value is the primary source. The
+   `stty size </dev/tty` probe and the 120 fallback remain for older Claude
+   Code versions where `COLUMNS` may be absent. The `- 4` accounts for Claude
+   Code's input area padding (2 columns on each side).
 
    The grep pattern uses `[[:space:]]` rather than `\t` to match the tab
    separator emitted by awk. GNU grep (BRE/ERE) does **not** interpret
@@ -628,19 +629,21 @@ Verify the first bytes are `7B 0D 0A` (`{` + CRLF) or `7B 0A` (`{` + LF), not `E
 
 After successfully writing the config, tell the user:
 
-> ✅ Config written. **Please restart Claude Code now** — quit and run `claude` again in your terminal.
-> Once restarted, run `/claude-hud:setup` again to complete Step 4 and verify the HUD is working.
+> ✅ Config written. Claude Code reloads settings automatically — the HUD should appear below your input field after your next message in this session (no restart needed).
+> If it doesn't show up after your next interaction, restart Claude Code (quit and run `claude` again) — older Claude Code versions require a restart to pick up statusLine changes.
 
-**Windows note**: Keep the restart guidance separate from runtime installation guidance.
-- If the user just installed Node.js, they should restart their shell first so `node` is available in `PATH`.
-- After `statusLine` is written successfully, they should fully quit Claude Code and launch a fresh session before judging whether the HUD setup worked.
+Then continue directly to Step 4 in the same session.
+
+**Windows note**: Keep the settings-reload guidance separate from runtime installation guidance.
+- If the user just installed Node.js, they should restart their shell first so `node` is available in `PATH` — that shell restart is unrelated to Claude Code picking up the statusLine config.
+- The statusLine config itself reloads automatically on Windows too; a full Claude Code restart is only the fallback if the HUD doesn't appear after the next interaction.
 
 **Note**: The generated command dynamically finds and runs the latest installed plugin version. Updates are automatic - no need to re-run setup after plugin updates. If the HUD suddenly stops working, re-run `/claude-hud:setup` to verify the plugin is still installed.
 
 **Restoring a previous statusline**: If the user previously had a different statusline and wants to restore it, use the backup path printed in Step 2.5.3. The previous command is stored in `~/.claude/plugins/claude-hud/previous-statusline.txt`. To restore:
 1. Find the most recent backup: `ls -t ~/.claude/settings.json.bak.* | head -1`
 2. Copy it back: `cp ~/.claude/settings.json.bak.{timestamp} ~/.claude/settings.json`
-3. Restart Claude Code.
+3. The restored config applies automatically on the next interaction (restart Claude Code only if it doesn't).
 
 ## Step 4: Optional Features
 
@@ -675,8 +678,8 @@ Merge with existing config if the file already exists. Only write keys the user 
 
 ## Step 5: Verify & Finish
 
-**First, confirm the user has restarted Claude Code** since Step 3 wrote the config. If they haven't, ask them to restart before proceeding — the HUD cannot appear in the same session where setup was run.
- 
+Settings reload automatically, so the HUD can appear in the same session where setup was run — it renders after the user's next interaction (their answer to the question below counts as one). No restart is needed on current Claude Code versions.
+
 Use AskUserQuestion:
 - Question: "Setup complete! The HUD should appear below your input field. Is it working?"
 - Options: "Yes, it's working" / "No, something's wrong"
@@ -685,9 +688,9 @@ Use AskUserQuestion:
 
 **If no**: Debug systematically:
 
-1. **Restart Claude Code** (most common cause on macOS):
-    - The statusLine config requires a restart to take effect
-    - Quit Claude Code completely and run `claude` again, then re-run `/claude-hud:setup` to verify
+1. **Trigger an interaction, then restart if needed**:
+    - Settings reload automatically, but the HUD only renders after the next interaction (a new message, `/compact` finishing, a permission-mode change) — sending any message should make it appear
+    - If it still doesn't appear, restart Claude Code (quit and run `claude` again) — older Claude Code versions require a restart to pick up statusLine changes — then re-run `/claude-hud:setup` to verify
     - If you've already restarted, continue below
 
 2. **Verify config was applied**:

@@ -21,19 +21,19 @@
 **步骤 2：安装插件**
 
 <details>
-<summary><strong>⚠️ Linux 用户：请先点击此处</strong></summary>
+<summary><strong>⚠️ Linux 用户：如果安装报 EXDEV 错误，请点击此处</strong></summary>
 
-在 Linux 上，`/tmp` 通常是独立的文件系统（tmpfs），这会导致插件安装失败并报错：
+在较旧的 Claude Code 版本上，`/tmp` 作为独立文件系统（tmpfs）会导致插件安装失败并报错：
 ```
 EXDEV: cross-device link not permitted
 ```
 
-**修复方法**：在安装前设置 TMPDIR：
+这个 [Claude Code 缺陷](https://github.com/anthropics/claude-code/issues/14799)已经修复——如果遇到此错误，请先升级 Claude Code。如果无法升级，可在安装前设置 TMPDIR：
 ```bash
 mkdir -p ~/.cache/tmp && TMPDIR=~/.cache/tmp claude
 ```
 
-然后在该会话中运行下面的安装命令。这是 [Claude Code 平台的限制](https://github.com/anthropics/claude-code/issues/14799)。
+然后在该会话中运行下面的安装命令。
 
 </details>
 
@@ -41,11 +41,23 @@ mkdir -p ~/.cache/tmp && TMPDIR=~/.cache/tmp claude
 /plugin install claude-hud
 ```
 
-安装完成后，重新加载插件：
+安装完成后，重新加载插件（无需重启）：
 
 ```
 /reload-plugins
 ```
+
+<details>
+<summary><strong>更喜欢在终端操作？</strong></summary>
+
+步骤 1–2 也可以在会话之外用 Claude Code CLI 完成：
+```bash
+claude plugin marketplace add jarrodwatts/claude-hud
+claude plugin install claude-hud@claude-hud
+```
+然后在会话内运行 `/reload-plugins`（或开启新会话）。
+
+</details>
 
 **步骤 3：配置状态栏**
 ```
@@ -63,9 +75,7 @@ winget install OpenJS.NodeJS.LTS
 
 </details>
 
-完成！重启 Claude Code 以加载新的 statusLine 配置，HUD 将会出现。
-
-在 Windows 上，setup 写入新的 `statusLine` 配置后，请完整重启 Claude Code。
+完成！Claude Code 会自动重新加载设置——发送下一条消息后 HUD 就会出现，无需重启。如果没有显示，请重启 Claude Code（旧版 Claude Code 需要重启才能加载 statusLine 变更）。
 
 ---
 
@@ -366,8 +376,8 @@ CLAUDE_HUD_DISABLE=1 claude
 - 它们也仅在有活动可显示时才会出现
 
 **HUD 设置后不显示？**
-- 重启 Claude Code 以加载新的 statusLine 配置
-- 在 macOS 上，完全退出 Claude Code 并在终端中再次运行 `claude`
+- 发送任意一条消息——设置会自动重新加载，但状态栏只在下一次交互后才会渲染
+- 如果仍未出现，重启 Claude Code（完全退出并在终端中再次运行 `claude`）——旧版 Claude Code 需要重启才能加载 statusLine 变更
 - 确认环境中没有设置 `CLAUDE_HUD_DISABLE`（例如从 shell 配置文件中导出）——它会让 HUD 完全静默，包括安装验证
 
 ---

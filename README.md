@@ -21,19 +21,19 @@ Inside a Claude Code instance, run the following commands:
 **Step 2: Install the plugin**
 
 <details>
-<summary><strong>⚠️ Linux users: Click here first</strong></summary>
+<summary><strong>⚠️ Linux users: Click here if install fails with an EXDEV error</strong></summary>
 
-On Linux, `/tmp` is often a separate filesystem (tmpfs), which causes plugin installation to fail with:
+On older Claude Code versions, `/tmp` being a separate filesystem (tmpfs) caused plugin installation to fail with:
 ```
 EXDEV: cross-device link not permitted
 ```
 
-**Fix**: Set TMPDIR before installing:
+This [Claude Code bug](https://github.com/anthropics/claude-code/issues/14799) has since been fixed — if you hit it, update Claude Code first. If you can't update, set TMPDIR before installing:
 ```bash
 mkdir -p ~/.cache/tmp && TMPDIR=~/.cache/tmp claude
 ```
 
-Then run the install command below in that session. This is a [Claude Code platform limitation](https://github.com/anthropics/claude-code/issues/14799).
+Then run the install command below in that session.
 
 </details>
 
@@ -41,11 +41,23 @@ Then run the install command below in that session. This is a [Claude Code platf
 /plugin install claude-hud
 ```
 
-After that, reload plugins:
+After that, reload plugins (no restart needed):
 
 ```
 /reload-plugins
 ```
+
+<details>
+<summary><strong>Prefer the terminal?</strong></summary>
+
+Steps 1–2 can also be done outside a session with the Claude Code CLI:
+```bash
+claude plugin marketplace add jarrodwatts/claude-hud
+claude plugin install claude-hud@claude-hud
+```
+Then run `/reload-plugins` inside your session (or start a new one).
+
+</details>
 
 
 **Step 3: Configure the statusline**
@@ -64,9 +76,7 @@ Then restart your shell and run `/claude-hud:setup` again.
 
 </details>
 
-Done! Restart Claude Code to load the new statusLine config, then the HUD will appear.
-
-On Windows, make that a full Claude Code restart after setup writes the new `statusLine` config.
+Done! Claude Code reloads settings automatically — the HUD appears after your next message, no restart needed. If it doesn't show up, restart Claude Code (older versions require a restart to pick up statusLine changes).
 
 ---
 
@@ -393,8 +403,8 @@ Leaving it unset (or setting an explicit negative: `0`, `false`, `off`, `no`) ke
 - They also only appear when there's activity to show
 
 **HUD not appearing after setup?**
-- Restart Claude Code so it picks up the new statusLine config
-- On macOS, fully quit Claude Code and run `claude` again in your terminal
+- Send any message — settings reload automatically, but the statusline only renders after your next interaction
+- If it still doesn't appear, restart Claude Code (fully quit and run `claude` again) — older Claude Code versions require a restart to pick up statusLine changes
 - Make sure `CLAUDE_HUD_DISABLE` is not set in your environment (e.g. exported from a shell profile) — it silences the HUD entirely, including setup verification
 
 ---
