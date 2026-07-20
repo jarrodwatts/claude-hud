@@ -340,6 +340,22 @@ ClaudeHUD 优先使用官方 statusline stdin 负载中的使用率数据。如�
 - `!` = 修改的文件，`+` = 新增/暂存，`✘` = 删除，`?` = 未跟踪
 - 计数为 0 的项会被省略，以保持显示整洁
 
+### 自动刷新
+
+Claude Code 只在交互之后（新消息、`/compact` 完成、权限模式变更）才会重新运行状态栏，因此与时间相关的 HUD 信息——会话时长、使用量重置倒计时、提示词缓存倒计时——在消息之间会停止更新。要让它们持续跳动，可以在 `~/.claude/settings.json` 的 `statusLine` 条目中添加 `refreshInterval`（秒，最小值 1）：
+
+```json
+{
+  "statusLine": {
+    "type": "command",
+    "command": "...",
+    "refreshInterval": 5
+  }
+}
+```
+
+`/claude-hud:setup` 会在安装时提供此选项。每次刷新都会重新运行 HUD 命令，因此推荐 5 秒；只有在需要平滑倒计时时才用 1 秒。
+
 ### 临时关闭 HUD
 
 设置环境变量 `CLAUDE_HUD_DISABLE`，即可在本次会话中关闭 HUD，无需从 `settings.json` 中移除 `statusLine` 配置：
