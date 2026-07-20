@@ -125,7 +125,7 @@ export const DEFAULT_MERGE_GROUPS: HudElement[][] = [
   ['context', 'usage'],
 ];
 
-export const DEFAULT_PROJECT_LINE_ORDER: FirstLineSegment[] = [
+const PROJECT_LINE_SEGMENTS: FirstLineSegment[] = [
   'model',
   'project',
   'advisor',
@@ -138,8 +138,12 @@ export const DEFAULT_PROJECT_LINE_ORDER: FirstLineSegment[] = [
   'auth',
 ];
 
+// An empty order is deliberate: renderers retain their byte-for-byte native
+// order until the user opts in to moving one or more segments.
+export const DEFAULT_PROJECT_LINE_ORDER: FirstLineSegment[] = [];
+
 const KNOWN_ELEMENTS = new Set<HudElement>(DEFAULT_ELEMENT_ORDER);
-const KNOWN_FIRST_LINE_SEGMENTS = new Set<FirstLineSegment>(DEFAULT_PROJECT_LINE_ORDER);
+const KNOWN_FIRST_LINE_SEGMENTS = new Set<FirstLineSegment>(PROJECT_LINE_SEGMENTS);
 
 export interface HudConfig {
   language: Language;
@@ -453,12 +457,9 @@ function validateElementOrder(value: unknown): HudElement[] {
   return elementOrder.length > 0 ? elementOrder : [...DEFAULT_ELEMENT_ORDER];
 }
 
-// Unlike `elementOrder`, `projectLineOrder` only reorders segments —
-// visibility stays with the `display.show*` flags. Segments missing from a
-// partial list (including segments added in future versions that an older
-// saved config cannot know about) are appended in default order, so every
-// visible segment always renders and existing configs stay stable across
-// upgrades.
+// Unlike `elementOrder`, `projectLineOrder` only reorders segments. A partial
+// list is preserved as a requested prefix; each renderer appends all remaining
+// visible parts in its own existing order.
 function validateProjectLineOrder(value: unknown): FirstLineSegment[] {
   if (!Array.isArray(value)) {
     return [...DEFAULT_PROJECT_LINE_ORDER];
@@ -479,12 +480,6 @@ function validateProjectLineOrder(value: unknown): FirstLineSegment[] {
 
     seen.add(segment);
     order.push(segment);
-  }
-
-  for (const segment of DEFAULT_PROJECT_LINE_ORDER) {
-    if (!seen.has(segment)) {
-      order.push(segment);
-    }
   }
 
   return order;

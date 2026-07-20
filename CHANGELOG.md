@@ -6,6 +6,7 @@ All notable changes to Claude HUD will be documented in this file.
 
 ### Added
 - Support `pathLevels: "full"` to show the entire absolute working directory in the project badge, instead of being capped at the last 3 segments.
+- Allow users to reorder visible first-line segments with `projectLineOrder` while preserving the existing default output (#680).
 
 ## [0.5.1] - 2026-07-17
 

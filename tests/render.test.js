@@ -3823,3 +3823,37 @@ test('renderSessionLine keeps the default compact order when projectLineOrder is
   assert.ok(segments[0].includes('[Opus'), `model cluster should lead by default, got: ${line}`);
   assert.ok(segments[1].includes('my-project'));
 });
+
+test('renderSessionLine preserves the native compact order with all keyed segments enabled', () => {
+  const ctx = baseContext();
+  ctx.stdin.cwd = '/tmp/my-project';
+  ctx.transcript.sessionName = 'Renamed Session';
+  ctx.transcript.advisorModel = 'claude-opus-4-7';
+  ctx.claudeCodeVersion = '2.1.9';
+  ctx.sessionDuration = '12m 34s';
+  ctx.extraLabel = 'EXTRA';
+  ctx.authInfo = { method: 'Claude Max 20x', user: null };
+  ctx.config = mergeConfig({
+    lineLayout: 'compact',
+    display: {
+      showUsage: false,
+      showAdvisor: true,
+      showSessionName: true,
+      showClaudeCodeVersion: true,
+      showDuration: true,
+      showAuth: true,
+      customLine: 'TAIL',
+    },
+  });
+
+  const segments = stripAnsi(renderSessionLine(ctx)).split(' | ');
+  assert.ok(segments[0].startsWith('[Opus'), `model should remain first: ${segments}`);
+  assert.equal(segments[1], 'my-project');
+  assert.equal(segments[2], 'Renamed Session');
+  assert.equal(segments[3], 'CC v2.1.9');
+  assert.equal(segments[4], 'Advisor: Opus 4.7');
+  assert.equal(segments[5], '⏱️  12m 34s');
+  assert.equal(segments[6], 'EXTRA');
+  assert.equal(segments[7], 'Claude Max 20x');
+  assert.equal(segments[8], 'TAIL');
+});

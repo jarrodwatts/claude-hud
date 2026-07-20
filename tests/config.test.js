@@ -957,7 +957,7 @@ test('mergeConfig rejects non-string advisorOverride and non-boolean showAdvisor
   assert.equal(config.display.advisorOverride, '');
 });
 
-test('mergeConfig defaults projectLineOrder to the default first-line order', () => {
+test('mergeConfig defaults projectLineOrder to no reordering', () => {
   const config = mergeConfig({});
   assert.deepEqual(config.projectLineOrder, DEFAULT_PROJECT_LINE_ORDER);
   assert.deepEqual(DEFAULT_CONFIG.projectLineOrder, DEFAULT_PROJECT_LINE_ORDER);
@@ -972,24 +972,17 @@ test('mergeConfig falls back to default when projectLineOrder is missing or inva
 });
 
 test('mergeConfig preserves a full custom projectLineOrder', () => {
-  const reversed = [...DEFAULT_PROJECT_LINE_ORDER].reverse();
+  const reversed = ['auth', 'speed', 'cost', 'duration', 'extra', 'version', 'sessionName', 'advisor', 'project', 'model'];
   const config = mergeConfig({ projectLineOrder: reversed });
   assert.deepEqual(config.projectLineOrder, reversed);
 });
 
-test('mergeConfig completes a partial projectLineOrder with remaining segments in default order', () => {
+test('mergeConfig preserves a partial projectLineOrder as an explicit prefix', () => {
   const config = mergeConfig({ projectLineOrder: ['project', 'model'] });
-  assert.deepEqual(config.projectLineOrder, [
-    'project',
-    'model',
-    ...DEFAULT_PROJECT_LINE_ORDER.filter(segment => segment !== 'project' && segment !== 'model'),
-  ]);
+  assert.deepEqual(config.projectLineOrder, ['project', 'model']);
 
   const authFirst = mergeConfig({ projectLineOrder: ['auth'] });
-  assert.deepEqual(authFirst.projectLineOrder, [
-    'auth',
-    ...DEFAULT_PROJECT_LINE_ORDER.filter(segment => segment !== 'auth'),
-  ]);
+  assert.deepEqual(authFirst.projectLineOrder, ['auth']);
 });
 
 test('mergeConfig filters unknown entries and de-duplicates projectLineOrder', () => {
@@ -998,6 +991,5 @@ test('mergeConfig filters unknown entries and de-duplicates projectLineOrder', (
     'project',
     'model',
     'cost',
-    ...DEFAULT_PROJECT_LINE_ORDER.filter(segment => !['project', 'model', 'cost'].includes(segment)),
   ]);
 });
