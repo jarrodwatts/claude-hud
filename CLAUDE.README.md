@@ -113,7 +113,7 @@ Technical documentation for agents who need to understand, modify, or debug Clau
 
 <architecture>
   <overview>
-    Claude HUD is a statusline plugin invoked by Claude Code every ~300ms.
+    Claude HUD is a statusline plugin invoked by Claude Code after each interaction (debounced at 300ms).
     It reads official statusline data from stdin plus local transcript/config data, renders up to 4 lines, and outputs to stdout.
   </overview>
 
