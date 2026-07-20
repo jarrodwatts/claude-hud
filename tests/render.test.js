@@ -3617,7 +3617,7 @@ test('formatAgentModel compacts raw model IDs to family and version', () => {
   assert.equal(formatAgentModel('claude-opus-4-8[1m]'), 'opus-4.8');
   assert.equal(formatAgentModel('claude-sonnet-4-6'), 'sonnet-4.6');
   assert.equal(formatAgentModel('claude-haiku-4-5-20251001'), 'haiku-4.5');
-  assert.equal(formatAgentModel('claude-fable-5'), 'fable-5');
+  assert.equal(formatAgentModel('claude-fable-5'), 'claude-fable-5');
 });
 
 test('formatAgentModel reads the version from either side of the family', () => {
@@ -3630,6 +3630,25 @@ test('formatAgentModel leaves short aliases untouched', () => {
   assert.equal(formatAgentModel('sonnet'), 'sonnet');
   assert.equal(formatAgentModel('haiku'), 'haiku');
   assert.equal(formatAgentModel('opusplan'), 'opusplan');
+  assert.equal(formatAgentModel('OPUS'), 'OPUS');
+});
+
+test('formatAgentModel preserves provider-qualified and custom IDs', () => {
+  assert.equal(
+    formatAgentModel('us.anthropic.claude-opus-4-6-v1:0'),
+    'us.anthropic.claude-opus-4-6-v1:0',
+  );
+  assert.equal(
+    formatAgentModel('claude-3-5-sonnet@20240620'),
+    'claude-3-5-sonnet@20240620',
+  );
+  assert.equal(formatAgentModel('custom-proxy-model-v2'), 'custom-proxy-model-v2');
+  assert.equal(formatAgentModel('gpt-5-mini'), 'gpt-5-mini');
+});
+
+test('formatAgentModel sanitizes untrusted cached model labels', () => {
+  assert.equal(formatAgentModel('\u001b]8;;https://evil.example\u0007custom-model'), 'custom-model');
+  assert.equal(formatAgentModel('custom\u202Emodel'), 'custommodel');
 });
 
 test('formatAgentModel drops values that carry no model name', () => {

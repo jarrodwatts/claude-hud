@@ -1,6 +1,7 @@
 import type { RenderContext, AgentEntry } from '../types.js';
 import { yellow, green, magenta, label } from './colors.js';
 import { truncateString } from '../utils/truncate.js';
+import { sanitize as sanitizeDisplayText } from './lines/added-dirs.js';
 
 const MAX_RECENT_COMPLETED = 2;
 const MAX_AGENTS_SHOWN = 3;
@@ -50,47 +51,29 @@ export function renderAgentsLine(ctx: RenderContext): string | null {
 export function formatAgentModel(model: string | undefined): string | undefined {
   if (!model) return undefined;
 
-  const cleaned = model
-    .replace(/\[[^\]]*\]$/, '')
-    .trim()
-    .toLowerCase()
-    .replace(/^claude-/, '');
+  const cleaned = sanitizeDisplayText(model).trim();
   if (!cleaned) return undefined;
 
-  const tokens = cleaned.split('-').filter(Boolean);
-  if (tokens.length === 0) return undefined;
-
-  // Trailing release date (e.g. "-20251001") carries nothing for a reader.
-  if (/^\d{8}$/.test(tokens[tokens.length - 1])) {
-    tokens.pop();
+  const candidate = cleaned.replace(/\[[^\]]*\]$/, '');
+  const current = candidate.match(
+    /^claude-(opus|sonnet|haiku)-(\d+)(?:-(\d+))?(?:-\d{8})?$/i,
+  );
+  if (current) {
+    const [, family, major, minor] = current;
+    return `${family.toLowerCase()}-${major}${minor ? `.${minor}` : ''}`;
   }
 
-  const familyIndex = tokens.findIndex((token) => !/^\d+$/.test(token));
-  if (familyIndex === -1) return tokens.join('-');
-
-  const family = tokens[familyIndex];
-  // Version sits after the family in current IDs ("sonnet-4-6") and before it in
-  // older ones ("3-7-sonnet"), so read whichever side carries it.
-  const after = readVersionTokens(tokens, familyIndex + 1, 1);
-  const version = after.length > 0
-    ? after
-    : readVersionTokens(tokens, familyIndex - 1, -1).reverse();
-
-  return version.length > 0 ? `${family}-${version.join('.')}` : family;
-}
-
-// Two components is what a Claude version carries ("4-8" -> 4.8); stopping
-// there also keeps the label bounded, matching normalizeBedrockModelLabel.
-const MAX_VERSION_PARTS = 2;
-
-function readVersionTokens(tokens: string[], startIndex: number, step: -1 | 1): string[] {
-  const parts: string[] = [];
-  for (let i = startIndex; i >= 0 && i < tokens.length; i += step) {
-    if (!/^\d+$/.test(tokens[i])) break;
-    parts.push(tokens[i]);
-    if (parts.length === MAX_VERSION_PARTS) break;
+  const legacy = candidate.match(
+    /^claude-(\d+)(?:-(\d+))?-(opus|sonnet|haiku)(?:-\d{8})?$/i,
+  );
+  if (legacy) {
+    const [, major, minor, family] = legacy;
+    return `${family.toLowerCase()}-${major}${minor ? `.${minor}` : ''}`;
   }
-  return parts;
+
+  // Provider-qualified and custom model IDs carry routing information. Keep
+  // unknown shapes intact rather than guessing which token is the family.
+  return /^claude-$/i.test(candidate) ? undefined : cleaned;
 }
 
 function getStatusIcon(
