@@ -40,12 +40,13 @@ type ClaudeVersionInvocation = {
 };
 
 const CACHE_FILENAME = '.claude-code-version-cache.json';
+const DEFAULT_WINDOWS_CMD = 'C:\\Windows\\System32\\cmd.exe';
 const defaultExecFile: ExecFileImpl = promisify(execFile) as ExecFileImpl;
 
 let execFileImpl: ExecFileImpl = defaultExecFile;
 let resolveClaudeBinaryImpl: () => ClaudeBinaryInfo | null = resolveClaudeBinaryFromPath;
 let platformImpl: () => NodeJS.Platform = () => process.platform;
-let windowsCmdImpl: () => string = () => 'C:\\Windows\\System32\\cmd.exe';
+let windowsCmdImpl: () => string = () => resolveWindowsCmdPath();
 let cachedBinaryKey: string | undefined;
 let cachedVersion: string | undefined;
 let hasResolved = false;
@@ -56,6 +57,20 @@ function getVersionCachePath(homeDir: string): string {
 
 function getBinaryCacheKey(binaryInfo: ClaudeBinaryInfo): string {
   return `${binaryInfo.path}:${binaryInfo.mtimeMs}`;
+}
+
+function resolveWindowsCmdPath(environment: NodeJS.ProcessEnv = process.env): string {
+  const rawSystemRoot = environment.SystemRoot ?? environment.SYSTEMROOT;
+  if (!rawSystemRoot || rawSystemRoot.includes('\0')) {
+    return DEFAULT_WINDOWS_CMD;
+  }
+
+  const systemRoot = rawSystemRoot.trim().replace(/^"(.*)"$/, '$1');
+  if (!/^[A-Za-z]:[\\/]/.test(systemRoot) || !path.win32.isAbsolute(systemRoot)) {
+    return DEFAULT_WINDOWS_CMD;
+  }
+
+  return path.win32.join(path.win32.normalize(systemRoot), 'System32', 'cmd.exe');
 }
 
 function quoteForCmd(arg: string): string {
@@ -319,5 +334,5 @@ export function _setVersionInvocationEnvForTests(
   windowsCmdGetter: (() => string) | null
 ): void {
   platformImpl = platformGetter ?? (() => process.platform);
-  windowsCmdImpl = windowsCmdGetter ?? (() => 'C:\\Windows\\System32\\cmd.exe');
+  windowsCmdImpl = windowsCmdGetter ?? (() => resolveWindowsCmdPath());
 }
