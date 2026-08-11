@@ -162,7 +162,18 @@ export interface TranscriptData {
   todos: TodoItem[];
   sessionStart?: Date;
   sessionName?: string;
+  // Last assistant response of any kind, subagents included. Drives the
+  // last-response element.
   lastAssistantResponseAt?: Date;
+  // Start of the request that last read or wrote the main session's prompt
+  // cache, which is when its TTL began. Main-chain only and deliberately not
+  // the same value as lastAssistantResponseAt: see the prompt-cache block in
+  // parseTranscript for why each is measured the way it is.
+  promptCacheAnchorAt?: Date;
+  // TTL in seconds that same request used, read from its per-tier cache-write
+  // counters. Either 300 or 3600, or undefined when the session has not written
+  // a cache yet, in which case the default tier applies.
+  promptCacheTtlSeconds?: number;
   sessionTokens?: SessionTokenUsage;
   lastCompactBoundaryAt?: Date;
   lastCompactPostTokens?: number;

@@ -8,6 +8,11 @@ import { createDebug } from './debug.js';
 import type { TranscriptData, ToolEntry, AgentEntry, TodoItem, SessionTokenUsage } from './types.js';
 import { sanitizeDisplayText } from './utils/sanitize.js';
 import { sanitizeTranscriptModel } from './model-source.js';
+import {
+  isDetectedPromptCacheTtl,
+  PROMPT_CACHE_TTL_1H_SECONDS,
+  PROMPT_CACHE_TTL_5M_SECONDS,
+} from './constants.js';
 
 const debug = createDebug('transcript');
 
@@ -19,6 +24,14 @@ interface TranscriptLine {
   content?: string;
   slug?: string;
   customTitle?: string;
+  // True on subagent (Task tool) records. These are interleaved into the main
+  // session's transcript but belong to a separate conversation with its own
+  // prompt cache.
+  isSidechain?: boolean;
+  // Shared by every record that came out of one API request. A single request
+  // usually writes several assistant records, so this is what groups them back
+  // together when locating the request's start.
+  requestId?: string;
   // Top-level field stamped onto every assistant record after `/advisor` is
   // set. Holds the canonical advisor model ID (e.g. "claude-opus-4-7").
   advisorModel?: string;
@@ -33,6 +46,13 @@ interface TranscriptLine {
       output_tokens?: number;
       cache_creation_input_tokens?: number;
       cache_read_input_tokens?: number;
+      // Per-tier breakdown of the cache write, reporting which TTL the request
+      // actually used. A request that only reads the cache writes nothing and
+      // leaves both counters at zero.
+      cache_creation?: {
+        ephemeral_1h_input_tokens?: number;
+        ephemeral_5m_input_tokens?: number;
+      };
     };
   };
   // Result payload the harness stamps onto the record carrying a tool_result
@@ -89,6 +109,8 @@ interface SerializedTranscriptData {
   sessionStart?: string;
   sessionName?: string;
   lastAssistantResponseAt?: string;
+  promptCacheAnchorAt?: string;
+  promptCacheTtlSeconds?: number;
   sessionTokens?: SessionTokenUsage;
   lastCompactBoundaryAt?: string;
   lastCompactPostTokens?: number;
@@ -105,7 +127,7 @@ interface TranscriptCacheFile {
   data: SerializedTranscriptData;
 }
 
-const TRANSCRIPT_CACHE_VERSION = 15;
+const TRANSCRIPT_CACHE_VERSION = 16;
 const MCP_TOOL_NAME_PATTERN = /^mcp__(.+?)__(.+)$/;
 const ACTIVITY_NAME_MAX_LEN = 64;
 const MESSAGE_ID_MAX_LEN = 128;
@@ -126,6 +148,34 @@ function normalizeTokenCount(value: unknown): number {
   }
 
   return Math.max(0, Math.trunc(value));
+}
+
+/**
+ * Reads the TTL a request actually used from its per-tier cache-write counters,
+ * so the cache clock does not depend on the user naming the right tier.
+ *
+ * Returns undefined when the request wrote nothing — a pure cache read leaves
+ * both counters at zero — which keeps the tier detected earlier in the session.
+ * Mixed tiers are representable, since one request may carry several cache
+ * breakpoints, and take the shortest: that is the first part of the prefix to
+ * lapse, so it is when the cached prompt stops being whole.
+ */
+function detectPromptCacheTtlSeconds(
+  cacheCreation: { ephemeral_1h_input_tokens?: number; ephemeral_5m_input_tokens?: number } | undefined,
+): number | undefined {
+  if (!cacheCreation) {
+    return undefined;
+  }
+
+  if (normalizeTokenCount(cacheCreation.ephemeral_5m_input_tokens) > 0) {
+    return PROMPT_CACHE_TTL_5M_SECONDS;
+  }
+
+  if (normalizeTokenCount(cacheCreation.ephemeral_1h_input_tokens) > 0) {
+    return PROMPT_CACHE_TTL_1H_SECONDS;
+  }
+
+  return undefined;
 }
 
 function normalizeMessageId(value: unknown): string | null {
@@ -269,6 +319,8 @@ function serializeTranscriptData(data: TranscriptData): SerializedTranscriptData
     sessionStart: data.sessionStart?.toISOString(),
     sessionName: data.sessionName,
     lastAssistantResponseAt: data.lastAssistantResponseAt?.toISOString(),
+    promptCacheAnchorAt: data.promptCacheAnchorAt?.toISOString(),
+    promptCacheTtlSeconds: data.promptCacheTtlSeconds,
     sessionTokens: data.sessionTokens,
     lastCompactBoundaryAt: data.lastCompactBoundaryAt?.toISOString(),
     lastCompactPostTokens: data.lastCompactPostTokens,
@@ -299,6 +351,13 @@ function deserializeTranscriptData(data: SerializedTranscriptData): TranscriptDa
     sessionStart: data.sessionStart ? new Date(data.sessionStart) : undefined,
     sessionName: data.sessionName,
     lastAssistantResponseAt: data.lastAssistantResponseAt ? new Date(data.lastAssistantResponseAt) : undefined,
+    promptCacheAnchorAt: data.promptCacheAnchorAt ? new Date(data.promptCacheAnchorAt) : undefined,
+    // Only a real tier is accepted back. Detection can produce nothing else, so
+    // any other value means a corrupt snapshot, and dropping it falls back to
+    // the default TTL instead of counting down against a fabricated one.
+    promptCacheTtlSeconds: isDetectedPromptCacheTtl(data.promptCacheTtlSeconds)
+      ? data.promptCacheTtlSeconds
+      : undefined,
     sessionTokens: normalizeSessionTokens(data.sessionTokens),
     lastCompactBoundaryAt: data.lastCompactBoundaryAt ? new Date(data.lastCompactBoundaryAt) : undefined,
     lastCompactPostTokens: typeof data.lastCompactPostTokens === 'number' ? data.lastCompactPostTokens : undefined,
@@ -415,6 +474,14 @@ export async function parseTranscript(transcriptPath: string): Promise<Transcrip
   };
   const usageByMessageId = new Map<string, SessionTokenUsage>();
   let lastUsageKey: string | undefined;
+  // Prompt-cache clock state. `prevMainChainAt` trails the main conversation so
+  // a response can be anchored to the record it answers; the request fields hold
+  // the anchor for the request currently being read.
+  let prevMainChainAt: Date | undefined;
+  let promptCacheAnchorAt: Date | undefined;
+  let promptCacheTtlSeconds: number | undefined;
+  let promptCacheRequestId: string | undefined;
+  let promptCacheRequestAnchorAt: Date | undefined;
 
   let parsedCleanly = false;
 
@@ -549,6 +616,50 @@ export async function parseTranscript(transcriptPath: string): Promise<Transcrip
             }
           }
         }
+        // Prompt-cache clock, tracked apart from lastAssistantResponseAt so the
+        // last-response element keeps its current subagent-inclusive meaning.
+        //
+        // Two corrections live here. Subagent records are skipped, because a
+        // subagent runs against its own cache and does not refresh the main
+        // session's. And a response is anchored to the record it answers rather
+        // than to itself, because the cache lifetime starts with the request that
+        // reads or writes the cache — anchoring on the response would hand the
+        // session however long that response took to generate. Records sharing a
+        // requestId came from one request and so share one anchor.
+        if (entry.isSidechain !== true) {
+          const entryAt = entry.timestamp ? new Date(entry.timestamp) : null;
+          const entryHasTime = entryAt !== null && !Number.isNaN(entryAt.getTime());
+
+          if (entry.type === 'assistant' && entryHasTime) {
+            const requestId = typeof entry.requestId === 'string' && entry.requestId.length > 0
+              ? entry.requestId
+              : undefined;
+            // An absent requestId (very old transcripts) makes every record its
+            // own request, which anchors to the preceding record — later than the
+            // true request start, but never later than the response itself.
+            if (requestId === undefined || requestId !== promptCacheRequestId) {
+              promptCacheRequestId = requestId;
+              promptCacheRequestAnchorAt = prevMainChainAt;
+            }
+            // No preceding record, or one stamped after the response it triggered:
+            // fall back to the response, which is the latest defensible anchor.
+            promptCacheAnchorAt = (
+              promptCacheRequestAnchorAt
+              && promptCacheRequestAnchorAt.getTime() <= entryAt.getTime()
+            )
+              ? promptCacheRequestAnchorAt
+              : entryAt;
+
+            const detectedTtl = detectPromptCacheTtlSeconds(entry.message?.usage?.cache_creation);
+            if (detectedTtl !== undefined) {
+              promptCacheTtlSeconds = detectedTtl;
+            }
+          }
+
+          if (entryHasTime) {
+            prevMainChainAt = entryAt;
+          }
+        }
         processEntry(entry, toolMap, skillSet, mcpServerSet, mcpErrorSet, agentMap, taskIdToIndex, latestTodos, result);
       } catch (err) {
         lastUsageKey = undefined;
@@ -589,6 +700,8 @@ export async function parseTranscript(transcriptPath: string): Promise<Transcrip
   result.compactionCount = compactionCount;
   result.advisorModel = latestAdvisorModel;
   result.ultracodeActive = latestUltracodeActive;
+  result.promptCacheAnchorAt = promptCacheAnchorAt;
+  result.promptCacheTtlSeconds = promptCacheTtlSeconds;
   if (parsedCleanly) {
     writeTranscriptCache(canonicalTranscriptPath, transcriptState, result);
   }

@@ -947,6 +947,198 @@ test('parseTranscript captures the last assistant response timestamp', async () 
   }
 });
 
+// ---------------------------------------------------------------------------
+// Prompt cache clock
+// ---------------------------------------------------------------------------
+
+/** Assistant record carrying a cache write on the given tier. */
+function cacheWrite(fields, tier) {
+  const cache_creation = tier === '1h'
+    ? { ephemeral_1h_input_tokens: 1128, ephemeral_5m_input_tokens: 0 }
+    : tier === '5m'
+      ? { ephemeral_1h_input_tokens: 0, ephemeral_5m_input_tokens: 1128 }
+      : tier;
+  return {
+    type: 'assistant',
+    ...fields,
+    message: { usage: { input_tokens: 4, output_tokens: 8, cache_creation } },
+  };
+}
+
+test('parseTranscript anchors the prompt cache clock to the request, not the response', async () => {
+  const result = await parseTempTranscript('cache-anchor.jsonl', [
+    { type: 'user', timestamp: '2024-01-01T00:00:00.000Z' },
+    // A response 90s later must not push the clock 90s out: the cache was
+    // written when the request went out, at the user record.
+    cacheWrite({ timestamp: '2024-01-01T00:01:30.000Z', requestId: 'req-1' }, '5m'),
+  ]);
+
+  assert.equal(result.promptCacheAnchorAt?.toISOString(), '2024-01-01T00:00:00.000Z');
+  assert.equal(result.lastAssistantResponseAt?.toISOString(), '2024-01-01T00:01:30.000Z');
+});
+
+test('parseTranscript shares one anchor across records from the same request', async () => {
+  const result = await parseTempTranscript('cache-request-group.jsonl', [
+    { type: 'user', timestamp: '2024-01-01T00:00:00.000Z' },
+    cacheWrite({ timestamp: '2024-01-01T00:00:10.000Z', requestId: 'req-1' }, '5m'),
+    // Same request, second record. The first record is not the request start.
+    cacheWrite({ timestamp: '2024-01-01T00:00:20.000Z', requestId: 'req-1' }, '5m'),
+  ]);
+
+  assert.equal(result.promptCacheAnchorAt?.toISOString(), '2024-01-01T00:00:00.000Z');
+});
+
+test('parseTranscript re-anchors on each new request', async () => {
+  const result = await parseTempTranscript('cache-next-request.jsonl', [
+    { type: 'user', timestamp: '2024-01-01T00:00:00.000Z' },
+    cacheWrite({ timestamp: '2024-01-01T00:00:10.000Z', requestId: 'req-1' }, '5m'),
+    // Tool result, then the follow-up request it triggers.
+    { type: 'user', timestamp: '2024-01-01T00:00:30.000Z' },
+    cacheWrite({ timestamp: '2024-01-01T00:00:40.000Z', requestId: 'req-2' }, '5m'),
+  ]);
+
+  assert.equal(result.promptCacheAnchorAt?.toISOString(), '2024-01-01T00:00:30.000Z');
+});
+
+test('parseTranscript falls back to the response when nothing precedes it', async () => {
+  const result = await parseTempTranscript('cache-no-parent.jsonl', [
+    cacheWrite({ timestamp: '2024-01-01T00:00:10.000Z', requestId: 'req-1' }, '5m'),
+  ]);
+
+  assert.equal(result.promptCacheAnchorAt?.toISOString(), '2024-01-01T00:00:10.000Z');
+});
+
+test('parseTranscript ignores an anchor stamped after the response', async () => {
+  const result = await parseTempTranscript('cache-anchor-inverted.jsonl', [
+    { type: 'user', timestamp: '2024-01-01T00:05:00.000Z' },
+    cacheWrite({ timestamp: '2024-01-01T00:00:10.000Z', requestId: 'req-1' }, '5m'),
+  ]);
+
+  assert.equal(result.promptCacheAnchorAt?.toISOString(), '2024-01-01T00:00:10.000Z');
+});
+
+test('parseTranscript keeps subagent records out of the prompt cache clock', async () => {
+  const result = await parseTempTranscript('cache-sidechain.jsonl', [
+    { type: 'user', timestamp: '2024-01-01T00:00:00.000Z' },
+    cacheWrite({ timestamp: '2024-01-01T00:00:10.000Z', requestId: 'req-1' }, '5m'),
+    // A subagent runs for 10 minutes on the 1h tier. Neither its clock nor its
+    // tier belongs to the main session.
+    { type: 'user', timestamp: '2024-01-01T00:00:20.000Z', isSidechain: true },
+    cacheWrite({ timestamp: '2024-01-01T00:10:00.000Z', requestId: 'req-2', isSidechain: true }, '1h'),
+  ]);
+
+  assert.equal(result.promptCacheAnchorAt?.toISOString(), '2024-01-01T00:00:00.000Z');
+  assert.equal(result.promptCacheTtlSeconds, 300);
+  // The last-response element keeps counting subagents, as it always has.
+  assert.equal(result.lastAssistantResponseAt?.toISOString(), '2024-01-01T00:10:00.000Z');
+});
+
+test('parseTranscript does not let a subagent record become the next anchor', async () => {
+  const result = await parseTempTranscript('cache-sidechain-anchor.jsonl', [
+    { type: 'user', timestamp: '2024-01-01T00:00:00.000Z' },
+    cacheWrite({ timestamp: '2024-01-01T00:00:10.000Z', requestId: 'req-1' }, '5m'),
+    { type: 'assistant', timestamp: '2024-01-01T00:03:00.000Z', requestId: 'req-x', isSidechain: true },
+    // Main-chain tool result, then the request it triggers. The anchor is the
+    // tool result, never the subagent record that happens to sit before it.
+    { type: 'user', timestamp: '2024-01-01T00:04:00.000Z' },
+    cacheWrite({ timestamp: '2024-01-01T00:04:10.000Z', requestId: 'req-2' }, '5m'),
+  ]);
+
+  assert.equal(result.promptCacheAnchorAt?.toISOString(), '2024-01-01T00:04:00.000Z');
+});
+
+test('parseTranscript detects the prompt cache TTL tier', async () => {
+  const oneHour = await parseTempTranscript('cache-ttl-1h.jsonl', [
+    cacheWrite({ timestamp: '2024-01-01T00:00:10.000Z', requestId: 'req-1' }, '1h'),
+  ]);
+  assert.equal(oneHour.promptCacheTtlSeconds, 3600);
+
+  const fiveMin = await parseTempTranscript('cache-ttl-5m.jsonl', [
+    cacheWrite({ timestamp: '2024-01-01T00:00:10.000Z', requestId: 'req-1' }, '5m'),
+  ]);
+  assert.equal(fiveMin.promptCacheTtlSeconds, 300);
+});
+
+test('parseTranscript follows a mid-session tier change', async () => {
+  const result = await parseTempTranscript('cache-ttl-change.jsonl', [
+    cacheWrite({ timestamp: '2024-01-01T00:00:10.000Z', requestId: 'req-1' }, '1h'),
+    cacheWrite({ timestamp: '2024-01-01T00:05:10.000Z', requestId: 'req-2' }, '5m'),
+  ]);
+
+  assert.equal(result.promptCacheTtlSeconds, 300);
+});
+
+test('parseTranscript takes the shortest tier when a request writes both', async () => {
+  const result = await parseTempTranscript('cache-ttl-mixed.jsonl', [
+    cacheWrite(
+      { timestamp: '2024-01-01T00:00:10.000Z', requestId: 'req-1' },
+      { ephemeral_1h_input_tokens: 2048, ephemeral_5m_input_tokens: 512 },
+    ),
+  ]);
+
+  assert.equal(result.promptCacheTtlSeconds, 300);
+});
+
+test('parseTranscript keeps the detected tier through a pure cache read', async () => {
+  const result = await parseTempTranscript('cache-ttl-carry.jsonl', [
+    cacheWrite({ timestamp: '2024-01-01T00:00:10.000Z', requestId: 'req-1' }, '1h'),
+    // Reads the cache, writes nothing: both counters zero, tier unchanged.
+    cacheWrite(
+      { timestamp: '2024-01-01T00:01:10.000Z', requestId: 'req-2' },
+      { ephemeral_1h_input_tokens: 0, ephemeral_5m_input_tokens: 0 },
+    ),
+  ]);
+
+  assert.equal(result.promptCacheTtlSeconds, 3600);
+});
+
+test('parseTranscript reports no tier when nothing has written a cache', async () => {
+  const result = await parseTempTranscript('cache-ttl-absent.jsonl', [
+    { type: 'user', timestamp: '2024-01-01T00:00:00.000Z' },
+    {
+      type: 'assistant',
+      timestamp: '2024-01-01T00:00:10.000Z',
+      requestId: 'req-1',
+      message: { usage: { input_tokens: 4, output_tokens: 8 } },
+    },
+  ]);
+
+  assert.equal(result.promptCacheTtlSeconds, undefined);
+  assert.equal(result.promptCacheAnchorAt?.toISOString(), '2024-01-01T00:00:00.000Z');
+});
+
+test('parseTranscript drops a cached TTL that is not a real tier', async () => {
+  const dir = await mkdtemp(path.join(tmpdir(), 'claude-hud-transcript-cache-'));
+  const configDir = path.join(dir, '.claude-test');
+  const transcriptPath = path.join(dir, 'cache-ttl-poison.jsonl');
+  const originalConfigDir = process.env.CLAUDE_CONFIG_DIR;
+  const line = `${JSON.stringify(
+    cacheWrite({ timestamp: '2024-01-01T00:00:10.000Z', requestId: 'req-1' }, '1h'),
+  )}\n`;
+
+  process.env.CLAUDE_CONFIG_DIR = configDir;
+  await writeFile(transcriptPath, line, 'utf8');
+
+  try {
+    const first = await parseTranscript(transcriptPath);
+    assert.equal(first.promptCacheTtlSeconds, 3600);
+
+    const cachePath = await getTranscriptCacheFile(configDir);
+    const cache = JSON.parse(fs.readFileSync(cachePath, 'utf8'));
+    cache.data.promptCacheTtlSeconds = 86_400;
+    await writeFile(cachePath, JSON.stringify(cache), 'utf8');
+
+    const second = await parseTranscript(transcriptPath);
+    assert.equal(second.promptCacheTtlSeconds, undefined,
+      'a TTL no cache write could have produced must not survive the round-trip');
+    assert.equal(second.promptCacheAnchorAt?.toISOString(), '2024-01-01T00:00:10.000Z',
+      'the anchor must still survive the cache round-trip');
+  } finally {
+    restoreEnvVar('CLAUDE_CONFIG_DIR', originalConfigDir);
+    await rm(dir, { recursive: true, force: true });
+  }
+});
+
 const ULTRA_ENTER = { type: 'attachment', attachment: { type: 'ultra_effort_enter' } };
 const ULTRA_EXIT = { type: 'attachment', attachment: { type: 'ultra_effort_exit' } };
 const effortCmd = (level) => ({
