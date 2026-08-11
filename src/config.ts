@@ -209,8 +209,9 @@ export interface HudConfig {
     showClaudeCodeVersion: boolean;
     showEffortLevel: boolean;
     showMemoryUsage: boolean;
+    // The prompt cache TTL is not configurable: it is detected from the
+    // transcript, where every cache write records the tier it used.
     showPromptCache: boolean;
-    promptCacheTtlSeconds: number;
     showSessionTokens: boolean;
     showOutputStyle: boolean;
     showSessionStartDate: boolean;
@@ -323,7 +324,6 @@ export const DEFAULT_CONFIG: HudConfig = {
     showEffortLevel: false,
     showMemoryUsage: false,
     showPromptCache: false,
-    promptCacheTtlSeconds: 300,
     showSessionTokens: false,
     showOutputStyle: false,
     showSessionStartDate: false,
@@ -632,13 +632,6 @@ function validateCountThreshold(value: unknown): number {
   return Math.max(0, Math.floor(value));
 }
 
-function validateDurationSeconds(value: unknown, fallback: number): number {
-  if (typeof value !== 'number' || !Number.isFinite(value) || value <= 0) {
-    return fallback;
-  }
-  return Math.floor(value);
-}
-
 function validateNonNegativeInteger(value: unknown, fallback: number): number {
   if (typeof value !== 'number' || !Number.isInteger(value) || value < 0) {
     return fallback;
@@ -825,10 +818,6 @@ export function mergeConfig(userConfig: Partial<HudConfig>): HudConfig {
     showPromptCache: typeof migrated.display?.showPromptCache === 'boolean'
       ? migrated.display.showPromptCache
       : DEFAULT_CONFIG.display.showPromptCache,
-    promptCacheTtlSeconds: validateDurationSeconds(
-      migrated.display?.promptCacheTtlSeconds,
-      DEFAULT_CONFIG.display.promptCacheTtlSeconds,
-    ),
     showSessionTokens: typeof migrated.display?.showSessionTokens === 'boolean'
       ? migrated.display.showSessionTokens
       : DEFAULT_CONFIG.display.showSessionTokens,
