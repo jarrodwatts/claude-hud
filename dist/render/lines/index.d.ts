@@ -9,4 +9,5 @@ export { renderSessionTokensLine } from './session-tokens.js';
 export { renderCompactionsLine } from './compactions.js';
 export { renderSessionTimeLine } from './session-time.js';
 export { renderAdvisorLine, prettifyAdvisorId } from './advisor.js';
+export { renderProviderQuotaLine } from './provider-quota.js';
 //# sourceMappingURL=index.d.ts.map

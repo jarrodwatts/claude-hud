@@ -12,6 +12,7 @@ import { readAuthInfo } from "./auth.js";
 import { resolveEffortLevel } from "./effort.js";
 import { applyContextWindowFallback } from "./context-cache.js";
 import { getUsageFromExternalSnapshot, writeExternalUsageSnapshot } from "./external-usage.js";
+import { fetchProviderQuotas } from "./provider-quota.js";
 import { setLanguage, t } from "./i18n/index.js";
 import type { RenderContext } from "./types.js";
 import type { GitStatus } from "./git.js";
@@ -199,6 +200,9 @@ export async function main(overrides: Partial<MainDeps> = {}): Promise<void> {
       config.display.showAuth || config.display.showAuthUser
         ? deps.readAuthInfo()
         : null;
+    const providerQuotaData = config.display.showProviderQuota
+      ? await fetchProviderQuotas(config)
+      : null;
 
     const ctx: RenderContext = {
       stdin,
@@ -218,6 +222,7 @@ export async function main(overrides: Partial<MainDeps> = {}): Promise<void> {
       effortLevel: effortInfo?.level,
       effortSymbol: effortInfo?.symbol,
       authInfo,
+      providerQuotaData,
     };
 
     deps.render(ctx);

@@ -1,6 +1,7 @@
 import type { HudConfig } from './config.js';
 import type { GitStatus } from './git.js';
 import type { AuthInfo } from './auth.js';
+import type { ProviderQuotaData } from './provider-quota.js';
 
 export interface StdinData {
   transcript_path?: string;
@@ -205,4 +206,7 @@ export interface RenderContext {
   // Auth method + account for the current login (see auth.ts). Only populated
   // when display.showAuth or display.showAuthUser is enabled.
   authInfo?: AuthInfo | null;
+  // Provider quota data (MiniMax, Zhipu). Only populated when
+  // display.showProviderQuota is enabled and API keys are configured.
+  providerQuotaData?: ProviderQuotaData | null;
 }

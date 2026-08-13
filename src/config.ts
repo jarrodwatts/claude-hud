@@ -48,7 +48,8 @@ export type HudElement =
   | 'mcp'
   | 'agents'
   | 'todos'
-  | 'sessionTime';
+  | 'sessionTime'
+  | 'providerQuota';
 
 /**
  * Coarse, orderable segments of the first HUD line (the identity/project
@@ -122,6 +123,7 @@ export const DEFAULT_ELEMENT_ORDER: HudElement[] = [
   'agents',
   'todos',
   'sessionTime',
+  'providerQuota',
 ];
 
 export const DEFAULT_MERGE_GROUPS: HudElement[][] = [
@@ -263,6 +265,11 @@ export interface HudConfig {
     // shorter label or transcript has not been written yet.
     advisorOverride: string;
     autoCompactWindow: number | null;
+    showProviderQuota: boolean;
+  };
+  providerQuota: {
+    minimax: { apiKey: string };
+    zhipu: { apiKey: string };
   };
   colors: HudColorOverrides;
 }
@@ -353,6 +360,11 @@ export const DEFAULT_CONFIG: HudConfig = {
     showAdvisor: false,
     advisorOverride: '',
     autoCompactWindow: null,
+    showProviderQuota: false,
+  },
+  providerQuota: {
+    minimax: { apiKey: '' },
+    zhipu: { apiKey: '' },
   },
   colors: {
     context: 'green',
@@ -909,6 +921,9 @@ export function mergeConfig(userConfig: Partial<HudConfig>): HudConfig {
       ? migrated.display.advisorOverride.slice(0, 80)
       : DEFAULT_CONFIG.display.advisorOverride,
     autoCompactWindow: validateAutoCompactWindow(migrated.display?.autoCompactWindow),
+    showProviderQuota: typeof migrated.display?.showProviderQuota === 'boolean'
+      ? migrated.display.showProviderQuota
+      : DEFAULT_CONFIG.display.showProviderQuota,
   };
 
   const colors = {
@@ -952,8 +967,20 @@ export function mergeConfig(userConfig: Partial<HudConfig>): HudConfig {
       ? migrated.colors.barEmpty
       : DEFAULT_CONFIG.colors.barEmpty,
   };
+  const providerQuota = {
+    minimax: {
+      apiKey: typeof (migrated as any).providerQuota?.minimax?.apiKey === 'string'
+        ? (migrated as any).providerQuota.minimax.apiKey.trim()
+        : DEFAULT_CONFIG.providerQuota.minimax.apiKey,
+    },
+    zhipu: {
+      apiKey: typeof (migrated as any).providerQuota?.zhipu?.apiKey === 'string'
+        ? (migrated as any).providerQuota.zhipu.apiKey.trim()
+        : DEFAULT_CONFIG.providerQuota.zhipu.apiKey,
+    },
+  };
 
-  return { language, lineLayout, showSeparators, pathLevels, maxWidth, forceMaxWidth, elementOrder, projectLineOrder, gitStatus, jjStatus, display, colors };
+  return { language, lineLayout, showSeparators, pathLevels, maxWidth, forceMaxWidth, elementOrder, projectLineOrder, gitStatus, jjStatus, display, providerQuota, colors };
 }
 
 export async function loadConfig(): Promise<HudConfig> {

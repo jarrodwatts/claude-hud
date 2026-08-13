@@ -18,6 +18,7 @@ import {
   renderSessionTokensLine,
   renderCompactionsLine,
   renderSessionTimeLine,
+  renderProviderQuotaLine,
 } from './lines/index.js';
 import { dim, RESET } from './colors.js';
 import { getTerminalWidth, UNKNOWN_TERMINAL_WIDTH } from '../utils/terminal.js';
@@ -458,6 +459,8 @@ function renderElementLine(
       return display?.showTodos === false ? null : renderTodosLine(ctx);
     case 'sessionTime':
       return renderSessionTimeLine(ctx);
+    case 'providerQuota':
+      return display?.showProviderQuota === true ? renderProviderQuotaLine(ctx) : null;
   }
 }
 

@@ -12,6 +12,7 @@ import { readAuthInfo } from "./auth.js";
 import { resolveEffortLevel } from "./effort.js";
 import { applyContextWindowFallback } from "./context-cache.js";
 import { getUsageFromExternalSnapshot, writeExternalUsageSnapshot } from "./external-usage.js";
+import { fetchProviderQuotas } from "./provider-quota.js";
 import { setLanguage, t } from "./i18n/index.js";
 export { getUsageFromExternalSnapshot, writeExternalUsageSnapshot } from "./external-usage.js";
 import { fileURLToPath } from "node:url";
@@ -151,6 +152,9 @@ export async function main(overrides = {}) {
         const authInfo = config.display.showAuth || config.display.showAuthUser
             ? deps.readAuthInfo()
             : null;
+        const providerQuotaData = config.display.showProviderQuota
+            ? await fetchProviderQuotas(config)
+            : null;
         const ctx = {
             stdin,
             transcript,
@@ -169,6 +173,7 @@ export async function main(overrides = {}) {
             effortLevel: effortInfo?.level,
             effortSymbol: effortInfo?.symbol,
             authInfo,
+            providerQuotaData,
         };
         deps.render(ctx);
     }

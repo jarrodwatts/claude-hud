@@ -19,6 +19,7 @@ export const DEFAULT_ELEMENT_ORDER = [
     'agents',
     'todos',
     'sessionTime',
+    'providerQuota',
 ];
 export const DEFAULT_MERGE_GROUPS = [
     ['context', 'usage'],
@@ -126,6 +127,11 @@ export const DEFAULT_CONFIG = {
         showAdvisor: false,
         advisorOverride: '',
         autoCompactWindow: null,
+        showProviderQuota: false,
+    },
+    providerQuota: {
+        minimax: { apiKey: '' },
+        zhipu: { apiKey: '' },
     },
     colors: {
         context: 'green',
@@ -597,6 +603,9 @@ export function mergeConfig(userConfig) {
             ? migrated.display.advisorOverride.slice(0, 80)
             : DEFAULT_CONFIG.display.advisorOverride,
         autoCompactWindow: validateAutoCompactWindow(migrated.display?.autoCompactWindow),
+        showProviderQuota: typeof migrated.display?.showProviderQuota === 'boolean'
+            ? migrated.display.showProviderQuota
+            : DEFAULT_CONFIG.display.showProviderQuota,
     };
     const colors = {
         context: validateColorValue(migrated.colors?.context)
@@ -639,7 +648,19 @@ export function mergeConfig(userConfig) {
             ? migrated.colors.barEmpty
             : DEFAULT_CONFIG.colors.barEmpty,
     };
-    return { language, lineLayout, showSeparators, pathLevels, maxWidth, forceMaxWidth, elementOrder, projectLineOrder, gitStatus, jjStatus, display, colors };
+    const providerQuota = {
+        minimax: {
+            apiKey: typeof migrated.providerQuota?.minimax?.apiKey === 'string'
+                ? migrated.providerQuota.minimax.apiKey.trim()
+                : DEFAULT_CONFIG.providerQuota.minimax.apiKey,
+        },
+        zhipu: {
+            apiKey: typeof migrated.providerQuota?.zhipu?.apiKey === 'string'
+                ? migrated.providerQuota.zhipu.apiKey.trim()
+                : DEFAULT_CONFIG.providerQuota.zhipu.apiKey,
+        },
+    };
+    return { language, lineLayout, showSeparators, pathLevels, maxWidth, forceMaxWidth, elementOrder, projectLineOrder, gitStatus, jjStatus, display, providerQuota, colors };
 }
 export async function loadConfig() {
     const configPath = getConfigPath();
