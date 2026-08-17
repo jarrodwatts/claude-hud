@@ -430,6 +430,25 @@ Merge with existing config, preserving:
 
 **Migration note**: Old configs with `layout: "default"` or `layout: "separators"` are automatically migrated to the new `lineLayout` + `showSeparators` format on load.
 
+### Per-config-directory overrides
+
+`~/.claude/claude-hud.json` (more precisely `$CLAUDE_CONFIG_DIR/claude-hud.json`) is an
+optional overlay applied on top of `config.json` at load time. It uses the same shape,
+only needs the keys it changes, and nested sections merge key by key:
+
+```json
+// ~/.config/claude/work/claude-hud.json
+{ "display": { "customLine": "Work Team" } }
+```
+
+This exists for users who run several `CLAUDE_CONFIG_DIR`s and symlink `plugins/` to one
+shared location — `plugins/claude-hud/config.json` is then the same physical file for every
+directory, while this overlay stays per-directory.
+
+Never write this file from the guided flow, and leave it untouched when it exists; it is a
+manual escape hatch. Values in it win over anything written to `config.json`, so if a saved
+setting appears not to take effect, check whether the overlay redefines it.
+
 ---
 
 ## After Writing

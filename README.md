@@ -159,6 +159,16 @@ Edit `~/.claude/plugins/claude-hud/config.json` directly for advanced settings s
 preserves those manual settings while still letting you change `language`, layout, and the common
 guided toggles.
 
+If you run several Claude config directories via `CLAUDE_CONFIG_DIR` and symlink `plugins/` to a
+shared location, `plugins/claude-hud/config.json` is the same physical file for all of them. Put
+per-directory settings in `$CLAUDE_CONFIG_DIR/claude-hud.json` instead — it uses the same shape,
+only needs the keys it changes, and is layered on top of the shared config at load time:
+
+```jsonc
+// ~/.config/claude/work/claude-hud.json
+{ "display": { "customLine": "Work Team" } }
+```
+
 Simplified and Traditional Chinese HUD labels are available as explicit opt-ins. English stays the default unless you choose a Chinese locale in `/claude-hud:configure` or set `language` in config. The `zh` alias maps to Simplified Chinese, and `zh-TW` maps to Traditional Chinese. Guided config writes the canonical `zh-Hans` or `zh-Hant` value.
 
 ### Options

@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import {
   loadConfig,
   getConfigPath,
+  getConfigOverridePath,
   mergeConfig,
   DEFAULT_CONFIG,
   DEFAULT_ELEMENT_ORDER,
@@ -482,6 +483,109 @@ test('loadConfig reads user config from CLAUDE_CONFIG_DIR', async () => {
     assert.equal(config.lineLayout, 'compact');
     assert.equal(config.pathLevels, 2);
     assert.equal(config.display.showSpeed, true);
+  } finally {
+    restoreEnvVar('CLAUDE_CONFIG_DIR', originalConfigDir);
+    await rm(customConfigDir, { recursive: true, force: true });
+  }
+});
+
+test('getConfigOverridePath sits outside the symlink-prone plugins directory', async () => {
+  const originalConfigDir = process.env.CLAUDE_CONFIG_DIR;
+  const customConfigDir = await mkdtemp(path.join(tmpdir(), 'claude-hud-override-path-'));
+
+  try {
+    process.env.CLAUDE_CONFIG_DIR = customConfigDir;
+    assert.equal(getConfigOverridePath(), path.join(customConfigDir, 'claude-hud.json'));
+
+    delete process.env.CLAUDE_CONFIG_DIR;
+    assert.equal(getConfigOverridePath(), path.join(os.homedir(), '.claude', 'claude-hud.json'));
+  } finally {
+    restoreEnvVar('CLAUDE_CONFIG_DIR', originalConfigDir);
+    await rm(customConfigDir, { recursive: true, force: true });
+  }
+});
+
+test('loadConfig layers claude-hud.json over the shared config', async () => {
+  const originalConfigDir = process.env.CLAUDE_CONFIG_DIR;
+  const customConfigDir = await mkdtemp(path.join(tmpdir(), 'claude-hud-override-load-'));
+
+  try {
+    process.env.CLAUDE_CONFIG_DIR = customConfigDir;
+    const pluginDir = path.join(customConfigDir, 'plugins', 'claude-hud');
+    await mkdir(pluginDir, { recursive: true });
+    await writeFile(
+      path.join(pluginDir, 'config.json'),
+      JSON.stringify({
+        lineLayout: 'compact',
+        elementOrder: ['project', 'context'],
+        display: { customLine: 'shared', showSpeed: true },
+      }),
+      'utf8'
+    );
+    await writeFile(
+      path.join(customConfigDir, 'claude-hud.json'),
+      JSON.stringify({
+        elementOrder: ['project'],
+        display: { customLine: 'Work Team' },
+      }),
+      'utf8'
+    );
+
+    const config = await loadConfig();
+    assert.equal(config.display.customLine, 'Work Team');
+    // Sibling keys of an overridden section survive.
+    assert.equal(config.display.showSpeed, true);
+    // Untouched top-level keys survive.
+    assert.equal(config.lineLayout, 'compact');
+    // Arrays replace wholesale rather than concatenating.
+    assert.deepEqual(config.elementOrder, ['project']);
+  } finally {
+    restoreEnvVar('CLAUDE_CONFIG_DIR', originalConfigDir);
+    await rm(customConfigDir, { recursive: true, force: true });
+  }
+});
+
+test('loadConfig applies claude-hud.json when there is no shared config', async () => {
+  const originalConfigDir = process.env.CLAUDE_CONFIG_DIR;
+  const customConfigDir = await mkdtemp(path.join(tmpdir(), 'claude-hud-override-only-'));
+
+  try {
+    process.env.CLAUDE_CONFIG_DIR = customConfigDir;
+    await writeFile(
+      path.join(customConfigDir, 'claude-hud.json'),
+      JSON.stringify({ display: { customLine: 'Work Team' } }),
+      'utf8'
+    );
+
+    const config = await loadConfig();
+    assert.equal(config.display.customLine, 'Work Team');
+  } finally {
+    restoreEnvVar('CLAUDE_CONFIG_DIR', originalConfigDir);
+    await rm(customConfigDir, { recursive: true, force: true });
+  }
+});
+
+test('loadConfig ignores an unreadable claude-hud.json and keeps the shared config', async () => {
+  const originalConfigDir = process.env.CLAUDE_CONFIG_DIR;
+  const customConfigDir = await mkdtemp(path.join(tmpdir(), 'claude-hud-override-bad-'));
+
+  try {
+    process.env.CLAUDE_CONFIG_DIR = customConfigDir;
+    const pluginDir = path.join(customConfigDir, 'plugins', 'claude-hud');
+    await mkdir(pluginDir, { recursive: true });
+    await writeFile(
+      path.join(pluginDir, 'config.json'),
+      JSON.stringify({ display: { customLine: 'shared' } }),
+      'utf8'
+    );
+
+    const overridePath = path.join(customConfigDir, 'claude-hud.json');
+    await writeFile(overridePath, '{ not json', 'utf8');
+    assert.equal((await loadConfig()).display.customLine, 'shared');
+
+    // A valid JSON document that is not an object is ignored too.
+    await writeFile(overridePath, '["Work Team"]', 'utf8');
+    assert.equal((await loadConfig()).display.customLine, 'shared');
   } finally {
     restoreEnvVar('CLAUDE_CONFIG_DIR', originalConfigDir);
     await rm(customConfigDir, { recursive: true, force: true });

@@ -1,7 +1,7 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import * as os from 'node:os';
-import { getHudPluginDir } from './claude-config-dir.js';
+import { getClaudeConfigDir, getHudPluginDir } from './claude-config-dir.js';
 import { createDebug } from './debug.js';
 import type { Language } from './i18n/types.js';
 import { MAX_TERMINAL_WIDTH } from './utils/terminal.js';
@@ -376,6 +376,20 @@ export const DEFAULT_CONFIG: HudConfig = {
 export function getConfigPath(): string {
   const homeDir = os.homedir();
   return path.join(getHudPluginDir(homeDir), 'config.json');
+}
+
+/**
+ * Optional per-config-directory overrides, layered on top of the main config.
+ *
+ * Users who run several Claude config directories side by side (via
+ * CLAUDE_CONFIG_DIR) commonly symlink `plugins/` to one shared location, which
+ * makes `plugins/claude-hud/config.json` the very same physical file for every
+ * directory. This file lives outside `plugins/`, so it stays per-directory and
+ * can override any part of the shared config.
+ */
+export function getConfigOverridePath(): string {
+  const homeDir = os.homedir();
+  return path.join(getClaudeConfigDir(homeDir), 'claude-hud.json');
 }
 
 function validatePathLevels(value: unknown): value is PathLevels {
@@ -958,19 +972,54 @@ export function mergeConfig(userConfig: Partial<HudConfig>): HudConfig {
   return { language, lineLayout, showSeparators, pathLevels, maxWidth, forceMaxWidth, elementOrder, projectLineOrder, gitStatus, jjStatus, display, colors };
 }
 
-export async function loadConfig(): Promise<HudConfig> {
-  const configPath = getConfigPath();
+function isPlainObject(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
 
+/**
+ * Layer `override` on top of `base`. Nested config sections (display, colors,
+ * gitStatus, …) merge key by key so an override only has to name what it
+ * changes; arrays and scalars replace the base value wholesale.
+ */
+function mergeOverrides(
+  base: Record<string, unknown>,
+  override: Record<string, unknown>,
+): Record<string, unknown> {
+  const result = { ...base };
+
+  for (const [key, value] of Object.entries(override)) {
+    const current = result[key];
+    result[key] = isPlainObject(current) && isPlainObject(value)
+      ? mergeOverrides(current, value)
+      : value;
+  }
+
+  return result;
+}
+
+function readConfigFile(configPath: string): Record<string, unknown> | null {
   try {
     if (!fs.existsSync(configPath)) {
-      return mergeConfig({});
+      return null;
     }
 
     const content = fs.readFileSync(configPath, 'utf-8');
-    const userConfig = JSON.parse(content) as Partial<HudConfig>;
-    return mergeConfig(userConfig);
+    const parsed: unknown = JSON.parse(content);
+    if (!isPlainObject(parsed)) {
+      debug('Ignoring %s: expected a JSON object', configPath);
+      return null;
+    }
+    return parsed;
   } catch (err) {
-    debug('Failed to load config from %s, using defaults:', configPath, err instanceof Error ? err.message : err);
-    return mergeConfig({});
+    debug('Failed to load config from %s, ignoring it:', configPath, err instanceof Error ? err.message : err);
+    return null;
   }
+}
+
+export async function loadConfig(): Promise<HudConfig> {
+  const base = readConfigFile(getConfigPath()) ?? {};
+  const override = readConfigFile(getConfigOverridePath());
+  const userConfig = override ? mergeOverrides(base, override) : base;
+
+  return mergeConfig(userConfig as Partial<HudConfig>);
 }
