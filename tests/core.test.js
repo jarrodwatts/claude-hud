@@ -988,6 +988,17 @@ test('parseTranscript shares one anchor across records from the same request', a
   assert.equal(result.promptCacheAnchorAt?.toISOString(), '2024-01-01T00:00:00.000Z');
 });
 
+test('parseTranscript treats oversized request IDs as ungrouped records', async () => {
+  const oversizedRequestId = 'x'.repeat(129);
+  const result = await parseTempTranscript('cache-oversized-request-id.jsonl', [
+    { type: 'user', timestamp: '2024-01-01T00:00:00.000Z' },
+    cacheWrite({ timestamp: '2024-01-01T00:00:10.000Z', requestId: oversizedRequestId }, '5m'),
+    cacheWrite({ timestamp: '2024-01-01T00:00:20.000Z', requestId: oversizedRequestId }, '5m'),
+  ]);
+
+  assert.equal(result.promptCacheAnchorAt?.toISOString(), '2024-01-01T00:00:10.000Z');
+});
+
 test('parseTranscript re-anchors on each new request', async () => {
   const result = await parseTempTranscript('cache-next-request.jsonl', [
     { type: 'user', timestamp: '2024-01-01T00:00:00.000Z' },

@@ -23,6 +23,7 @@ function baseContext() {
     config: {
       display: {
         showPromptCache: true,
+        promptCacheTtlSeconds: 300,
       },
       colors: {},
     },
@@ -94,6 +95,21 @@ test('renderPromptCacheLine prefers the detected TTL over the 5m default', () =>
     stripAnsi(renderPromptCacheLine(ctx, now) ?? ''),
     `Cache ⏱ at ${expectedClock(now - 10 * 60_000 + 3_600_000)}`,
   );
+});
+
+test('renderPromptCacheLine keeps the configured TTL as a detection fallback', () => {
+  const ctx = baseContext();
+  const now = Date.UTC(2024, 0, 1, 12, 0, 0);
+  ctx.transcript.promptCacheAnchorAt = new Date(now - 10 * 60_000);
+  ctx.config.display.promptCacheTtlSeconds = 3600;
+
+  assert.equal(
+    stripAnsi(renderPromptCacheLine(ctx, now) ?? ''),
+    `Cache ⏱ at ${expectedClock(now - 10 * 60_000 + 3_600_000)}`,
+  );
+
+  ctx.transcript.promptCacheTtlSeconds = 300;
+  assert.equal(stripAnsi(renderPromptCacheLine(ctx, now) ?? ''), 'Cache ⏱ expired');
 });
 
 test('renderPromptCacheLine ignores a TTL that is not a real tier', () => {

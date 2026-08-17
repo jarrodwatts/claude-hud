@@ -35,11 +35,17 @@ export function renderPromptCacheLine(ctx: RenderContext, now: number = Date.now
     return null;
   }
 
-  // The TTL comes from the transcript, since every cache write records the tier
-  // it used. The default applies only until the session's first cache write.
+  // A detected transcript tier is authoritative. Preserve the existing config
+  // setting as a compatibility fallback for older or proxied transcripts that
+  // do not expose the per-tier cache creation fields.
+  const configuredTtl = typeof display.promptCacheTtlSeconds === 'number'
+    && Number.isFinite(display.promptCacheTtlSeconds)
+    && display.promptCacheTtlSeconds > 0
+    ? Math.floor(display.promptCacheTtlSeconds)
+    : PROMPT_CACHE_DEFAULT_TTL_SECONDS;
   const ttlSeconds = isDetectedPromptCacheTtl(ctx.transcript.promptCacheTtlSeconds)
     ? ctx.transcript.promptCacheTtlSeconds
-    : PROMPT_CACHE_DEFAULT_TTL_SECONDS;
+    : configuredTtl;
 
   const expiresAt = new Date(anchorAt.getTime() + ttlSeconds * 1000);
   const remainingMs = expiresAt.getTime() - now;

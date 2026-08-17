@@ -185,13 +185,12 @@ test('mergeConfig preserves explicit showPromptCache=true', () => {
   assert.equal(config.display.showPromptCache, true);
 });
 
-test('mergeConfig ignores the removed promptCacheTtlSeconds setting', () => {
-  // The TTL is detected from the transcript, so this key is no longer part of
-  // the config. An existing one in a user's file is dropped, not carried.
-  assert.equal(DEFAULT_CONFIG.display.promptCacheTtlSeconds, undefined);
+test('mergeConfig preserves promptCacheTtlSeconds as a validated fallback', () => {
+  assert.equal(DEFAULT_CONFIG.display.promptCacheTtlSeconds, 300);
   const config = mergeConfig({ display: { promptCacheTtlSeconds: 3600 } });
-  assert.equal(config.display.promptCacheTtlSeconds, undefined);
+  assert.equal(config.display.promptCacheTtlSeconds, 3600);
   assert.equal(config.display.showPromptCache, false);
+  assert.equal(mergeConfig({ display: { promptCacheTtlSeconds: 0 } }).display.promptCacheTtlSeconds, 300);
 });
 
 test('mergeConfig defaults showCost to false', () => {

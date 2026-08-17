@@ -131,6 +131,7 @@ const TRANSCRIPT_CACHE_VERSION = 16;
 const MCP_TOOL_NAME_PATTERN = /^mcp__(.+?)__(.+)$/;
 const ACTIVITY_NAME_MAX_LEN = 64;
 const MESSAGE_ID_MAX_LEN = 128;
+const REQUEST_ID_MAX_LEN = 128;
 const MESSAGE_USAGE_MAX = 4096;
 const MCP_ERROR_SERVERS_MAX = 64;
 
@@ -182,6 +183,12 @@ function normalizeMessageId(value: unknown): string | null {
   return typeof value === 'string' && value.length > 0 && value.length <= MESSAGE_ID_MAX_LEN
     ? value
     : null;
+}
+
+function normalizeRequestId(value: unknown): string | undefined {
+  return typeof value === 'string' && value.length > 0 && value.length <= REQUEST_ID_MAX_LEN
+    ? value
+    : undefined;
 }
 
 function accumulateMessageUsage(
@@ -631,9 +638,7 @@ export async function parseTranscript(transcriptPath: string): Promise<Transcrip
           const entryHasTime = entryAt !== null && !Number.isNaN(entryAt.getTime());
 
           if (entry.type === 'assistant' && entryHasTime) {
-            const requestId = typeof entry.requestId === 'string' && entry.requestId.length > 0
-              ? entry.requestId
-              : undefined;
+            const requestId = normalizeRequestId(entry.requestId);
             // An absent requestId (very old transcripts) makes every record its
             // own request, which anchors to the preceding record — later than the
             // true request start, but never later than the response itself.

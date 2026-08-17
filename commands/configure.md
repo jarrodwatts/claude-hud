@@ -332,7 +332,7 @@ If user chooses "Remove", set `display.customLine` to `""` in config.
 | Reasoning level | `display.showEffortLevel` |
 | Output style | `display.showOutputStyle` |
 | Memory usage | `display.showMemoryUsage` |
-| Prompt cache | `display.showPromptCache` (TTL detected from the transcript) |
+| Prompt cache | `display.showPromptCache` (transcript tier wins; `display.promptCacheTtlSeconds` is the fallback) |
 | Claude Code version | `display.showClaudeCodeVersion` |
 | Advisor model | `display.showAdvisor` (override via `display.advisorOverride`) |
 | Custom line | `display.customLine` |
