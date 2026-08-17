@@ -4,6 +4,17 @@ All notable changes to Claude HUD will be documented in this file.
 
 ## [Unreleased]
 
+## [0.7.2] - 2026-08-17
+
+### Fixed
+- Anchor prompt-cache expiry to the main-session request, ignore subagent cache writes, and detect 5-minute or 1-hour cache tiers while preserving the configured fallback (#702).
+
+### Security
+- Bound transcript request identifiers before grouping prompt-cache writes (#702).
+
+### Dependencies
+- Update the development-only `@types/node` package from 26.1.2 to 26.2.0 (#711).
+
 ## [0.7.1] - 2026-08-11
 
 ### Fixed
