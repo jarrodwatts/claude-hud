@@ -4,6 +4,9 @@ All notable changes to Claude HUD will be documented in this file.
 
 ## [Unreleased]
 
+### Added
+- `display.effortFormat` option (`full` | `symbol` | `text`) to render the effort indicator as symbol only or level text only; `full` keeps the current output (#691).
+
 ## [0.7.2] - 2026-08-17
 
 ### Fixed

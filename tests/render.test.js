@@ -1065,6 +1065,70 @@ test('renderSessionLine composes the effort label with a custom provider (compac
   assert.ok(line.includes('[MyProxy | Claude Opus 4.6 ◕ ultracode(xhigh)]'), `got: ${line}`);
 });
 
+test('renderProjectLine renders only the effort symbol when effortFormat is symbol', () => {
+  const ctx = baseContext();
+  ctx.stdin.model = { display_name: 'Claude Opus 4.6' };
+  ctx.config.display.effortFormat = 'symbol';
+  ctx.effortLevel = 'high';
+  ctx.effortSymbol = '◑';
+  const line = stripAnsi(renderProjectLine(ctx) ?? '');
+  assert.ok(line.includes('[Claude Opus 4.6 ◑]'), `got: ${line}`);
+  assert.ok(!line.includes('high'), `level text must be dropped: ${line}`);
+});
+
+test('renderProjectLine renders only the effort level when effortFormat is text', () => {
+  const ctx = baseContext();
+  ctx.stdin.model = { display_name: 'Claude Opus 4.6' };
+  ctx.config.display.effortFormat = 'text';
+  ctx.effortLevel = 'high';
+  ctx.effortSymbol = '◑';
+  const line = stripAnsi(renderProjectLine(ctx) ?? '');
+  assert.ok(line.includes('[Claude Opus 4.6 high]'), `got: ${line}`);
+  assert.ok(!line.includes('◑'), `symbol must be dropped: ${line}`);
+});
+
+test('renderProjectLine keeps full effort output when effortFormat is full', () => {
+  const ctx = baseContext();
+  ctx.stdin.model = { display_name: 'Claude Opus 4.6' };
+  ctx.config.display.effortFormat = 'full';
+  ctx.effortLevel = 'high';
+  ctx.effortSymbol = '◑';
+  const line = stripAnsi(renderProjectLine(ctx) ?? '');
+  assert.ok(line.includes('[Claude Opus 4.6 ◑ high]'), `got: ${line}`);
+});
+
+test('renderProjectLine keeps the full ultracode label under effortFormat symbol', () => {
+  const ctx = baseContext();
+  ctx.stdin.model = { display_name: 'Claude Opus 4.6' };
+  ctx.config.display.effortFormat = 'symbol';
+  ctx.effortLevel = 'ultracode(xhigh)';
+  ctx.effortSymbol = '◕';
+  const line = stripAnsi(renderProjectLine(ctx) ?? '');
+  assert.ok(line.includes('[Claude Opus 4.6 ◕ ultracode(xhigh)]'), `got: ${line}`);
+});
+
+test('renderProjectLine falls back to the level text under effortFormat symbol without a known symbol', () => {
+  const ctx = baseContext();
+  ctx.stdin.model = { display_name: 'Claude Opus 4.6' };
+  ctx.config.display.effortFormat = 'symbol';
+  ctx.effortLevel = 'unknown';
+  ctx.effortSymbol = '';
+  const line = stripAnsi(renderProjectLine(ctx) ?? '');
+  assert.ok(line.includes('[Claude Opus 4.6 unknown]'), `got: ${line}`);
+});
+
+test('renderSessionLine renders only the effort symbol when effortFormat is symbol (compact layout)', () => {
+  const ctx = baseContext();
+  ctx.config.lineLayout = 'compact';
+  ctx.stdin.model = { display_name: 'Claude Opus 4.6' };
+  ctx.config.display.effortFormat = 'symbol';
+  ctx.effortLevel = 'high';
+  ctx.effortSymbol = '◑';
+  const line = stripAnsi(renderSessionLine(ctx));
+  assert.ok(line.includes('[Claude Opus 4.6 ◑]'), `got: ${line}`);
+  assert.ok(!line.includes('high'), `level text must be dropped: ${line}`);
+});
+
 test('renderProjectLine uses configurable element colors', () => {
   const ctx = baseContext();
   ctx.stdin.cwd = '/tmp/my-project';
