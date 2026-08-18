@@ -27,6 +27,19 @@ export type GitBranchOverflowMode = 'truncate' | 'wrap';
  *   short:   Strip context suffix AND "Claude " prefix (e.g. "Opus 4.6")
  */
 export type ModelFormatMode = 'full' | 'compact' | 'short';
+
+/**
+ * Controls how the reasoning effort renders in the model badge when
+ * `display.showEffortLevel` is enabled.
+ *
+ *   full:   Symbol + level text (e.g. "◑ high"); default, matches the
+ *           pre-option output byte-for-byte
+ *   symbol: Symbol only (e.g. "◑"). Ultracode keeps the full form because its
+ *           marker lives in the level text, and levels without a known symbol
+ *           fall back to the level text
+ *   text:   Level text only (e.g. "high")
+ */
+export type EffortFormatMode = 'full' | 'symbol' | 'text';
 export type TimeFormatMode = 'relative' | 'absolute' | 'both' | 'elapsed' | 'elapsedAndAbsolute';
 export type CustomLinePosition = 'first' | 'last';
 // Hour cycle for wall-clock time display; 'auto' defers to the system locale.
@@ -212,6 +225,8 @@ export interface HudConfig {
     authUserLength: number;
     showClaudeCodeVersion: boolean;
     showEffortLevel: boolean;
+    // How the effort renders when showEffortLevel is on (see EffortFormatMode).
+    effortFormat: EffortFormatMode;
     showMemoryUsage: boolean;
     showPromptCache: boolean;
     // Compatibility fallback used only until transcript tier detection has a
@@ -327,6 +342,7 @@ export const DEFAULT_CONFIG: HudConfig = {
     authUserLength: 8,
     showClaudeCodeVersion: false,
     showEffortLevel: false,
+    effortFormat: 'full',
     showMemoryUsage: false,
     showPromptCache: false,
     promptCacheTtlSeconds: 300,
@@ -426,6 +442,10 @@ function validateLanguage(value: unknown): value is Language {
 
 function validateModelFormat(value: unknown): value is ModelFormatMode {
   return value === 'full' || value === 'compact' || value === 'short';
+}
+
+function validateEffortFormat(value: unknown): value is EffortFormatMode {
+  return value === 'full' || value === 'symbol' || value === 'text';
 }
 
 function validateTimeFormat(value: unknown): value is TimeFormatMode {
@@ -845,6 +865,9 @@ export function mergeConfig(userConfig: Partial<HudConfig>): HudConfig {
     showEffortLevel: typeof migrated.display?.showEffortLevel === 'boolean'
       ? migrated.display.showEffortLevel
       : DEFAULT_CONFIG.display.showEffortLevel,
+    effortFormat: validateEffortFormat(migrated.display?.effortFormat)
+      ? migrated.display.effortFormat
+      : DEFAULT_CONFIG.display.effortFormat,
     showMemoryUsage: typeof migrated.display?.showMemoryUsage === 'boolean'
       ? migrated.display.showMemoryUsage
       : DEFAULT_CONFIG.display.showMemoryUsage,

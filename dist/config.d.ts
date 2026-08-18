@@ -12,6 +12,18 @@ export type GitBranchOverflowMode = 'truncate' | 'wrap';
  *   short:   Strip context suffix AND "Claude " prefix (e.g. "Opus 4.6")
  */
 export type ModelFormatMode = 'full' | 'compact' | 'short';
+/**
+ * Controls how the reasoning effort renders in the model badge when
+ * `display.showEffortLevel` is enabled.
+ *
+ *   full:   Symbol + level text (e.g. "◑ high"); default, matches the
+ *           pre-option output byte-for-byte
+ *   symbol: Symbol only (e.g. "◑"). Ultracode keeps the full form because its
+ *           marker lives in the level text, and levels without a known symbol
+ *           fall back to the level text
+ *   text:   Level text only (e.g. "high")
+ */
+export type EffortFormatMode = 'full' | 'symbol' | 'text';
 export type TimeFormatMode = 'relative' | 'absolute' | 'both' | 'elapsed' | 'elapsedAndAbsolute';
 export type CustomLinePosition = 'first' | 'last';
 export type HourCycleMode = 'auto' | 'h11' | 'h12' | 'h23' | 'h24';
@@ -116,6 +128,7 @@ export interface HudConfig {
         authUserLength: number;
         showClaudeCodeVersion: boolean;
         showEffortLevel: boolean;
+        effortFormat: EffortFormatMode;
         showMemoryUsage: boolean;
         showPromptCache: boolean;
         promptCacheTtlSeconds: number;

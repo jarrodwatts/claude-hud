@@ -365,6 +365,24 @@ test('mergeConfig falls back to full for invalid modelFormat', () => {
   assert.equal(mergeConfig({ display: { modelFormat: null } }).display.modelFormat, 'full');
 });
 
+test('mergeConfig defaults effortFormat to full', () => {
+  const config = mergeConfig({});
+  assert.equal(config.display.effortFormat, 'full');
+  assert.equal(DEFAULT_CONFIG.display.effortFormat, 'full');
+});
+
+test('mergeConfig preserves valid effortFormat values', () => {
+  assert.equal(mergeConfig({ display: { effortFormat: 'symbol' } }).display.effortFormat, 'symbol');
+  assert.equal(mergeConfig({ display: { effortFormat: 'text' } }).display.effortFormat, 'text');
+  assert.equal(mergeConfig({ display: { effortFormat: 'full' } }).display.effortFormat, 'full');
+});
+
+test('mergeConfig falls back to full for invalid effortFormat', () => {
+  assert.equal(mergeConfig({ display: { effortFormat: 'invalid' } }).display.effortFormat, 'full');
+  assert.equal(mergeConfig({ display: { effortFormat: 123 } }).display.effortFormat, 'full');
+  assert.equal(mergeConfig({ display: { effortFormat: null } }).display.effortFormat, 'full');
+});
+
 test('mergeConfig defaults modelOverride to empty string', () => {
   const config = mergeConfig({});
   assert.equal(config.display.modelOverride, '');

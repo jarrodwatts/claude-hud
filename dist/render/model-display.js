@@ -1,13 +1,22 @@
 import { getProviderLabel } from '../stdin.js';
+function formatEffortSuffix(ctx, format) {
+    if (!ctx.effortLevel) {
+        return '';
+    }
+    // Ultracode's marker lives in the level text ("ultracode(xhigh)"), so the
+    // symbol alone cannot represent it; keep the full form in symbol mode.
+    const isUltracode = ctx.effortLevel.startsWith('ultracode(');
+    if (format === 'symbol' && ctx.effortSymbol && !isUltracode) {
+        return ` ${ctx.effortSymbol}`;
+    }
+    if (format === 'text' || !ctx.effortSymbol) {
+        return ` ${ctx.effortLevel}`;
+    }
+    return ` ${ctx.effortSymbol} ${ctx.effortLevel}`;
+}
 export function formatModelDisplay(model, ctx) {
-    let effortSuffix = '';
-    if (ctx.effortLevel && ctx.effortSymbol) {
-        effortSuffix = ` ${ctx.effortSymbol} ${ctx.effortLevel}`;
-    }
-    else if (ctx.effortLevel) {
-        effortSuffix = ` ${ctx.effortLevel}`;
-    }
     const display = ctx.config?.display;
+    const effortSuffix = formatEffortSuffix(ctx, display?.effortFormat ?? 'full');
     const autoProvider = getProviderLabel(ctx.stdin);
     if (display?.showProvider) {
         const providerLabel = display.providerName?.trim() || autoProvider;

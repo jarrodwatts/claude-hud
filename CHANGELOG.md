@@ -6,6 +6,7 @@ All notable changes to Claude HUD will be documented in this file.
 
 ### Added
 - Load optional per-config-directory overrides from `$CLAUDE_CONFIG_DIR/claude-hud.json` while preserving shared plugin settings (#714).
+- `display.effortFormat` option (`full` | `symbol` | `text`) to render the effort indicator as symbol only or level text only; `full` keeps the current output (#691).
 
 ### Security
 - Bound config file size and nesting, reject symlinked or prototype-sensitive config input, and sanitize terminal-bound config labels (#714).

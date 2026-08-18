@@ -94,6 +94,7 @@ export const DEFAULT_CONFIG = {
         authUserLength: 8,
         showClaudeCodeVersion: false,
         showEffortLevel: false,
+        effortFormat: 'full',
         showMemoryUsage: false,
         showPromptCache: false,
         promptCacheTtlSeconds: 300,
@@ -170,6 +171,9 @@ function validateLanguage(value) {
 }
 function validateModelFormat(value) {
     return value === 'full' || value === 'compact' || value === 'short';
+}
+function validateEffortFormat(value) {
+    return value === 'full' || value === 'symbol' || value === 'text';
 }
 function validateTimeFormat(value) {
     return value === 'relative'
@@ -525,6 +529,9 @@ export function mergeConfig(userConfig) {
         showEffortLevel: typeof migrated.display?.showEffortLevel === 'boolean'
             ? migrated.display.showEffortLevel
             : DEFAULT_CONFIG.display.showEffortLevel,
+        effortFormat: validateEffortFormat(migrated.display?.effortFormat)
+            ? migrated.display.effortFormat
+            : DEFAULT_CONFIG.display.effortFormat,
         showMemoryUsage: typeof migrated.display?.showMemoryUsage === 'boolean'
             ? migrated.display.showMemoryUsage
             : DEFAULT_CONFIG.display.showMemoryUsage,
