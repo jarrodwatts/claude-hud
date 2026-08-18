@@ -5,8 +5,12 @@ import { getClaudeConfigDir, getHudPluginDir } from './claude-config-dir.js';
 import { createDebug } from './debug.js';
 import type { Language } from './i18n/types.js';
 import { MAX_TERMINAL_WIDTH } from './utils/terminal.js';
+import { sanitizeDisplayText } from './utils/sanitize.js';
 
 const debug = createDebug('config');
+const MAX_CONFIG_FILE_BYTES = 64 * 1024;
+const MAX_CONFIG_NESTING_DEPTH = 8;
+const UNSAFE_CONFIG_KEYS = new Set(['__proto__', 'prototype', 'constructor']);
 
 export type LineLayoutType = 'compact' | 'expanded';
 
@@ -673,6 +677,12 @@ function validateOptionalPath(value: unknown): string {
   return typeof value === 'string' ? value.trim() : '';
 }
 
+function validateDisplayText(value: unknown, maxLength: number, fallback: string): string {
+  return typeof value === 'string'
+    ? sanitizeDisplayText(value).slice(0, maxLength)
+    : fallback;
+}
+
 function validateFreshnessMs(value: unknown): number {
   if (typeof value !== 'number' || !Number.isFinite(value)) {
     return DEFAULT_CONFIG.display.externalUsageFreshnessMs;
@@ -891,21 +901,27 @@ export function mergeConfig(userConfig: Partial<HudConfig>): HudConfig {
     modelFormat: validateModelFormat(migrated.display?.modelFormat)
       ? migrated.display.modelFormat
       : DEFAULT_CONFIG.display.modelFormat,
-    modelOverride: typeof migrated.display?.modelOverride === 'string'
-      ? migrated.display.modelOverride.slice(0, 80)
-      : DEFAULT_CONFIG.display.modelOverride,
+    modelOverride: validateDisplayText(
+      migrated.display?.modelOverride,
+      80,
+      DEFAULT_CONFIG.display.modelOverride,
+    ),
     modelSource: ['auto', 'stdin', 'transcript'].includes(migrated.display?.modelSource as string)
       ? (migrated.display!.modelSource as 'auto' | 'stdin' | 'transcript')
       : DEFAULT_CONFIG.display.modelSource,
     showProvider: typeof migrated.display?.showProvider === 'boolean'
       ? migrated.display.showProvider
       : DEFAULT_CONFIG.display.showProvider,
-    providerName: typeof migrated.display?.providerName === 'string'
-      ? migrated.display.providerName.slice(0, 40)
-      : DEFAULT_CONFIG.display.providerName,
-    customLine: typeof migrated.display?.customLine === 'string'
-      ? migrated.display.customLine.slice(0, 80)
-      : DEFAULT_CONFIG.display.customLine,
+    providerName: validateDisplayText(
+      migrated.display?.providerName,
+      40,
+      DEFAULT_CONFIG.display.providerName,
+    ),
+    customLine: validateDisplayText(
+      migrated.display?.customLine,
+      80,
+      DEFAULT_CONFIG.display.customLine,
+    ),
     customLinePosition: validateCustomLinePosition(migrated.display?.customLinePosition)
       ? migrated.display.customLinePosition
       : DEFAULT_CONFIG.display.customLinePosition,
@@ -921,9 +937,11 @@ export function mergeConfig(userConfig: Partial<HudConfig>): HudConfig {
     showAdvisor: typeof migrated.display?.showAdvisor === 'boolean'
       ? migrated.display.showAdvisor
       : DEFAULT_CONFIG.display.showAdvisor,
-    advisorOverride: typeof migrated.display?.advisorOverride === 'string'
-      ? migrated.display.advisorOverride.slice(0, 80)
-      : DEFAULT_CONFIG.display.advisorOverride,
+    advisorOverride: validateDisplayText(
+      migrated.display?.advisorOverride,
+      80,
+      DEFAULT_CONFIG.display.advisorOverride,
+    ),
     autoCompactWindow: validateAutoCompactWindow(migrated.display?.autoCompactWindow),
   };
 
@@ -976,6 +994,21 @@ function isPlainObject(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
+function hasSafeConfigShape(value: unknown, depth = 0): boolean {
+  if (depth > MAX_CONFIG_NESTING_DEPTH) {
+    return false;
+  }
+  if (Array.isArray(value)) {
+    return value.every(item => hasSafeConfigShape(item, depth + 1));
+  }
+  if (!isPlainObject(value)) {
+    return true;
+  }
+  return Object.entries(value).every(([key, child]) => (
+    !UNSAFE_CONFIG_KEYS.has(key) && hasSafeConfigShape(child, depth + 1)
+  ));
+}
+
 /**
  * Layer `override` on top of `base`. Nested config sections (display, colors,
  * gitStatus, …) merge key by key so an override only has to name what it
@@ -985,7 +1018,7 @@ function mergeOverrides(
   base: Record<string, unknown>,
   override: Record<string, unknown>,
 ): Record<string, unknown> {
-  const result = { ...base };
+  const result = Object.assign(Object.create(null), base) as Record<string, unknown>;
 
   for (const [key, value] of Object.entries(override)) {
     const current = result[key];
@@ -999,18 +1032,27 @@ function mergeOverrides(
 
 function readConfigFile(configPath: string): Record<string, unknown> | null {
   try {
-    if (!fs.existsSync(configPath)) {
+    const stat = fs.lstatSync(configPath);
+    if (stat.isSymbolicLink() || !stat.isFile()) {
+      debug('Ignoring %s: expected a regular, non-symlink file', configPath);
+      return null;
+    }
+    if (stat.size > MAX_CONFIG_FILE_BYTES) {
+      debug('Ignoring %s: file exceeds %d bytes', configPath, MAX_CONFIG_FILE_BYTES);
       return null;
     }
 
     const content = fs.readFileSync(configPath, 'utf-8');
     const parsed: unknown = JSON.parse(content);
-    if (!isPlainObject(parsed)) {
-      debug('Ignoring %s: expected a JSON object', configPath);
+    if (!isPlainObject(parsed) || !hasSafeConfigShape(parsed)) {
+      debug('Ignoring %s: expected a bounded JSON object without unsafe keys', configPath);
       return null;
     }
     return parsed;
   } catch (err) {
+    if ((err as NodeJS.ErrnoException).code === 'ENOENT') {
+      return null;
+    }
     debug('Failed to load config from %s, ignoring it:', configPath, err instanceof Error ? err.message : err);
     return null;
   }

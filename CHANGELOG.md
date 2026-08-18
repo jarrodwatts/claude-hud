@@ -4,6 +4,12 @@ All notable changes to Claude HUD will be documented in this file.
 
 ## [Unreleased]
 
+### Added
+- Load optional per-config-directory overrides from `$CLAUDE_CONFIG_DIR/claude-hud.json` while preserving shared plugin settings (#714).
+
+### Security
+- Bound config file size and nesting, reject symlinked or prototype-sensitive config input, and sanitize terminal-bound config labels (#714).
+
 ## [0.7.2] - 2026-08-17
 
 ### Fixed

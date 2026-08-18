@@ -12,7 +12,7 @@ import {
 } from '../dist/config.js';
 import * as path from 'node:path';
 import * as os from 'node:os';
-import { mkdtemp, mkdir, rm, writeFile } from 'node:fs/promises';
+import { mkdtemp, mkdir, rm, symlink, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 
 function restoreEnvVar(name, value) {
@@ -565,7 +565,7 @@ test('loadConfig applies claude-hud.json when there is no shared config', async 
   }
 });
 
-test('loadConfig ignores an unreadable claude-hud.json and keeps the shared config', async () => {
+test('loadConfig ignores malformed or non-object claude-hud.json and keeps the shared config', async () => {
   const originalConfigDir = process.env.CLAUDE_CONFIG_DIR;
   const customConfigDir = await mkdtemp(path.join(tmpdir(), 'claude-hud-override-bad-'));
 
@@ -590,6 +590,144 @@ test('loadConfig ignores an unreadable claude-hud.json and keeps the shared conf
     restoreEnvVar('CLAUDE_CONFIG_DIR', originalConfigDir);
     await rm(customConfigDir, { recursive: true, force: true });
   }
+});
+
+test('loadConfig rejects unsafe keys and excessive nesting in claude-hud.json', async () => {
+  const originalConfigDir = process.env.CLAUDE_CONFIG_DIR;
+  const customConfigDir = await mkdtemp(path.join(tmpdir(), 'claude-hud-override-shape-'));
+
+  try {
+    process.env.CLAUDE_CONFIG_DIR = customConfigDir;
+    const pluginDir = path.join(customConfigDir, 'plugins', 'claude-hud');
+    await mkdir(pluginDir, { recursive: true });
+    await writeFile(
+      path.join(pluginDir, 'config.json'),
+      JSON.stringify({ display: { customLine: 'shared' } }),
+      'utf8'
+    );
+
+    const overridePath = path.join(customConfigDir, 'claude-hud.json');
+    await writeFile(overridePath, '{"display":{"__proto__":{"customLine":"poison"}}}', 'utf8');
+    assert.equal((await loadConfig()).display.customLine, 'shared');
+
+    let nested = { display: { customLine: 'poison' } };
+    for (let depth = 0; depth < 10; depth += 1) {
+      nested = { nested };
+    }
+    await writeFile(overridePath, JSON.stringify(nested), 'utf8');
+    assert.equal((await loadConfig()).display.customLine, 'shared');
+  } finally {
+    restoreEnvVar('CLAUDE_CONFIG_DIR', originalConfigDir);
+    await rm(customConfigDir, { recursive: true, force: true });
+  }
+});
+
+test('loadConfig rejects oversized and symlinked claude-hud.json files', async (t) => {
+  const originalConfigDir = process.env.CLAUDE_CONFIG_DIR;
+  const customConfigDir = await mkdtemp(path.join(tmpdir(), 'claude-hud-override-file-'));
+
+  try {
+    process.env.CLAUDE_CONFIG_DIR = customConfigDir;
+    const pluginDir = path.join(customConfigDir, 'plugins', 'claude-hud');
+    await mkdir(pluginDir, { recursive: true });
+    await writeFile(
+      path.join(pluginDir, 'config.json'),
+      JSON.stringify({ display: { customLine: 'shared' } }),
+      'utf8'
+    );
+
+    const overridePath = path.join(customConfigDir, 'claude-hud.json');
+    await writeFile(overridePath, JSON.stringify({ padding: 'x'.repeat(70 * 1024) }), 'utf8');
+    assert.equal((await loadConfig()).display.customLine, 'shared');
+
+    const targetPath = path.join(customConfigDir, 'override-target.json');
+    await writeFile(targetPath, JSON.stringify({ display: { customLine: 'poison' } }), 'utf8');
+    await rm(overridePath, { force: true });
+    try {
+      await symlink(targetPath, overridePath, 'file');
+    } catch (err) {
+      if (err?.code === 'EPERM' || err?.code === 'EACCES') {
+        t.skip('file symlinks are unavailable on this platform');
+        return;
+      }
+      throw err;
+    }
+    assert.equal((await loadConfig()).display.customLine, 'shared');
+  } finally {
+    restoreEnvVar('CLAUDE_CONFIG_DIR', originalConfigDir);
+    await rm(customConfigDir, { recursive: true, force: true });
+  }
+});
+
+test('loadConfig keeps overrides isolated when config directories share plugins', async (t) => {
+  const originalConfigDir = process.env.CLAUDE_CONFIG_DIR;
+  const root = await mkdtemp(path.join(tmpdir(), 'claude-hud-shared-plugins-'));
+
+  try {
+    const sharedPlugins = path.join(root, 'shared', 'plugins');
+    const sharedHudDir = path.join(sharedPlugins, 'claude-hud');
+    const workDir = path.join(root, 'work');
+    const personalDir = path.join(root, 'personal');
+    await mkdir(sharedHudDir, { recursive: true });
+    await mkdir(workDir, { recursive: true });
+    await mkdir(personalDir, { recursive: true });
+    await writeFile(
+      path.join(sharedHudDir, 'config.json'),
+      JSON.stringify({ lineLayout: 'compact', display: { showSpeed: true } }),
+      'utf8'
+    );
+
+    const linkType = process.platform === 'win32' ? 'junction' : 'dir';
+    try {
+      await symlink(sharedPlugins, path.join(workDir, 'plugins'), linkType);
+      await symlink(sharedPlugins, path.join(personalDir, 'plugins'), linkType);
+    } catch (err) {
+      if (err?.code === 'EPERM' || err?.code === 'EACCES') {
+        t.skip('directory links are unavailable on this platform');
+        return;
+      }
+      throw err;
+    }
+    await writeFile(
+      path.join(workDir, 'claude-hud.json'),
+      JSON.stringify({ display: { customLine: 'Work' } }),
+      'utf8'
+    );
+    await writeFile(
+      path.join(personalDir, 'claude-hud.json'),
+      JSON.stringify({ display: { customLine: 'Personal' } }),
+      'utf8'
+    );
+
+    process.env.CLAUDE_CONFIG_DIR = workDir;
+    const workConfig = await loadConfig();
+    process.env.CLAUDE_CONFIG_DIR = personalDir;
+    const personalConfig = await loadConfig();
+
+    assert.equal(workConfig.display.customLine, 'Work');
+    assert.equal(personalConfig.display.customLine, 'Personal');
+    assert.equal(workConfig.display.showSpeed, true);
+    assert.equal(personalConfig.lineLayout, 'compact');
+  } finally {
+    restoreEnvVar('CLAUDE_CONFIG_DIR', originalConfigDir);
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test('mergeConfig strips terminal control sequences from display labels', () => {
+  const config = mergeConfig({
+    display: {
+      customLine: '\u001b]8;;https://evil.invalid\u0007click\u001b]8;;\u0007',
+      providerName: '\u001b[31mProvider\u001b[0m',
+      modelOverride: 'Model\u202e spoof',
+      advisorOverride: 'Advisor\nspoof',
+    },
+  });
+
+  assert.equal(config.display.customLine, 'click');
+  assert.equal(config.display.providerName, 'Provider');
+  assert.equal(config.display.modelOverride, 'Model spoof');
+  assert.equal(config.display.advisorOverride, 'Advisorspoof');
 });
 
 test('mergeConfig accepts pathLevels: "full"', () => {

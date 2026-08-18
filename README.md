@@ -161,11 +161,12 @@ guided toggles.
 
 If you run several Claude config directories via `CLAUDE_CONFIG_DIR` and symlink `plugins/` to a
 shared location, `plugins/claude-hud/config.json` is the same physical file for all of them. Put
-per-directory settings in `$CLAUDE_CONFIG_DIR/claude-hud.json` instead — it uses the same shape,
+per-directory settings in `$CLAUDE_CONFIG_DIR/claude-hud.json` instead - it uses the same shape,
 only needs the keys it changes, and is layered on top of the shared config at load time:
 
-```jsonc
-// ~/.config/claude/work/claude-hud.json
+For example, put this in `~/.config/claude/work/claude-hud.json`:
+
+```json
 { "display": { "customLine": "Work Team" } }
 ```
 
