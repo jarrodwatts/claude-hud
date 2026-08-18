@@ -9,6 +9,7 @@ export type MessageKey =
   | "label.hooks"
   | "label.estimatedCost"
   | "label.cost"
+  | "label.today"
   | "label.tokens"
   | "label.sessionStarted"
   | "label.lastReply"

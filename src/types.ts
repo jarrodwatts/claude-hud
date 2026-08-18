@@ -3,6 +3,7 @@ import type { GitStatus } from './git.js';
 import type { AuthInfo } from './auth.js';
 
 export interface StdinData {
+  session_id?: string;
   transcript_path?: string;
   cwd?: string;
   workspace?: {

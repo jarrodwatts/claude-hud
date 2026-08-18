@@ -11,6 +11,7 @@ export const en: Messages = {
   "label.hooks": "hooks",
   "label.estimatedCost": "Est.",
   "label.cost": "Cost",
+  "label.today": "Today",
   "label.tokens": "Tokens",
   "label.sessionStarted": "Started",
   "label.lastReply": "Last reply",

@@ -200,6 +200,9 @@ export interface HudConfig {
     // Also show cost for routed providers (Bedrock/Vertex) that `showCost`
     // hides by default. Requires `showCost` too. Default off.
     showRoutedCost: boolean;
+    // Accumulate the native stdin cost into a per-day ledger and show
+    // today's cumulative spend across sessions. Default off.
+    showDailyCost: boolean;
     showDuration: boolean;
     showSpeed: boolean;
     showTokenBreakdown: boolean;
@@ -324,6 +327,7 @@ export const DEFAULT_CONFIG: HudConfig = {
     showConfigCounts: false,
     showCost: false,
     showRoutedCost: false,
+    showDailyCost: false,
     showDuration: false,
     showSpeed: false,
     showTokenBreakdown: true,
@@ -803,6 +807,9 @@ export function mergeConfig(userConfig: Partial<HudConfig>): HudConfig {
     showRoutedCost: typeof migrated.display?.showRoutedCost === 'boolean'
       ? migrated.display.showRoutedCost
       : DEFAULT_CONFIG.display.showRoutedCost,
+    showDailyCost: typeof migrated.display?.showDailyCost === 'boolean'
+      ? migrated.display.showDailyCost
+      : DEFAULT_CONFIG.display.showDailyCost,
     showDuration: typeof migrated.display?.showDuration === 'boolean'
       ? migrated.display.showDuration
       : DEFAULT_CONFIG.display.showDuration,

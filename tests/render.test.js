@@ -1328,6 +1328,42 @@ test('renderSessionLine shows native cost when stdin cost.total_cost_usd is avai
   assert.ok(line.includes('Cost $5.47'));
 });
 
+test('renderSessionLine shows the daily cost when showDailyCost is enabled', async () => {
+  const configDir = await mkdtemp(path.join(tmpdir(), 'claude-hud-daily-render-'));
+  const originalConfigDir = process.env.CLAUDE_CONFIG_DIR;
+  process.env.CLAUDE_CONFIG_DIR = configDir;
+  try {
+    const ctx = baseContext();
+    ctx.config.display.showDailyCost = true;
+    ctx.stdin.session_id = 'render-test-session';
+    ctx.stdin.cost = { total_cost_usd: 2.0 };
+
+    // First render seeds the baseline, second render accrues the increment.
+    renderSessionLine(ctx);
+    ctx.stdin.cost = { total_cost_usd: 3.25 };
+    const line = stripAnsi(renderSessionLine(ctx));
+    assert.ok(line.includes('Today $1.25'), `expected daily cost, got: ${line}`);
+  } finally {
+    if (originalConfigDir === undefined) {
+      delete process.env.CLAUDE_CONFIG_DIR;
+    } else {
+      process.env.CLAUDE_CONFIG_DIR = originalConfigDir;
+    }
+    await rm(configDir, { recursive: true, force: true });
+  }
+});
+
+test('renderSessionLine keeps the daily cost hidden by default', () => {
+  const ctx = baseContext();
+  ctx.stdin.session_id = 'render-test-session';
+  ctx.stdin.cost = { total_cost_usd: 5.47 };
+  ctx.config.display.showCost = true;
+
+  const line = stripAnsi(renderSessionLine(ctx));
+  assert.ok(line.includes('Cost $5.47'));
+  assert.ok(!line.includes('Today'), `daily cost must remain opt-in: ${line}`);
+});
+
 test('renderProjectLine falls back to an estimate when native cost is absent', () => {
   const ctx = baseContext();
   ctx.stdin.cwd = '/tmp/my-project';

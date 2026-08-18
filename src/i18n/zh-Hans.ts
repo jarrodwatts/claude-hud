@@ -11,6 +11,7 @@ export const zhHans: Messages = {
   "label.hooks": "钩子",
   "label.estimatedCost": "估算",
   "label.cost": "费用",
+  "label.today": "今日",
   "label.tokens": "词元",
   "label.sessionStarted": "开始",
   "label.lastReply": "上次回复",
