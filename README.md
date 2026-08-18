@@ -538,4 +538,4 @@ MIT — see [LICENSE](LICENSE)
 
 ## Star History
 
-[![Star History Chart](https://api.star-history.com/svg?repos=jarrodwatts/claude-hud&type=Date)](https://star-history.com/#jarrodwatts/claude-hud&Date)
+[![Star History Chart](https://star-history.dera.page/svg?repos=jarrodwatts/claude-hud&type=Date)](https://star-history.dera.page/#jarrodwatts/claude-hud&Date)
