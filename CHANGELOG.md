@@ -4,6 +4,9 @@ All notable changes to Claude HUD will be documented in this file.
 
 ## [Unreleased]
 
+### Added
+- `display.showDailyCost` option to show today's cumulative spend across sessions (`Today $12.34`), accumulated from the native stdin `cost.total_cost_usd` into a per-day ledger that resets at local midnight (#695).
+
 ## [0.8.0] - 2026-08-18
 
 ### Added

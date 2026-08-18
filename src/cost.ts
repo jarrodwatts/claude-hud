@@ -142,7 +142,7 @@ export function estimateSessionCost(
   };
 }
 
-function getNativeCostUsd(stdin: StdinData, options?: { allowRoutedCost?: boolean }): number | null {
+export function getNativeCostUsd(stdin: StdinData, options?: { allowRoutedCost?: boolean }): number | null {
   const nativeCost = stdin.cost?.total_cost_usd;
   if (typeof nativeCost !== 'number' || !Number.isFinite(nativeCost)) {
     return null;

@@ -205,6 +205,23 @@ test('mergeConfig preserves explicit showCost=true', () => {
   assert.equal(config.display.showCost, true);
 });
 
+test('mergeConfig defaults showDailyCost to false', () => {
+  const config = mergeConfig({});
+  assert.equal(config.display.showDailyCost, false);
+  assert.equal(DEFAULT_CONFIG.display.showDailyCost, false);
+});
+
+test('mergeConfig preserves explicit showDailyCost=true', () => {
+  const config = mergeConfig({ display: { showDailyCost: true } });
+  assert.equal(config.display.showDailyCost, true);
+});
+
+test('mergeConfig falls back to false for non-boolean showDailyCost', () => {
+  assert.equal(mergeConfig({ display: { showDailyCost: 'yes' } }).display.showDailyCost, false);
+  assert.equal(mergeConfig({ display: { showDailyCost: 1 } }).display.showDailyCost, false);
+  assert.equal(mergeConfig({ display: { showDailyCost: null } }).display.showDailyCost, false);
+});
+
 test('mergeConfig defaults git push thresholds to disabled', () => {
   const config = mergeConfig({});
   assert.equal(config.gitStatus.branchOverflow, 'truncate');

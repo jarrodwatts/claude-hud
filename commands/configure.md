@@ -323,6 +323,7 @@ If user chooses "Remove", set `display.customLine` to `""` in config.
 | Output speed | `display.showSpeed` |
 | Session cost | `display.showCost` |
 | Routed provider cost | `display.showRoutedCost` |
+| Daily cost | `display.showDailyCost` |
 | Usage limits | `display.showUsage` |
 | Usage bar style | `display.usageBarEnabled` |
 | Compact usage | `display.usageCompact` |
