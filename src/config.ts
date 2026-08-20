@@ -253,6 +253,14 @@ export interface HudConfig {
     externalUsagePath: string;
     externalUsageWritePath: string;
     externalUsageFreshnessMs: number;
+    // The HUD always reads model-scoped weekly windows (e.g. Fable) from the
+    // usage cache the Claude CLI itself maintains in {CLAUDE_CONFIG_DIR}.json
+    // as the last scoped-window fallback. This opt-in keeps that cache fresh:
+    // when it is older than five minutes (the CLI's own write-throttle
+    // interval) the HUD spawns a detached headless `claude -p /usage`, and
+    // the freshness guarantee promotes the cache above external snapshots.
+    // Stdin always wins while it carries rate_limits.model_scoped.
+    refreshModelScopedUsage: boolean;
     modelFormat: ModelFormatMode;
     modelOverride: string;
     // Controls which source the model name comes from:
@@ -362,6 +370,7 @@ export const DEFAULT_CONFIG: HudConfig = {
     externalUsagePath: '',
     externalUsageWritePath: '',
     externalUsageFreshnessMs: 300000,
+    refreshModelScopedUsage: false,
     modelFormat: 'full',
     modelOverride: '',
     modelSource: 'stdin',
@@ -921,6 +930,9 @@ export function mergeConfig(userConfig: Partial<HudConfig>): HudConfig {
     externalUsagePath: validateOptionalPath(migrated.display?.externalUsagePath),
     externalUsageWritePath: validateOptionalPath(migrated.display?.externalUsageWritePath),
     externalUsageFreshnessMs: validateFreshnessMs(migrated.display?.externalUsageFreshnessMs),
+    refreshModelScopedUsage: typeof migrated.display?.refreshModelScopedUsage === 'boolean'
+      ? migrated.display.refreshModelScopedUsage
+      : DEFAULT_CONFIG.display.refreshModelScopedUsage,
     modelFormat: validateModelFormat(migrated.display?.modelFormat)
       ? migrated.display.modelFormat
       : DEFAULT_CONFIG.display.modelFormat,

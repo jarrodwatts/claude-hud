@@ -222,6 +222,7 @@ Simplified and Traditional Chinese HUD labels are available as explicit opt-ins.
 | `display.externalUsagePath` | string | `""` | Optional absolute path to a local usage snapshot file. Relative paths are ignored. When stdin `rate_limits` are present, `balance_label` is appended and `model_scoped` windows fill in when stdin lacks them; when stdin windows are missing, valid usage windows can be used as a fallback |
 | `display.externalUsageWritePath` | string | `""` | Optional absolute `.json` path in an existing directory. When stdin `rate_limits` exists, ClaudeHUD writes a private snapshot for other local tools. Relative paths, non-json files, and missing parent directories are ignored |
 | `display.externalUsageFreshnessMs` | number | `300000` | Maximum allowed age for the external usage snapshot before it is ignored |
+| `display.refreshModelScopedUsage` | boolean | false | The HUD always reads model-scoped weekly windows (e.g. Fable) from the usage cache the Claude CLI keeps in `{CLAUDE_CONFIG_DIR}.json` as the last fallback. This opt-in keeps that cache fresh via a detached headless `claude -p /usage` when it is older than five minutes, which promotes the cache above external snapshots. Stdin always wins |
 | `display.showTokenBreakdown` | boolean | true | Show token details at high context (85%+) |
 | `display.showTools` | boolean | false | Show tools activity line |
 | `display.showSkills` | boolean | false | Show active Skills detected from `Skill` tool invocations |
@@ -301,6 +302,10 @@ The snapshot may also carry `model_scoped` windows using the same shape Claude C
 ```
 
 One zero-credential way to produce such a snapshot is Claude Code's own `get_usage` control request, which returns `rate_limits.model_scoped` without spending tokens; a scheduled job can pipe it through `jq` into the snapshot file. The HUD itself never fetches anything: it only reads the file.
+
+ClaudeHUD also reads the usage cache the Claude CLI already maintains in `{CLAUDE_CONFIG_DIR}.json` (written on every `/usage` fetch, including model-scoped windows). This needs no setup: if you have run `/usage` recently, its scoped windows appear as the last fallback, behind stdin and external snapshots, and entries older than the one hour the CLI itself trusts are never rendered.
+
+If you would rather not maintain a scheduled job, `display.refreshModelScopedUsage` keeps that cache fresh automatically: when it is older than five minutes — the interval the CLI itself throttles cache writes to — ClaudeHUD spawns one detached, headless `claude -p /usage` so the CLI refreshes its own cache, and that freshness guarantee promotes the cache above external snapshots (stdin still always wins). The subprocess spends no tokens and no model is invoked; the CLI resolves authentication itself and ClaudeHUD never sees credentials or talks to the network — the cache file is the only channel. A private marker under `~/.claude/plugins/claude-hud` prevents concurrent renders from stampeding duplicate refreshes, and because stdin scoped windows take priority outright, the whole path retires naturally once Claude Code forwards `rate_limits.model_scoped` on stdin.
 
 Set `display.externalUsageWritePath` if you want ClaudeHUD to write the official stdin `rate_limits` into a local snapshot for other tools. The path must be absolute, end in `.json`, and live in an existing directory. ClaudeHUD writes the file with private permissions and ignores invalid paths quietly.
 

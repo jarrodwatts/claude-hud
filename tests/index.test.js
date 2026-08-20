@@ -424,6 +424,7 @@ test("main includes usageData from stdin when available", async () => {
       },
     }),
     parseTranscript: async () => makeTranscript(),
+    getScopedUsageFromCliCache: () => null,
     countConfigs: async () => makeCounts(),
     loadConfig: async () => makeConfig(),
     getGitStatus: async () => null,
@@ -452,6 +453,7 @@ test("main leaves usageData null when stdin rate limits are absent and external 
   await main({
     readStdin: async () => makeStdin({ rate_limits: null }),
     parseTranscript: async () => makeTranscript(),
+    getScopedUsageFromCliCache: () => null,
     countConfigs: async () => makeCounts(),
     loadConfig: async () => makeConfig(),
     getGitStatus: async () => null,
@@ -512,6 +514,7 @@ test("main prefers stdin usage over external usage fallback", async () => {
       },
     }),
     parseTranscript: async () => makeTranscript(),
+    getScopedUsageFromCliCache: () => null,
     countConfigs: async () => makeCounts(),
     loadConfig: async () => makeConfig(),
     getGitStatus: async () => null,
@@ -550,6 +553,7 @@ test("main appends external balance label to stdin usage when snapshot path is c
       },
     }),
     parseTranscript: async () => makeTranscript(),
+    getScopedUsageFromCliCache: () => null,
     countConfigs: async () => makeCounts(),
     loadConfig: async () => makeConfig({
       display: { externalUsagePath: "/tmp/usage.json" },
@@ -591,6 +595,7 @@ test("main fills missing seven-day usage from external snapshot", async () => {
       },
     }),
     parseTranscript: async () => makeTranscript(),
+    getScopedUsageFromCliCache: () => null,
     countConfigs: async () => makeCounts(),
     loadConfig: async () => makeConfig({
       display: { externalUsagePath: "/tmp/usage.json" },

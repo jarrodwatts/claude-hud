@@ -12,6 +12,7 @@ import { readAuthInfo } from "./auth.js";
 import { resolveEffortLevel } from "./effort.js";
 import { applyContextWindowFallback } from "./context-cache.js";
 import { getUsageFromExternalSnapshot, writeExternalUsageSnapshot } from "./external-usage.js";
+import { getScopedUsageFromCliCache } from "./cli-usage.js";
 import { setLanguage, t } from "./i18n/index.js";
 import type { RenderContext } from "./types.js";
 import type { GitStatus } from "./git.js";
@@ -26,6 +27,7 @@ export type MainDeps = {
   getUsageFromStdin: typeof getUsageFromStdin;
   getUsageFromExternalSnapshot: typeof getUsageFromExternalSnapshot;
   writeExternalUsageSnapshot: typeof writeExternalUsageSnapshot;
+  getScopedUsageFromCliCache: typeof getScopedUsageFromCliCache;
   parseTranscript: typeof parseTranscript;
   countConfigs: typeof countConfigs;
   getGitStatus: typeof getGitStatus;
@@ -90,6 +92,7 @@ export async function main(overrides: Partial<MainDeps> = {}): Promise<void> {
     getUsageFromStdin,
     getUsageFromExternalSnapshot,
     writeExternalUsageSnapshot,
+    getScopedUsageFromCliCache,
     parseTranscript,
     countConfigs,
     getGitStatus,
@@ -174,6 +177,32 @@ export async function main(overrides: Partial<MainDeps> = {}): Promise<void> {
               scopedWindows: ext.scopedWindows,
             }),
           };
+        }
+      }
+
+      // Scoped-window fallback from the usage cache the Claude CLI maintains
+      // itself (see cli-usage.ts). Reading is unconditional — the cache exists
+      // whenever the user has run /usage — so it always serves as the last
+      // fallback. display.refreshModelScopedUsage additionally keeps the cache
+      // fresh via a detached headless `claude -p /usage`, and that freshness
+      // guarantee promotes this source above external snapshots. Stdin always
+      // wins when it carries its own scoped windows, so the whole block
+      // retires naturally once Claude Code forwards rate_limits.model_scoped.
+      // `== null` deliberately: an explicit empty model_scoped array on stdin
+      // is Claude Code stating "no scoped windows" and is preserved as-is.
+      const refreshScopedUsage = config.display.refreshModelScopedUsage;
+      if (stdinUsage?.scopedWindows == null) {
+        const cliWindows = deps.getScopedUsageFromCliCache(deps.now(), refreshScopedUsage);
+        if (cliWindows != null && (refreshScopedUsage || !usageData?.scopedWindows?.length)) {
+          usageData = usageData
+            ? { ...usageData, scopedWindows: cliWindows }
+            : {
+              fiveHour: null,
+              sevenDay: null,
+              fiveHourResetAt: null,
+              sevenDayResetAt: null,
+              scopedWindows: cliWindows,
+            };
         }
       }
     }
