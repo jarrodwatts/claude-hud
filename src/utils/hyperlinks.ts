@@ -24,6 +24,24 @@ export function getFileHref(filePath: string): string | null {
 }
 
 /**
+ * Build a `<scheme>://file/<path>` URI for opening a directory in an
+ * editor that registers itself as a URL handler (VS Code, Cursor,
+ * Windsurf, ...). All of these forks share VS Code's `vscode://file/`
+ * addressing convention, so the same builder works for each — only the
+ * scheme differs.
+ *
+ * Returns `null` if the path can't be resolved to a file URL.
+ */
+export function getEditorHref(dirPath: string, scheme: string): string | null {
+  const fileHref = getFileHref(dirPath);
+  if (!fileHref) {
+    return null;
+  }
+  const pathname = new URL(fileHref).pathname;
+  return `${scheme}://file${pathname}`;
+}
+
+/**
  * Wrap `text` in an OSC 8 hyperlink after validating the URI.
  *
  * Only `https:` and `file:` protocols are allowed. Returns plain `text`

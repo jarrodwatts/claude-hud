@@ -633,6 +633,77 @@ test('project paths strip terminal escapes and bidi overrides in both layouts', 
   }
 });
 
+test('renderProjectLine links the project name to workspace.current_dir instead of the stale invocation cwd', () => {
+  const ctx = baseContext();
+  ctx.stdin.cwd = '/Users/jarrod/dev/my-project';
+  ctx.stdin.workspace = { current_dir: '/Users/jarrod/worktrees/my-project-feature' };
+  const line = renderProjectLine(ctx) ?? '';
+  assert.ok(line.includes('file:///Users/jarrod/worktrees/my-project-feature'), `got: ${line}`);
+  assert.ok(!line.includes('file:///Users/jarrod/dev/my-project\x1b'), `got: ${line}`);
+  assert.ok(stripAnsi(line).includes('my-project'), 'still shows the project label from cwd');
+});
+
+test('renderProjectLine falls back to workspace.git_worktree when current_dir is absent', () => {
+  const ctx = baseContext();
+  ctx.stdin.cwd = '/Users/jarrod/dev/my-project';
+  ctx.stdin.workspace = { git_worktree: '/Users/jarrod/worktrees/wt1' };
+  const line = renderProjectLine(ctx) ?? '';
+  assert.ok(line.includes('file:///Users/jarrod/worktrees/wt1'), `got: ${line}`);
+});
+
+test('renderProjectLine falls back to cwd when workspace is absent (no regression)', () => {
+  const ctx = baseContext();
+  ctx.stdin.cwd = '/tmp/my-project';
+  const line = renderProjectLine(ctx) ?? '';
+  assert.ok(line.includes('file:///tmp/my-project'), `got: ${line}`);
+});
+
+test('renderProjectLine omits the open-in-editor link by default', () => {
+  const ctx = baseContext();
+  ctx.stdin.cwd = '/tmp/my-project';
+  const line = renderProjectLine(ctx) ?? '';
+  assert.ok(!line.includes('vscode://'), `got: ${line}`);
+});
+
+test('renderProjectLine adds a vscode:// open-in-editor link when showOpenInEditor is true', () => {
+  const ctx = baseContext();
+  ctx.config.display.showOpenInEditor = true;
+  ctx.stdin.cwd = '/tmp/my-project';
+  const line = renderProjectLine(ctx) ?? '';
+  assert.ok(line.includes('\x1b]8;;vscode://file/tmp/my-project\x1b\\'), `got: ${line}`);
+  assert.ok(stripAnsi(line).includes('Code'), `got: ${stripAnsi(line)}`);
+});
+
+test('renderProjectLine open-in-editor link follows workspace.current_dir, not the stale cwd', () => {
+  const ctx = baseContext();
+  ctx.config.display.showOpenInEditor = true;
+  ctx.stdin.cwd = '/Users/jarrod/dev/my-project';
+  ctx.stdin.workspace = { current_dir: '/Users/jarrod/worktrees/my-project-feature' };
+  const line = renderProjectLine(ctx) ?? '';
+  assert.ok(line.includes('vscode://file/Users/jarrod/worktrees/my-project-feature'), `got: ${line}`);
+});
+
+test('renderProjectLine respects a custom editorUriScheme', () => {
+  const ctx = baseContext();
+  ctx.config.display.showOpenInEditor = true;
+  ctx.config.editorUriScheme = 'cursor';
+  ctx.stdin.cwd = '/tmp/my-project';
+  const line = renderProjectLine(ctx) ?? '';
+  assert.ok(line.includes('cursor://file/tmp/my-project'), `got: ${line}`);
+  assert.ok(!line.includes('vscode://'), `got: ${line}`);
+});
+
+test('renderProjectLine open-in-editor link strips terminal escapes from a malicious current_dir', () => {
+  const ctx = baseContext();
+  ctx.config.display.showOpenInEditor = true;
+  ctx.stdin.cwd = '/safe/project';
+  ctx.stdin.workspace = { current_dir: '/safe/\u001b]8;;https://evil.example\u0007project\u202E' };
+  const line = renderProjectLine(ctx) ?? '';
+  const plain = stripAnsi(line);
+  assert.doesNotMatch(plain, /[\u202E]/u);
+  assert.ok(!line.includes('https://evil.example'), `got: ${line}`);
+});
+
 test('renderProjectLine includes session name when showSessionName is true', () => {
   const ctx = baseContext();
   ctx.stdin.cwd = '/tmp/my-project';

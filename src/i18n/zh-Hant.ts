@@ -16,6 +16,7 @@ export const zhHant: Messages = {
   "label.lastReply": "上次回覆",
   "label.advisor": "顧問",
   "label.compactions": "壓縮次數",
+  "label.openInEditor": "代碼",
 
   // Status
   "status.limitReached": "已達上限",

@@ -758,6 +758,29 @@ test('mergeConfig rejects invalid pathLevels, falls back to default', () => {
   assert.equal(config.pathLevels, DEFAULT_CONFIG.pathLevels);
 });
 
+test('mergeConfig defaults editorUriScheme to vscode and showOpenInEditor to false', () => {
+  const config = mergeConfig({});
+  assert.equal(config.editorUriScheme, 'vscode');
+  assert.equal(config.display.showOpenInEditor, false);
+});
+
+test('mergeConfig accepts a custom editorUriScheme', () => {
+  const config = mergeConfig({ editorUriScheme: 'cursor' });
+  assert.equal(config.editorUriScheme, 'cursor');
+});
+
+test('mergeConfig rejects an editorUriScheme with an unsafe protocol grammar, falls back to default', () => {
+  for (const bad of ['java script', 'vs code', 'vscode:', 'vscode//', '', 42, null]) {
+    const config = mergeConfig({ editorUriScheme: bad });
+    assert.equal(config.editorUriScheme, DEFAULT_CONFIG.editorUriScheme, `should reject: ${JSON.stringify(bad)}`);
+  }
+});
+
+test('mergeConfig accepts display.showOpenInEditor: true', () => {
+  const config = mergeConfig({ display: { showOpenInEditor: true } });
+  assert.equal(config.display.showOpenInEditor, true);
+});
+
 // --- migrateConfig tests (via mergeConfig) ---
 
 test('migrate legacy layout: "default" -> compact, no separators', () => {

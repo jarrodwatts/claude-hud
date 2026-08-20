@@ -170,6 +170,8 @@ export interface HudConfig {
   lineLayout: LineLayoutType;
   showSeparators: boolean;
   pathLevels: PathLevels;
+  /** URI scheme used by the "open in editor" project link (e.g. `vscode`, `cursor`). */
+  editorUriScheme: string;
   maxWidth: number | null;
   forceMaxWidth: boolean;
   elementOrder: HudElement[];
@@ -191,6 +193,7 @@ export interface HudConfig {
   display: {
     showModel: boolean;
     showProject: boolean;
+    showOpenInEditor: boolean;
     showAddedDirs: boolean;
     addedDirsLayout: AddedDirsLayout;
     showContextBar: boolean;
@@ -293,6 +296,7 @@ export const DEFAULT_CONFIG: HudConfig = {
   lineLayout: 'expanded',
   showSeparators: false,
   pathLevels: 1,
+  editorUriScheme: 'vscode',
   maxWidth: null,
   forceMaxWidth: false,
   elementOrder: [...DEFAULT_ELEMENT_ORDER],
@@ -314,6 +318,7 @@ export const DEFAULT_CONFIG: HudConfig = {
   display: {
     showModel: true,
     showProject: true,
+    showOpenInEditor: false,
     showAddedDirs: true,
     addedDirsLayout: 'inline',
     showContextBar: true,
@@ -414,6 +419,16 @@ export function getConfigOverridePath(): string {
 
 function validatePathLevels(value: unknown): value is PathLevels {
   return value === 1 || value === 2 || value === 3 || value === 'full';
+}
+
+// URI scheme for the "open in editor" link, e.g. `vscode`, `cursor`,
+// `windsurf`. Restricted to the RFC 3986 scheme grammar so it can only ever
+// produce a well-formed `<scheme>://` URI, never inject extra protocol
+// separators or control characters into the hyperlink escape sequence.
+const EDITOR_URI_SCHEME_RE = /^[a-z][a-z0-9+.-]*$/;
+
+function validateEditorUriScheme(value: unknown): value is string {
+  return typeof value === 'string' && EDITOR_URI_SCHEME_RE.test(value);
 }
 
 function validateLineLayout(value: unknown): value is LineLayoutType {
@@ -728,6 +743,10 @@ export function mergeConfig(userConfig: Partial<HudConfig>): HudConfig {
     ? migrated.pathLevels
     : DEFAULT_CONFIG.pathLevels;
 
+  const editorUriScheme = validateEditorUriScheme((migrated as Record<string, unknown>).editorUriScheme)
+    ? (migrated as Record<string, unknown>).editorUriScheme as string
+    : DEFAULT_CONFIG.editorUriScheme;
+
   const rawMaxWidth = (migrated as Record<string, unknown>).maxWidth;
   const maxWidth = (typeof rawMaxWidth === 'number' && Number.isFinite(rawMaxWidth) && rawMaxWidth > 0)
     ? Math.min(Math.floor(rawMaxWidth), MAX_TERMINAL_WIDTH)
@@ -778,6 +797,9 @@ export function mergeConfig(userConfig: Partial<HudConfig>): HudConfig {
     showProject: typeof migrated.display?.showProject === 'boolean'
       ? migrated.display.showProject
       : DEFAULT_CONFIG.display.showProject,
+    showOpenInEditor: typeof migrated.display?.showOpenInEditor === 'boolean'
+      ? migrated.display.showOpenInEditor
+      : DEFAULT_CONFIG.display.showOpenInEditor,
     showAddedDirs: typeof migrated.display?.showAddedDirs === 'boolean'
       ? migrated.display.showAddedDirs
       : DEFAULT_CONFIG.display.showAddedDirs,
@@ -1010,7 +1032,7 @@ export function mergeConfig(userConfig: Partial<HudConfig>): HudConfig {
       : DEFAULT_CONFIG.colors.barEmpty,
   };
 
-  return { language, lineLayout, showSeparators, pathLevels, maxWidth, forceMaxWidth, elementOrder, projectLineOrder, gitStatus, jjStatus, display, colors };
+  return { language, lineLayout, showSeparators, pathLevels, editorUriScheme, maxWidth, forceMaxWidth, elementOrder, projectLineOrder, gitStatus, jjStatus, display, colors };
 }
 
 function isPlainObject(value: unknown): value is Record<string, unknown> {

@@ -16,6 +16,7 @@ export const en: Messages = {
   "label.lastReply": "Last reply",
   "label.advisor": "Advisor",
   "label.compactions": "Compactions",
+  "label.openInEditor": "Code",
 
   // Status
   "status.limitReached": "Limit reached",

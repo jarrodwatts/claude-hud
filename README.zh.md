@@ -164,6 +164,7 @@ Claude Code → stdin JSON → claude-hud → stdout → 在终端中显示
 | `language` | `en` \| `zh` \| `zh-Hans` \| `zh-Hant` \| `zh-TW` | `en` | HUD 标签语言。设为 `zh` 或 `zh-Hans` 启用简体中文，设为 `zh-Hant` 或 `zh-TW` 启用繁体中文 |
 | `lineLayout` | string | `expanded` | 布局：`expanded`（多行）或 `compact`（单行） |
 | `pathLevels` | 1-3 \| `full` | 1 | 项目路径显示的目录层级数，或设为 `full` 显示完整绝对路径 |
+| `editorUriScheme` | string | `vscode` | `display.showOpenInEditor` 链接使用的 URI scheme，例如 `vscode`、`cursor`、`windsurf`。必须匹配 `^[a-z][a-z0-9+.-]*$`，无效值将回退为默认值 |
 | `maxWidth` | number \| `null` | `null` | 可选的回退宽度，仅在终端宽度检测完全失败时使用 |
 | `forceMaxWidth` | boolean | false | 当设置了 `maxWidth` 时始终使用它，即使终端宽度检测返回更小的值 |
 | `elementOrder` | string[] | `["project","context","usage","promptCache","memory","environment","tools","agents","todos","sessionTime"]` | 展开模式下元素的顺序。省略的条目在展开模式下隐藏。现有配置会保留其显式顺序直到更新 |
@@ -183,6 +184,7 @@ Claude Code → stdin JSON → claude-hud → stdout → 在终端中显示
 | `display.showModel` | boolean | true | 显示模型名称 `[Opus]` |
 | `display.modelSource` | `stdin` \| `auto` \| `transcript` | `stdin` | 控制模型名称来源。`stdin` 保持默认行为；`auto` 仅在 transcript 返回非 Claude 模型时切换，用于检测代理路由；`transcript` 始终使用 API 响应中的模型。Transcript 模型值会清理终端转义字符并截断为 80 个字符 |
 | `display.showAddedDirs` | boolean | true | 显示来自 `/add-dir` 的额外工作区目录（如 `+sparkle +lib-foo`）；空数组不显示任何内容。在两种布局中最多渲染 5 个目录（溢出显示为 `+N more`），基名截断为 24 个字符并加 `…` |
+| `display.showOpenInEditor` | boolean | false | 添加一个可点击的 `Code` 链接，通过 `editorUriScheme` 在编辑器中打开 agent *当前* 的工作目录。优先使用 `workspace.current_dir`/`workspace.git_worktree` 而非 `cwd`，因此当 agent 进入 git worktree 或执行 `cd` 后，链接会跟随其实际位置，而不是停留在启动 Claude Code 时的目录 |
 | `display.addedDirsLayout` | `inline` \| `line` | `inline` | `inline` 将目录放在项目名称旁边，每个目录带 `+name` 前缀；`line` 在单独的 `Added dirs: name1, name2` 行渲染（无 `+` 前缀，逗号分隔） |
 | `display.showContextBar` | boolean | true | 显示可视化上下文进度条 `████░░░░░░` |
 | `display.contextValue` | `percent` \| `tokens` \| `remaining` \| `both` | `percent` | 上下文显示格式（`45%`、`45k/200k`、剩余 `55%` 或 `45% (45k/200k)`） |
