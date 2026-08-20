@@ -30,6 +30,11 @@ export function getFileHref(filePath: string): string | null {
  * addressing convention, so the same builder works for each — only the
  * scheme differs.
  *
+ * `windowId=_blank` tells the VS Code family's URI handler to open a new
+ * window instead of reusing whichever window last had focus — without it,
+ * the link silently reuses an existing window, which reads as broken when
+ * the user already has one open elsewhere.
+ *
  * Returns `null` if the path can't be resolved to a file URL.
  */
 export function getEditorHref(dirPath: string, scheme: string): string | null {
@@ -38,7 +43,7 @@ export function getEditorHref(dirPath: string, scheme: string): string | null {
     return null;
   }
   const pathname = new URL(fileHref).pathname;
-  return `${scheme}://file${pathname}`;
+  return `${scheme}://file${pathname}?windowId=_blank`;
 }
 
 /**

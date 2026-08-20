@@ -7,13 +7,22 @@ import { t } from '../../i18n/index.js';
 import { renderCostEstimate } from './cost.js';
 import { renderAdvisorLine } from './advisor.js';
 import { normalizeAddedDirs, sanitize as sanitizeDisplayText, basenameOf, truncateBasename, MAX_RENDERED_ADDED_DIRS } from './added-dirs.js';
-import { getFileHref, safeHyperlink } from '../../utils/hyperlinks.js';
+import { getFileHref, getEditorHref, safeHyperlink } from '../../utils/hyperlinks.js';
 import { formatModelDisplay } from '../model-display.js';
 import { formatAuthSegment } from '../../auth.js';
 import { formatProjectPath } from '../project-path.js';
 import { DEFAULT_CONFIG, DEFAULT_PROJECT_LINE_ORDER } from '../../config.js';
 import { orderFirstLineParts } from '../first-line-order.js';
 import { getVcsDisplayState } from '../vcs-status.js';
+// `workspace.current_dir`/`workspace.git_worktree` reflect where the agent
+// is actually working right now (e.g. after `cd` or `EnterWorktree`), which
+// can diverge from `cwd` — the directory Claude Code was originally
+// launched from. Prefer the live location for anything the user might click
+// to jump to; `cwd` remains the fallback for older Claude Code versions
+// that don't send `workspace`.
+function resolveActiveDir(stdin) {
+    return stdin.workspace?.current_dir || stdin.workspace?.git_worktree || stdin.cwd;
+}
 function resolvePathWithinCwd(cwd, candidatePath) {
     const resolvedCwd = path.resolve(cwd);
     const resolvedPath = path.resolve(cwd, candidatePath);
@@ -43,7 +52,16 @@ export function renderProjectLine(ctx) {
         const pathLevels = ctx.config?.pathLevels ?? 1;
         const projectPath = formatProjectPath(ctx.stdin.cwd, pathLevels);
         const coloredProject = projectColor(projectPath, colors);
-        projectPart = safeHyperlink(getFileHref(ctx.stdin.cwd), coloredProject);
+        projectPart = safeHyperlink(getFileHref(resolveActiveDir(ctx.stdin) ?? ctx.stdin.cwd), coloredProject);
+    }
+    let openEditorPart = null;
+    if (display?.showOpenInEditor) {
+        const activeDir = resolveActiveDir(ctx.stdin);
+        const scheme = ctx.config?.editorUriScheme || DEFAULT_CONFIG.editorUriScheme;
+        const editorHref = activeDir ? getEditorHref(activeDir, scheme) : null;
+        if (editorHref) {
+            openEditorPart = safeHyperlink(editorHref, dim(`[${t('label.openInEditor')}]`), ['https:', 'file:', `${scheme}:`]);
+        }
     }
     let addedDirsPart = null;
     const addedDirs = normalizeAddedDirs(ctx.stdin.workspace?.added_dirs);
@@ -92,9 +110,9 @@ export function renderProjectLine(ctx) {
         const vcsLabel = vcs.kind === 'jj' ? 'jj:(' : 'git:(';
         gitPart = `${gitColor(vcsLabel, colors)}${gitInner.join(' ')}${gitColor(')', colors)}`;
     }
-    const projectWithDirs = projectPart && addedDirsPart
-        ? `${projectPart} ${addedDirsPart}`
-        : projectPart ?? addedDirsPart;
+    const projectWithDirs = [projectPart, addedDirsPart, openEditorPart]
+        .filter((part) => Boolean(part))
+        .join(' ') || null;
     if (projectWithDirs && gitPart) {
         if (branchOverflow === 'wrap') {
             push(projectWithDirs, 'project');

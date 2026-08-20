@@ -70,7 +70,7 @@ export function renderProjectLine(ctx: RenderContext): string | null {
     const scheme = ctx.config?.editorUriScheme || DEFAULT_CONFIG.editorUriScheme;
     const editorHref = activeDir ? getEditorHref(activeDir, scheme) : null;
     if (editorHref) {
-      openEditorPart = safeHyperlink(editorHref, dim(t('label.openInEditor')), ['https:', 'file:', `${scheme}:`]);
+      openEditorPart = safeHyperlink(editorHref, dim(`[${t('label.openInEditor')}]`), ['https:', 'file:', `${scheme}:`]);
     }
   }
 

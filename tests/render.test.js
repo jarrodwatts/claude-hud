@@ -670,8 +670,8 @@ test('renderProjectLine adds a vscode:// open-in-editor link when showOpenInEdit
   ctx.config.display.showOpenInEditor = true;
   ctx.stdin.cwd = '/tmp/my-project';
   const line = renderProjectLine(ctx) ?? '';
-  assert.ok(line.includes('\x1b]8;;vscode://file/tmp/my-project\x1b\\'), `got: ${line}`);
-  assert.ok(stripAnsi(line).includes('Code'), `got: ${stripAnsi(line)}`);
+  assert.ok(line.includes('\x1b]8;;vscode://file/tmp/my-project?windowId=_blank\x1b\\'), `got: ${line}`);
+  assert.ok(stripAnsi(line).includes('[Code]'), `got: ${stripAnsi(line)}`);
 });
 
 test('renderProjectLine open-in-editor link follows workspace.current_dir, not the stale cwd', () => {

@@ -49,6 +49,7 @@ export const DEFAULT_CONFIG = {
     lineLayout: 'expanded',
     showSeparators: false,
     pathLevels: 1,
+    editorUriScheme: 'vscode',
     maxWidth: null,
     forceMaxWidth: false,
     elementOrder: [...DEFAULT_ELEMENT_ORDER],
@@ -70,6 +71,7 @@ export const DEFAULT_CONFIG = {
     display: {
         showModel: true,
         showProject: true,
+        showOpenInEditor: false,
         showAddedDirs: true,
         addedDirsLayout: 'inline',
         showContextBar: true,
@@ -167,6 +169,14 @@ export function getConfigOverridePath() {
 }
 function validatePathLevels(value) {
     return value === 1 || value === 2 || value === 3 || value === 'full';
+}
+// URI scheme for the "open in editor" link, e.g. `vscode`, `cursor`,
+// `windsurf`. Restricted to the RFC 3986 scheme grammar so it can only ever
+// produce a well-formed `<scheme>://` URI, never inject extra protocol
+// separators or control characters into the hyperlink escape sequence.
+const EDITOR_URI_SCHEME_RE = /^[a-z][a-z0-9+.-]*$/;
+function validateEditorUriScheme(value) {
+    return typeof value === 'string' && EDITOR_URI_SCHEME_RE.test(value);
 }
 function validateLineLayout(value) {
     return value === 'compact' || value === 'expanded';
@@ -427,6 +437,9 @@ export function mergeConfig(userConfig) {
     const pathLevels = validatePathLevels(migrated.pathLevels)
         ? migrated.pathLevels
         : DEFAULT_CONFIG.pathLevels;
+    const editorUriScheme = validateEditorUriScheme(migrated.editorUriScheme)
+        ? migrated.editorUriScheme
+        : DEFAULT_CONFIG.editorUriScheme;
     const rawMaxWidth = migrated.maxWidth;
     const maxWidth = (typeof rawMaxWidth === 'number' && Number.isFinite(rawMaxWidth) && rawMaxWidth > 0)
         ? Math.min(Math.floor(rawMaxWidth), MAX_TERMINAL_WIDTH)
@@ -473,6 +486,9 @@ export function mergeConfig(userConfig) {
         showProject: typeof migrated.display?.showProject === 'boolean'
             ? migrated.display.showProject
             : DEFAULT_CONFIG.display.showProject,
+        showOpenInEditor: typeof migrated.display?.showOpenInEditor === 'boolean'
+            ? migrated.display.showOpenInEditor
+            : DEFAULT_CONFIG.display.showOpenInEditor,
         showAddedDirs: typeof migrated.display?.showAddedDirs === 'boolean'
             ? migrated.display.showAddedDirs
             : DEFAULT_CONFIG.display.showAddedDirs,
@@ -660,7 +676,7 @@ export function mergeConfig(userConfig) {
             ? migrated.colors.barEmpty
             : DEFAULT_CONFIG.colors.barEmpty,
     };
-    return { language, lineLayout, showSeparators, pathLevels, maxWidth, forceMaxWidth, elementOrder, projectLineOrder, gitStatus, jjStatus, display, colors };
+    return { language, lineLayout, showSeparators, pathLevels, editorUriScheme, maxWidth, forceMaxWidth, elementOrder, projectLineOrder, gitStatus, jjStatus, display, colors };
 }
 function isPlainObject(value) {
     return typeof value === 'object' && value !== null && !Array.isArray(value);

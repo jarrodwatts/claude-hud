@@ -79,6 +79,8 @@ export interface HudConfig {
     lineLayout: LineLayoutType;
     showSeparators: boolean;
     pathLevels: PathLevels;
+    /** URI scheme used by the "open in editor" project link (e.g. `vscode`, `cursor`). */
+    editorUriScheme: string;
     maxWidth: number | null;
     forceMaxWidth: boolean;
     elementOrder: HudElement[];
@@ -100,6 +102,7 @@ export interface HudConfig {
     display: {
         showModel: boolean;
         showProject: boolean;
+        showOpenInEditor: boolean;
         showAddedDirs: boolean;
         addedDirsLayout: AddedDirsLayout;
         showContextBar: boolean;
