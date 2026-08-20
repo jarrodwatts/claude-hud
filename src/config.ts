@@ -265,7 +265,8 @@ export interface HudConfig {
     //                 the actual served model, not the configured one.
     modelSource: 'auto' | 'stdin' | 'transcript';
     // Show the provider label (custom name or auto-detected Bedrock/Vertex/
-    // Enterprise) BEFORE the model name on the project line. Default off.
+    // MiniMax/OrcaRouter/Enterprise) BEFORE the model name on the project line.
+    // Default off.
     showProvider: boolean;
     // Explicit provider label, e.g. for custom proxies where the provider can't
     // be auto-detected. Falls back to auto-detection when empty.

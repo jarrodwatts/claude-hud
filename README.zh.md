@@ -98,7 +98,7 @@ Claude HUD 让你在 Claude Code 会话中获得更清晰的洞察。
 [Opus] │ my-project git:(main*)
 上下文 █████░░░░░ 45% │ 使用率 ██░░░░░░░░ 25%（1小时30分 / 5小时）
 ```
-- **第 1 行** — 模型、提供商标签（如能正面识别，例如 `Bedrock`、`Vertex`、`MiniMax`）、项目路径、git 分支
+- **第 1 行** — 模型、提供商标签（如能正面识别，例如 `Bedrock`、`Vertex`、`MiniMax`、`OrcaRouter`）、项目路径、git 分支
 - **第 2 行** — 上下文进度条（绿 → 黄 → 红）和使用率限制
 
 ### 可选行（通过 `/claude-hud:configure` 启用）
@@ -243,6 +243,8 @@ Claude Code → stdin JSON → claude-hud → stdout → 在终端中显示
 `display.showCost` 为完全 opt-in 选项。ClaudeHUD 优先使用 Claude Code 在 stdin 上提供的原生 `cost.total_cost_usd` 字段（可用时）。如果该字段缺失或对直连 Anthropic 会话无效，ClaudeHUD 会回退到现有的基于本地转录文件的估算方案，确保费用行在旧负载下仍能工作。原生字段在会话中首个 API 响应之前为空，因此费用显示可能在响应到达前保持隐藏。对于已知的路由提供商（如 Bedrock、Vertex AI），ClaudeHUD 也会隐藏费用显示，因为云提供商计费会话可能报告 `$0.00` 或省略该字段，即使会话并非真正免费。设置 `display.showRoutedCost: true`（并同时开启 `showCost`）即可为这些提供商启用费用显示：原生 `cost.total_cost_usd` 为正值时显示为 `Cost`，否则回退到基于 Anthropic 定价表的 token 估算 `Est.`。
 
 官方 MiniMax Anthropic 兼容端点会显示 `MiniMax` 提供商标签。MiniMax M2.7 可使用其公开 token 和缓存价格进行本地估算；M3 的价格取决于单次请求的上下文层级，而累计会话 token 无法安全推断该层级，因此不会猜测 M3 费用。
+
+[OrcaRouter](https://www.orcarouter.ai) 网关提供 Anthropic 兼容的 `POST https://api.orcarouter.ai/v1/messages` 端点，因此把 Claude Code 指向 `ANTHROPIC_BASE_URL=https://api.orcarouter.ai` 后，ClaudeHUD 会显示 `OrcaRouter` 提供商标签。它在同一端点上还运行网关级零信任 AI agent 安全——默认拒绝地审查每次提示/响应并管控每次工具调用，无需改动任何应用代码。
 
 `display.showPromptCache` 为完全 opt-in 选项。启用后，ClaudeHUD 会显示 **prompt cache 的过期时刻**（例如 `Cache ⏱ at 14:30`），过期后显示 `expired`。它与 HUD 中其他时刻一样遵循 `display.hourCycle` 和 `display.showClockSeconds`。如果 transcript 里还没有主会话响应，这个元素会继续隐藏。
 

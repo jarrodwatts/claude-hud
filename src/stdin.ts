@@ -318,6 +318,10 @@ const MINIMAX_ANTHROPIC_ENDPOINTS = new Set([
   'https://api.minimaxi.com/anthropic',
 ]);
 
+const ORCAROUTER_ANTHROPIC_ENDPOINTS = new Set([
+  'https://api.orcarouter.ai',
+]);
+
 function isMiniMaxAnthropicEndpoint(env: NodeJS.ProcessEnv = process.env): boolean {
   const baseUrl = env.ANTHROPIC_BASE_URL?.trim() || env.ANTHROPIC_API_BASE_URL?.trim();
   if (!baseUrl) {
@@ -328,6 +332,21 @@ function isMiniMaxAnthropicEndpoint(env: NodeJS.ProcessEnv = process.env): boole
     const url = new URL(baseUrl);
     const normalized = `${url.origin}${url.pathname.replace(/\/+$/, '')}`;
     return MINIMAX_ANTHROPIC_ENDPOINTS.has(normalized);
+  } catch {
+    return false;
+  }
+}
+
+function isOrcaRouterAnthropicEndpoint(env: NodeJS.ProcessEnv = process.env): boolean {
+  const baseUrl = env.ANTHROPIC_BASE_URL?.trim() || env.ANTHROPIC_API_BASE_URL?.trim();
+  if (!baseUrl) {
+    return false;
+  }
+
+  try {
+    const url = new URL(baseUrl);
+    const normalized = `${url.origin}${url.pathname.replace(/\/+$/, '')}`;
+    return ORCAROUTER_ANTHROPIC_ENDPOINTS.has(normalized);
   } catch {
     return false;
   }
@@ -349,6 +368,9 @@ export function getProviderLabel(stdin: StdinData): string | null {
   }
   if (isMiniMaxAnthropicEndpoint()) {
     return 'MiniMax';
+  }
+  if (isOrcaRouterAnthropicEndpoint()) {
+    return 'OrcaRouter';
   }
   if (isEnterpriseModelId(stdin.model?.id)) {
     return 'Enterprise';

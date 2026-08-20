@@ -239,3 +239,39 @@ test('getProviderLabel rejects lookalike MiniMax endpoints', () => {
     else process.env.ANTHROPIC_API_BASE_URL = originalApiBaseUrl;
   }
 });
+
+test('getProviderLabel recognizes the OrcaRouter Anthropic endpoint', () => {
+  const originalBaseUrl = process.env.ANTHROPIC_BASE_URL;
+  const originalApiBaseUrl = process.env.ANTHROPIC_API_BASE_URL;
+
+  try {
+    delete process.env.ANTHROPIC_API_BASE_URL;
+    process.env.ANTHROPIC_BASE_URL = 'https://api.orcarouter.ai';
+    assert.equal(getProviderLabel({ model: { id: 'anthropic/claude-sonnet-5' } }), 'OrcaRouter');
+
+    delete process.env.ANTHROPIC_BASE_URL;
+    process.env.ANTHROPIC_API_BASE_URL = 'https://api.orcarouter.ai/';
+    assert.equal(getProviderLabel({ model: { id: 'anthropic/claude-sonnet-5' } }), 'OrcaRouter');
+  } finally {
+    if (originalBaseUrl === undefined) delete process.env.ANTHROPIC_BASE_URL;
+    else process.env.ANTHROPIC_BASE_URL = originalBaseUrl;
+    if (originalApiBaseUrl === undefined) delete process.env.ANTHROPIC_API_BASE_URL;
+    else process.env.ANTHROPIC_API_BASE_URL = originalApiBaseUrl;
+  }
+});
+
+test('getProviderLabel rejects lookalike OrcaRouter endpoints', () => {
+  const originalBaseUrl = process.env.ANTHROPIC_BASE_URL;
+  const originalApiBaseUrl = process.env.ANTHROPIC_API_BASE_URL;
+
+  try {
+    delete process.env.ANTHROPIC_API_BASE_URL;
+    process.env.ANTHROPIC_BASE_URL = 'https://proxy.orcarouter.ai';
+    assert.equal(getProviderLabel({ model: { id: 'anthropic/claude-sonnet-5' } }), null);
+  } finally {
+    if (originalBaseUrl === undefined) delete process.env.ANTHROPIC_BASE_URL;
+    else process.env.ANTHROPIC_BASE_URL = originalBaseUrl;
+    if (originalApiBaseUrl === undefined) delete process.env.ANTHROPIC_API_BASE_URL;
+    else process.env.ANTHROPIC_API_BASE_URL = originalApiBaseUrl;
+  }
+});
