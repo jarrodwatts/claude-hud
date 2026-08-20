@@ -121,6 +121,7 @@ export interface HudColorOverrides {
   gitBranch: HudColorValue;
   label: HudColorValue;
   custom: HudColorValue;
+  openInEditor: HudColorValue;
   barFilled: string;
   barEmpty: string;
 }
@@ -393,6 +394,7 @@ export const DEFAULT_CONFIG: HudConfig = {
     gitBranch: 'cyan',
     label: 'dim',
     custom: 208,
+    openInEditor: 'brightBlue',
     barFilled: '█',
     barEmpty: '░',
   },
@@ -1024,6 +1026,9 @@ export function mergeConfig(userConfig: Partial<HudConfig>): HudConfig {
     custom: validateColorValue(migrated.colors?.custom)
       ? migrated.colors.custom
       : DEFAULT_CONFIG.colors.custom,
+    openInEditor: validateColorValue(migrated.colors?.openInEditor)
+      ? migrated.colors.openInEditor
+      : DEFAULT_CONFIG.colors.openInEditor,
     barFilled: validateBarChar(migrated.colors?.barFilled)
       ? migrated.colors.barFilled
       : DEFAULT_CONFIG.colors.barFilled,

@@ -3,7 +3,7 @@ import * as path from 'node:path';
 import type { RenderContext } from '../../types.js';
 import { getModelName, formatModelName, resolveModelName } from '../../stdin.js';
 import { getOutputSpeed } from '../../speed-tracker.js';
-import { git as gitColor, gitBranch as gitBranchColor, warning as warningColor, critical as criticalColor, label, model as modelColor, project as projectColor, red, green, yellow, dim, custom as customColor } from '../colors.js';
+import { git as gitColor, gitBranch as gitBranchColor, warning as warningColor, critical as criticalColor, label, model as modelColor, project as projectColor, red, green, yellow, dim, custom as customColor, openInEditor as openInEditorColor } from '../colors.js';
 import { t } from '../../i18n/index.js';
 import { renderCostEstimate } from './cost.js';
 import { renderAdvisorLine } from './advisor.js';
@@ -70,7 +70,7 @@ export function renderProjectLine(ctx: RenderContext): string | null {
     const scheme = ctx.config?.editorUriScheme || DEFAULT_CONFIG.editorUriScheme;
     const editorHref = activeDir ? getEditorHref(activeDir, scheme) : null;
     if (editorHref) {
-      openEditorPart = safeHyperlink(editorHref, dim(`[${t('label.openInEditor')}]`), ['https:', 'file:', `${scheme}:`]);
+      openEditorPart = safeHyperlink(editorHref, openInEditorColor(`[${t('label.openInEditor')}]`, colors), ['https:', 'file:', `${scheme}:`]);
     }
   }
 

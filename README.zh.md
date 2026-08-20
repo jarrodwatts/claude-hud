@@ -233,6 +233,7 @@ Claude Code → stdin JSON → claude-hud → stdout → 在终端中显示
 | `colors.gitBranch` | 颜色值 | `cyan` | Git 分支和分支状态文本的颜色 |
 | `colors.label` | 颜色值 | `dim` | 标签和次要元数据的颜色，如 `Context`、`Usage`、计数和进度文本 |
 | `colors.custom` | 颜色值 | `208` | 可选自定义行的颜色 |
+| `colors.openInEditor` | 颜色值 | `brightBlue` | `[Code]` 编辑器打开链接的颜色 |
 | `colors.barFilled` | string | `█` | 进度条填充部分使用的字符 |
 | `colors.barEmpty` | string | `░` | 进度条空白部分使用的字符 |
 

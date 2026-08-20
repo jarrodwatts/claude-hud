@@ -258,6 +258,7 @@ Simplified and Traditional Chinese HUD labels are available as explicit opt-ins.
 | `colors.gitBranch` | color value | `cyan` | Color for the git branch and branch status text |
 | `colors.label` | color value | `dim` | Color for labels and secondary metadata such as `Context`, `Usage`, counts, and progress text |
 | `colors.custom` | color value | `208` | Color for the optional custom line |
+| `colors.openInEditor` | color value | `brightBlue` | Color for the `[Code]` open-in-editor link |
 | `colors.barFilled` | string | `█` | Character used for the filled portion of progress bars |
 | `colors.barEmpty` | string | `░` | Character used for the empty portion of progress bars |
 
