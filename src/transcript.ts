@@ -79,6 +79,7 @@ interface ContentBlock {
   type: string;
   id?: string;
   name?: string;
+  text?: string;
   input?: Record<string, unknown>;
   tool_use_id?: string;
   is_error?: boolean;
@@ -127,7 +128,7 @@ interface TranscriptCacheFile {
   data: SerializedTranscriptData;
 }
 
-const TRANSCRIPT_CACHE_VERSION = 16;
+const TRANSCRIPT_CACHE_VERSION = 17;
 const MCP_TOOL_NAME_PATTERN = /^mcp__(.+?)__(.+)$/;
 const ACTIVITY_NAME_MAX_LEN = 64;
 const MESSAGE_ID_MAX_LEN = 128;
@@ -140,6 +141,16 @@ const MCP_ERROR_SERVERS_MAX = 64;
 // cap exists to prevent a malformed transcript from persisting an oversized
 // string through the JSON cache and onto every statusline refresh.
 const ADVISOR_MODEL_MAX_LEN = 64;
+
+// Openers of user text that never leaves the machine. Client-side slash
+// commands write their invocation, their output, and their caveat as user
+// records, and an interrupt writes a marker; none of them sends a request.
+const LOCAL_ONLY_USER_TEXT_PREFIXES = [
+  '<command-name>',
+  '<command-message>',
+  '<local-command-',
+  '[Request interrupted by user',
+];
 
 let createReadStreamImpl: typeof fs.createReadStream = fs.createReadStream;
 
@@ -177,6 +188,40 @@ function detectPromptCacheTtlSeconds(
   }
 
   return undefined;
+}
+
+/**
+ * True for user text that Claude Code produced locally rather than sending. A
+ * slash command that runs in the client writes its invocation and its output as
+ * user records without any request going out, and an interrupted request leaves
+ * a marker record behind for the same reason. None of them refreshes the cache.
+ */
+function isLocalOnlyUserText(text: string): boolean {
+  return LOCAL_ONLY_USER_TEXT_PREFIXES.some((prefix) => text.startsWith(prefix));
+}
+
+/**
+ * True when a user record is the start of a request rather than a local note.
+ *
+ * Claude Code sends a request as soon as a prompt is submitted or a tool result
+ * comes back, so the record itself marks the request start. Unknown shapes are
+ * treated as prompts: a record the harness writes without recognizable content
+ * is far more likely to be a message than a client-side aside.
+ */
+function isPromptCacheRequestStart(entry: TranscriptLine): boolean {
+  const content = entry.message?.content;
+
+  if (typeof content === 'string') {
+    return !isLocalOnlyUserText(content);
+  }
+
+  if (Array.isArray(content)) {
+    // Tool results always trigger the follow-up request that carries them.
+    return content.some((block) => block?.type === 'tool_result')
+      || !content.some((block) => block?.type === 'text' && isLocalOnlyUserText(block.text ?? ''));
+  }
+
+  return true;
 }
 
 function normalizeMessageId(value: unknown): string | null {
@@ -489,6 +534,7 @@ export async function parseTranscript(transcriptPath: string): Promise<Transcrip
   let promptCacheTtlSeconds: number | undefined;
   let promptCacheRequestId: string | undefined;
   let promptCacheRequestAnchorAt: Date | undefined;
+  let promptCachePendingRequestAt: Date | undefined;
 
   let parsedCleanly = false;
 
@@ -659,6 +705,17 @@ export async function parseTranscript(transcriptPath: string): Promise<Transcrip
             if (detectedTtl !== undefined) {
               promptCacheTtlSeconds = detectedTtl;
             }
+            // A response closes the request the pending anchor was holding.
+            promptCachePendingRequestAt = undefined;
+          }
+
+          // A request whose response has not been written yet has still already
+          // refreshed the cache, so the record that opened it is the live anchor.
+          // Only a record with no assistant record after it can be that opener,
+          // which is what keeps a user record carrying a skewed future timestamp
+          // from displacing the response it precedes in the file.
+          if (entry.type === 'user' && entryHasTime && isPromptCacheRequestStart(entry)) {
+            promptCachePendingRequestAt = entryAt;
           }
 
           if (entryHasTime) {
@@ -705,7 +762,18 @@ export async function parseTranscript(transcriptPath: string): Promise<Transcrip
   result.compactionCount = compactionCount;
   result.advisorModel = latestAdvisorModel;
   result.ultracodeActive = latestUltracodeActive;
-  result.promptCacheAnchorAt = promptCacheAnchorAt;
+  // Promote the pending request only when it moves the clock forward. A record
+  // stamped before the response it follows is skew, and the earlier anchor is
+  // the one that cannot overstate how much cache lifetime is left.
+  result.promptCacheAnchorAt = (
+    promptCachePendingRequestAt
+    && (
+      !promptCacheAnchorAt
+      || promptCachePendingRequestAt.getTime() > promptCacheAnchorAt.getTime()
+    )
+  )
+    ? promptCachePendingRequestAt
+    : promptCacheAnchorAt;
   result.promptCacheTtlSeconds = promptCacheTtlSeconds;
   if (parsedCleanly) {
     writeTranscriptCache(canonicalTranscriptPath, transcriptState, result);

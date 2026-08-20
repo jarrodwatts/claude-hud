@@ -1011,6 +1011,99 @@ test('parseTranscript re-anchors on each new request', async () => {
   assert.equal(result.promptCacheAnchorAt?.toISOString(), '2024-01-01T00:00:30.000Z');
 });
 
+/** User record carrying a submitted prompt. */
+function userPrompt(timestamp, text = 'do the thing', fields = {}) {
+  return {
+    type: 'user',
+    timestamp,
+    ...fields,
+    message: { role: 'user', content: [{ type: 'text', text }] },
+  };
+}
+
+/** User record carrying the result of a tool the assistant asked for. */
+function toolResult(timestamp, fields = {}) {
+  return {
+    type: 'user',
+    timestamp,
+    ...fields,
+    message: { role: 'user', content: [{ type: 'tool_result', tool_use_id: 'tool-1' }] },
+  };
+}
+
+test('parseTranscript anchors a prompt whose response has not landed yet', async () => {
+  const result = await parseTempTranscript('cache-pending-prompt.jsonl', [
+    userPrompt('2024-01-01T00:00:00.000Z'),
+    cacheWrite({ timestamp: '2024-01-01T00:00:10.000Z', requestId: 'req-1' }, '5m'),
+    // The next prompt went out at 00:04:00 and refreshed the cache there. Waiting
+    // for its response would report the cache draining from 00:00:00 instead.
+    userPrompt('2024-01-01T00:04:00.000Z', 'and now the next thing'),
+  ]);
+
+  assert.equal(result.promptCacheAnchorAt?.toISOString(), '2024-01-01T00:04:00.000Z');
+});
+
+test('parseTranscript anchors a tool result whose response has not landed yet', async () => {
+  const result = await parseTempTranscript('cache-pending-tool-result.jsonl', [
+    userPrompt('2024-01-01T00:00:00.000Z'),
+    cacheWrite({ timestamp: '2024-01-01T00:00:10.000Z', requestId: 'req-1' }, '5m'),
+    toolResult('2024-01-01T00:02:00.000Z'),
+  ]);
+
+  assert.equal(result.promptCacheAnchorAt?.toISOString(), '2024-01-01T00:02:00.000Z');
+});
+
+test('parseTranscript keeps client-side slash command records off the cache clock', async () => {
+  const entries = [
+    userPrompt('2024-01-01T00:00:00.000Z'),
+    cacheWrite({ timestamp: '2024-01-01T00:00:10.000Z', requestId: 'req-1' }, '5m'),
+  ];
+
+  const invocation = await parseTempTranscript('cache-pending-command.jsonl', [
+    ...entries,
+    { type: 'user', timestamp: '2024-01-01T00:03:00.000Z', message: { role: 'user', content: '<command-name>/model</command-name>' } },
+  ]);
+  assert.equal(invocation.promptCacheAnchorAt?.toISOString(), '2024-01-01T00:00:00.000Z');
+
+  const output = await parseTempTranscript('cache-pending-command-output.jsonl', [
+    ...entries,
+    { type: 'user', timestamp: '2024-01-01T00:03:00.000Z', message: { role: 'user', content: '<local-command-stdout>Set model to Opus</local-command-stdout>' } },
+  ]);
+  assert.equal(output.promptCacheAnchorAt?.toISOString(), '2024-01-01T00:00:00.000Z');
+});
+
+test('parseTranscript keeps an interrupt marker off the cache clock', async () => {
+  const result = await parseTempTranscript('cache-pending-interrupt.jsonl', [
+    userPrompt('2024-01-01T00:00:00.000Z'),
+    cacheWrite({ timestamp: '2024-01-01T00:00:10.000Z', requestId: 'req-1' }, '5m'),
+    userPrompt('2024-01-01T00:03:00.000Z', '[Request interrupted by user]'),
+  ]);
+
+  assert.equal(result.promptCacheAnchorAt?.toISOString(), '2024-01-01T00:00:00.000Z');
+});
+
+test('parseTranscript keeps a pending subagent request off the main cache clock', async () => {
+  const result = await parseTempTranscript('cache-pending-sidechain.jsonl', [
+    userPrompt('2024-01-01T00:00:00.000Z'),
+    cacheWrite({ timestamp: '2024-01-01T00:00:10.000Z', requestId: 'req-1' }, '5m'),
+    userPrompt('2024-01-01T00:03:00.000Z', 'subagent prompt', { isSidechain: true }),
+  ]);
+
+  assert.equal(result.promptCacheAnchorAt?.toISOString(), '2024-01-01T00:00:00.000Z');
+});
+
+test('parseTranscript never moves the anchor backwards for a pending request', async () => {
+  const result = await parseTempTranscript('cache-pending-skew.jsonl', [
+    userPrompt('2024-01-01T00:05:00.000Z'),
+    cacheWrite({ timestamp: '2024-01-01T00:05:10.000Z', requestId: 'req-1' }, '5m'),
+    // Stamped before the request it follows, so it is clock skew rather than a
+    // later request. The anchor holds instead of surrendering cache lifetime.
+    toolResult('2024-01-01T00:01:00.000Z'),
+  ]);
+
+  assert.equal(result.promptCacheAnchorAt?.toISOString(), '2024-01-01T00:05:00.000Z');
+});
+
 test('parseTranscript falls back to the response when nothing precedes it', async () => {
   const result = await parseTempTranscript('cache-no-parent.jsonl', [
     cacheWrite({ timestamp: '2024-01-01T00:00:10.000Z', requestId: 'req-1' }, '5m'),
