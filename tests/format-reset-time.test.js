@@ -133,17 +133,24 @@ test('opts: default (auto) matches the pre-existing locale-driven output', () =>
   assert.equal(withoutOpts, withAutoOpts);
 });
 
+// A reset two hours out lands on the next calendar day whenever these run
+// between 22:00 and midnight local time, and the formatter then prefixes a
+// localized date. That prefix is correct and is covered by its own test above,
+// so these assert the clock component rather than the whole string.
+
 test('opts: h23 avoids AM/PM and uses 00-23 hours', () => {
   const resetAt = future(2 * HOUR);
   const result = formatResetTime(resetAt, 'absolute', { hourCycle: 'h23', showSeconds: false });
   assert.doesNotMatch(result, /AM|PM/i);
-  assert.match(result, /^at \d{2}:\d{2}$/);
+  assert.ok(result.startsWith('at '), `Expected "at " prefix, got: ${result}`);
+  assert.match(result, /\d{2}:\d{2}$/);
 });
 
 test('opts: showSeconds adds a seconds component', () => {
   const resetAt = future(2 * HOUR);
   const result = formatResetTime(resetAt, 'absolute', { hourCycle: 'h23', showSeconds: true });
-  assert.match(result, /^at \d{2}:\d{2}:\d{2}$/);
+  assert.ok(result.startsWith('at '), `Expected "at " prefix, got: ${result}`);
+  assert.match(result, /\d{2}:\d{2}:\d{2}$/);
 });
 
 test('opts: midnight boundary — h23 shows 00, not 24', () => {
