@@ -363,6 +363,22 @@ test('renderSessionLine displays project name from POSIX cwd', () => {
   assert.ok(!line.includes('/Users/jarrod'));
 });
 
+test('renderSessionLine omits the open-in-editor link by default', () => {
+  const ctx = baseContext();
+  ctx.stdin.cwd = '/tmp/my-project';
+  const line = renderSessionLine(ctx);
+  assert.ok(!line.includes('vscode://'), `got: ${line}`);
+});
+
+test('renderSessionLine adds a vscode:// open-in-editor link when showOpenInEditor is true', () => {
+  const ctx = baseContext();
+  ctx.config.display.showOpenInEditor = true;
+  ctx.stdin.cwd = '/tmp/my-project';
+  const line = renderSessionLine(ctx);
+  assert.ok(line.includes('\x1b]8;;vscode://file/tmp/my-project?windowId=_blank\x1b\\'), `got: ${line}`);
+  assert.ok(stripAnsi(line).includes('[Code]'), `got: ${stripAnsi(line)}`);
+});
+
 test('renderSessionLine displays project name from Windows cwd on every host', () => {
   const ctx = baseContext();
   ctx.stdin.cwd = 'C:\\Users\\jarrod\\my-project';

@@ -2,7 +2,7 @@ import type { RenderContext } from '../types.js';
 import { isLimitReached } from '../types.js';
 import { getContextPercent, getBufferedPercent, getModelName, formatModelName, resolveModelName, shouldHideUsage } from '../stdin.js';
 import { getOutputSpeed } from '../speed-tracker.js';
-import { coloredBar, critical, git as gitColor, gitBranch as gitBranchColor, label, model as modelColor, project as projectColor, getContextColor, getQuotaColor, quotaBar, custom as customColor, RESET } from './colors.js';
+import { coloredBar, critical, git as gitColor, gitBranch as gitBranchColor, label, model as modelColor, project as projectColor, getContextColor, getQuotaColor, quotaBar, custom as customColor, openInEditor as openInEditorColor, RESET } from './colors.js';
 import { getAdaptiveBarWidth } from '../utils/terminal.js';
 import { renderCostEstimate } from './lines/cost.js';
 import { renderPromptCacheLine } from './lines/prompt-cache.js';
@@ -17,11 +17,13 @@ import { createDebug } from '../debug.js';
 import { formatModelDisplay } from './model-display.js';
 import { formatSessionTokenSummary } from './lines/session-tokens.js';
 import { formatProjectPath } from './project-path.js';
-import { DEFAULT_PROJECT_LINE_ORDER } from '../config.js';
+import { DEFAULT_CONFIG, DEFAULT_PROJECT_LINE_ORDER } from '../config.js';
 import type { FirstLineSegment } from '../config.js';
 import { orderFirstLineParts } from './first-line-order.js';
 import type { FirstLinePart } from './first-line-order.js';
 import { getVcsDisplayState } from './vcs-status.js';
+import { resolveActiveDir } from './lines/project.js';
+import { getEditorHref, safeHyperlink } from '../utils/hyperlinks.js';
 
 const debug = createDebug('session-line');
 
@@ -90,6 +92,20 @@ export function renderSessionLine(ctx: RenderContext): string {
     const pathLevels = ctx.config?.pathLevels ?? 1;
     const projectPath = formatProjectPath(ctx.stdin.cwd, pathLevels);
     projectPart = projectColor(projectPath, colors);
+  }
+
+  let openEditorPart: string | null = null;
+  if (display?.showOpenInEditor) {
+    const activeDir = resolveActiveDir(ctx.stdin);
+    const scheme = ctx.config?.editorUriScheme || DEFAULT_CONFIG.editorUriScheme;
+    const editorHref = activeDir ? getEditorHref(activeDir, scheme) : null;
+    if (editorHref) {
+      openEditorPart = safeHyperlink(editorHref, openInEditorColor(`[${t('label.openInEditor')}]`, colors), ['https:', 'file:', `${scheme}:`]);
+    }
+  }
+
+  if (openEditorPart) {
+    projectPart = projectPart ? `${projectPart} ${openEditorPart}` : openEditorPart;
   }
 
   let gitPart = '';

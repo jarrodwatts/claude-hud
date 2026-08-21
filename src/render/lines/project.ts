@@ -24,7 +24,7 @@ import { getVcsDisplayState } from '../vcs-status.js';
 // launched from. Prefer the live location for anything the user might click
 // to jump to; `cwd` remains the fallback for older Claude Code versions
 // that don't send `workspace`.
-function resolveActiveDir(stdin: RenderContext['stdin']): string | undefined {
+export function resolveActiveDir(stdin: RenderContext['stdin']): string | undefined {
   return stdin.workspace?.current_dir || stdin.workspace?.git_worktree || stdin.cwd;
 }
 
