@@ -1214,6 +1214,24 @@ test('mergeConfig rejects non-boolean showCompactions', () => {
   assert.equal(config.display.showCompactions, false);
 });
 
+test('mergeConfig defaults showModelScopedUsage to true', () => {
+  const config = mergeConfig({});
+  assert.equal(config.display.showModelScopedUsage, true);
+  assert.equal(DEFAULT_CONFIG.display.showModelScopedUsage, true);
+});
+
+test('mergeConfig preserves explicit showModelScopedUsage=false', () => {
+  const config = mergeConfig({ display: { showModelScopedUsage: false } });
+  assert.equal(config.display.showModelScopedUsage, false);
+});
+
+test('mergeConfig rejects non-boolean showModelScopedUsage', () => {
+  // A falsy probe is the load-bearing one: against a `true` default, a truthy
+  // probe alone would still pass under a Boolean()-coercing implementation.
+  assert.equal(mergeConfig({ display: { showModelScopedUsage: 0 } }).display.showModelScopedUsage, true);
+  assert.equal(mergeConfig({ display: { showModelScopedUsage: 'no' } }).display.showModelScopedUsage, true);
+});
+
 test('mergeConfig preserves explicit showAdvisor=true', () => {
   const config = mergeConfig({ display: { showAdvisor: true } });
   assert.equal(config.display.showAdvisor, true);

@@ -208,6 +208,9 @@ export interface HudConfig {
     usageBarEnabled: boolean;
     showResetLabel: boolean;
     usageCompact: boolean;
+    // Show the per-model weekly windows (`rate_limits.model_scoped`, e.g. Fable)
+    // next to the 5h/7d windows. Set to false to keep only 5h/7d. Default on.
+    showModelScopedUsage: boolean;
     showTools: boolean;
     showSkills: boolean;
     showMcp: boolean;
@@ -329,6 +332,7 @@ export const DEFAULT_CONFIG: HudConfig = {
     usageBarEnabled: true,
     showResetLabel: true,
     usageCompact: false,
+    showModelScopedUsage: true,
     showTools: false,
     showSkills: false,
     showMcp: false,
@@ -823,6 +827,9 @@ export function mergeConfig(userConfig: Partial<HudConfig>): HudConfig {
     usageCompact: typeof migrated.display?.usageCompact === 'boolean'
       ? migrated.display.usageCompact
       : DEFAULT_CONFIG.display.usageCompact,
+    showModelScopedUsage: typeof migrated.display?.showModelScopedUsage === 'boolean'
+      ? migrated.display.showModelScopedUsage
+      : DEFAULT_CONFIG.display.showModelScopedUsage,
     showTools: typeof migrated.display?.showTools === 'boolean'
       ? migrated.display.showTools
       : DEFAULT_CONFIG.display.showTools,

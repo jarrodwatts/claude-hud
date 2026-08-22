@@ -98,6 +98,7 @@ Save as `language: "en"`, `language: "zh-Hans"`, or `language: "zh-Hant"`.
   - "Usage limits" - 5h: 25% | 7d: 10%
   - "Usage reset label" - show or hide the `resets in` prefix
   - "Compact usage" - 5h: 25% (1h 30m) shorter format
+  - "Model-scoped usage" - Fable ██░░ 38% per-model weekly windows
   - "Session duration" - ⏱️ 5m
   - "Session name" - fix-auth-bug (session slug or custom title)
   - "Session tokens" - Tokens 12.8M (in: 7k, out: 28k, cache: 12.8M)
@@ -165,6 +166,7 @@ If user chooses "Enter custom text", use AskUserQuestion to get their text. Save
   - "Usage bar style" - ██░░ 25% visual bar (only if usageBarEnabled is true)
   - "Usage reset label" - show or hide the `resets in` prefix
   - "Compact usage" - 5h: 25% (1h 30m) shorter format (only if usageCompact is false)
+  - "Model-scoped usage" - Fable ██░░ 38% per-model weekly windows (only if showModelScopedUsage is true)
 
 If more than 4 items ON, show Activity items (Tools, Agents, Todos, Project, Git) first.
 Info items (Counts, Tokens, Usage, Speed, Duration) can be turned off via "Reset to Minimal" in Q4.
@@ -181,6 +183,7 @@ Info items (Counts, Tokens, Usage, Speed, Duration) can be turned off via "Reset
   - "Usage bar style" - ██░░ 25% visual bar (only if usageBarEnabled is false)
   - "Usage reset label" - show or hide the `resets in` prefix
   - "Compact usage" - 5h: 25% (1h 30m) shorter format (only if usageCompact is false)
+  - "Model-scoped usage" - Fable ██░░ 38% per-model weekly windows (only if showModelScopedUsage is false)
   - "Added directories" - +repo +shared workspace directories from /add-dir
   - "Jujutsu status" - jj:(bookmark*) opt-in indicator
   - "Session name" - fix-auth-bug (session slug or custom title)
@@ -328,6 +331,7 @@ If user chooses "Remove", set `display.customLine` to `""` in config.
 | Compact usage | `display.usageCompact` |
 | Usage value | `display.usageValue` |
 | Usage reset label | `display.showResetLabel` |
+| Model-scoped usage | `display.showModelScopedUsage` (per-model weekly windows, e.g. Fable) |
 | Session name | `display.showSessionName` |
 | Auth method | `display.showAuth` (plan label, e.g. "Claude Max 20x", own segment at end of first line) |
 | Auth user | `display.showAuthUser` (login account, truncated to `display.authUserLength` chars, 0 = full) |

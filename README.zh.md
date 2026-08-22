@@ -197,6 +197,7 @@ Claude Code → stdin JSON → claude-hud → stdout → 在终端中显示
 | `display.usageBarEnabled` | boolean | true | 将使用率显示为可视化进度条而非文本 |
 | `display.usageCompact` | boolean | false | 以较短的文本形式显示使用率，如 `5h: 25% (1h 30m)`；优先于 `display.usageBarEnabled` |
 | `display.showResetLabel` | boolean | true | 在使用率倒计时前显示 `resets in` 前缀 |
+| `display.showModelScopedUsage` | boolean | true | 显示按模型每周窗口（`model_scoped`，例如 Fable），无论其来自 stdin 还是外部用量快照。设为 `false` 后，使用率行的渲染效果等同于负载中本就没有这些窗口 |
 | `display.timeFormat` | `relative` \| `absolute` \| `both` \| `elapsed` \| `elapsedAndAbsolute` | `relative` | 控制使用率窗口时间的显示方式：仅倒计时（`resets in 2h 30m`）、墙钟重置时间（`resets at 14:30`）、两者同时显示、窗口已过百分比（`53% elapsed`），或已过百分比加墙钟重置时间 |
 | `display.hourCycle` | `auto` \| `h11` \| `h12` \| `h23` \| `h24` | `auto` | 墙钟重置时间（`absolute`/`both`/`elapsedAndAbsolute` 模式）的时制。`auto` 跟随系统区域设置；`h23` 强制使用 24 小时制（`14:30`），不受区域设置影响 |
 | `display.showClockSeconds` | boolean | false | 在墙钟重置时间中显示秒数，如 `at 14:30:07` |
@@ -296,6 +297,8 @@ ClaudeHUD 优先使用官方 statusline stdin 负载中的使用率数据。如�
 将 `display.showResetLabel` 设为 `false` 可使用较短的使用率倒计时格式，如 `(3h 17m)` 而非 `(resets in 3h 17m)`。
 
 将 `display.usageCompact` 设为 `true` 可使用更短的使用率格式，如 `5h: 25% (1h 30m)`。紧凑模式优先于 `display.usageBarEnabled`。
+
+将 `display.showModelScopedUsage` 设为 `false` 可隐藏按模型每周窗口（例如 Fable）。此后使用率行的渲染效果，与该账号本就没有这些窗口时完全一致：5h/7d 窗口保留，来自外部快照的窗口会与 stdin 的一并隐藏，且被隐藏的窗口不再计入已配置的使用率阈值，因此无法再单独让该行保持显示。
 
 **前提条件：**
 - Claude Code 必须在当前会话的 stdin 上包含订阅用户 `rate_limits` 数据

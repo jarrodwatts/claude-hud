@@ -180,7 +180,12 @@ export function renderSessionLine(ctx: RenderContext): string {
     const usageCompact = display?.usageCompact ?? false;
     const showResetLabel = display?.showResetLabel ?? true;
     const usageValueMode = display?.usageValue ?? 'percent';
-    const scopedWindows = ctx.usageData.scopedWindows ?? [];
+    // Only "hidden" when something was actually suppressed. With no scoped
+    // windows there is nothing to hide, and the ghost-placeholder fallback
+    // below has to keep behaving exactly as it does without this flag.
+    const scopedHidden = display?.showModelScopedUsage === false
+      && (ctx.usageData.scopedWindows?.length ?? 0) > 0;
+    const scopedWindows = scopedHidden ? [] : ctx.usageData.scopedWindows ?? [];
     const hasGenericWindowData = ctx.usageData.fiveHour !== null || ctx.usageData.sevenDay !== null;
     const hasWindowData = hasGenericWindowData || scopedWindows.length > 0;
     const scopedParts = scopedWindows.map((window) =>
@@ -271,7 +276,7 @@ export function renderSessionLine(ctx: RenderContext): string {
           });
           push(weeklyOnlyPart);
           scopedParts.forEach((part) => push(part));
-        } else if (hasGenericWindowData || !hasWindowData) {
+        } else if (hasGenericWindowData || (!hasWindowData && !scopedHidden)) {
           const fiveHourPart = formatUsageWindowPart({
             label: '5h',
             percent: fiveHour,
