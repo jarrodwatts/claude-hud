@@ -59,6 +59,7 @@ export type HudElement =
   | 'usage'
   | 'promptCache'
   | 'memory'
+  | 'disk'
   | 'environment'
   | 'tools'
   | 'skills'
@@ -82,6 +83,8 @@ export type HudElement =
  *   cost:        session cost estimate
  *   speed:       output speed
  *   auth:        auth method / account
+ *   disk:        disk usage bar (compact layout only; expanded renders the
+ *                'disk' element on its own line)
  */
 export type FirstLineSegment =
   | 'model'
@@ -93,7 +96,8 @@ export type FirstLineSegment =
   | 'duration'
   | 'cost'
   | 'speed'
-  | 'auth';
+  | 'auth'
+  | 'disk';
 
 export type AddedDirsLayout = 'inline' | 'line';
 export type HudColorName =
@@ -132,6 +136,7 @@ export const DEFAULT_ELEMENT_ORDER: HudElement[] = [
   'usage',
   'promptCache',
   'memory',
+  'disk',
   'environment',
   'tools',
   'skills',
@@ -156,6 +161,7 @@ const PROJECT_LINE_SEGMENTS: FirstLineSegment[] = [
   'cost',
   'speed',
   'auth',
+  'disk',
 ];
 
 // An empty order is deliberate: renderers retain their byte-for-byte native
@@ -228,6 +234,8 @@ export interface HudConfig {
     // How the effort renders when showEffortLevel is on (see EffortFormatMode).
     effortFormat: EffortFormatMode;
     showMemoryUsage: boolean;
+    // Disk usage of the volume holding the session cwd.
+    showDiskUsage: boolean;
     showPromptCache: boolean;
     // Compatibility fallback used only until transcript tier detection has a
     // real 5-minute or 1-hour cache write to follow.
@@ -344,6 +352,7 @@ export const DEFAULT_CONFIG: HudConfig = {
     showEffortLevel: false,
     effortFormat: 'full',
     showMemoryUsage: false,
+    showDiskUsage: false,
     showPromptCache: false,
     promptCacheTtlSeconds: 300,
     showSessionTokens: false,
@@ -871,6 +880,9 @@ export function mergeConfig(userConfig: Partial<HudConfig>): HudConfig {
     showMemoryUsage: typeof migrated.display?.showMemoryUsage === 'boolean'
       ? migrated.display.showMemoryUsage
       : DEFAULT_CONFIG.display.showMemoryUsage,
+    showDiskUsage: typeof migrated.display?.showDiskUsage === 'boolean'
+      ? migrated.display.showDiskUsage
+      : DEFAULT_CONFIG.display.showDiskUsage,
     showPromptCache: typeof migrated.display?.showPromptCache === 'boolean'
       ? migrated.display.showPromptCache
       : DEFAULT_CONFIG.display.showPromptCache,

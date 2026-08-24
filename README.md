@@ -181,8 +181,8 @@ Simplified and Traditional Chinese HUD labels are available as explicit opt-ins.
 | `pathLevels` | 1-3 \| `full` | 1 | Directory levels to show in project path, or `full` to show the entire absolute path |
 | `maxWidth` | number \| `null` | `null` | Optional fallback width used only when terminal width detection fails completely |
 | `forceMaxWidth` | boolean | false | Always use `maxWidth` when it is set, even if terminal width detection returns a smaller value |
-| `elementOrder` | string[] | `["project","addedDirs","context","usage","promptCache","memory","environment","tools","skills","mcp","agents","todos","sessionTime"]` | Expanded-mode element order. Omit entries to hide them in expanded mode. Existing configs keep their explicit order until updated. |
-| `projectLineOrder` | string[] | `[]` | Optional leading order of segments *within* the first line, in both layouts. Visibility stays with the `display.show*` flags, and omitted segments retain their existing renderer order. `model` covers provider + model + effort (plus the context bar in compact mode); `project` covers path + added dirs + git as one segment. Example: `["project","model"]` puts the project/git block before the model badge. |
+| `elementOrder` | string[] | `["project","addedDirs","context","usage","promptCache","memory","disk","environment","tools","skills","mcp","agents","todos","sessionTime"]` | Expanded-mode element order. Omit entries to hide them in expanded mode. Existing configs keep their explicit order until updated. |
+| `projectLineOrder` | string[] | `[]` | Optional leading order of segments *within* the first line, in both layouts. Visibility stays with the `display.show*` flags, and omitted segments retain their existing renderer order. `model` covers provider + model + effort (plus the context bar in compact mode); `project` covers path + added dirs + git as one segment; `disk` is the compact-mode disk gauge. Example: `["project","model"]` puts the project/git block before the model badge. |
 | `display.mergeGroups` | string[][] | `[["context","usage"]]` | Expanded-mode groups that should share a line when adjacent. Set `[]` to disable merged lines. |
 | `display.rightAlign` | string[] | `[]` | Starts a right-aligned suffix at the first listed element in a merged row, preserving `elementOrder` and padding the gap with spaces. Requires the anchor to be in a `display.mergeGroups` group that actually renders on one line. Ignored when the terminal width is unknown, the anchor is first, or there is no room for padding. Example: `["context"]` with a `["project","context","usage"]` group keeps project/git left and pins context + usage right. |
 | `gitStatus.enabled` | boolean | true | Show git branch in HUD |
@@ -243,6 +243,7 @@ Simplified and Traditional Chinese HUD labels are available as explicit opt-ins.
 | `display.effortFormat` | `full` \| `symbol` \| `text` | `full` | How the effort renders when `display.showEffortLevel` is on: symbol and level text (`◑ high`), symbol only (`◑`), or level text only (`high`). Ultracode keeps the full `◕ ultracode(xhigh)` form under `symbol` so the marker is not lost, and levels without a known symbol fall back to the level text |
 | `display.showClaudeCodeVersion` | boolean | false | Show the installed Claude Code version, e.g. `CC v2.1.81` |
 | `display.showMemoryUsage` | boolean | false | Show an approximate system RAM usage line in expanded layout |
+| `display.showDiskUsage` | boolean | false | Show disk usage for the volume holding the session cwd. Compact layout renders `💾 ████░░ 80 GB free` at the end of the first line; expanded layout adds a `Disk` line with used / total and the percentage |
 | `display.showPromptCache` | boolean | false | Show the wall-clock time the session's prompt cache expires, read from the transcript |
 | `display.promptCacheTtlSeconds` | number | `300` | Compatibility fallback used only when the transcript has not reported a 5-minute or 1-hour cache tier |
 | `colors.context` | color value | `green` | Base color for the context bar and context percentage |
@@ -264,6 +265,8 @@ Simplified and Traditional Chinese HUD labels are available as explicit opt-ins.
 Supported color names: `dim`, `red`, `green`, `yellow`, `magenta`, `cyan`, `brightBlue`, `brightMagenta`. You can also use a 256-color number (`0-255`) or hex (`#rrggbb`).
 
 `display.showMemoryUsage` is fully opt-in and only renders in `expanded` layout. It reports approximate system RAM usage from the local machine, not precise memory pressure inside Claude Code or a specific process. The number may overstate actual pressure because reclaimable OS cache and buffers can still be counted as used memory.
+
+`display.showDiskUsage` is fully opt-in and works in both layouts. It measures the filesystem holding the session cwd (falling back to the process cwd and then `/`), so a project on an external volume reports that volume. Used space is derived as total minus available rather than read from the "used" figure the OS reports, because on APFS that figure counts a single volume and ignores the siblings sharing its container.
 
 `display.showCost` is fully opt-in. ClaudeHUD prefers the native `cost.total_cost_usd` field that Claude Code provides on stdin when it is available. If that field is absent or invalid for a direct Anthropic session, ClaudeHUD falls back to the existing local transcript-based estimate so the cost line still works on older payloads. The native field is absent before the first API response in a session, so the cost display may stay hidden until then. ClaudeHUD also keeps the cost hidden for known routed providers such as Bedrock and Vertex AI, because cloud-provider billed sessions may report `$0.00` or omit the field even though the session was not literally free. Set `display.showRoutedCost: true` (alongside `showCost`) to opt into cost for those providers anyway: the native `cost.total_cost_usd` is shown as `Cost` when positive, otherwise ClaudeHUD falls back to a token-based `Est.` from the Anthropic pricing table.
 
@@ -395,7 +398,8 @@ Example fallback snapshot:
     "showTodos": true,
     "showConfigCounts": true,
     "showDuration": true,
-    "showMemoryUsage": true
+    "showMemoryUsage": true,
+    "showDiskUsage": true
   },
   "colors": {
     "context": "cyan",

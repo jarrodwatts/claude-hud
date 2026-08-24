@@ -218,6 +218,7 @@ Claude Code → stdin JSON → claude-hud → stdout → 在终端中显示
 | `display.showCompactions` | boolean | false | 显示本会话已发生的上下文压缩次数（手动 `/compact` 或自动压缩），从 transcript 的 `compact_boundary` 记录计数，例如 `压缩次数: 2`。第一次压缩前不显示 |
 | `display.showClaudeCodeVersion` | boolean | false | 显示已安装的 Claude Code 版本，如 `CC v2.1.81` |
 | `display.showMemoryUsage` | boolean | false | 在展开布局中显示近似系统 RAM 使用行 |
+| `display.showDiskUsage` | boolean | false | 显示会话 cwd 所在卷的磁盘使用情况。紧凑布局在首行末尾渲染 `💾 ████░░ 80 GB free`，展开布局新增一行 `Disk`，显示已用 / 总量与百分比 |
 | `display.showPromptCache` | boolean | false | 显示 prompt cache 的过期时刻，数据来自 transcript |
 | `display.promptCacheTtlSeconds` | number | `300` | 仅当 transcript 尚未报告 5 分钟或 1 小时缓存层级时使用的兼容回退值 |
 | `colors.context` | 颜色值 | `green` | 上下文进度条和百分比的基础颜色 |
@@ -239,6 +240,8 @@ Claude Code → stdin JSON → claude-hud → stdout → 在终端中显示
 支持的颜色名称：`dim`、`red`、`green`、`yellow`、`magenta`、`cyan`、`brightBlue`、`brightMagenta`。你也可以使用 256 色数字（`0-255`）或十六进制（`#rrggbb`）。
 
 `display.showMemoryUsage` 为完全 opt-in 选项，仅在 `expanded` 布局下渲染。它报告本地机器的近似系统 RAM 使用情况，而非 Claude Code 或特定进程内的精确内存压力。由于可回收的 OS 缓存缓冲区仍可能被计入已用内存，该数字可能高估实际压力。
+
+`display.showDiskUsage` 为完全 opt-in 选项，两种布局均可用。它测量会话 cwd 所在的文件系统（依次回退到进程 cwd 和 `/`），因此位于外置卷上的项目会报告该卷。已用空间由总量减去可用量得出，而不是直接读取系统报告的已用值，因为在 APFS 上该值只统计单个卷，忽略共享同一容器的其他卷。
 
 `display.showCost` 为完全 opt-in 选项。ClaudeHUD 优先使用 Claude Code 在 stdin 上提供的原生 `cost.total_cost_usd` 字段（可用时）。如果该字段缺失或对直连 Anthropic 会话无效，ClaudeHUD 会回退到现有的基于本地转录文件的估算方案，确保费用行在旧负载下仍能工作。原生字段在会话中首个 API 响应之前为空，因此费用显示可能在响应到达前保持隐藏。对于已知的路由提供商（如 Bedrock、Vertex AI），ClaudeHUD 也会隐藏费用显示，因为云提供商计费会话可能报告 `$0.00` 或省略该字段，即使会话并非真正免费。设置 `display.showRoutedCost: true`（并同时开启 `showCost`）即可为这些提供商启用费用显示：原生 `cost.total_cost_usd` 为正值时显示为 `Cost`，否则回退到基于 Anthropic 定价表的 token 估算 `Est.`。
 
@@ -354,7 +357,8 @@ ClaudeHUD 优先使用官方 statusline stdin 负载中的使用率数据。如�
     "showTodos": true,
     "showConfigCounts": true,
     "showDuration": true,
-    "showMemoryUsage": true
+    "showMemoryUsage": true,
+    "showDiskUsage": true
   },
   "colors": {
     "context": "cyan",

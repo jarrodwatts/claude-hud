@@ -339,6 +339,7 @@ If user chooses "Remove", set `display.customLine` to `""` in config.
 | Reasoning level | `display.showEffortLevel` |
 | Output style | `display.showOutputStyle` |
 | Memory usage | `display.showMemoryUsage` |
+| Disk usage | `display.showDiskUsage` (volume holding the session cwd) |
 | Prompt cache | `display.showPromptCache` (transcript tier wins; `display.promptCacheTtlSeconds` is the fallback) |
 | Claude Code version | `display.showClaudeCodeVersion` |
 | Advisor model | `display.showAdvisor` (override via `display.advisorOverride`) |

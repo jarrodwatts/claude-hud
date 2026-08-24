@@ -18,6 +18,7 @@ import { renderAgentsLine } from '../dist/render/agents-line.js';
 import { renderTodosLine } from '../dist/render/todos-line.js';
 import { renderUsageLine } from '../dist/render/lines/usage.js';
 import { renderMemoryLine } from '../dist/render/lines/memory.js';
+import { renderDiskLine } from '../dist/render/lines/disk.js';
 import { renderIdentityLine } from '../dist/render/lines/identity.js';
 import { renderEnvironmentLine } from '../dist/render/lines/environment.js';
 import { renderSessionTokensLine } from '../dist/render/lines/session-tokens.js';
@@ -65,6 +66,7 @@ function baseContext() {
     gitStatus: null,
     usageData: null,
     memoryUsage: null,
+    diskUsage: null,
     config: {
       lineLayout: 'compact',
       showSeparators: false,
@@ -72,7 +74,7 @@ function baseContext() {
       elementOrder: ['project', 'context', 'usage', 'promptCache', 'memory', 'environment', 'tools', 'skills', 'mcp', 'agents', 'todos'],
       gitStatus: { enabled: true, showDirty: true, showAheadBehind: false, showFileStats: false, branchOverflow: 'truncate', pushWarningThreshold: 0, pushCriticalThreshold: 0 },
       jjStatus: { enabled: true, showDirty: true, showConflicts: true },
-      display: { showModel: true, showProject: true, showContextBar: true, contextValue: 'percent', showConfigCounts: true, showCost: false, showDuration: true, showSpeed: false, showTokenBreakdown: true, showUsage: true, usageValue: 'percent', usageBarEnabled: false, showResetLabel: true, showTools: true, showSkills: false, showMcp: false, showAgents: true, showTodos: true, showSessionTokens: false, showSessionName: false, showClaudeCodeVersion: false, showMemoryUsage: false, showPromptCache: false, showOutputStyle: false, mergeGroups: [['context', 'usage']], autocompactBuffer: 'enabled', usageThreshold: 0, sevenDayThreshold: 80, environmentThreshold: 0, customLine: '' },
+      display: { showModel: true, showProject: true, showContextBar: true, contextValue: 'percent', showConfigCounts: true, showCost: false, showDuration: true, showSpeed: false, showTokenBreakdown: true, showUsage: true, usageValue: 'percent', usageBarEnabled: false, showResetLabel: true, showTools: true, showSkills: false, showMcp: false, showAgents: true, showTodos: true, showSessionTokens: false, showSessionName: false, showClaudeCodeVersion: false, showMemoryUsage: false, showDiskUsage: false, showPromptCache: false, showOutputStyle: false, mergeGroups: [['context', 'usage']], autocompactBuffer: 'enabled', usageThreshold: 0, sevenDayThreshold: 80, environmentThreshold: 0, customLine: '' },
       colors: {
         context: 'green',
         usage: 'brightBlue',
@@ -680,6 +682,64 @@ test('renderMemoryLine stays hidden in compact layout even when enabled', () => 
   };
 
   assert.equal(renderMemoryLine(ctx), null);
+});
+
+const DISK_USAGE = {
+  path: '/Users/dev/project',
+  totalBytes: 500 * 1024 ** 3,
+  usedBytes: 400 * 1024 ** 3,
+  freeBytes: 100 * 1024 ** 3,
+  usedPercent: 80,
+};
+
+test('renderDiskLine shows disk usage in expanded layout when enabled', () => {
+  const ctx = baseContext();
+  ctx.config.lineLayout = 'expanded';
+  ctx.config.display.showDiskUsage = true;
+  ctx.diskUsage = { ...DISK_USAGE };
+
+  const line = stripAnsi(renderDiskLine(ctx));
+
+  assert.ok(line.includes('Disk'));
+  assert.ok(line.includes('400 GB / 500 GB'));
+  assert.ok(line.includes('(80%, 100 GB free)'));
+});
+
+test('renderDiskLine stays hidden in compact layout', () => {
+  const ctx = baseContext();
+  ctx.config.display.showDiskUsage = true;
+  ctx.diskUsage = { ...DISK_USAGE };
+
+  assert.equal(renderDiskLine(ctx), null);
+});
+
+test('renderDiskLine stays hidden when disk usage is unavailable', () => {
+  const ctx = baseContext();
+  ctx.config.lineLayout = 'expanded';
+  ctx.config.display.showDiskUsage = true;
+
+  assert.equal(renderDiskLine(ctx), null);
+});
+
+test('renderSessionLine appends the disk gauge at the end of the compact line', () => {
+  const ctx = baseContext();
+  ctx.stdin.cwd = '/tmp/my-project';
+  ctx.config.display.showDiskUsage = true;
+  ctx.diskUsage = { ...DISK_USAGE };
+
+  const line = stripAnsi(renderSessionLine(ctx));
+
+  assert.ok(line.includes('💾'));
+  assert.ok(line.includes('100 GB free'));
+  assert.doesNotMatch(line, /80%/);
+  assert.ok(line.indexOf('100 GB free') > line.indexOf('my-project'));
+});
+
+test('renderSessionLine omits the disk gauge when the option is off', () => {
+  const ctx = baseContext();
+  ctx.diskUsage = { ...DISK_USAGE };
+
+  assert.doesNotMatch(stripAnsi(renderSessionLine(ctx)), /💾/);
 });
 
 test('render expanded layout aligns context and memory bars in CJK locales', () => {

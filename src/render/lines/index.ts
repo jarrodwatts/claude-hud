@@ -5,6 +5,7 @@ export { renderEnvironmentLine } from './environment.js';
 export { renderPromptCacheLine } from './prompt-cache.js';
 export { renderUsageLine } from './usage.js';
 export { renderMemoryLine } from './memory.js';
+export { renderDiskLine } from './disk.js';
 export { renderSessionTokensLine } from './session-tokens.js';
 export { renderCompactionsLine } from './compactions.js';
 export { renderSessionTimeLine } from './session-time.js';

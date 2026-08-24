@@ -136,6 +136,15 @@ export interface MemoryInfo {
   usedPercent: number;
 }
 
+export interface DiskInfo {
+  /** Path the usage was measured for (its filesystem, not the path itself). */
+  path: string;
+  totalBytes: number;
+  usedBytes: number;
+  freeBytes: number;
+  usedPercent: number;
+}
+
 /** Check if usage limit is reached (either window at 100%) */
 export function isLimitReached(data: UsageData): boolean {
   return data.fiveHour === 100 || data.sevenDay === 100;
@@ -207,6 +216,7 @@ export interface RenderContext {
   gitStatus: GitStatus | null;
   usageData: UsageData | null;
   memoryUsage: MemoryInfo | null;
+  diskUsage: DiskInfo | null;
   config: HudConfig;
   extraLabel: string | null;
   outputStyle?: string;

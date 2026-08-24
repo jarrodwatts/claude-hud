@@ -15,6 +15,7 @@ import {
   renderPromptCacheLine,
   renderUsageLine,
   renderMemoryLine,
+  renderDiskLine,
   renderSessionTokensLine,
   renderCompactionsLine,
   renderSessionTimeLine,
@@ -444,6 +445,8 @@ function renderElementLine(
       return renderPromptCacheLine(ctx);
     case 'memory':
       return renderMemoryLine(ctx, labelOptions);
+    case 'disk':
+      return renderDiskLine(ctx, labelOptions);
     case 'environment':
       return renderEnvironmentLine(ctx);
     case 'tools':
@@ -480,8 +483,12 @@ function renderExpanded(ctx: RenderContext, terminalWidth: number | null = null)
   const memoryLineVisible = elementOrder.includes('memory')
     && ctx.config?.display?.showMemoryUsage === true
     && ctx.memoryUsage != null;
+  const diskLineVisible = elementOrder.includes('disk')
+    && ctx.config?.display?.showDiskUsage === true
+    && ctx.diskUsage != null;
   const otherProgressLineVisible = elementOrder.includes('context')
-    || (elementOrder.includes('usage') && renderUsageLine(ctx) != null);
+    || (elementOrder.includes('usage') && renderUsageLine(ctx) != null)
+    || diskLineVisible;
   const separateMemoryLabelOptions: ProgressLabelOptions | undefined = memoryLineVisible
     && otherProgressLineVisible
     ? { align: true, includeMemoryInWidth: true }

@@ -17,6 +17,7 @@ import { createDebug } from '../debug.js';
 import { formatModelDisplay } from './model-display.js';
 import { formatSessionTokenSummary } from './lines/session-tokens.js';
 import { formatProjectPath } from './project-path.js';
+import { formatBytes } from '../memory.js';
 import { DEFAULT_PROJECT_LINE_ORDER } from '../config.js';
 import type { FirstLineSegment } from '../config.js';
 import { orderFirstLineParts } from './first-line-order.js';
@@ -381,6 +382,14 @@ export function renderSessionLine(ctx: RenderContext): string {
   const authSegment = formatAuthSegment(ctx.authInfo, display);
   if (authSegment) {
     push(label(authSegment, colors), 'auth');
+  }
+
+  if (display?.showDiskUsage === true && ctx.diskUsage) {
+    const diskPercent = ctx.diskUsage.usedPercent;
+    const diskBar = quotaBar(diskPercent, barWidth, colors);
+    const diskFree = `${formatBytes(ctx.diskUsage.freeBytes)} ${t('format.free')}`;
+    const diskValue = `${getQuotaColor(diskPercent, colors)}${diskFree}${RESET}`;
+    push(`💾 ${diskBar} ${diskValue}`, 'disk');
   }
 
   if (customLine && customLinePosition === 'last') {

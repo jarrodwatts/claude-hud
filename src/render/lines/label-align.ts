@@ -10,6 +10,7 @@ const PROGRESS_LABEL_KEYS: MessageKey[] = [
   "label.usage",
   "label.weekly",
   "label.approxRam",
+  "label.disk",
 ];
 
 export interface ProgressLabelOptions {

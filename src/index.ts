@@ -8,6 +8,7 @@ import { loadConfig } from "./config.js";
 import { parseExtraCmdArg, runExtraCmd } from "./extra-cmd.js";
 import { getClaudeCodeVersion } from "./version.js";
 import { getMemoryUsage } from "./memory.js";
+import { getDiskUsage } from "./disk.js";
 import { readAuthInfo } from "./auth.js";
 import { resolveEffortLevel } from "./effort.js";
 import { applyContextWindowFallback } from "./context-cache.js";
@@ -36,6 +37,7 @@ export type MainDeps = {
   runExtraCmd: typeof runExtraCmd;
   getClaudeCodeVersion: typeof getClaudeCodeVersion;
   getMemoryUsage: typeof getMemoryUsage;
+  getDiskUsage: typeof getDiskUsage;
   readAuthInfo: typeof readAuthInfo;
   applyContextWindowFallback: typeof applyContextWindowFallback;
   render: typeof render;
@@ -100,6 +102,7 @@ export async function main(overrides: Partial<MainDeps> = {}): Promise<void> {
     runExtraCmd,
     getClaudeCodeVersion,
     getMemoryUsage,
+    getDiskUsage,
     readAuthInfo,
     applyContextWindowFallback,
     render,
@@ -195,6 +198,9 @@ export async function main(overrides: Partial<MainDeps> = {}): Promise<void> {
       config.display.showMemoryUsage && config.lineLayout === "expanded"
         ? await deps.getMemoryUsage()
         : null;
+    const diskUsage = config.display.showDiskUsage
+      ? await deps.getDiskUsage(stdin.cwd)
+      : null;
     const authInfo =
       config.display.showAuth || config.display.showAuthUser
         ? deps.readAuthInfo()
@@ -211,6 +217,7 @@ export async function main(overrides: Partial<MainDeps> = {}): Promise<void> {
       gitStatus,
       usageData,
       memoryUsage,
+      diskUsage,
       config,
       extraLabel,
       outputStyle,
