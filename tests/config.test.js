@@ -677,6 +677,44 @@ test('loadConfig rejects oversized and symlinked claude-hud.json files', async (
   }
 });
 
+test('loadConfig rejects an oversized or symlinked shared config.json (TOCTOU-safe read)', async (t) => {
+  const originalConfigDir = process.env.CLAUDE_CONFIG_DIR;
+  const customConfigDir = await mkdtemp(path.join(tmpdir(), 'claude-hud-config-file-'));
+
+  try {
+    process.env.CLAUDE_CONFIG_DIR = customConfigDir;
+    const pluginDir = path.join(customConfigDir, 'plugins', 'claude-hud');
+    await mkdir(pluginDir, { recursive: true });
+    const configPath = path.join(pluginDir, 'config.json');
+
+    // A normal, small config still loads.
+    await writeFile(configPath, JSON.stringify({ display: { customLine: 'ok' } }), 'utf8');
+    assert.equal((await loadConfig()).display.customLine, 'ok');
+
+    // A config over MAX_CONFIG_FILE_BYTES is rejected; loadConfig falls back to defaults.
+    await writeFile(configPath, JSON.stringify({ padding: 'x'.repeat(70 * 1024) }), 'utf8');
+    assert.equal((await loadConfig()).display.customLine, '');
+
+    // A symlinked config.json is rejected (O_NOFOLLOW on open, not a post-hoc lstat check).
+    const targetPath = path.join(customConfigDir, 'config-target.json');
+    await writeFile(targetPath, JSON.stringify({ display: { customLine: 'poison' } }), 'utf8');
+    await rm(configPath, { force: true });
+    try {
+      await symlink(targetPath, configPath, 'file');
+    } catch (err) {
+      if (err?.code === 'EPERM' || err?.code === 'EACCES') {
+        t.skip('file symlinks are unavailable on this platform');
+        return;
+      }
+      throw err;
+    }
+    assert.equal((await loadConfig()).display.customLine, '');
+  } finally {
+    restoreEnvVar('CLAUDE_CONFIG_DIR', originalConfigDir);
+    await rm(customConfigDir, { recursive: true, force: true });
+  }
+});
+
 test('loadConfig keeps overrides isolated when config directories share plugins', async (t) => {
   const originalConfigDir = process.env.CLAUDE_CONFIG_DIR;
   const root = await mkdtemp(path.join(tmpdir(), 'claude-hud-shared-plugins-'));
