@@ -1,0 +1,6 @@
+{
+  "warmHook": {
+    "timeout": 300000,
+    "commands": ["npm ci", "npm run build"]
+  }
+}

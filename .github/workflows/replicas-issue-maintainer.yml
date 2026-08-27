@@ -1,0 +1,35 @@
+name: Replicas issue maintainer
+
+on:
+  issues:
+    types: [opened]
+
+jobs:
+  notify:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Notify Replicas
+        env:
+          WEBHOOK_URL: ${{ secrets.REPLICAS_ISSUE_MAINTAINER_WEBHOOK }}
+        run: |
+          set -euo pipefail
+          if [ -z "${WEBHOOK_URL}" ]; then
+            echo "REPLICAS_ISSUE_MAINTAINER_WEBHOOK is not set; skipping."
+            exit 0
+          fi
+          jq '{
+            source: "github.issues.opened",
+            repository: "jarrodwatts/claude-hud",
+            issue: {
+              number: .issue.number,
+              title: .issue.title,
+              body: .issue.body,
+              user: .issue.user.login,
+              html_url: .issue.html_url,
+              labels: [.issue.labels[].name]
+            }
+          }' "$GITHUB_EVENT_PATH" \
+          | curl -sS -X POST "$WEBHOOK_URL" \
+            -H "Content-Type: application/json" \
+            --data-binary @- \
+            --fail
