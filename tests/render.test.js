@@ -1866,10 +1866,13 @@ test('mergeConfig validates tool display counts as non-negative integers', () =>
   assert.equal(mergeConfig({ display: { toolNameMaxLength: 12 } }).display.toolNameMaxLength, 12);
   assert.equal(mergeConfig({ display: { toolsMaxVisible: 0 } }).display.toolsMaxVisible, 0);
   assert.equal(mergeConfig({ display: { toolsMaxVisible: 2 } }).display.toolsMaxVisible, 2);
+  assert.equal(mergeConfig({ display: { skillsMaxVisible: 0 } }).display.skillsMaxVisible, 0);
+  assert.equal(mergeConfig({ display: { skillsMaxVisible: 7 } }).display.skillsMaxVisible, 7);
 
   for (const value of [-1, 'abc', null, 1.5]) {
     assert.equal(mergeConfig({ display: { toolNameMaxLength: value } }).display.toolNameMaxLength, 0);
     assert.equal(mergeConfig({ display: { toolsMaxVisible: value } }).display.toolsMaxVisible, 4);
+    assert.equal(mergeConfig({ display: { skillsMaxVisible: value } }).display.skillsMaxVisible, 4);
   }
 });
 
@@ -2308,6 +2311,37 @@ test('renderSkillsLine and renderMcpLine show counts and names when enabled', ()
 
   assert.equal(skillsLine, '✓ Skills (1): frontend-design');
   assert.equal(mcpLine, '✓ MCPs (2): linear, slack');
+});
+
+test('renderSkillsLine respects skillsMaxVisible and preserves overflow indicator', () => {
+  const ctx = baseContext();
+  ctx.config.display.showSkills = true;
+  ctx.config.display.skillsMaxVisible = 2;
+  ctx.transcript.skills = ['a', 'b', 'c', 'd', 'e'];
+
+  const line = stripAnsi(renderSkillsLine(ctx) ?? '');
+  assert.equal(line, '✓ Skills (5): a, b, +3 more');
+});
+
+test('renderSkillsLine shows every skill when skillsMaxVisible is unlimited', () => {
+  const ctx = baseContext();
+  ctx.config.display.showSkills = true;
+  ctx.config.display.skillsMaxVisible = 0;
+  ctx.transcript.skills = ['a', 'b', 'c', 'd', 'e'];
+
+  const line = stripAnsi(renderSkillsLine(ctx) ?? '');
+  assert.equal(line, '✓ Skills (5): a, b, c, d, e');
+  assert.ok(!line.includes('more'));
+});
+
+test('renderSkillsLine keeps the default cap of 4 when skillsMaxVisible is unset', () => {
+  const ctx = baseContext();
+  ctx.config.display.showSkills = true;
+  delete ctx.config.display.skillsMaxVisible;
+  ctx.transcript.skills = ['a', 'b', 'c', 'd', 'e'];
+
+  const line = stripAnsi(renderSkillsLine(ctx) ?? '');
+  assert.equal(line, '✓ Skills (5): a, b, c, d, +1 more');
 });
 
 test('renderSkillsLine and renderMcpLine sanitize direct transcript names before display', () => {

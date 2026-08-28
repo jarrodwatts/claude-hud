@@ -11,7 +11,12 @@ export function renderSkillsLine(ctx: RenderContext): string | null {
     return null;
   }
 
-  return renderNameListLine('Skills', ctx.transcript.skills ?? [], ctx.config?.colors);
+  return renderNameListLine(
+    'Skills',
+    ctx.transcript.skills ?? [],
+    ctx.config?.colors,
+    ctx.config?.display?.skillsMaxVisible ?? MAX_ITEMS_SHOWN,
+  );
 }
 
 export function renderMcpLine(ctx: RenderContext): string | null {
@@ -26,13 +31,15 @@ function renderNameListLine(
   title: string,
   names: string[],
   colors?: Partial<HudColorOverrides>,
+  maxVisible: number = MAX_ITEMS_SHOWN,
 ): string | null {
   const safeNames = names.map(safeActivityName).filter((name): name is string => Boolean(name));
   if (safeNames.length === 0) {
     return null;
   }
 
-  const visibleNames = safeNames.slice(0, MAX_ITEMS_SHOWN).map(name => cyan(name));
+  const shown = maxVisible === 0 ? safeNames : safeNames.slice(0, maxVisible);
+  const visibleNames = shown.map(name => cyan(name));
   const hiddenCount = safeNames.length - visibleNames.length;
   if (hiddenCount > 0) {
     visibleNames.push(label(`+${hiddenCount} more`, colors));
