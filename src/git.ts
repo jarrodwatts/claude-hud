@@ -84,7 +84,7 @@ export async function getGitStatus(cwd?: string): Promise<GitStatus | null> {
     if (isDirty) {
       try {
         const { stdout: numstatOut } = await runner.run(
-          ['-c', 'core.quotePath=false', 'diff', '--numstat', 'HEAD'],
+          ['-c', 'core.quotePath=false', '--no-optional-locks', 'diff', '--numstat', 'HEAD'],
           2000,
         );
         const trackedPaths = new Set(fileStats?.trackedFiles.map((file) => file.fullPath) ?? []);
