@@ -2,6 +2,20 @@
 
 Thanks for contributing to Claude HUD. This repo is small and fast-moving, so we optimize for clarity and quick review.
 
+## Scope
+
+The default HUD stays a two-line local statusline. New display stays opt-in unless it fixes a wrong default. Do not add onboarding steps.
+
+We will not take:
+
+- `extra-cmd` in `config.json`, or raw multiline extra-cmd output. The command stays on argv behind `CLAUDE_HUD_ALLOW_EXTRA_CMD`.
+- Per-window `timeFormat` knobs. Use `display.timeFormat`.
+- Per-metric color slots beyond the existing `colors.*` keys.
+- Timer-based fade for Skills or MCP. Use `showTools`, `showSkills`, and `showMcp`.
+- A hardcoded catalog of Anthropic-compatible proxies. Use `display.providerName`.
+- OS disk or other system gauges. Use `extra-cmd`.
+- A HUD-side guess for advisor or multi-iteration context double-count, or for local models that omit `context_window`. Those need a same-invocation stdin fixture from Claude Code.
+
 ## How to Contribute
 
 1) Fork and clone the repo
