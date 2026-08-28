@@ -3248,6 +3248,41 @@ function agentLaunchEntries(toolUseId, input, toolUseResult) {
   return entries;
 }
 
+test('parseTranscript treats async_launched Agent results as background', async () => {
+  const result = await parseTempTranscript(
+    'agent-async-launched.jsonl',
+    agentLaunchEntries(
+      'agent-async',
+      { subagent_type: 'claude', description: 'long run', model: 'opus' },
+      { status: 'async_launched', isAsync: true, resolvedModel: 'claude-opus-5[1m]' },
+    ),
+  );
+
+  assert.equal(result.agents.length, 1);
+  assert.equal(result.agents[0]?.status, 'running');
+  assert.equal(result.agents[0]?.background, true);
+  assert.equal(result.agents[0]?.endTime, undefined);
+});
+
+test('parseTranscript completes async-launched agents from the task-notification timestamp', async () => {
+  const result = await parseTempTranscript('agent-async-completed.jsonl', [
+    ...agentLaunchEntries(
+      'agent-async-done',
+      { subagent_type: 'claude', description: 'long run' },
+      { status: 'async_launched', isAsync: true },
+    ),
+    {
+      timestamp: '2026-07-19T11:00:00.000Z',
+      type: 'queue-operation',
+      operation: 'enqueue',
+      content: '<task-id>aa21d445</task-id><tool-use-id>agent-async-done</tool-use-id>',
+    },
+  ]);
+
+  assert.equal(result.agents[0]?.status, 'completed');
+  assert.equal(result.agents[0]?.endTime?.toISOString(), '2026-07-19T11:00:00.000Z');
+});
+
 test('parseTranscript reads the agent model from toolUseResult.resolvedModel', async () => {
   const result = await parseTempTranscript(
     'agent-resolved-model.jsonl',

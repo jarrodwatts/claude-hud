@@ -61,6 +61,8 @@ interface TranscriptLine {
   // model instead of passing `model` explicitly.
   toolUseResult?: {
     resolvedModel?: unknown;
+    isAsync?: unknown;
+    status?: unknown;
   };
   compactMetadata?: {
     trigger?: string;
@@ -128,7 +130,7 @@ interface TranscriptCacheFile {
   data: SerializedTranscriptData;
 }
 
-const TRANSCRIPT_CACHE_VERSION = 17;
+const TRANSCRIPT_CACHE_VERSION = 18;
 const MCP_TOOL_NAME_PATTERN = /^mcp__(.+?)__(.+)$/;
 const ACTIVITY_NAME_MAX_LEN = 64;
 const MESSAGE_ID_MAX_LEN = 128;
@@ -950,6 +952,12 @@ function processEntry(
         const resolvedModel = sanitizeTranscriptModel(entry.toolUseResult?.resolvedModel);
         if (resolvedModel) {
           agent.model = resolvedModel;
+        }
+        if (
+          entry.toolUseResult?.isAsync === true
+          || entry.toolUseResult?.status === 'async_launched'
+        ) {
+          agent.background = true;
         }
         if (!agent.background) {
           agent.endTime = timestamp;
