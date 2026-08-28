@@ -40,7 +40,7 @@ function stripAnsi(str) {
  */
 function expectedCacheExpiry(anchorAt, ttlSeconds) {
   const expiresAt = new Date(anchorAt.getTime() + ttlSeconds * 1000);
-  return `Cache ⏱ at ${expiresAt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
+  return `Cache ⏱ until ${expiresAt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
 }
 
 function baseContext() {

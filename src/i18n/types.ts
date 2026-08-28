@@ -23,6 +23,7 @@ export type MessageKey =
   | "format.resets"
   | "format.resetsIn"
   | "format.absoluteTime"
+  | "format.untilTime"
   | "format.in"
   | "format.cache"
   | "format.out"

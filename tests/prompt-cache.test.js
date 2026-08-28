@@ -62,7 +62,7 @@ test('renderPromptCacheLine shows the expiry time, not a countdown', () => {
   const expiresAt = now - 60_000 + 300_000;
   assert.equal(
     stripAnsi(renderPromptCacheLine(ctx, now) ?? ''),
-    `Cache ⏱ at ${expectedClock(expiresAt)}`,
+    `Cache ⏱ until ${expectedClock(expiresAt)}`,
   );
 });
 
@@ -77,7 +77,7 @@ test('renderPromptCacheLine holds the same value as the render goes stale', () =
   const later = stripAnsi(renderPromptCacheLine(ctx, anchor + 30 * 60_000) ?? '');
   const last = stripAnsi(renderPromptCacheLine(ctx, anchor + 59 * 60_000) ?? '');
 
-  assert.equal(first, `Cache ⏱ at ${expectedClock(anchor + 3_600_000)}`);
+  assert.equal(first, `Cache ⏱ until ${expectedClock(anchor + 3_600_000)}`);
   assert.equal(later, first);
   assert.equal(last, first);
 });
@@ -93,7 +93,7 @@ test('renderPromptCacheLine prefers the detected TTL over the 5m default', () =>
   ctx.transcript.promptCacheTtlSeconds = 3600;
   assert.equal(
     stripAnsi(renderPromptCacheLine(ctx, now) ?? ''),
-    `Cache ⏱ at ${expectedClock(now - 10 * 60_000 + 3_600_000)}`,
+    `Cache ⏱ until ${expectedClock(now - 10 * 60_000 + 3_600_000)}`,
   );
 });
 
@@ -105,7 +105,7 @@ test('renderPromptCacheLine keeps the configured TTL as a detection fallback', (
 
   assert.equal(
     stripAnsi(renderPromptCacheLine(ctx, now) ?? ''),
-    `Cache ⏱ at ${expectedClock(now - 10 * 60_000 + 3_600_000)}`,
+    `Cache ⏱ until ${expectedClock(now - 10 * 60_000 + 3_600_000)}`,
   );
 
   ctx.transcript.promptCacheTtlSeconds = 300;
@@ -121,7 +121,7 @@ test('renderPromptCacheLine ignores a TTL that is not a real tier', () => {
   // Falls back to 5m rather than counting down against a fabricated tier.
   assert.equal(
     stripAnsi(renderPromptCacheLine(ctx, now) ?? ''),
-    `Cache ⏱ at ${expectedClock(now + 300_000)}`,
+    `Cache ⏱ until ${expectedClock(now + 300_000)}`,
   );
 });
 
@@ -145,7 +145,7 @@ test('renderPromptCacheLine follows hourCycle and showClockSeconds', () => {
 
   assert.equal(
     stripAnsi(renderPromptCacheLine(ctx, now) ?? ''),
-    `Cache ⏱ at ${expectedClock(now + 300_000, { hourCycle: 'h23', showSeconds: true })}`,
+    `Cache ⏱ until ${expectedClock(now + 300_000, { hourCycle: 'h23', showSeconds: true })}`,
   );
 });
 

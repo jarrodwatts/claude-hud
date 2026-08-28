@@ -177,6 +177,7 @@ test("t() returns Traditional Chinese strings when language is zh-Hant", () => {
   assert.equal(t("format.cache"), "快取");
   assert.equal(t("format.out"), "輸出");
   assert.equal(t("format.absoluteTime"), "{time}");
+  assert.equal(t("format.untilTime"), "至 {time}");
   assert.equal(t("format.relativeTime"), "{value} 前");
   setLanguage("en");
 });
