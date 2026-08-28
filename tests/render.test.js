@@ -1862,7 +1862,7 @@ test('renderToolsLine preserves running targets and path truncation with shorten
   assert.ok(line.includes('.../authentication.ts'));
 });
 
-test('mergeConfig validates tool display counts as non-negative integers', () => {
+test('mergeConfig validates display counts as non-negative integers', () => {
   assert.equal(mergeConfig({ display: { toolNameMaxLength: 12 } }).display.toolNameMaxLength, 12);
   assert.equal(mergeConfig({ display: { toolsMaxVisible: 0 } }).display.toolsMaxVisible, 0);
   assert.equal(mergeConfig({ display: { toolsMaxVisible: 2 } }).display.toolsMaxVisible, 2);
@@ -2334,14 +2334,24 @@ test('renderSkillsLine shows every skill when skillsMaxVisible is unlimited', ()
   assert.ok(!line.includes('more'));
 });
 
-test('renderSkillsLine keeps the default cap of 4 when skillsMaxVisible is unset', () => {
+test('renderSkillsLine keeps the default cap of 4 when the context omits skillsMaxVisible', () => {
   const ctx = baseContext();
   ctx.config.display.showSkills = true;
-  delete ctx.config.display.skillsMaxVisible;
+  assert.equal(ctx.config.display.skillsMaxVisible, undefined);
   ctx.transcript.skills = ['a', 'b', 'c', 'd', 'e'];
 
   const line = stripAnsi(renderSkillsLine(ctx) ?? '');
   assert.equal(line, '✓ Skills (5): a, b, c, d, +1 more');
+});
+
+test('renderMcpLine keeps its cap of 4 and ignores skillsMaxVisible', () => {
+  const ctx = baseContext();
+  ctx.config.display.showMcp = true;
+  ctx.config.display.skillsMaxVisible = 0;
+  ctx.transcript.mcpServers = ['a', 'b', 'c', 'd', 'e'];
+
+  const line = stripAnsi(renderMcpLine(ctx) ?? '');
+  assert.equal(line, '✓ MCPs (5): a, b, c, d, +1 more');
 });
 
 test('renderSkillsLine and renderMcpLine sanitize direct transcript names before display', () => {
