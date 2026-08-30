@@ -5,6 +5,7 @@ export type MessageKey =
   | "label.weekly"
   | "label.approxRam"
   | "label.promptCache"
+  | "label.cacheHitRate"
   | "label.rules"
   | "label.hooks"
   | "label.estimatedCost"

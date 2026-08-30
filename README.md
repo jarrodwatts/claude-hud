@@ -247,6 +247,7 @@ Simplified and Traditional Chinese HUD labels are available as explicit opt-ins.
 | `display.showMemoryUsage` | boolean | false | Show an approximate system RAM usage line in expanded layout |
 | `display.showPromptCache` | boolean | false | Show the wall-clock time the session's prompt cache expires, read from the transcript |
 | `display.promptCacheTtlSeconds` | number | `300` | Compatibility fallback used only when the transcript has not reported a 5-minute or 1-hour cache tier |
+| `display.showCacheHitRate` | boolean | false | Show the session-wide prompt-cache hit rate as `Cache hit X%`, computed from cumulative transcript totals |
 | `colors.context` | color value | `green` | Base color for the context bar and context percentage |
 | `colors.usage` | color value | `brightBlue` | Base color for usage bars and percentages below warning thresholds |
 | `colors.warning` | color value | `yellow` | Warning color for context thresholds and usage warning text |
@@ -278,6 +279,14 @@ Official MiniMax Anthropic-compatible endpoints receive a `MiniMax` provider lab
 It shows an expiry time rather than a countdown because the statusline only repaints while Claude Code is active. Between turns — exactly when the cache is draining — a countdown freezes at whatever it last displayed and keeps reporting it; a clock time stays true no matter how stale the render is.
 
 ClaudeHUD detects the cache tier from the transcript when possible. The existing `display.promptCacheTtlSeconds` setting remains a fallback for older or proxied transcripts that do not expose tier details:
+
+`display.showCacheHitRate` is also opt-in. When enabled, ClaudeHUD shows the **session-wide cache hit rate** as `Cache hit X%` (e.g. `Cache hit 98.3%`), computed from the cumulative transcript totals:
+
+```
+hit_rate = cacheReadTokens / (inputTokens + cacheReadTokens + cacheCreationTokens)
+```
+
+`inputTokens` (non-cached input) is included in the denominator so the rate stays in `[0%, 100%]` even when the cache was pre-warmed in a prior transcript window — without it, a session whose `cacheCreationTokens` is zero would collapse to 100% and become uninformative. Absolute counts are visible in the existing `Tokens` line; this setting only adds the percentage.
 
 - **The TTL is detected.** Every cache write records the tier it used (`usage.cache_creation.ephemeral_5m_input_tokens` vs `ephemeral_1h_input_tokens`), so a 1-hour session counts down against an hour, and a session that changes tier mid-run is followed. Detected values take precedence over the configured fallback.
 - **The clock starts at the request**, not at the response it produced, because that is when the cache is read or written. Anchoring on the response would hand the session however long that response took to generate.

@@ -186,6 +186,22 @@ test('mergeConfig preserves explicit showPromptCache=true', () => {
   assert.equal(config.display.showPromptCache, true);
 });
 
+test('mergeConfig defaults showCacheHitRate to false', () => {
+  const config = mergeConfig({});
+  assert.equal(config.display.showCacheHitRate, false);
+  assert.equal(DEFAULT_CONFIG.display.showCacheHitRate, false);
+});
+
+test('mergeConfig preserves explicit showCacheHitRate=true', () => {
+  const config = mergeConfig({ display: { showCacheHitRate: true } });
+  assert.equal(config.display.showCacheHitRate, true);
+});
+
+test('mergeConfig rejects non-boolean showCacheHitRate', () => {
+  const config = mergeConfig({ display: { showCacheHitRate: 'yes' } });
+  assert.equal(config.display.showCacheHitRate, false);
+});
+
 test('mergeConfig preserves promptCacheTtlSeconds as a validated fallback', () => {
   assert.equal(DEFAULT_CONFIG.display.promptCacheTtlSeconds, 300);
   const config = mergeConfig({ display: { promptCacheTtlSeconds: 3600 } });
