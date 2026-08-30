@@ -7,6 +7,7 @@ export const zhHans: Messages = {
   "label.weekly": "本周",
   "label.approxRam": "内存",
   "label.promptCache": "缓存",
+  "label.cacheHitRate": "缓存命中",
   "label.rules": "规则",
   "label.hooks": "钩子",
   "label.estimatedCost": "估算",

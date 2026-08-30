@@ -13,6 +13,7 @@ import {
   renderGitFilesLine,
   renderEnvironmentLine,
   renderPromptCacheLine,
+  renderCacheHitRateLine,
   renderUsageLine,
   renderMemoryLine,
   renderSessionTokensLine,
@@ -442,6 +443,8 @@ function renderElementLine(
       return renderUsageLine(ctx, labelOptions);
     case 'promptCache':
       return renderPromptCacheLine(ctx);
+    case 'cacheHitRate':
+      return renderCacheHitRateLine(ctx);
     case 'memory':
       return renderMemoryLine(ctx, labelOptions);
     case 'environment':

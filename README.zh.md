@@ -232,6 +232,7 @@ Claude Code → stdin JSON → claude-hud → stdout → 在终端中显示
 | `display.showMemoryUsage` | boolean | false | 在展开布局中显示近似系统 RAM 使用行 |
 | `display.showPromptCache` | boolean | false | 显示 prompt cache 的过期时刻，数据来自 transcript |
 | `display.promptCacheTtlSeconds` | number | `300` | 仅当 transcript 尚未报告 5 分钟或 1 小时缓存层级时使用的兼容回退值 |
+| `display.showCacheHitRate` | boolean | false | 以 `Cache hit X%` 形式显示整个会话的 prompt cache 命中率，数据来自 transcript 累积值 |
 | `colors.context` | 颜色值 | `green` | 上下文进度条和百分比的基础颜色 |
 | `colors.usage` | 颜色值 | `brightBlue` | 使用率进度条和低于警告阈值时百分比的颜色 |
 | `colors.warning` | 颜色值 | `yellow` | 上下文阈值和使用率警告文本的警告颜色 |
@@ -259,6 +260,14 @@ Claude Code → stdin JSON → claude-hud → stdout → 在终端中显示
 `display.showPromptCache` 为完全 opt-in 选项。启用后，ClaudeHUD 会显示 **prompt cache 的过期时刻**（例如 `Cache ⏱ until 14:30`），过期后显示 `expired`。它与 HUD 中其他时刻一样遵循 `display.hourCycle` 和 `display.showClockSeconds`。如果 transcript 里还没有主会话响应，这个元素会继续隐藏。
 
 它显示过期时刻而不是倒计时，因为状态栏只在 Claude Code 活动时重绘。在两个回合之间——正好是缓存流失的时候——倒计时会停在最后一次显示的数值上并继续报告它；而时刻无论渲染多陈旧都仍然正确。
+
+`display.showCacheHitRate` 也是 opt-in。启用后，ClaudeHUD 会以 `Cache hit X%`（例如 `Cache hit 98.3%`）显示**整个会话的 cache 命中率**，由 transcript 累积值计算：
+
+```
+hit_rate = cacheReadTokens / (inputTokens + cacheReadTokens + cacheCreationTokens)
+```
+
+把 `inputTokens`（非缓存输入）计入分母，是为了即使缓存已经在前一个 transcript 窗口中预热、命中率也能保持在 `[0%, 100%]` 区间内——否则 `cacheCreationTokens` 为 0 的会话会塌缩到 100%，没有信息量。绝对数字已显示在 `Tokens` 行中；此选项只新增百分比。
 
 ClaudeHUD 会尽可能从 transcript 检测缓存层级。对于不提供层级详情的旧版或代理 transcript，现有的 `display.promptCacheTtlSeconds` 设置仍作为回退值：
 
