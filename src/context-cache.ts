@@ -4,6 +4,7 @@ import * as path from "node:path";
 import { createHash } from "node:crypto";
 import { getHudPluginDir } from "./claude-config-dir.js";
 import { createDebug } from "./debug.js";
+import { getTotalTokens } from "./stdin.js";
 import type { StdinData } from "./types.js";
 
 const debug = createDebug('context-cache');
@@ -255,6 +256,39 @@ function hasGoodContext(contextWindow: ContextWindow): boolean {
 }
 
 /**
+ * True when the native percentage reads zero but current_usage already has
+ * real tokens in it — the in-flight-request gap documented on
+ * getNativePercent() in stdin.ts (Claude Code can emit used_percentage: 0
+ * before the first API response arrives while current_usage already reflects
+ * the initial-context tokens). Distinct from isSuspiciousZero(), which only
+ * fires when current_usage is ALSO all zero.
+ */
+function isZeroPercentWithLiveUsage(contextWindow: ContextWindow): boolean {
+  const usedPercentage = contextWindow.used_percentage ?? 0;
+  if (usedPercentage !== 0) {
+    return false;
+  }
+  return !isAllUsageZero(contextWindow.current_usage);
+}
+
+/**
+ * Recompute used_percentage from current_usage the same way stdin.ts's
+ * getContextPercent()/getBufferedPercent() fallback does (via
+ * getTotalTokens()), so the value we cache matches what the renderer is
+ * already showing. Returns null when context_window_size is unusable.
+ */
+function synthesizePercentFromUsage(
+  stdin: StdinData,
+  contextWindow: ContextWindow
+): number | null {
+  const size = contextWindow.context_window_size ?? 0;
+  if (size <= 0) {
+    return null;
+  }
+  return Math.min(100, Math.round((getTotalTokens(stdin) / size) * 100));
+}
+
+/**
  * Merge cached context fields into the current frame.
  * Prefer the frame's context_window_size when already present.
  */
@@ -332,6 +366,16 @@ export function applyContextWindowFallback(
       }
     } else if (cached) {
       applyCachedContext(contextWindow, cached);
+    }
+  } else if (isZeroPercentWithLiveUsage(contextWindow)) {
+    // Zero native percent, but current_usage is real: synthesize the percent
+    // in place, before hasGoodContext() runs below, so the write gate sees it
+    // and the cached value matches what the renderer's own fallback already
+    // computed and displayed for this same frame.
+    const synced = synthesizePercentFromUsage(stdin, contextWindow);
+    if (synced !== null) {
+      contextWindow.used_percentage = synced;
+      contextWindow.remaining_percentage = 100 - synced;
     }
   }
 
