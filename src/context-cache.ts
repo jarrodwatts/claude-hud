@@ -367,20 +367,29 @@ export function applyContextWindowFallback(
     } else if (cached) {
       applyCachedContext(contextWindow, cached);
     }
-  } else if (isZeroPercentWithLiveUsage(contextWindow)) {
-    // Zero native percent, but current_usage is real: synthesize the percent
-    // in place, before hasGoodContext() runs below, so the write gate sees it
-    // and the cached value matches what the renderer's own fallback already
-    // computed and displayed for this same frame.
-    const synced = synthesizePercentFromUsage(stdin, contextWindow);
-    if (synced !== null) {
-      contextWindow.used_percentage = synced;
-      contextWindow.remaining_percentage = 100 - synced;
-    }
   }
 
-  if (hasGoodContext(contextWindow)) {
-    writeCache(homeDir, transcriptPath, contextWindow, now, sessionName);
+  // Zero native percent, but current_usage is real: synthesize the percent
+  // that would be cached, without mutating the live frame. used_percentage
+  // doubles as getNativePercent()'s sentinel for "a native percentage
+  // exists" (see stdin.ts), so writing it here would make the renderer skip
+  // getBufferedPercent()'s autocompact buffer for this same frame.
+  const syntheticPercent = isZeroPercentWithLiveUsage(contextWindow)
+    ? synthesizePercentFromUsage(stdin, contextWindow)
+    : null;
+
+  const frameToCache = hasGoodContext(contextWindow)
+    ? contextWindow
+    : syntheticPercent !== null
+      ? {
+          ...contextWindow,
+          used_percentage: syntheticPercent,
+          remaining_percentage: 100 - syntheticPercent,
+        }
+      : null;
+
+  if (frameToCache) {
+    writeCache(homeDir, transcriptPath, frameToCache, now, sessionName);
     if (deps.random() < SWEEP_SAMPLE_RATE) {
       sweepCacheDir(getCacheDir(homeDir), now);
     }

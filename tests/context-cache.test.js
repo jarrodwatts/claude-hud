@@ -175,7 +175,7 @@ test('applyContextWindowFallback ignores corrupted cache without throwing', asyn
   }
 });
 
-test('applyContextWindowFallback synthesizes used_percentage when a zero-percent frame already has current_usage data', async () => {
+test('applyContextWindowFallback caches a synthesized percent without mutating a zero-percent frame that has live current_usage', async () => {
   const tempHome = await createTempHome();
   const transcriptPath = '/tmp/session-a.jsonl';
 
@@ -199,9 +199,12 @@ test('applyContextWindowFallback synthesizes used_percentage when a zero-percent
 
     applyContextWindowFallback(stdin, makeDeps(tempHome, 1_100_000));
 
-    // getTotalTokens excludes output_tokens: (48000 + 400 + 100) / 200000 = 24%.
-    assert.equal(stdin.context_window.used_percentage, 24);
-    assert.equal(stdin.context_window.remaining_percentage, 76);
+    // The live frame's used_percentage is the renderer's sentinel for "a
+    // native percentage exists" (getNativePercent() in stdin.ts): writing to
+    // it here would disable getBufferedPercent()'s autocompact buffer. The
+    // frame must stay untouched even though a percent gets cached.
+    assert.equal(stdin.context_window.used_percentage, 0);
+    assert.equal(stdin.context_window.remaining_percentage, 100);
     assert.deepEqual(stdin.context_window.current_usage, {
       input_tokens: 48000,
       output_tokens: 2000,
@@ -209,6 +212,7 @@ test('applyContextWindowFallback synthesizes used_percentage when a zero-percent
       cache_read_input_tokens: 100,
     });
 
+    // getTotalTokens excludes output_tokens: (48000 + 400 + 100) / 200000 = 24%.
     const cachePath = getCachePath(tempHome, transcriptPath);
     const cached = JSON.parse(await readFile(cachePath, 'utf8'));
     assert.equal(cached.used_percentage, 24);
@@ -243,6 +247,10 @@ test('applyContextWindowFallback refreshes a stale cache when a later frame has 
     // to write, so this frame never refreshed the cache and it stayed frozen
     // at 38% indefinitely while the renderer moved on to ~61%.
     applyContextWindowFallback(stdin, makeDeps(tempHome, 1_100_000));
+
+    // The live frame must not be mutated by the cache write.
+    assert.equal(stdin.context_window.used_percentage, 0);
+    assert.equal(stdin.context_window.remaining_percentage, 100);
 
     const cachePath = getCachePath(tempHome, transcriptPath);
     const cached = JSON.parse(await readFile(cachePath, 'utf8'));
