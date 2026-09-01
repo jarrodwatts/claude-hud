@@ -175,7 +175,7 @@ test('applyContextWindowFallback ignores corrupted cache without throwing', asyn
   }
 });
 
-test('applyContextWindowFallback keeps live usage when zero-percent frame already has current_usage data', async () => {
+test('applyContextWindowFallback caches a synthesized percent without mutating a zero-percent frame that has live current_usage', async () => {
   const tempHome = await createTempHome();
   const transcriptPath = '/tmp/session-a.jsonl';
 
@@ -199,6 +199,10 @@ test('applyContextWindowFallback keeps live usage when zero-percent frame alread
 
     applyContextWindowFallback(stdin, makeDeps(tempHome, 1_100_000));
 
+    // The live frame's used_percentage is the renderer's sentinel for "a
+    // native percentage exists" (getNativePercent() in stdin.ts): writing to
+    // it here would disable getBufferedPercent()'s autocompact buffer. The
+    // frame must stay untouched even though a percent gets cached.
     assert.equal(stdin.context_window.used_percentage, 0);
     assert.equal(stdin.context_window.remaining_percentage, 100);
     assert.deepEqual(stdin.context_window.current_usage, {
@@ -207,6 +211,50 @@ test('applyContextWindowFallback keeps live usage when zero-percent frame alread
       cache_creation_input_tokens: 400,
       cache_read_input_tokens: 100,
     });
+
+    // getTotalTokens excludes output_tokens: (48000 + 400 + 100) / 200000 = 24%.
+    const cachePath = getCachePath(tempHome, transcriptPath);
+    const cached = JSON.parse(await readFile(cachePath, 'utf8'));
+    assert.equal(cached.used_percentage, 24);
+  } finally {
+    await rm(tempHome, { recursive: true, force: true });
+  }
+});
+
+test('applyContextWindowFallback refreshes a stale cache when a later frame has zero used_percentage but real current_usage', async () => {
+  const tempHome = await createTempHome();
+  const transcriptPath = '/tmp/session-a.jsonl';
+
+  try {
+    applyContextWindowFallback(
+      makeHealthyFrame(transcriptPath, { used_percentage: 38, remaining_percentage: 62 }),
+      makeDeps(tempHome, 1_000_000),
+    );
+
+    const stdin = makeSuspiciousFrame({
+      current_usage: {
+        input_tokens: 120000,
+        output_tokens: 4000,
+        cache_creation_input_tokens: 1500,
+        cache_read_input_tokens: 500,
+      },
+    });
+    stdin.transcript_path = transcriptPath;
+
+    // Simulates the in-flight-request gap: Claude Code emits used_percentage: 0
+    // while current_usage already carries the real, higher token counts.
+    // Before this fix, hasGoodContext() required the raw used_percentage > 0
+    // to write, so this frame never refreshed the cache and it stayed frozen
+    // at 38% indefinitely while the renderer moved on to ~61%.
+    applyContextWindowFallback(stdin, makeDeps(tempHome, 1_100_000));
+
+    // The live frame must not be mutated by the cache write.
+    assert.equal(stdin.context_window.used_percentage, 0);
+    assert.equal(stdin.context_window.remaining_percentage, 100);
+
+    const cachePath = getCachePath(tempHome, transcriptPath);
+    const cached = JSON.parse(await readFile(cachePath, 'utf8'));
+    assert.equal(cached.used_percentage, 61);
   } finally {
     await rm(tempHome, { recursive: true, force: true });
   }
