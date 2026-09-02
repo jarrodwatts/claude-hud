@@ -2355,7 +2355,7 @@ test('countConfigs uses CLAUDE_CONFIG_DIR and matching .json sidecar for user sc
       'utf8'
     );
     await writeFile(
-      `${customConfigDir}.json`,
+      path.join(customConfigDir, '.claude.json'),
       JSON.stringify({ disabledMcpServers: ['customA'] }),
       'utf8'
     );
