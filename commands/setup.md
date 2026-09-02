@@ -193,11 +193,36 @@ On Windows require `node` and always use `dist/index.js`.
 
 **Important**: Do **not** reuse the macOS/Linux awk-based command on Windows + Git Bash. The `awk` fragment requires `'"'"'` quoting to nest single quotes inside `bash -c '...'`. After JSON encoding and decoding, this quoting breaks on Windows Git Bash, causing a silent syntax error that prevents the HUD process from starting (see [#326](https://github.com/jarrodwatts/claude-hud/issues/326)).
 
-Instead, use `sort -V` (GNU version sort, included with Git for Windows) which avoids nested single quotes entirely. Also avoid wrapping the generated command in a second `bash -c ...` layer. Claude Code is already invoking the statusline through bash, so the direct shell command lets `exec` replace that shell instead of spawning an extra bash wrapper first. The command still exports `COLUMNS` so the HUD receives the real terminal width, and it uses the marketplace-aware cache glob:
+**Important**: Do **not** `exec` the runtime itself from Git Bash either. Git Bash creates every native child suspended and resumes it a moment later. If Claude Code terminates the statusLine shell inside that window, the child is stranded suspended: it never executes a single instruction, so it also never exits, and only a manual kill removes it. When the exec target is the runtime, each stranded child is a ~36 MB `node.exe`, one per lost render, and they accumulate for as long as the machine stays up (see [#747](https://github.com/jarrodwatts/claude-hud/issues/747)).
+
+Launch through `cmd.exe` instead, the way the Windows + PowerShell path already does. Git Bash then strands at worst a ~2 MB `cmd.exe` stub, and `node.exe` is started by `cmd.exe` through a plain Win32 `CreateProcess`, which has no suspended window. This also moves the version lookup into the launcher, so no `ls | sort -V | tail` pipeline runs on every refresh.
+
+1. Write the launcher. It is the same `statusline.mjs` as step 4 of **Windows + PowerShell** below; copy that body verbatim into a quoted heredoc so bash expands nothing. Run the block with no leading indentation: a quoted heredoc only ends on a `LAUNCHER` line that starts at column 0.
+
+   ```bash
+   claude_dir="${CLAUDE_CONFIG_DIR:-$HOME/.claude}"
+   mkdir -p "$claude_dir/plugins/claude-hud"
+   cat > "$claude_dir/plugins/claude-hud/statusline.mjs" <<'LAUNCHER'
+   <launcher body from Windows + PowerShell step 4>
+   LAUNCHER
+   ```
+
+2. Write the `cmd.exe` shim next to it. `%~dp0` expands to the shim's own directory, so the generated statusLine command carries no runtime path and no nested quoting:
+
+   ```bash
+   printf '@echo off\r\n"%s" "%%~dp0statusline.mjs"\r\n' "{RUNTIME_PATH_WIN}" \
+     > "$claude_dir/plugins/claude-hud/statusline.cmd"
+   ```
+
+   `{RUNTIME_PATH_WIN}` is the Windows form of the runtime detected in step 2, `cygpath -w "{RUNTIME_PATH}"`, typically `C:\Program Files\nodejs\node.exe`. Pass it as a `printf` argument, never inside the format string: `printf` expands backslash escapes in the format, so a literal `C:\Program Files\nodejs` would turn `\n` into a newline and split the file. Batch files also need CRLF line endings, which is why the format ends each line with `\r\n`.
+
+3. Generate command. The `COLUMNS` probe stays for Claude Code versions older than v2.1.153, but it now exports the raw terminal width: the launcher applies the `- 4` padding itself, so subtracting here too would take 8 columns off.
 
    ```
-   cols=${COLUMNS:-}; case "$cols" in ""|*[!0-9]*) cols=$(stty size 2>/dev/null </dev/tty | awk '{print $2}');; esac; case "$cols" in ""|*[!0-9]*) cols=120;; esac; export COLUMNS=$(( cols > 4 ? cols - 4 : 1 )); plugin_dir=$(ls -1d "${CLAUDE_CONFIG_DIR:-$HOME/.claude}"/plugins/cache/*/claude-hud/*/ 2>/dev/null | sort -V | tail -1); exec "{RUNTIME_PATH}" "${plugin_dir}{SOURCE}"
+   cols=${COLUMNS:-}; case "$cols" in ""|*[!0-9]*) cols=$(stty size 2>/dev/null </dev/tty | awk '{print $2}');; esac; case "$cols" in ""|*[!0-9]*) cols=120;; esac; export COLUMNS="$cols"; exec "${CLAUDE_CONFIG_DIR:-$HOME/.claude}/plugins/claude-hud/statusline.cmd"
    ```
+
+   Keep `exec`: Claude Code is already invoking the statusline through bash, so `exec` replaces that shell rather than adding another process to the chain.
 
 **Windows + PowerShell** (Platform: `win32`, Shell: `powershell`, `pwsh`, or `cmd`, OSTYPE: other/empty):
 
@@ -230,6 +255,8 @@ Instead, use `sort -V` (GNU version sort, included with Git for Windows) which a
 4. Write the Windows statusline launcher.
 
    Windows PowerShell startup plus `Get-ChildItem | Sort-Object [version]` can exceed Claude Code's render cadence on every statusLine refresh. Write a small Node launcher once during setup, then invoke it through `cmd.exe` on each refresh. The launcher uses the setup-time validated `node.exe`, preserves update discovery by finding the latest installed `claude-hud` version, and prefers inherited `COLUMNS` before falling back to 120.
+
+   Both Windows shells share this file, so keep the body below in sync with the heredoc in **Windows + Git Bash** above.
 
    The launcher file at `$claudeDir/plugins/claude-hud/statusline.mjs` should contain:
 
@@ -756,6 +783,15 @@ Use AskUserQuestion:
      '{}' | & cmd.exe /c '{GENERATED_COMMAND}'
      ```
      If you see either error, the existing setup predates the Node launcher format. Re-run `/claude-hud:setup` to regenerate `statusline.mjs` and a `cmd.exe`-launched command. See [#521](https://github.com/jarrodwatts/claude-hud/issues/521).
+
+   **Windows + Git Bash: idle `node.exe` processes pile up**:
+   - Symptoms: dozens to hundreds of `node.exe` processes whose command line ends in `dist/index.js`, several GB of working set, and a parent that no longer exists.
+   - Check: they have burnt no CPU at all, which is what separates them from a HUD that is merely slow.
+     ```powershell
+     Get-Process node | Where-Object { $_.TotalProcessorTime.TotalSeconds -eq 0 -and $_.Threads.Count -eq 1 }
+     ```
+   - Root cause: the setup predates the `cmd.exe` shim and still `exec`s the runtime from Git Bash, so a statusLine shell killed mid-spawn strands a suspended `node.exe` that can never run and never exit.
+   - Solution: kill the listed PIDs, then re-run `/claude-hud:setup` to regenerate `statusline.cmd` and the shim-launched command. See [#747](https://github.com/jarrodwatts/claude-hud/issues/747).
 
    **Windows: PowerShell execution policy error**:
    - Run: `Set-ExecutionPolicy -Scope CurrentUser -ExecutionPolicy RemoteSigned`
