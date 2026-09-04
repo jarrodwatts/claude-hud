@@ -63,6 +63,9 @@ export interface StdinData {
   // shape is kept for backwards compatibility with the original PR #471 design
   // that future-proofed a string form before Anthropic had committed a schema.
   effort?: string | { level?: string | null; [key: string]: unknown } | null;
+  // Version of the running Claude Code process; omitted by older builds.
+  // Untrusted at runtime — index.ts validates it before display.
+  version?: string;
 }
 
 export interface ToolEntry {

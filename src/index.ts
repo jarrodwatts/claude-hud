@@ -6,7 +6,7 @@ import { getGitStatus } from "./git.js";
 import { getJjStatus, isJjRepo } from "./jj.js";
 import { loadConfig } from "./config.js";
 import { parseExtraCmdArg, runExtraCmd } from "./extra-cmd.js";
-import { getClaudeCodeVersion } from "./version.js";
+import { getClaudeCodeVersion, parseReportedClaudeCodeVersion } from "./version.js";
 import { getMemoryUsage } from "./memory.js";
 import { readAuthInfo } from "./auth.js";
 import { resolveEffortLevel } from "./effort.js";
@@ -185,8 +185,13 @@ export async function main(overrides: Partial<MainDeps> = {}): Promise<void> {
       transcript.sessionStart,
       deps.now,
     );
+    // Prefer the version Claude Code reports about its own process: PATH
+    // resolution reflects the newest installed binary, which diverges from
+    // running sessions after an auto-update. The stdin value is untrusted, so
+    // it must validate as a whole version token; anything else falls back to
+    // the verified PATH lookup (older builds, third-party feeders).
     const claudeCodeVersion = config.display.showClaudeCodeVersion
-      ? await deps.getClaudeCodeVersion()
+      ? (parseReportedClaudeCodeVersion(stdin.version) ?? await deps.getClaudeCodeVersion())
       : undefined;
     const effortInfo = config.display.showEffortLevel
       ? resolveEffortLevel(stdin.effort, { ultracodeActive: transcript.ultracodeActive })
