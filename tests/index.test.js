@@ -696,6 +696,107 @@ test("main skips Claude Code version lookup when disabled", async () => {
   assert.equal(lookupCalls, 0);
 });
 
+test("main prefers the Claude Code version reported by stdin over the PATH lookup", async () => {
+  let renderedContext;
+  let lookupCalls = 0;
+
+  await main({
+    readStdin: async () => makeStdin({ version: "2.1.252" }),
+    parseTranscript: async () => makeTranscript(),
+    countConfigs: async () => makeCounts(),
+    loadConfig: async () => makeConfig({
+      display: { showClaudeCodeVersion: true },
+    }),
+    getGitStatus: async () => null,
+    getClaudeCodeVersion: async () => {
+      lookupCalls += 1;
+      return "2.1.260";
+    },
+    render: (ctx) => {
+      renderedContext = ctx;
+    },
+  });
+
+  assert.equal(lookupCalls, 0);
+  assert.equal(renderedContext?.claudeCodeVersion, "2.1.252");
+});
+
+test("main falls back to the PATH lookup when stdin reports a non-version string", async () => {
+  let renderedContext;
+  let lookupCalls = 0;
+  const noisyVersion = `2.1.252${String.fromCharCode(27)}]0;pwned${String.fromCharCode(7)}more`;
+
+  await main({
+    readStdin: async () => makeStdin({ version: noisyVersion }),
+    parseTranscript: async () => makeTranscript(),
+    countConfigs: async () => makeCounts(),
+    loadConfig: async () => makeConfig({
+      display: { showClaudeCodeVersion: true },
+    }),
+    getGitStatus: async () => null,
+    getClaudeCodeVersion: async () => {
+      lookupCalls += 1;
+      return "2.1.260";
+    },
+    render: (ctx) => {
+      renderedContext = ctx;
+    },
+  });
+
+  assert.equal(lookupCalls, 1);
+  assert.equal(renderedContext?.claudeCodeVersion, "2.1.260");
+});
+
+test("main falls back to the PATH lookup when stdin reports a non-string version", async () => {
+  let renderedContext;
+  let lookupCalls = 0;
+
+  await main({
+    readStdin: async () => makeStdin({ version: 42 }),
+    parseTranscript: async () => makeTranscript(),
+    countConfigs: async () => makeCounts(),
+    loadConfig: async () => makeConfig({
+      display: { showClaudeCodeVersion: true },
+    }),
+    getGitStatus: async () => null,
+    getClaudeCodeVersion: async () => {
+      lookupCalls += 1;
+      return "2.1.260";
+    },
+    render: (ctx) => {
+      renderedContext = ctx;
+    },
+  });
+
+  assert.equal(lookupCalls, 1);
+  assert.equal(renderedContext?.claudeCodeVersion, "2.1.260");
+});
+
+test("main falls back to the PATH lookup when stdin reports an empty version", async () => {
+  let renderedContext;
+  let lookupCalls = 0;
+
+  await main({
+    readStdin: async () => makeStdin({ version: "" }),
+    parseTranscript: async () => makeTranscript(),
+    countConfigs: async () => makeCounts(),
+    loadConfig: async () => makeConfig({
+      display: { showClaudeCodeVersion: true },
+    }),
+    getGitStatus: async () => null,
+    getClaudeCodeVersion: async () => {
+      lookupCalls += 1;
+      return "2.1.260";
+    },
+    render: (ctx) => {
+      renderedContext = ctx;
+    },
+  });
+
+  assert.equal(lookupCalls, 1);
+  assert.equal(renderedContext?.claudeCodeVersion, "2.1.260");
+});
+
 test("main includes memoryUsage in render context only for expanded layout when enabled", async () => {
   let renderedContext;
   let lookupCalls = 0;

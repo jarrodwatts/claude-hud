@@ -12,6 +12,7 @@ import {
   _setResolveClaudeBinaryForTests,
   _setVersionInvocationEnvForTests,
   getClaudeCodeVersion,
+  parseReportedClaudeCodeVersion,
 } from '../dist/version.js';
 
 function restoreEnvVar(name, value) {
@@ -34,6 +35,23 @@ test('_parseClaudeCodeVersion preserves prerelease and build suffixes', () => {
   assert.equal(_parseClaudeCodeVersion('2.2.0-beta.1 (Claude Code)\n'), '2.2.0-beta.1');
   assert.equal(_parseClaudeCodeVersion('Claude Code 2.2.0-beta.1+abc123'), '2.2.0-beta.1+abc123');
   assert.equal(_parseClaudeCodeVersion(''), undefined);
+});
+
+test('parseReportedClaudeCodeVersion accepts only whole version strings', () => {
+  assert.equal(parseReportedClaudeCodeVersion('2.1.260'), '2.1.260');
+  assert.equal(parseReportedClaudeCodeVersion(' 2.1.260\n'), '2.1.260');
+  assert.equal(parseReportedClaudeCodeVersion('2.2.0-beta.1+abc123'), '2.2.0-beta.1+abc123');
+  assert.equal(parseReportedClaudeCodeVersion(`${' '.repeat(60)}2.1.252`), '2.1.252');
+
+  assert.equal(parseReportedClaudeCodeVersion('Opus 4.6'), undefined);
+  assert.equal(parseReportedClaudeCodeVersion('2.1.252 (Claude Code)'), undefined);
+  assert.equal(parseReportedClaudeCodeVersion(''), undefined);
+  assert.equal(parseReportedClaudeCodeVersion('   '), undefined);
+  assert.equal(parseReportedClaudeCodeVersion(42), undefined);
+  assert.equal(parseReportedClaudeCodeVersion(null), undefined);
+  assert.equal(parseReportedClaudeCodeVersion(undefined), undefined);
+  assert.equal(parseReportedClaudeCodeVersion(`2.1.252${String.fromCharCode(27)}]0;pwned`), undefined);
+  assert.equal(parseReportedClaudeCodeVersion(`2.1.252-${'a'.repeat(70)}`), undefined);
 });
 
 test('_getClaudeVersionInvocation executes binaries directly on non-Windows', () => {

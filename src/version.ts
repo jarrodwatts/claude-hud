@@ -40,6 +40,11 @@ type ClaudeVersionInvocation = {
 };
 
 const CACHE_FILENAME = '.claude-code-version-cache.json';
+// Version-token shape shared by the extraction and validation parsers below.
+const VERSION_EXTRACTION_PATTERN = /\d+(?:\.\d+)+(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?/;
+const VERSION_VALIDATION_PATTERN = /^\d+(?:\.\d+)+(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?$/;
+// Cap for self-reported stdin versions; genuine versions are far shorter.
+const REPORTED_VERSION_MAX_LENGTH = 64;
 const defaultExecFile: ExecFileImpl = promisify(execFile) as ExecFileImpl;
 
 let execFileImpl: ExecFileImpl = defaultExecFile;
@@ -209,8 +214,30 @@ export function _parseClaudeCodeVersion(output: string): string | undefined {
     return undefined;
   }
 
-  const match = trimmed.match(/\d+(?:\.\d+)+(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?/);
+  const match = trimmed.match(VERSION_EXTRACTION_PATTERN);
   return match?.[0];
+}
+
+/**
+ * Validate a version reported by the statusline stdin JSON (`stdin.version`).
+ *
+ * Unlike `_parseClaudeCodeVersion`, which extracts the first version-shaped
+ * token from `claude --version` output, stdin is untrusted: the whole trimmed
+ * value must be a single version token, otherwise the caller should fall back
+ * to the verified PATH lookup. Non-strings, blanks, and overlong values
+ * return undefined.
+ */
+export function parseReportedClaudeCodeVersion(value: unknown): string | undefined {
+  if (typeof value !== 'string') {
+    return undefined;
+  }
+
+  const trimmed = value.trim();
+  if (!trimmed || trimmed.length > REPORTED_VERSION_MAX_LENGTH) {
+    return undefined;
+  }
+
+  return trimmed.match(VERSION_VALIDATION_PATTERN)?.[0];
 }
 
 export function _getClaudeVersionInvocation(
