@@ -4,6 +4,13 @@ import type { AuthInfo } from './auth.js';
 
 export interface StdinData {
   session_id?: string;
+  /**
+   * Claude Code's own version, sent with every statusline invocation.
+   * Authoritative: it comes from the process that produced this payload, so it
+   * stays correct regardless of how `claude` was launched (symlink, wrapper
+   * script, or shim). See `resolveStdinClaudeCodeVersion` in version.ts.
+   */
+  version?: string | null;
   transcript_path?: string;
   cwd?: string;
   workspace?: {

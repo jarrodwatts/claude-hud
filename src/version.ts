@@ -233,6 +233,26 @@ export function _getClaudeVersionInvocation(
   };
 }
 
+/**
+ * Read the Claude Code version out of the statusline payload.
+ *
+ * Claude Code sends its own version as a top-level `version` string on every
+ * statusline invocation. That value is authoritative — it comes from the very
+ * process that asked for this render — so it is correct however `claude` was
+ * launched, and it costs no subprocess.
+ *
+ * `getClaudeCodeVersion()` (exec + on-disk cache) stays as the fallback for
+ * payloads that omit the field, such as hand-written stdin used to drive the
+ * HUD directly.
+ */
+export function resolveStdinClaudeCodeVersion(value: unknown): string | undefined {
+  if (typeof value !== 'string') {
+    return undefined;
+  }
+
+  return _parseClaudeCodeVersion(value);
+}
+
 export async function getClaudeCodeVersion(): Promise<string | undefined> {
   const homeDir = os.homedir();
   const diskCache = readVersionCache(homeDir);
