@@ -24,6 +24,7 @@ interface TranscriptLine {
   content?: string;
   slug?: string;
   customTitle?: string;
+  aiTitle?: string;
   // True on subagent (Task tool) records. These are interleaved into the main
   // session's transcript but belong to a separate conversation with its own
   // prompt cache.
@@ -130,7 +131,7 @@ interface TranscriptCacheFile {
   data: SerializedTranscriptData;
 }
 
-const TRANSCRIPT_CACHE_VERSION = 18;
+const TRANSCRIPT_CACHE_VERSION = 19;
 const MCP_TOOL_NAME_PATTERN = /^mcp__(.+?)__(.+)$/;
 const ACTIVITY_NAME_MAX_LEN = 64;
 const MESSAGE_ID_MAX_LEN = 128;
@@ -515,6 +516,7 @@ export async function parseTranscript(transcriptPath: string): Promise<Transcrip
   const queueCompletionMap = new Map<string, Date>();
   let latestSlug: string | undefined;
   let customTitle: string | undefined;
+  let aiTitle: string | undefined;
   let latestAdvisorModel: string | undefined;
   let latestUltracodeActive: boolean | undefined;
   let lastCompactBoundaryAt: Date | undefined;
@@ -557,6 +559,8 @@ export async function parseTranscript(transcriptPath: string): Promise<Transcrip
         const entry = JSON.parse(line) as TranscriptLine;
         if (entry.type === 'custom-title' && typeof entry.customTitle === 'string') {
           customTitle = entry.customTitle;
+        } else if (entry.type === 'ai-title' && typeof entry.aiTitle === 'string') {
+          aiTitle = entry.aiTitle;
         } else if (typeof entry.slug === 'string') {
           latestSlug = entry.slug;
         }
@@ -757,7 +761,7 @@ export async function parseTranscript(transcriptPath: string): Promise<Transcrip
   result.mcpErrors = Array.from(mcpErrorSet.values());
   result.agents = Array.from(agentMap.values()).slice(-10);
   result.todos = latestTodos;
-  result.sessionName = customTitle ?? latestSlug;
+  result.sessionName = customTitle ?? aiTitle ?? latestSlug;
   result.sessionTokens = sessionTokens;
   result.lastCompactBoundaryAt = lastCompactBoundaryAt;
   result.lastCompactPostTokens = lastCompactPostTokens;

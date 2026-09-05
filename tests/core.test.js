@@ -1518,6 +1518,91 @@ test('parseTranscript falls back to latest slug when custom title is missing', a
   }
 });
 
+for (const { name, entries, expected } of [
+  {
+    name: 'uses the generated session title without a manual rename',
+    entries: [{ type: 'ai-title', aiTitle: 'Investigate failing build' }],
+    expected: 'Investigate failing build',
+  },
+  {
+    name: 'prefers the latest generated title over legacy slugs',
+    entries: [
+      { type: 'ai-title', aiTitle: 'Initial title' },
+      { type: 'ai-title', aiTitle: 'Updated title' },
+      { type: 'assistant', slug: 'legacy-slug' },
+    ],
+    expected: 'Updated title',
+  },
+  {
+    name: 'preserves a manual rename when a generated title follows it',
+    entries: [
+      { type: 'custom-title', customTitle: 'My title' },
+      { type: 'ai-title', aiTitle: 'Generated title' },
+    ],
+    expected: 'My title',
+  },
+  {
+    name: 'applies a manual rename after a generated title',
+    entries: [
+      { type: 'ai-title', aiTitle: 'Generated title' },
+      { type: 'custom-title', customTitle: 'My title' },
+    ],
+    expected: 'My title',
+  },
+  {
+    name: 'ignores malformed generated titles and titles on unrelated records',
+    entries: [
+      { type: 'ai-title', aiTitle: 'Valid title' },
+      { type: 'ai-title', aiTitle: 42 },
+      { type: 'ai-title', aiTitle: null },
+      { type: 'assistant', aiTitle: 'Unrelated title' },
+    ],
+    expected: 'Valid title',
+  },
+  {
+    name: 'retains the legacy slug when no valid generated title exists',
+    entries: [
+      { type: 'user', slug: 'legacy-slug' },
+      { type: 'ai-title', aiTitle: 42 },
+    ],
+    expected: 'legacy-slug',
+  },
+]) {
+  test(`parseTranscript ${name}`, async () => {
+    const result = await parseTempTranscript('generated-session-name.jsonl', entries);
+    assert.equal(result.sessionName, expected);
+  });
+}
+
+test('parseTranscript refreshes cached session names from before ai-title support', async () => {
+  const dir = await mkdtemp(path.join(tmpdir(), 'claude-hud-ai-title-cache-'));
+  const configDir = path.join(dir, 'config');
+  const transcriptPath = path.join(dir, 'session.jsonl');
+  const originalConfigDir = process.env.CLAUDE_CONFIG_DIR;
+  process.env.CLAUDE_CONFIG_DIR = configDir;
+
+  try {
+    await writeFile(transcriptPath, JSON.stringify({ type: 'ai-title', aiTitle: 'Generated title' }), 'utf8');
+    await parseTranscript(transcriptPath);
+    const cachePath = await getTranscriptCacheFile(configDir);
+    const cache = JSON.parse(await readFile(cachePath, 'utf8'));
+    cache.version = 18;
+    delete cache.data.sessionName;
+    await writeFile(cachePath, JSON.stringify(cache), 'utf8');
+
+    const refreshed = await parseTranscript(transcriptPath);
+    assert.equal(refreshed.sessionName, 'Generated title');
+
+    _setCreateReadStreamForTests(() => { throw new Error('unchanged transcript should use the refreshed cache'); });
+    const cached = await parseTranscript(transcriptPath);
+    assert.equal(cached.sessionName, 'Generated title');
+  } finally {
+    _setCreateReadStreamForTests(null);
+    restoreEnvVar('CLAUDE_CONFIG_DIR', originalConfigDir);
+    await rm(dir, { recursive: true, force: true });
+  }
+});
+
 test('parseTranscript returns empty result when file is missing', async () => {
   const result = await parseTranscript('/tmp/does-not-exist.jsonl');
   assert.equal(result.tools.length, 0);
