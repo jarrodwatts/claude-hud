@@ -675,6 +675,38 @@ test("main includes Claude Code version in render context only when enabled", as
   assert.equal(renderedContext?.claudeCodeVersion, "2.1.81");
 });
 
+// Regression for the launcher-script case: when PATH's `claude` is a wrapper
+// script rather than a symlink into versions/<ver>, every signal the on-disk
+// cache in getClaudeCodeVersion() keys on (resolved path, mtime) belongs to the
+// launcher, not to the binary it execs. The launcher is untouched by a Claude
+// Code upgrade, so that cache stays valid and pins the first version it saw --
+// modelled here by the lookup still reporting 2.1.258. The payload wins because
+// it comes from the process doing the render.
+test("main prefers the Claude Code version from stdin over the binary lookup", async () => {
+  let renderedContext;
+  let lookupCalls = 0;
+
+  await main({
+    readStdin: async () => makeStdin({ version: "2.1.261" }),
+    parseTranscript: async () => makeTranscript(),
+    countConfigs: async () => makeCounts(),
+    loadConfig: async () => makeConfig({
+      display: { showClaudeCodeVersion: true },
+    }),
+    getGitStatus: async () => null,
+    getClaudeCodeVersion: async () => {
+      lookupCalls += 1;
+      return "2.1.258";
+    },
+    render: (ctx) => {
+      renderedContext = ctx;
+    },
+  });
+
+  assert.equal(lookupCalls, 0);
+  assert.equal(renderedContext?.claudeCodeVersion, "2.1.261");
+});
+
 test("main skips Claude Code version lookup when disabled", async () => {
   let lookupCalls = 0;
 
