@@ -164,12 +164,17 @@ test('estimateSessionCost prices Claude 5 ids carrying a context-window suffix',
 
 test('estimateSessionCost prices Claude 5 point releases like their base model', () => {
   const tokens = { inputTokens: 1000000, outputTokens: 0, cacheCreationTokens: 0, cacheReadTokens: 0 };
+  // Pin the clock inside the Sonnet 5 introductory window: the Sonnet 5.1
+  // assertion expects the promo input rate ($2/M), which only holds before
+  // 2026-09-01 UTC. Without a pinned `now` this test fails on every run
+  // after the promo ends.
+  const now = new Date('2026-08-15T00:00:00.000Z');
 
-  const opus51 = estimateSessionCost({ model: { display_name: 'Opus 5.1' } }, tokens);
+  const opus51 = estimateSessionCost({ model: { display_name: 'Opus 5.1' } }, tokens, { now });
   assert.ok(opus51);
   assert.equal(opus51.inputUsd, 5);
 
-  const sonnet51 = estimateSessionCost({ model: { display_name: 'Sonnet 5.1' } }, tokens);
+  const sonnet51 = estimateSessionCost({ model: { display_name: 'Sonnet 5.1' } }, tokens, { now });
   assert.ok(sonnet51);
   assert.equal(sonnet51.inputUsd, 2);
 });
