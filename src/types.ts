@@ -147,6 +147,11 @@ export interface SessionTokenUsage {
   outputTokens: number;
   cacheCreationTokens: number;
   cacheReadTokens: number;
+  // Portion of cacheCreationTokens written under the 1-hour TTL
+  // (usage.cache_creation.ephemeral_1h_input_tokens). Anthropic prices the
+  // 1-hour write at 2x input versus 1.25x for the 5-minute write, so the
+  // cost estimate needs the split. Undefined/0 keeps legacy 1.25x pricing.
+  cacheCreationOneHourTokens?: number;
 }
 
 export interface TranscriptData {
