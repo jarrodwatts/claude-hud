@@ -10,6 +10,7 @@ export const en = {
     "label.estimatedCost": "Est.",
     "label.cost": "Cost",
     "label.today": "Today",
+    "label.week": "Week",
     "label.tokens": "Tokens",
     "label.sessionStarted": "Started",
     "label.lastReply": "Last reply",

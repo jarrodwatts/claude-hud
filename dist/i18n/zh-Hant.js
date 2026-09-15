@@ -10,6 +10,7 @@ export const zhHant = {
     "label.estimatedCost": "估算",
     "label.cost": "費用",
     "label.today": "今日",
+    "label.week": "本週",
     "label.tokens": "Token",
     "label.sessionStarted": "開始",
     "label.lastReply": "上次回覆",
