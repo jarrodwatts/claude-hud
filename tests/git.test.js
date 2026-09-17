@@ -230,6 +230,118 @@ test('getGitStatus returns UTF-8 filenames when core.quotePath is true', async (
   }
 });
 
+test('getGitStatus decodes octal-escaped control characters in tracked paths', {
+  skip: process.platform === 'win32' ? 'Windows filenames cannot contain control characters' : false,
+}, async () => {
+  const dir = await mkdtemp(path.join(tmpdir(), 'claude-hud-git-'));
+  try {
+    execFileSync('git', ['init'], { cwd: dir, stdio: 'ignore' });
+    execFileSync('git', ['config', 'user.email', 'test@test.com'], { cwd: dir, stdio: 'ignore' });
+    execFileSync('git', ['config', 'user.name', 'Test'], { cwd: dir, stdio: 'ignore' });
+    execFileSync('git', ['config', 'commit.gpgsign', 'false'], { cwd: dir, stdio: 'ignore' });
+
+    // core.quotePath=false stops git escaping non-ASCII bytes, but a control
+    // byte still forces a C-quoted path. ESC has no JSON counterpart, so the
+    // octal form left the raw `\033` text on screen instead of the real name.
+    const fileName = `esc${String.fromCharCode(27)}name.txt`;
+    await writeFile(path.join(dir, fileName), 'one\n');
+    execFileSync('git', ['add', '--', fileName], { cwd: dir, stdio: 'ignore' });
+    execFileSync('git', ['commit', '-m', 'add control-char file'], { cwd: dir, stdio: 'ignore' });
+
+    await writeFile(path.join(dir, fileName), 'one\ntwo\n');
+
+    const porcelain = execFileSync(
+      'git', ['-c', 'core.quotePath=false', 'status', '--porcelain'],
+      { cwd: dir, encoding: 'utf8' }
+    );
+    assert.match(
+      porcelain, /\\033/,
+      `expected git to octal-escape the control byte, got ${JSON.stringify(porcelain)}`
+    );
+
+    const result = await getGitStatus(dir);
+    const tracked = result?.fileStats?.trackedFiles ?? [];
+
+    assert.deepEqual(
+      tracked.map((file) => file.fullPath),
+      [fileName],
+      `expected the decoded filename, got ${JSON.stringify(tracked.map((f) => f.fullPath))}`
+    );
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
+});
+
+test("getGitStatus decodes git's \\a and \\v escapes in tracked paths", {
+  skip: process.platform === 'win32' ? 'Windows filenames cannot contain control characters' : false,
+}, async () => {
+  const dir = await mkdtemp(path.join(tmpdir(), 'claude-hud-git-'));
+  try {
+    execFileSync('git', ['init'], { cwd: dir, stdio: 'ignore' });
+    execFileSync('git', ['config', 'user.email', 'test@test.com'], { cwd: dir, stdio: 'ignore' });
+    execFileSync('git', ['config', 'user.name', 'Test'], { cwd: dir, stdio: 'ignore' });
+    execFileSync('git', ['config', 'commit.gpgsign', 'false'], { cwd: dir, stdio: 'ignore' });
+
+    // BEL and VT are the two C escapes git emits that JSON does not define.
+    const fileName = `bell${String.fromCharCode(7)}vtab${String.fromCharCode(11)}.txt`;
+    await writeFile(path.join(dir, fileName), 'one\n');
+    execFileSync('git', ['add', '--', fileName], { cwd: dir, stdio: 'ignore' });
+    execFileSync('git', ['commit', '-m', 'add bel/vt file'], { cwd: dir, stdio: 'ignore' });
+
+    await writeFile(path.join(dir, fileName), 'one\ntwo\n');
+
+    const porcelain = execFileSync(
+      'git', ['-c', 'core.quotePath=false', 'status', '--porcelain'],
+      { cwd: dir, encoding: 'utf8' }
+    );
+    assert.match(porcelain, /\\a/, `expected git to emit \\a, got ${JSON.stringify(porcelain)}`);
+    assert.match(porcelain, /\\v/, `expected git to emit \\v, got ${JSON.stringify(porcelain)}`);
+
+    const result = await getGitStatus(dir);
+    const tracked = result?.fileStats?.trackedFiles ?? [];
+
+    assert.deepEqual(
+      tracked.map((file) => file.fullPath),
+      [fileName],
+      `expected the decoded filename, got ${JSON.stringify(tracked.map((f) => f.fullPath))}`
+    );
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
+});
+
+test('getGitStatus still decodes quote and backslash escapes in tracked paths', {
+  skip: process.platform === 'win32' ? 'Windows filenames cannot contain " or \\' : false,
+}, async () => {
+  const dir = await mkdtemp(path.join(tmpdir(), 'claude-hud-git-'));
+  try {
+    execFileSync('git', ['init'], { cwd: dir, stdio: 'ignore' });
+    execFileSync('git', ['config', 'user.email', 'test@test.com'], { cwd: dir, stdio: 'ignore' });
+    execFileSync('git', ['config', 'user.name', 'Test'], { cwd: dir, stdio: 'ignore' });
+    execFileSync('git', ['config', 'commit.gpgsign', 'false'], { cwd: dir, stdio: 'ignore' });
+
+    // These two are the escapes JSON and C agree on; they decoded correctly
+    // before and must keep doing so.
+    const fileName = 'quote".and-backslash\\.txt';
+    await writeFile(path.join(dir, fileName), 'one\n');
+    execFileSync('git', ['add', '--', fileName], { cwd: dir, stdio: 'ignore' });
+    execFileSync('git', ['commit', '-m', 'add quote/backslash file'], { cwd: dir, stdio: 'ignore' });
+
+    await writeFile(path.join(dir, fileName), 'one\ntwo\n');
+
+    const result = await getGitStatus(dir);
+    const tracked = result?.fileStats?.trackedFiles ?? [];
+
+    assert.deepEqual(
+      tracked.map((file) => file.fullPath),
+      [fileName],
+      `expected the decoded filename, got ${JSON.stringify(tracked.map((f) => f.fullPath))}`
+    );
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
+});
+
 test('getGitStatus counts staged added files', async () => {
   const dir = await mkdtemp(path.join(tmpdir(), 'claude-hud-git-'));
   try {

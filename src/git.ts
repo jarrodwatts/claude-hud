@@ -221,13 +221,83 @@ function parseFileStats(porcelainOutput: string): FileStats {
   return stats;
 }
 
-function parsePorcelainPath(pathField: string): string {
-  if (pathField.startsWith('"') && pathField.endsWith('"')) {
-    try {
-      return JSON.parse(pathField);
-    } catch {
-      return pathField.slice(1, -1);
+// The escapes git emits for a C-quoted path (quote_c_style). JSON shares only
+// \b \f \n \r \t \" and \\ — \a, \v and the octal form are the ones
+// JSON.parse rejected.
+const C_STYLE_ESCAPES: Record<string, string> = {
+  a: '\x07',
+  b: '\b',
+  f: '\f',
+  n: '\n',
+  r: '\r',
+  t: '\t',
+  v: '\v',
+  '"': '"',
+  '\\': '\\',
+};
+
+/**
+ * Decode the body of a C-quoted path (the text between the surrounding quotes).
+ *
+ * Octal escapes encode single *bytes*, so consecutive ones are collected and
+ * decoded as UTF-8 together: a fully-escaped multi-byte character arrives as
+ * `\346\265\213` and has to become one glyph rather than three.
+ */
+function unquoteCStyle(body: string): string {
+  let out = '';
+  let pending: number[] = [];
+
+  const flushPending = (): void => {
+    if (pending.length > 0) {
+      out += Buffer.from(pending).toString('utf8');
+      pending = [];
     }
+  };
+
+  for (let i = 0; i < body.length; i++) {
+    const char = body[i];
+    if (char !== '\\') {
+      flushPending();
+      out += char;
+      continue;
+    }
+
+    const octal = /^[0-7]{1,3}/.exec(body.slice(i + 1, i + 4));
+    if (octal) {
+      pending.push(parseInt(octal[0], 8) & 0xFF);
+      i += octal[0].length;
+      continue;
+    }
+
+    flushPending();
+    const next = body[i + 1];
+    if (next === undefined) {
+      // Trailing lone backslash: keep it rather than silently dropping it.
+      out += char;
+      break;
+    }
+    out += C_STYLE_ESCAPES[next] ?? next;
+    i += 1;
+  }
+
+  flushPending();
+  return out;
+}
+
+/**
+ * Decode a path field from `git status --porcelain`.
+ *
+ * Git C-quotes any path whose bytes include a control character, a double quote
+ * or a backslash. `core.quotePath=false` suppresses quoting for *non-ASCII*
+ * bytes only, so those three classes still arrive quoted and C-escaped.
+ * JSON.parse understands just the subset of those escapes that JSON happens to
+ * share, so `\a`, `\v` and every octal escape made it throw, and the catch
+ * returned the raw escaped text: a file named with an ESC byte rendered as the
+ * literal `a\033b.txt` rather than its real name.
+ */
+function parsePorcelainPath(pathField: string): string {
+  if (pathField.length >= 2 && pathField.startsWith('"') && pathField.endsWith('"')) {
+    return unquoteCStyle(pathField.slice(1, -1));
   }
 
   return pathField;
