@@ -76,6 +76,7 @@ export type HudElement =
  *   project:     project path + added dirs + git status (kept as one segment)
  *   advisor:     advisor model label
  *   sessionName: session title from /rename
+ *   remoteSession: Remote Control indicator ("RC")
  *   version:     Claude Code version
  *   extra:       extra-cmd custom label
  *   duration:    session duration
@@ -88,6 +89,7 @@ export type FirstLineSegment =
   | 'project'
   | 'advisor'
   | 'sessionName'
+  | 'remoteSession'
   | 'version'
   | 'extra'
   | 'duration'
@@ -150,6 +152,7 @@ const PROJECT_LINE_SEGMENTS: FirstLineSegment[] = [
   'project',
   'advisor',
   'sessionName',
+  'remoteSession',
   'version',
   'extra',
   'duration',
@@ -222,6 +225,10 @@ export interface HudConfig {
     showAgents: boolean;
     showTodos: boolean;
     showSessionName: boolean;
+    // Show an "RC" marker beside the session name when the transcript holds
+    // a bridge-session record, meaning the session is being driven through
+    // Remote Control rather than a local terminal.
+    showRemoteSession: boolean;
     // Show the auth method (subscription plan) for the current login,
     // e.g. "Claude Max 20x", as its own segment at the end of the first line.
     showAuth: boolean;
@@ -345,6 +352,7 @@ export const DEFAULT_CONFIG: HudConfig = {
     showAgents: false,
     showTodos: false,
     showSessionName: false,
+    showRemoteSession: false,
     showAuth: false,
     showAuthUser: false,
     authUserLength: 8,
@@ -863,6 +871,9 @@ export function mergeConfig(userConfig: Partial<HudConfig>): HudConfig {
     showSessionName: typeof migrated.display?.showSessionName === 'boolean'
       ? migrated.display.showSessionName
       : DEFAULT_CONFIG.display.showSessionName,
+    showRemoteSession: typeof migrated.display?.showRemoteSession === 'boolean'
+      ? migrated.display.showRemoteSession
+      : DEFAULT_CONFIG.display.showRemoteSession,
     showAuth: typeof migrated.display?.showAuth === 'boolean'
       ? migrated.display.showAuth
       : DEFAULT_CONFIG.display.showAuth,

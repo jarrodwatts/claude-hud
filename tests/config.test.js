@@ -129,6 +129,22 @@ test('mergeConfig preserves explicit showSessionName=true', () => {
   assert.equal(config.display.showSessionName, true);
 });
 
+test('mergeConfig defaults showRemoteSession to false', () => {
+  const config = mergeConfig({});
+  assert.equal(config.display.showRemoteSession, false);
+  assert.equal(DEFAULT_CONFIG.display.showRemoteSession, false);
+});
+
+test('mergeConfig preserves explicit showRemoteSession=true', () => {
+  const config = mergeConfig({ display: { showRemoteSession: true } });
+  assert.equal(config.display.showRemoteSession, true);
+});
+
+test('mergeConfig falls back to false for invalid showRemoteSession values', () => {
+  assert.equal(mergeConfig({ display: { showRemoteSession: 'yes' } }).display.showRemoteSession, false);
+  assert.equal(mergeConfig({ display: { showRemoteSession: 1 } }).display.showRemoteSession, false);
+});
+
 test('mergeConfig defaults provider options to off/empty', () => {
   const config = mergeConfig({});
   assert.equal(config.display.showProvider, false);

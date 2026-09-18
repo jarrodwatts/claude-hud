@@ -135,6 +135,13 @@ export function renderProjectLine(ctx: RenderContext): string | null {
     push(label(ctx.transcript.sessionName, colors), 'sessionName');
   }
 
+  // Remote Control indicator: the session is being driven through Remote
+  // Control rather than a local terminal. Independent of showSessionName so
+  // it still surfaces on an unnamed session.
+  if (display?.showRemoteSession && ctx.transcript.isRemoteSession) {
+    push(label('RC', colors), 'remoteSession');
+  }
+
   if (display?.showClaudeCodeVersion && ctx.claudeCodeVersion) {
     push(label(`CC v${ctx.claudeCodeVersion}`, colors), 'version');
   }

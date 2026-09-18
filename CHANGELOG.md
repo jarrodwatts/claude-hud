@@ -6,6 +6,7 @@ All notable changes to Claude HUD will be documented in this file.
 
 ### Added
 - `display.showDailyCost` option to show today's cumulative spend across sessions (`Today $12.34`), accumulated from the native stdin `cost.total_cost_usd` into a per-day ledger that resets at local midnight (#695).
+- `display.showRemoteSession` option to show an `RC` marker beside the session name when the transcript holds a `bridge-session` record, distinguishing a session driven through Remote Control from a local terminal (#767).
 
 ### Fixed
 - Refresh the prompt-cache clock when a request starts rather than when its response arrives, ignoring client-side slash command records, interrupt markers, and subagent requests (#719).

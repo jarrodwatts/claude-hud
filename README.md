@@ -233,6 +233,7 @@ Simplified and Traditional Chinese HUD labels are available as explicit opt-ins.
 | `display.showAgents` | boolean | false | Show agents activity line |
 | `display.showTodos` | boolean | false | Show todos progress line |
 | `display.showSessionName` | boolean | false | Show session slug or custom title from `/rename` |
+| `display.showRemoteSession` | boolean | false | Show an `RC` marker beside the session name when the transcript holds a `bridge-session` record, meaning the session is being driven through Remote Control rather than a local terminal. Independent of `showSessionName` — renders even when the session has no name |
 | `display.showAuth` | boolean | false | Show the auth method (subscription plan) of the current login as its own segment at the end of the first line, e.g. `Claude Max 20x`. Derived from the `oauthAccount` block in `{CLAUDE_CONFIG_DIR}.json`; shows `API Key` when there is no OAuth login but `ANTHROPIC_API_KEY` is set |
 | `display.showAuthUser` | boolean | false | Show the logged-in account (email local part, falling back to profile display name) next to the auth method |
 | `display.authUserLength` | number | `8` | Maximum characters of the account name to display before truncating with `…`. `0` shows the full name |

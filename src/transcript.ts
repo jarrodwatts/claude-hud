@@ -24,6 +24,11 @@ interface TranscriptLine {
   content?: string;
   slug?: string;
   customTitle?: string;
+  // Present on a `bridge-session` record when the session is being driven
+  // through Remote Control rather than a local terminal. Only its presence
+  // matters here; bridgeSessionId/ownerAccountUuid are identifiers and are
+  // never rendered.
+  bridgeSessionId?: string;
   // True on subagent (Task tool) records. These are interleaved into the main
   // session's transcript but belong to a separate conversation with its own
   // prompt cache.
@@ -120,6 +125,7 @@ interface SerializedTranscriptData {
   compactionCount?: number;
   advisorModel?: string;
   ultracodeActive?: boolean;
+  isRemoteSession?: boolean;
   lastAssistantModel?: string;
 }
 
@@ -130,7 +136,7 @@ interface TranscriptCacheFile {
   data: SerializedTranscriptData;
 }
 
-const TRANSCRIPT_CACHE_VERSION = 18;
+const TRANSCRIPT_CACHE_VERSION = 19;
 const MCP_TOOL_NAME_PATTERN = /^mcp__(.+?)__(.+)$/;
 const ACTIVITY_NAME_MAX_LEN = 64;
 const MESSAGE_ID_MAX_LEN = 128;
@@ -381,6 +387,7 @@ function serializeTranscriptData(data: TranscriptData): SerializedTranscriptData
     compactionCount: data.compactionCount,
     advisorModel: data.advisorModel,
     ultracodeActive: data.ultracodeActive,
+    isRemoteSession: data.isRemoteSession,
     lastAssistantModel: sanitizeTranscriptModel(data.lastAssistantModel),
   };
 }
@@ -422,6 +429,7 @@ function deserializeTranscriptData(data: SerializedTranscriptData): TranscriptDa
       ? data.advisorModel.slice(0, ADVISOR_MODEL_MAX_LEN)
       : undefined,
     ultracodeActive: typeof data.ultracodeActive === 'boolean' ? data.ultracodeActive : undefined,
+    isRemoteSession: typeof data.isRemoteSession === 'boolean' ? data.isRemoteSession : undefined,
     lastAssistantModel: sanitizeTranscriptModel(data.lastAssistantModel),
   };
 }
@@ -517,6 +525,7 @@ export async function parseTranscript(transcriptPath: string): Promise<Transcrip
   let customTitle: string | undefined;
   let latestAdvisorModel: string | undefined;
   let latestUltracodeActive: boolean | undefined;
+  let sawBridgeSession = false;
   let lastCompactBoundaryAt: Date | undefined;
   let lastCompactPostTokens: number | undefined;
   let compactionCount = 0;
@@ -559,6 +568,12 @@ export async function parseTranscript(transcriptPath: string): Promise<Transcrip
           customTitle = entry.customTitle;
         } else if (typeof entry.slug === 'string') {
           latestSlug = entry.slug;
+        }
+        // A bridge-session record's mere presence marks the session as
+        // Remote-Control-driven; bridgeSessionId/ownerAccountUuid are
+        // identifiers only, never surfaced.
+        if (entry.type === 'bridge-session') {
+          sawBridgeSession = true;
         }
         // Capture the advisor model from the top-level `advisorModel` field.
         // Claude Code stamps this onto every *assistant* record after `/advisor`
@@ -764,6 +779,7 @@ export async function parseTranscript(transcriptPath: string): Promise<Transcrip
   result.compactionCount = compactionCount;
   result.advisorModel = latestAdvisorModel;
   result.ultracodeActive = latestUltracodeActive;
+  result.isRemoteSession = sawBridgeSession ? true : undefined;
   // Promote the pending request only when it moves the clock forward. A record
   // stamped before the response it follows is skew, and the earlier anchor is
   // the one that cannot overstate how much cache lifetime is left.

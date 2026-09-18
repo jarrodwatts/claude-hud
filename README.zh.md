@@ -218,6 +218,7 @@ Claude Code → stdin JSON → claude-hud → stdout → 在终端中显示
 | `display.showAgents` | boolean | false | 显示 Agent 活动行 |
 | `display.showTodos` | boolean | false | 显示待办进度行 |
 | `display.showSessionName` | boolean | false | 显示会话 slug 或 `/rename` 设置的自定义标题 |
+| `display.showRemoteSession` | boolean | false | 当会话记录中存在 `bridge-session` 记录时，在会话名旁显示 `RC` 标记，表示该会话由 Remote Control 而非本地终端驱动。与 `showSessionName` 相互独立，即使会话没有名称也会渲染 |
 | `display.showAuth` | boolean | false | 在第一行末尾显示当前登录的认证方式（订阅计划），例如 `Claude Max 20x`。来自 `{CLAUDE_CONFIG_DIR}.json` 的 `oauthAccount`；无 OAuth 但设置了 `ANTHROPIC_API_KEY` 时显示 `API Key` |
 | `display.showAuthUser` | boolean | false | 在认证方式旁显示已登录账号（邮箱本地部分，回退到资料显示名） |
 | `display.authUserLength` | number | `8` | 账号名截断前的最大字符数，超出以 `…` 截断。`0` 显示全名 |

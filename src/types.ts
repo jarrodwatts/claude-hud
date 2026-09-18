@@ -190,6 +190,10 @@ export interface TranscriptData {
   // (`ultra_effort_enter`/`ultra_effort_exit` attachment or `/effort` output).
   // undefined when ultracode was never entered this session.
   ultracodeActive?: boolean;
+  // True when the transcript holds a `bridge-session` record, meaning the
+  // session is being driven through Remote Control rather than a local
+  // terminal. undefined when no such record has been seen.
+  isRemoteSession?: boolean;
   // Model ID from the most recent assistant message's `message.model` field.
   // This reflects what the API actually served — may differ from stdin.model
   // when a proxy (e.g. cc-switch) routes to a different model. Transcript

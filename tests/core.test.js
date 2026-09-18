@@ -1518,6 +1518,48 @@ test('parseTranscript falls back to latest slug when custom title is missing', a
   }
 });
 
+test('parseTranscript marks the session as remote when a bridge-session record is present', async () => {
+  const dir = await mkdtemp(path.join(tmpdir(), 'claude-hud-'));
+  const filePath = path.join(dir, 'bridge-session.jsonl');
+  const lines = [
+    JSON.stringify({ type: 'user', slug: 'auto-slug-1' }),
+    JSON.stringify({
+      type: 'bridge-session',
+      sessionId: 'sess_123',
+      bridgeSessionId: 'cse_abc',
+      ownerAccountUuid: 'acct_xyz',
+    }),
+    JSON.stringify({ type: 'assistant', slug: 'auto-slug-2' }),
+  ];
+
+  await writeFile(filePath, lines.join('\n'), 'utf8');
+
+  try {
+    const result = await parseTranscript(filePath);
+    assert.equal(result.isRemoteSession, true);
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
+});
+
+test('parseTranscript leaves isRemoteSession undefined for a local session', async () => {
+  const dir = await mkdtemp(path.join(tmpdir(), 'claude-hud-'));
+  const filePath = path.join(dir, 'local-session.jsonl');
+  const lines = [
+    JSON.stringify({ type: 'user', slug: 'auto-slug-1' }),
+    JSON.stringify({ type: 'assistant', slug: 'auto-slug-2' }),
+  ];
+
+  await writeFile(filePath, lines.join('\n'), 'utf8');
+
+  try {
+    const result = await parseTranscript(filePath);
+    assert.equal(result.isRemoteSession, undefined);
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
+});
+
 test('parseTranscript returns empty result when file is missing', async () => {
   const result = await parseTranscript('/tmp/does-not-exist.jsonl');
   assert.equal(result.tools.length, 0);

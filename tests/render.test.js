@@ -508,6 +508,33 @@ test('renderSessionLine includes session name when showSessionName is true', () 
   assert.ok(line.includes('Renamed Session'));
 });
 
+test('renderSessionLine shows the RC marker when showRemoteSession is true and the session is remote', () => {
+  const ctx = baseContext();
+  ctx.stdin.cwd = '/tmp/my-project';
+  ctx.transcript.isRemoteSession = true;
+  ctx.config.display.showRemoteSession = true;
+  const line = stripAnsi(renderSessionLine(ctx));
+  assert.ok(line.includes('RC'));
+});
+
+test('renderSessionLine hides the RC marker when showRemoteSession is false', () => {
+  const ctx = baseContext();
+  ctx.stdin.cwd = '/tmp/my-project';
+  ctx.transcript.isRemoteSession = true;
+  ctx.config.display.showRemoteSession = false;
+  const line = stripAnsi(renderSessionLine(ctx));
+  assert.ok(!line.includes('RC'));
+});
+
+test('renderSessionLine hides the RC marker for a local session even when enabled', () => {
+  const ctx = baseContext();
+  ctx.stdin.cwd = '/tmp/my-project';
+  ctx.transcript.isRemoteSession = undefined;
+  ctx.config.display.showRemoteSession = true;
+  const line = stripAnsi(renderSessionLine(ctx));
+  assert.ok(!line.includes('RC'));
+});
+
 test('renderSessionLine includes Claude Code version when enabled', () => {
   const ctx = baseContext();
   ctx.stdin.cwd = '/tmp/my-project';
@@ -640,6 +667,24 @@ test('renderProjectLine includes session name when showSessionName is true', () 
   ctx.config.display.showSessionName = true;
   const line = renderProjectLine(ctx);
   assert.ok(line?.includes('Renamed Session'));
+});
+
+test('renderProjectLine shows the RC marker when showRemoteSession is true and the session is remote', () => {
+  const ctx = baseContext();
+  ctx.stdin.cwd = '/tmp/my-project';
+  ctx.transcript.isRemoteSession = true;
+  ctx.config.display.showRemoteSession = true;
+  const line = stripAnsi(renderProjectLine(ctx) ?? '');
+  assert.ok(line.includes('RC'));
+});
+
+test('renderProjectLine hides the RC marker when showRemoteSession is false', () => {
+  const ctx = baseContext();
+  ctx.stdin.cwd = '/tmp/my-project';
+  ctx.transcript.isRemoteSession = true;
+  ctx.config.display.showRemoteSession = false;
+  const line = stripAnsi(renderProjectLine(ctx) ?? '');
+  assert.ok(!line.includes('RC'));
 });
 
 test('renderProjectLine includes Claude Code version when enabled', () => {
