@@ -456,6 +456,47 @@ test('mergeConfig sanitizes invalid external usage fallback settings', () => {
   assert.equal(config.display.externalUsageFreshnessMs, 0);
 });
 
+test('mergeConfig expands ~ in external usage paths', () => {
+  const config = mergeConfig({
+    display: {
+      externalUsagePath: '~/usage.json',
+      externalUsageWritePath: '~/write-usage.json',
+    },
+  });
+  assert.equal(config.display.externalUsagePath, path.join(os.homedir(), 'usage.json'));
+  assert.equal(config.display.externalUsageWritePath, path.join(os.homedir(), 'write-usage.json'));
+});
+
+test('mergeConfig expands ${VAR} and %VAR% env references in external usage paths', () => {
+  const original = process.env.CLAUDE_HUD_TEST_VAR;
+  process.env.CLAUDE_HUD_TEST_VAR = '/opt/claude-hud';
+  try {
+    const braced = mergeConfig({
+      display: { externalUsagePath: '${CLAUDE_HUD_TEST_VAR}/usage.json' },
+    });
+    assert.equal(braced.display.externalUsagePath, '/opt/claude-hud/usage.json');
+
+    const windowsStyle = mergeConfig({
+      display: { externalUsagePath: '%CLAUDE_HUD_TEST_VAR%/usage.json' },
+    });
+    assert.equal(windowsStyle.display.externalUsagePath, '/opt/claude-hud/usage.json');
+  } finally {
+    if (original === undefined) {
+      delete process.env.CLAUDE_HUD_TEST_VAR;
+    } else {
+      process.env.CLAUDE_HUD_TEST_VAR = original;
+    }
+  }
+});
+
+test('mergeConfig leaves an unresolved variable reference untouched', () => {
+  delete process.env.CLAUDE_HUD_MISSING_VAR;
+  const config = mergeConfig({
+    display: { externalUsagePath: '${CLAUDE_HUD_MISSING_VAR}/usage.json' },
+  });
+  assert.equal(config.display.externalUsagePath, '${CLAUDE_HUD_MISSING_VAR}/usage.json');
+});
+
 test('mergeConfig falls back to empty for non-string modelOverride', () => {
   assert.equal(mergeConfig({ display: { modelOverride: 123 } }).display.modelOverride, '');
   assert.equal(mergeConfig({ display: { modelOverride: null } }).display.modelOverride, '');

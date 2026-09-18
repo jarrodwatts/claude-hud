@@ -6,6 +6,7 @@ All notable changes to Claude HUD will be documented in this file.
 
 ### Added
 - `display.showDailyCost` option to show today's cumulative spend across sessions (`Today $12.34`), accumulated from the native stdin `cost.total_cost_usd` into a per-day ledger that resets at local midnight (#695).
+- Expand `~`, `${VAR}`/`$VAR`, and `%VAR%` in `display.externalUsagePath` / `display.externalUsageWritePath` before the absolute-path check, so a shared config.json can reference a per-machine snapshot location instead of hardcoding an absolute path (#760).
 
 ### Fixed
 - Refresh the prompt-cache clock when a request starts rather than when its response arrives, ignoring client-side slash command records, interrupt markers, and subagent requests (#719).
