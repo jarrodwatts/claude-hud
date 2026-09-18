@@ -3937,6 +3937,29 @@ test('renderUsageLine clamps elapsed window percentage to 0 when the window has 
   assert.ok(plain.includes('Usage 5h 31% (0% elapsed)'), `expected non-negative elapsed percentage, got: ${plain}`);
 });
 
+test('renderUsageLine translates the elapsed window suffix in zh-Hans', () => {
+  setLanguage('zh-Hans');
+  try {
+    const ctx = baseContext();
+    const now = Date.now();
+    ctx.config.display.usageBarEnabled = false;
+    ctx.config.display.timeFormat = 'elapsed';
+    ctx.usageData = {
+      planName: 'Pro',
+      fiveHour: 31,
+      sevenDay: 20,
+      fiveHourResetAt: new Date(now + 4 * 60 * 60 * 1000),
+      sevenDayResetAt: null,
+    };
+
+    const plain = stripAnsi(renderUsageLine(ctx));
+    assert.ok(plain.includes('已过 20%'), `expected translated elapsed suffix, got: ${plain}`);
+    assert.ok(!plain.includes('elapsed'), `zh-Hans output should not contain the English word, got: ${plain}`);
+  } finally {
+    setLanguage('en');
+  }
+});
+
 test('renderUsageLine keeps reset label hidden in elapsedAndAbsolute mode when disabled', () => {
   const ctx = baseContext();
   const now = Date.now();
