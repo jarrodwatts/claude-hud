@@ -9,6 +9,8 @@
     "src/",
     "commands/",
     "scripts/clean-dist.mjs",
+    "scripts/setup.mjs",
+    "scripts/statusline.mjs",
     ".claude-plugin/"
   ],
   "scripts": {

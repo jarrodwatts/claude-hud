@@ -34,7 +34,7 @@ npm test
 
 ## Tests
 
-See `TESTING.md` for the full testing strategy, fixtures, and snapshot updates.
+`npm test` builds and runs Node's test runner. `tests/golden.test.js` runs the CLI end to end for every case in `tests/golden/cases.mjs` and compares stdout with `tests/golden/expected.txt`. When a change is meant to alter output, run `npm run test:update-snapshots` and check the diff to `expected.txt` before committing it. Keep tests deterministic: pin the clock and use temp directories.
 
 ## Code Style
 

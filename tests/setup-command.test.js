@@ -1,46 +1,137 @@
 import assert from 'node:assert/strict';
-import { readFile } from 'node:fs/promises';
+import { spawnSync } from 'node:child_process';
+import { lstat, mkdtemp, mkdir, readFile, rm, stat, symlink, writeFile } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import path from 'node:path';
 import test from 'node:test';
+import { fileURLToPath } from 'node:url';
 
-const readSetup = () => readFile(new URL('../commands/setup.md', import.meta.url), 'utf8');
+const launcher = fileURLToPath(new URL('../scripts/statusline.mjs', import.meta.url));
+const setupScript = fileURLToPath(new URL('../scripts/setup.mjs', import.meta.url));
 
-// Match the headings, not the cross-references the prose makes to them.
-function windowsGitBashSection(setup) {
-  const start = setup.indexOf('**Windows + Git Bash** (Platform:');
-  const end = setup.indexOf('**Windows + PowerShell** (Platform:', start);
-  assert.ok(start !== -1 && end > start, 'Windows + Git Bash section not found');
-  return setup.slice(start, end);
+async function withConfigDir(fn) {
+  const dir = await mkdtemp(path.join(tmpdir(), 'hud-setup-'));
+  try {
+    await fn(dir);
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
 }
 
-test('setup commands silence /dev/tty failures before opening the device', async () => {
-  const setup = await readSetup();
-
-  assert.doesNotMatch(setup, /stty size <\/dev\/tty 2>\/dev\/null/);
-  assert.equal(setup.match(/stty size 2>\/dev\/null <\/dev\/tty/g)?.length, 3);
+const run = (file, args, { configDir, cwd, columns } = {}) => spawnSync(process.execPath, [file, ...args], {
+  cwd,
+  encoding: 'utf8',
+  env: { ...process.env, CLAUDE_CONFIG_DIR: configDir, COLUMNS: columns ?? '' },
 });
 
-test('the Windows Git Bash statusline execs a cmd.exe shim, not the runtime', async () => {
-  const gitBash = windowsGitBashSection(await readSetup());
-
-  // A Git Bash shell killed mid-spawn strands its suspended child (#747); keep that a cmd.exe stub.
-  assert.doesNotMatch(gitBash, /exec "\{RUNTIME_PATH\}"/);
-  assert.match(
-    gitBash,
-    /exec "\$\{CLAUDE_CONFIG_DIR:-\$HOME\/\.claude\}\/plugins\/claude-hud\/statusline\.cmd"/,
+async function fakeInstall(configDir, version) {
+  const dist = path.join(configDir, 'plugins', 'cache', 'market', 'claude-hud', version, 'dist');
+  await mkdir(dist, { recursive: true });
+  await writeFile(path.join(dist, '..', 'package.json'), '{"type":"module"}');
+  await writeFile(
+    path.join(dist, 'index.js'),
+    `export async function main() { console.log('${version} ' + process.env.COLUMNS); }\n`,
   );
+}
+
+test('launcher runs the newest installed version and pads COLUMNS', async () => {
+  await withConfigDir(async (configDir) => {
+    await fakeInstall(configDir, '0.9.0');
+    await fakeInstall(configDir, '0.10.0');
+    await mkdir(path.join(configDir, 'plugins', 'cache', 'market', 'claude-hud', '0.11.0'), { recursive: true });
+
+    const result = run(launcher, [], { configDir, columns: '120' });
+    assert.equal(result.status, 0, result.stderr);
+    assert.equal(result.stdout.trim(), '0.10.0 116');
+  });
 });
 
-test('the Windows Git Bash command exports the raw terminal width', async () => {
-  const gitBash = windowsGitBashSection(await readSetup());
+test('launcher exits quietly with no install and never runs a cwd-relative dist', async () => {
+  await withConfigDir(async (configDir) => {
+    await mkdir(path.join(configDir, 'dist'), { recursive: true });
+    await writeFile(path.join(configDir, 'dist', 'index.js'), "console.log('ran cwd dist');\n");
 
-  // statusline.mjs subtracts the padding itself.
-  assert.match(gitBash, /export COLUMNS="\$cols"/);
-  assert.doesNotMatch(gitBash, /export COLUMNS=\$\(\( cols > 4/);
+    const result = run(launcher, [], { configDir, cwd: configDir });
+    assert.equal(result.status, 0, result.stderr);
+    assert.equal(result.stdout, '');
+  });
 });
 
-test('the Windows Git Bash shim keeps the runtime path out of the printf format', async () => {
-  const gitBash = windowsGitBashSection(await readSetup());
+test('setup install writes the statusLine and keeps other settings', async () => {
+  await withConfigDir(async (configDir) => {
+    const settingsPath = path.join(configDir, 'settings.json');
+    await writeFile(settingsPath, JSON.stringify({
+      model: 'opus',
+      statusLine: { type: 'command', command: 'bash ~/statusline.sh --token=secret123' },
+    }));
 
-  // printf treats backslashes in its format as escapes; batch files need CRLF.
-  assert.match(gitBash, /printf '@echo off\\r\\n"%s" "%%~dp0statusline\.mjs"\\r\\n' "\{RUNTIME_PATH_WIN\}"/);
+    const inspected = JSON.parse(run(setupScript, ['inspect', '--shell', 'posix'], { configDir }).stdout);
+    assert.equal(inspected.existing, 'other');
+    assert.equal(inspected.existingPreview, 'bash ~/statusline.sh --token=[REDACTED]');
+
+    const result = run(setupScript, ['install', '--shell', 'posix', '--refresh-interval', '5'], { configDir });
+    assert.equal(result.status, 0, result.stderr);
+    const report = JSON.parse(result.stdout);
+    const settings = JSON.parse(await readFile(settingsPath, 'utf8'));
+    const installedLauncher = path.join(configDir, 'plugins', 'claude-hud', 'statusline.mjs');
+
+    assert.equal(settings.model, 'opus');
+    assert.deepEqual(settings.statusLine, {
+      type: 'command',
+      command: `'${process.execPath}' '${installedLauncher}'`,
+      refreshInterval: 5,
+    });
+    assert.equal(await readFile(installedLauncher, 'utf8'), await readFile(launcher, 'utf8'));
+    assert.match(await readFile(report.backupPath, 'utf8'), /secret123/);
+    assert.equal(await readFile(report.previousCommandPath, 'utf8'), 'bash ~/statusline.sh --token=secret123');
+    if (process.platform !== 'win32') {
+      assert.equal((await stat(report.previousCommandPath)).mode & 0o777, 0o600);
+    }
+  });
+});
+
+test('setup install writes through a settings.json symlink and keeps its mode', { skip: process.platform === 'win32' }, async () => {
+  await withConfigDir(async (configDir) => {
+    const realSettings = path.join(configDir, 'dotfiles-settings.json');
+    const settingsPath = path.join(configDir, 'settings.json');
+    await writeFile(realSettings, JSON.stringify({ env: { API_KEY: 'secret' } }), { mode: 0o600 });
+    await symlink(realSettings, settingsPath);
+
+    const result = run(setupScript, ['install', '--shell', 'posix'], { configDir });
+    assert.equal(result.status, 0, result.stderr);
+    assert.ok((await lstat(settingsPath)).isSymbolicLink());
+    assert.equal((await stat(realSettings)).mode & 0o777, 0o600);
+    const settings = JSON.parse(await readFile(realSettings, 'utf8'));
+    assert.equal(settings.env.API_KEY, 'secret');
+    assert.equal(settings.statusLine.type, 'command');
+  });
+});
+
+test('setup install refuses to overwrite invalid settings.json', async () => {
+  await withConfigDir(async (configDir) => {
+    const settingsPath = path.join(configDir, 'settings.json');
+    await writeFile(settingsPath, '{ not json');
+
+    const result = run(setupScript, ['install', '--shell', 'posix'], { configDir });
+    assert.equal(result.status, 1);
+    assert.equal(await readFile(settingsPath, 'utf8'), '{ not json');
+  });
+});
+
+test('Windows shells launch through cmd.exe', async () => {
+  await withConfigDir(async (configDir) => {
+    const gitBash = run(setupScript, ['install', '--shell', 'gitbash'], { configDir });
+    assert.equal(gitBash.status, 0, gitBash.stderr);
+    assert.equal(
+      JSON.parse(gitBash.stdout).command,
+      'exec "${CLAUDE_CONFIG_DIR:-$HOME/.claude}/plugins/claude-hud/statusline.cmd"',
+    );
+    assert.equal(
+      await readFile(path.join(configDir, 'plugins', 'claude-hud', 'statusline.cmd'), 'utf8'),
+      `@echo off\r\n"${process.execPath}" "%~dp0statusline.mjs"\r\n`,
+    );
+
+    const powershell = JSON.parse(run(setupScript, ['inspect', '--shell', 'powershell'], { configDir }).stdout);
+    assert.match(powershell.command, /System32\\cmd\.exe \/d \/s \/c ""/);
+  });
 });
