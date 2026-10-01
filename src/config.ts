@@ -701,7 +701,7 @@ function validateAutoCompactWindow(value: unknown): number | null {
   return value;
 }
 
-// Unset variables stay literal so the absolute-path check rejects the path.
+// Unset variables are left as written.
 function validateOptionalPath(value: unknown): string {
   if (typeof value !== 'string') {
     return '';
