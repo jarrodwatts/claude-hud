@@ -27,6 +27,7 @@ const run = (file, args, { configDir, cwd, columns } = {}) => spawnSync(process.
 async function fakeInstall(configDir, version) {
   const dist = path.join(configDir, 'plugins', 'cache', 'market', 'claude-hud', version, 'dist');
   await mkdir(dist, { recursive: true });
+  await writeFile(path.join(dist, '..', 'package.json'), '{"type":"module"}');
   await writeFile(
     path.join(dist, 'index.js'),
     `export async function main() { console.log('${version} ' + process.env.COLUMNS); }\n`,
