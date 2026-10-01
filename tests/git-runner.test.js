@@ -18,6 +18,10 @@ import {
 
 const SLOW = ['-c', 'alias.slow=!sleep 5', 'slow'];
 
+// A timed-out git is tree-killed asynchronously, and Windows locks a running
+// process's cwd. Retrying for ~3s, short of the 5s sleep, also proves the kill.
+const removeOnceReleased = (dir) => rm(dir, { recursive: true, force: true, maxRetries: 15, retryDelay: 200 });
+
 function absoluteGit() {
   return process.platform === 'win32'
     ? resolveWindowsGitExecutable()
@@ -131,7 +135,7 @@ test('runGit returns stdout and rejects on failure', async () => {
     await assert.rejects(runGit(dir, ['rev-parse', 'HEAD'], 10_000), (err) => !(err instanceof GitTimeoutError));
     await assert.rejects(runGit(dir, SLOW, 200), GitTimeoutError);
   } finally {
-    await rm(dir, { recursive: true, force: true });
+    await removeOnceReleased(dir);
   }
 });
 
@@ -147,6 +151,6 @@ test('the git worker relays stdout, exit status, and times out by disconnecting'
     await assert.rejects(runGitInWorker(git, dir, SLOW, 300), GitTimeoutError);
     assert.ok(Date.now() - started < 4000, 'gave up before the slow command finished');
   } finally {
-    await rm(dir, { recursive: true, force: true });
+    await removeOnceReleased(dir);
   }
 });
