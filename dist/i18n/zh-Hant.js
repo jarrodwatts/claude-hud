@@ -31,6 +31,7 @@ export const zhHant = {
     "format.tokPerSec": "tok/s",
     "format.justNow": "剛剛",
     "format.relativeTime": "{value} 前",
+    "format.elapsed": "已過 {value}%",
     // Init
     "init.initializing": "[claude-hud] 正在初始化...",
     "init.macosNote": "[claude-hud] 注意：在 macOS 上，您可能需要重新啟動 Claude Code 才能顯示 HUD。",

@@ -6,7 +6,7 @@ export function renderSkillsLine(ctx) {
     if (ctx.config?.display?.showSkills !== true) {
         return null;
     }
-    return renderNameListLine('Skills', ctx.transcript.skills ?? [], ctx.config?.colors);
+    return renderNameListLine('Skills', ctx.transcript.skills ?? [], ctx.config?.colors, ctx.config?.display?.skillsMaxVisible ?? MAX_ITEMS_SHOWN);
 }
 export function renderMcpLine(ctx) {
     if (ctx.config?.display?.showMcp !== true) {
@@ -14,12 +14,13 @@ export function renderMcpLine(ctx) {
     }
     return renderNameListLine('MCPs', ctx.transcript.mcpServers ?? [], ctx.config?.colors);
 }
-function renderNameListLine(title, names, colors) {
+function renderNameListLine(title, names, colors, maxVisible = MAX_ITEMS_SHOWN) {
     const safeNames = names.map(safeActivityName).filter((name) => Boolean(name));
     if (safeNames.length === 0) {
         return null;
     }
-    const visibleNames = safeNames.slice(0, MAX_ITEMS_SHOWN).map(name => cyan(name));
+    const shown = maxVisible === 0 ? safeNames : safeNames.slice(0, maxVisible);
+    const visibleNames = shown.map(name => cyan(name));
     const hiddenCount = safeNames.length - visibleNames.length;
     if (hiddenCount > 0) {
         visibleNames.push(label(`+${hiddenCount} more`, colors));

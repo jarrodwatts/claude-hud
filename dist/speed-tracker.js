@@ -91,7 +91,25 @@ function readFileSizeCache(cachePath) {
         return null;
     }
 }
-function writeFileSizeCache(cachePath, cache) {
+function readResponseSpeedCache(cachePath) {
+    try {
+        if (!fs.existsSync(cachePath))
+            return null;
+        const parsed = JSON.parse(fs.readFileSync(cachePath, 'utf8'));
+        if (typeof parsed.apiDurationMs !== 'number'
+            || !Number.isFinite(parsed.apiDurationMs)
+            || typeof parsed.usageKey !== 'string'
+            || (parsed.speed !== null && (typeof parsed.speed !== 'number' || !Number.isFinite(parsed.speed)))) {
+            return null;
+        }
+        return parsed;
+    }
+    catch (err) {
+        debug('Failed to read response speed cache:', err instanceof Error ? err.message : err);
+        return null;
+    }
+}
+function writeJsonCache(cachePath, cache) {
     try {
         const cacheDir = path.dirname(cachePath);
         ensurePrivateDir(cacheDir);
@@ -104,7 +122,7 @@ function writeFileSizeCache(cachePath, cache) {
         }
     }
     catch (err) {
-        debug('Failed to write file size cache:', err instanceof Error ? err.message : err);
+        debug('Failed to write speed cache file:', err instanceof Error ? err.message : err);
     }
 }
 // Remove the pre-0.x global cache file once, if present. It has no owner
@@ -139,25 +157,57 @@ function getTranscriptSpeed(transcriptPath, homeDir, now) {
         const cachePath = getCachePath(homeDir, canonicalTranscriptPath) + '.fs';
         const prev = readFileSizeCache(cachePath);
         if (!prev) {
-            writeFileSizeCache(cachePath, { fileSize, timestamp: now });
+            writeJsonCache(cachePath, { fileSize, timestamp: now });
             return null;
         }
         const deltaBytes = fileSize - prev.fileSize;
         const deltaMs = now - prev.timestamp;
         if (deltaMs > SPEED_WINDOW_MS || deltaMs < MIN_DELTA_MS || deltaBytes <= 0) {
             if (deltaMs >= MIN_DELTA_MS) {
-                writeFileSizeCache(cachePath, { fileSize, timestamp: now });
+                writeJsonCache(cachePath, { fileSize, timestamp: now });
             }
             return null;
         }
         const estimatedTokens = deltaBytes / BYTES_PER_TOKEN;
-        writeFileSizeCache(cachePath, { fileSize, timestamp: now });
+        writeJsonCache(cachePath, { fileSize, timestamp: now });
         return estimatedTokens / (deltaMs / 1000);
     }
     catch (err) {
         debug('Failed to compute transcript speed:', err instanceof Error ? err.message : err);
         return null;
     }
+}
+/**
+ * `current_usage.output_tokens` only updates once a response finishes, and
+ * `cost.total_api_duration_ms` advances by that response's request time in the
+ * same update, so speed is output tokens over the API time added since then.
+ */
+function getResponseSpeed(transcriptPath, homeDir, usage, outputTokens, apiDurationMs) {
+    const cachePath = getCachePath(homeDir, transcriptPath) + '.api';
+    const usageKey = [
+        usage.input_tokens,
+        outputTokens,
+        usage.cache_creation_input_tokens,
+        usage.cache_read_input_tokens,
+    ].join(':');
+    const previous = readResponseSpeedCache(cachePath);
+    if (!previous || apiDurationMs < previous.apiDurationMs) {
+        writeJsonCache(cachePath, { apiDurationMs, usageKey, speed: null });
+        return null;
+    }
+    if (apiDurationMs === previous.apiDurationMs) {
+        return previous.speed;
+    }
+    // API time also advances for requests that leave the main conversation's
+    // usage untouched (subagents, background calls). Fold that time into the
+    // baseline instead of charging it to the next response.
+    const deltaMs = apiDurationMs - previous.apiDurationMs;
+    const isNewResponse = usageKey !== previous.usageKey && outputTokens > 0;
+    const speed = isNewResponse && deltaMs >= MIN_DELTA_MS
+        ? outputTokens / (deltaMs / 1000)
+        : previous.speed;
+    writeJsonCache(cachePath, { apiDurationMs, usageKey, speed });
+    return speed;
 }
 export function getOutputSpeed(stdin, overrides = {}) {
     const transcriptPath = stdin.transcript_path?.trim();
@@ -171,8 +221,15 @@ export function getOutputSpeed(stdin, overrides = {}) {
     const homeDir = deps.homeDir();
     removeLegacyCache(homeDir);
     // Primary: use output_tokens when the provider supplies it.
-    const outputTokens = stdin.context_window?.current_usage?.output_tokens;
-    if (typeof outputTokens === 'number' && Number.isFinite(outputTokens)) {
+    const usage = stdin.context_window?.current_usage;
+    const outputTokens = usage?.output_tokens;
+    if (usage && typeof outputTokens === 'number' && Number.isFinite(outputTokens)) {
+        const apiDurationMs = stdin.cost?.total_api_duration_ms;
+        if (typeof apiDurationMs === 'number' && Number.isFinite(apiDurationMs)) {
+            return getResponseSpeed(transcriptPath, homeDir, usage, outputTokens, apiDurationMs);
+        }
+        // Without `cost` there is no API time to divide by, so diff
+        // output_tokens across renders instead.
         const previous = readCache(homeDir, transcriptPath);
         if (!previous) {
             writeCache(homeDir, transcriptPath, { outputTokens, timestamp: now });

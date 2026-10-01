@@ -675,6 +675,32 @@ test("main includes Claude Code version in render context only when enabled", as
   assert.equal(renderedContext?.claudeCodeVersion, "2.1.81");
 });
 
+// A wrapper-script `claude` keeps the lookup cache valid across upgrades (#752).
+test("main prefers the Claude Code version from stdin over the binary lookup", async () => {
+  let renderedContext;
+  let lookupCalls = 0;
+
+  await main({
+    readStdin: async () => makeStdin({ version: "2.1.261" }),
+    parseTranscript: async () => makeTranscript(),
+    countConfigs: async () => makeCounts(),
+    loadConfig: async () => makeConfig({
+      display: { showClaudeCodeVersion: true },
+    }),
+    getGitStatus: async () => null,
+    getClaudeCodeVersion: async () => {
+      lookupCalls += 1;
+      return "2.1.258";
+    },
+    render: (ctx) => {
+      renderedContext = ctx;
+    },
+  });
+
+  assert.equal(lookupCalls, 0);
+  assert.equal(renderedContext?.claudeCodeVersion, "2.1.261");
+});
+
 test("main skips Claude Code version lookup when disabled", async () => {
   let lookupCalls = 0;
 

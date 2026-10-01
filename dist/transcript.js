@@ -9,7 +9,7 @@ import { sanitizeDisplayText } from './utils/sanitize.js';
 import { sanitizeTranscriptModel } from './model-source.js';
 import { isDetectedPromptCacheTtl, PROMPT_CACHE_TTL_1H_SECONDS, PROMPT_CACHE_TTL_5M_SECONDS, } from './constants.js';
 const debug = createDebug('transcript');
-const TRANSCRIPT_CACHE_VERSION = 18;
+const TRANSCRIPT_CACHE_VERSION = 20;
 const MCP_TOOL_NAME_PATTERN = /^mcp__(.+?)__(.+)$/;
 const ACTIVITY_NAME_MAX_LEN = 64;
 const MESSAGE_ID_MAX_LEN = 128;
@@ -347,6 +347,7 @@ export async function parseTranscript(transcriptPath) {
     const queueCompletionMap = new Map();
     let latestSlug;
     let customTitle;
+    let aiTitle;
     let latestAdvisorModel;
     let latestUltracodeActive;
     let lastCompactBoundaryAt;
@@ -385,6 +386,9 @@ export async function parseTranscript(transcriptPath) {
                 const entry = JSON.parse(line);
                 if (entry.type === 'custom-title' && typeof entry.customTitle === 'string') {
                     customTitle = entry.customTitle;
+                }
+                else if (entry.type === 'ai-title' && typeof entry.aiTitle === 'string') {
+                    aiTitle = entry.aiTitle;
                 }
                 else if (typeof entry.slug === 'string') {
                     latestSlug = entry.slug;
@@ -428,7 +432,8 @@ export async function parseTranscript(transcriptPath) {
                 // model Claude Code thinks it's using (e.g. proxy redirect via cc-switch).
                 if (entry.type === 'assistant') {
                     const transcriptModel = sanitizeTranscriptModel(entry.message?.model);
-                    if (transcriptModel) {
+                    // Claude Code writes '<synthetic>' on locally generated assistant records.
+                    if (transcriptModel && transcriptModel !== '<synthetic>') {
                         result.lastAssistantModel = transcriptModel;
                     }
                 }
@@ -578,7 +583,8 @@ export async function parseTranscript(transcriptPath) {
     result.mcpErrors = Array.from(mcpErrorSet.values());
     result.agents = Array.from(agentMap.values()).slice(-10);
     result.todos = latestTodos;
-    result.sessionName = customTitle ?? latestSlug;
+    const sessionName = customTitle ?? aiTitle ?? latestSlug;
+    result.sessionName = sessionName ? sanitizeDisplayText(sessionName).trim() || undefined : undefined;
     result.sessionTokens = sessionTokens;
     result.lastCompactBoundaryAt = lastCompactBoundaryAt;
     result.lastCompactPostTokens = lastCompactPostTokens;

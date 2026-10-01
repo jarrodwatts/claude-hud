@@ -170,6 +170,13 @@ export function _getClaudeVersionInvocation(binaryPath, platform = platformImpl(
         args: ['--version'],
     };
 }
+// The running session's version; getClaudeCodeVersion() is the fallback when stdin omits it.
+export function resolveStdinClaudeCodeVersion(value) {
+    if (typeof value !== 'string') {
+        return undefined;
+    }
+    return _parseClaudeCodeVersion(value);
+}
 export async function getClaudeCodeVersion() {
     const homeDir = os.homedir();
     const diskCache = readVersionCache(homeDir);

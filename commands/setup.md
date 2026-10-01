@@ -177,12 +177,12 @@ echo $OSTYPE
 
    **When runtime is bun** - add `--env-file /dev/null` to prevent Bun from auto-loading project `.env` files:
    ```
-   bash -c 'cols=${COLUMNS:-}; case "$cols" in ""|*[!0-9]*) cols=$(stty size 2>/dev/null </dev/tty | awk '"'"'{print $2}'"'"');; esac; case "$cols" in ""|*[!0-9]*) cols=120;; esac; export COLUMNS=$(( cols > 4 ? cols - 4 : 1 )); plugin_dir=$(ls -d "${CLAUDE_CONFIG_DIR:-$HOME/.claude}"/plugins/cache/*/claude-hud/*/ 2>/dev/null | awk -F/ '"'"'{ print $(NF-1) "\t" $(0) }'"'"' | grep -E '"'"'^[0-9]+\.[0-9]+\.[0-9]+[[:space:]]'"'"' | sort -t. -k1,1n -k2,2n -k3,3n -k4,4n | tail -1 | cut -f2-); exec "{RUNTIME_PATH}" --env-file /dev/null "${plugin_dir}{SOURCE}"'
+   bash -c 'cols=${COLUMNS:-}; case "$cols" in ""|*[!0-9]*) cols=$(stty size 2>/dev/null </dev/tty | awk '"'"'{print $2}'"'"');; esac; case "$cols" in ""|*[!0-9]*) cols=120;; esac; export COLUMNS=$(( cols > 4 ? cols - 4 : 1 )); plugin_dir=$(ls -d "${CLAUDE_CONFIG_DIR:-$HOME/.claude}"/plugins/cache/*/claude-hud/*/ 2>/dev/null | awk -F/ '"'"'{ print $(NF-1) "\t" $(0) }'"'"' | grep -E '"'"'^[0-9]+\.[0-9]+\.[0-9]+[[:space:]]'"'"' | sort -t. -k1,1n -k2,2n -k3,3n -k4,4n | tail -1 | cut -f2-); [ -n "$plugin_dir" ] || exit 0; exec "{RUNTIME_PATH}" --env-file /dev/null "${plugin_dir}{SOURCE}"'
    ```
 
    **When runtime is node**:
    ```
-   bash -c 'cols=${COLUMNS:-}; case "$cols" in ""|*[!0-9]*) cols=$(stty size 2>/dev/null </dev/tty | awk '"'"'{print $2}'"'"');; esac; case "$cols" in ""|*[!0-9]*) cols=120;; esac; export COLUMNS=$(( cols > 4 ? cols - 4 : 1 )); plugin_dir=$(ls -d "${CLAUDE_CONFIG_DIR:-$HOME/.claude}"/plugins/cache/*/claude-hud/*/ 2>/dev/null | awk -F/ '"'"'{ print $(NF-1) "\t" $(0) }'"'"' | grep -E '"'"'^[0-9]+\.[0-9]+\.[0-9]+[[:space:]]'"'"' | sort -t. -k1,1n -k2,2n -k3,3n -k4,4n | tail -1 | cut -f2-); exec "{RUNTIME_PATH}" "${plugin_dir}{SOURCE}"'
+   bash -c 'cols=${COLUMNS:-}; case "$cols" in ""|*[!0-9]*) cols=$(stty size 2>/dev/null </dev/tty | awk '"'"'{print $2}'"'"');; esac; case "$cols" in ""|*[!0-9]*) cols=120;; esac; export COLUMNS=$(( cols > 4 ? cols - 4 : 1 )); plugin_dir=$(ls -d "${CLAUDE_CONFIG_DIR:-$HOME/.claude}"/plugins/cache/*/claude-hud/*/ 2>/dev/null | awk -F/ '"'"'{ print $(NF-1) "\t" $(0) }'"'"' | grep -E '"'"'^[0-9]+\.[0-9]+\.[0-9]+[[:space:]]'"'"' | sort -t. -k1,1n -k2,2n -k3,3n -k4,4n | tail -1 | cut -f2-); [ -n "$plugin_dir" ] || exit 0; exec "{RUNTIME_PATH}" "${plugin_dir}{SOURCE}"'
    ```
 
 **Windows + Git Bash** (Platform: `win32`, Shell: `bash`):
@@ -193,11 +193,34 @@ On Windows require `node` and always use `dist/index.js`.
 
 **Important**: Do **not** reuse the macOS/Linux awk-based command on Windows + Git Bash. The `awk` fragment requires `'"'"'` quoting to nest single quotes inside `bash -c '...'`. After JSON encoding and decoding, this quoting breaks on Windows Git Bash, causing a silent syntax error that prevents the HUD process from starting (see [#326](https://github.com/jarrodwatts/claude-hud/issues/326)).
 
-Instead, use `sort -V` (GNU version sort, included with Git for Windows) which avoids nested single quotes entirely. Also avoid wrapping the generated command in a second `bash -c ...` layer. Claude Code is already invoking the statusline through bash, so the direct shell command lets `exec` replace that shell instead of spawning an extra bash wrapper first. The command still exports `COLUMNS` so the HUD receives the real terminal width, and it uses the marketplace-aware cache glob:
+**Important**: Do **not** `exec` the runtime directly from Git Bash either. Git Bash starts native children suspended, so a statusLine shell killed mid-spawn strands a ~36 MB `node.exe` that never runs and never exits (see [#747](https://github.com/jarrodwatts/claude-hud/issues/747)). Launch through `cmd.exe` as the Windows + PowerShell path does: the worst case becomes a ~2 MB `cmd.exe` stub, and the launcher does the version lookup.
+
+1. Write the launcher: the same `statusline.mjs` as step 4 of **Windows + PowerShell** below, copied verbatim into a quoted heredoc so bash expands nothing. Run the block with no leading indentation, or the heredoc never ends.
+
+   ```bash
+   claude_dir="${CLAUDE_CONFIG_DIR:-$HOME/.claude}"
+   mkdir -p "$claude_dir/plugins/claude-hud"
+   cat > "$claude_dir/plugins/claude-hud/statusline.mjs" <<'LAUNCHER'
+   <launcher body from Windows + PowerShell step 4>
+   LAUNCHER
+   ```
+
+2. Write the `cmd.exe` shim next to it (`%~dp0` is the shim's own directory):
+
+   ```bash
+   printf '@echo off\r\n"%s" "%%~dp0statusline.mjs"\r\n' "{RUNTIME_PATH_WIN}" \
+     > "$claude_dir/plugins/claude-hud/statusline.cmd"
+   ```
+
+   `{RUNTIME_PATH_WIN}` is `cygpath -w "{RUNTIME_PATH}"`, typically `C:\Program Files\nodejs\node.exe`. Keep it a `printf` argument, because backslashes in the format string are escapes. Batch files need the CRLF line endings.
+
+3. Generate command. Export the raw terminal width; the launcher subtracts the 4 columns of padding itself.
 
    ```
-   cols=${COLUMNS:-}; case "$cols" in ""|*[!0-9]*) cols=$(stty size 2>/dev/null </dev/tty | awk '{print $2}');; esac; case "$cols" in ""|*[!0-9]*) cols=120;; esac; export COLUMNS=$(( cols > 4 ? cols - 4 : 1 )); plugin_dir=$(ls -1d "${CLAUDE_CONFIG_DIR:-$HOME/.claude}"/plugins/cache/*/claude-hud/*/ 2>/dev/null | sort -V | tail -1); exec "{RUNTIME_PATH}" "${plugin_dir}{SOURCE}"
+   cols=${COLUMNS:-}; case "$cols" in ""|*[!0-9]*) cols=$(stty size 2>/dev/null </dev/tty | awk '{print $2}');; esac; case "$cols" in ""|*[!0-9]*) cols=120;; esac; export COLUMNS="$cols"; exec "${CLAUDE_CONFIG_DIR:-$HOME/.claude}/plugins/claude-hud/statusline.cmd"
    ```
+
+   Keep `exec` so the command replaces Claude Code's bash rather than adding a process.
 
 **Windows + PowerShell** (Platform: `win32`, Shell: `powershell`, `pwsh`, or `cmd`, OSTYPE: other/empty):
 
@@ -756,6 +779,15 @@ Use AskUserQuestion:
      '{}' | & cmd.exe /c '{GENERATED_COMMAND}'
      ```
      If you see either error, the existing setup predates the Node launcher format. Re-run `/claude-hud:setup` to regenerate `statusline.mjs` and a `cmd.exe`-launched command. See [#521](https://github.com/jarrodwatts/claude-hud/issues/521).
+
+   **Windows + Git Bash: idle `node.exe` processes pile up**:
+   - Symptoms: dozens to hundreds of `node.exe` processes whose command line ends in `dist/index.js`, several GB of working set, and a parent that no longer exists.
+   - Check: they have burnt no CPU at all, which is what separates them from a HUD that is merely slow.
+     ```powershell
+     Get-Process node | Where-Object { $_.TotalProcessorTime.TotalSeconds -eq 0 -and $_.Threads.Count -eq 1 }
+     ```
+   - Root cause: the setup predates the `cmd.exe` shim and still `exec`s the runtime from Git Bash, so a statusLine shell killed mid-spawn strands a suspended `node.exe` that can never run and never exit.
+   - Solution: kill the listed PIDs, then re-run `/claude-hud:setup` to regenerate `statusline.cmd` and the shim-launched command. See [#747](https://github.com/jarrodwatts/claude-hud/issues/747).
 
    **Windows: PowerShell execution policy error**:
    - Run: `Set-ExecutionPolicy -Scope CurrentUser -ExecutionPolicy RemoteSigned`
