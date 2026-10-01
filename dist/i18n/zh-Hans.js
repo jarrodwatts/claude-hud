@@ -10,7 +10,6 @@ export const zhHans = {
     "label.estimatedCost": "估算",
     "label.cost": "费用",
     "label.today": "今日",
-    "label.week": "本周",
     "label.tokens": "词元",
     "label.sessionStarted": "开始",
     "label.lastReply": "上次回复",

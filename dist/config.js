@@ -78,7 +78,6 @@ export const DEFAULT_CONFIG = {
         showCost: false,
         showRoutedCost: false,
         showDailyCost: false,
-        showWeeklyCost: false,
         showDuration: false,
         showSpeed: false,
         showTokenBreakdown: true,
@@ -500,9 +499,6 @@ export function mergeConfig(userConfig) {
         showDailyCost: typeof migrated.display?.showDailyCost === 'boolean'
             ? migrated.display.showDailyCost
             : DEFAULT_CONFIG.display.showDailyCost,
-        showWeeklyCost: typeof migrated.display?.showWeeklyCost === 'boolean'
-            ? migrated.display.showWeeklyCost
-            : DEFAULT_CONFIG.display.showWeeklyCost,
         showDuration: typeof migrated.display?.showDuration === 'boolean'
             ? migrated.display.showDuration
             : DEFAULT_CONFIG.display.showDuration,
