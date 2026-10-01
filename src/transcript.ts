@@ -257,27 +257,21 @@ function accumulateMessageUsage(
     outputTokens: 0,
     cacheCreationTokens: 0,
     cacheReadTokens: 0,
+    cacheCreationOneHourTokens: 0,
   };
-  const priorOneHour = prior.cacheCreationOneHourTokens ?? 0;
-  const currentOneHour = current.cacheCreationOneHourTokens ?? 0;
 
   total.inputTokens += Math.max(0, current.inputTokens - prior.inputTokens);
   total.outputTokens += Math.max(0, current.outputTokens - prior.outputTokens);
   total.cacheCreationTokens += Math.max(0, current.cacheCreationTokens - prior.cacheCreationTokens);
   total.cacheReadTokens += Math.max(0, current.cacheReadTokens - prior.cacheReadTokens);
-  if (currentOneHour > 0 || priorOneHour > 0 || total.cacheCreationOneHourTokens !== undefined) {
-    total.cacheCreationOneHourTokens = (total.cacheCreationOneHourTokens ?? 0)
-      + Math.max(0, currentOneHour - priorOneHour);
-  }
+  total.cacheCreationOneHourTokens += Math.max(0, current.cacheCreationOneHourTokens - prior.cacheCreationOneHourTokens);
 
   usageByMessageId.set(messageId, {
     inputTokens: Math.max(prior.inputTokens, current.inputTokens),
     outputTokens: Math.max(prior.outputTokens, current.outputTokens),
     cacheCreationTokens: Math.max(prior.cacheCreationTokens, current.cacheCreationTokens),
     cacheReadTokens: Math.max(prior.cacheReadTokens, current.cacheReadTokens),
-    ...(currentOneHour > 0 || priorOneHour > 0
-      ? { cacheCreationOneHourTokens: Math.max(priorOneHour, currentOneHour) }
-      : {}),
+    cacheCreationOneHourTokens: Math.max(prior.cacheCreationOneHourTokens, current.cacheCreationOneHourTokens),
   });
 }
 
@@ -287,16 +281,12 @@ function normalizeSessionTokens(tokens: unknown): SessionTokenUsage | undefined 
   }
 
   const raw = tokens as Record<string, unknown>;
-  const oneHour = normalizeTokenCount(raw.cacheCreationOneHourTokens);
   return {
     inputTokens: normalizeTokenCount(raw.inputTokens),
     outputTokens: normalizeTokenCount(raw.outputTokens),
     cacheCreationTokens: normalizeTokenCount(raw.cacheCreationTokens),
     cacheReadTokens: normalizeTokenCount(raw.cacheReadTokens),
-    // Only carry a positive split forward, so cached snapshots written before
-    // the field existed (and sessions that never use the 1-hour TTL) keep the
-    // legacy shape instead of pinning a meaningless 0.
-    ...(oneHour > 0 ? { cacheCreationOneHourTokens: oneHour } : {}),
+    cacheCreationOneHourTokens: normalizeTokenCount(raw.cacheCreationOneHourTokens),
   };
 }
 
@@ -539,6 +529,7 @@ export async function parseTranscript(transcriptPath: string): Promise<Transcrip
     outputTokens: 0,
     cacheCreationTokens: 0,
     cacheReadTokens: 0,
+    cacheCreationOneHourTokens: 0,
   };
   const usageByMessageId = new Map<string, SessionTokenUsage>();
   let lastUsageKey: string | undefined;
@@ -631,22 +622,19 @@ export async function parseTranscript(transcriptPath: string): Promise<Transcrip
         if (entry.type === 'assistant' && entry.message?.usage) {
           const usage = entry.message.usage;
           const msgId = normalizeMessageId(entry.message.id);
-          const oneHourWriteTokens = normalizeTokenCount(
-            usage.cache_creation?.ephemeral_1h_input_tokens,
-          );
           const normalizedUsage: SessionTokenUsage = {
             inputTokens: normalizeTokenCount(usage.input_tokens),
             outputTokens: normalizeTokenCount(usage.output_tokens),
             cacheCreationTokens: normalizeTokenCount(usage.cache_creation_input_tokens),
             cacheReadTokens: normalizeTokenCount(usage.cache_read_input_tokens),
-            ...(oneHourWriteTokens > 0 ? { cacheCreationOneHourTokens: oneHourWriteTokens } : {}),
+            cacheCreationOneHourTokens: normalizeTokenCount(usage.cache_creation?.ephemeral_1h_input_tokens),
           };
 
           if (msgId !== null) {
             lastUsageKey = undefined;
             accumulateMessageUsage(usageByMessageId, msgId, normalizedUsage, sessionTokens);
           } else {
-            const usageKey = `${usage.input_tokens}|${usage.output_tokens}|${usage.cache_creation_input_tokens}|${usage.cache_read_input_tokens}|${oneHourWriteTokens}`;
+            const usageKey = `${usage.input_tokens}|${usage.output_tokens}|${usage.cache_creation_input_tokens}|${usage.cache_read_input_tokens}|${normalizedUsage.cacheCreationOneHourTokens}`;
             const shouldCount = usageKey !== lastUsageKey;
             lastUsageKey = usageKey;
             if (shouldCount) {
@@ -654,10 +642,7 @@ export async function parseTranscript(transcriptPath: string): Promise<Transcrip
               sessionTokens.outputTokens += normalizedUsage.outputTokens;
               sessionTokens.cacheCreationTokens += normalizedUsage.cacheCreationTokens;
               sessionTokens.cacheReadTokens += normalizedUsage.cacheReadTokens;
-              if (oneHourWriteTokens > 0 || sessionTokens.cacheCreationOneHourTokens !== undefined) {
-                sessionTokens.cacheCreationOneHourTokens = (sessionTokens.cacheCreationOneHourTokens ?? 0)
-                  + oneHourWriteTokens;
-              }
+              sessionTokens.cacheCreationOneHourTokens += normalizedUsage.cacheCreationOneHourTokens;
             }
           }
         } else {

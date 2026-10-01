@@ -126,27 +126,19 @@ export function estimateSessionCost(
   }
 
   const inputUsd = calculateUsd(sessionTokens.inputTokens, pricing.inputUsdPerMillion);
-  // Cache writes are priced per TTL: Anthropic charges 1.25x input for the
-  // 5-minute tier and 2x input for the 1-hour tier. The 1-hour portion comes
-  // from usage.cache_creation.ephemeral_1h_input_tokens and is clamped to the
-  // total cache write so a malformed counter cannot overbill. Models with an
-  // explicitly published cache-write rate keep that rate for both tiers — the
-  // TTL premium is an Anthropic-specific surcharge on top of the base rate.
-  const cacheWriteTotal = Math.max(0, sessionTokens.cacheCreationTokens);
-  const cacheWriteOneHour = Math.min(
-    Math.max(0, sessionTokens.cacheCreationOneHourTokens ?? 0),
-    cacheWriteTotal,
-  );
-  const cacheWriteFiveMinute = cacheWriteTotal - cacheWriteOneHour;
-  const explicitCacheWriteUsdPerMillion = pricing.cacheWriteUsdPerMillion === undefined
-    ? null
+  // 5-minute writes cost 1.25x input and 1-hour writes 2x; a published cache-write rate covers both.
+  const publishedCacheWrite = pricing.cacheWriteUsdPerMillion === undefined
+    ? undefined
     : pricing.cacheWriteUsdPerMillion ?? 0;
-  const cacheWriteUsdPerMillion = explicitCacheWriteUsdPerMillion ?? pricing.inputUsdPerMillion * CACHE_WRITE_MULTIPLIER;
-  const cacheWriteOneHourUsdPerMillion = explicitCacheWriteUsdPerMillion
-    ?? pricing.inputUsdPerMillion * CACHE_WRITE_ONE_HOUR_MULTIPLIER;
+  const oneHourWrites = Math.min(sessionTokens.cacheCreationOneHourTokens ?? 0, sessionTokens.cacheCreationTokens);
+  const cacheCreationUsd = calculateUsd(
+    sessionTokens.cacheCreationTokens - oneHourWrites,
+    publishedCacheWrite ?? pricing.inputUsdPerMillion * CACHE_WRITE_MULTIPLIER,
+  ) + calculateUsd(
+    oneHourWrites,
+    publishedCacheWrite ?? pricing.inputUsdPerMillion * CACHE_WRITE_ONE_HOUR_MULTIPLIER,
+  );
   const cacheReadUsdPerMillion = pricing.cacheReadUsdPerMillion ?? pricing.inputUsdPerMillion * CACHE_READ_MULTIPLIER;
-  const cacheCreationUsd = calculateUsd(cacheWriteFiveMinute, cacheWriteUsdPerMillion)
-    + calculateUsd(cacheWriteOneHour, cacheWriteOneHourUsdPerMillion);
   const cacheReadUsd = calculateUsd(sessionTokens.cacheReadTokens, cacheReadUsdPerMillion);
   const outputUsd = calculateUsd(sessionTokens.outputTokens, pricing.outputUsdPerMillion);
 

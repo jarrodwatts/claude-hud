@@ -639,6 +639,7 @@ test('parseTranscript accumulates session token usage from assistant messages', 
       outputTokens: 500,
       cacheCreationTokens: 9000,
       cacheReadTokens: 2000,
+      cacheCreationOneHourTokens: 0,
     });
   } finally {
     await rm(dir, { recursive: true, force: true });
@@ -680,6 +681,7 @@ test('parseTranscript deduplicates adjacent duplicate assistant usage by message
     outputTokens: 25,
     cacheCreationTokens: 10,
     cacheReadTokens: 5,
+    cacheCreationOneHourTokens: 0,
   });
 });
 
@@ -708,7 +710,29 @@ test('parseTranscript deduplicates non-consecutive duplicate assistant usage by 
     outputTokens: 25,
     cacheCreationTokens: 10,
     cacheReadTokens: 5,
+    cacheCreationOneHourTokens: 0,
   });
+});
+
+test('parseTranscript counts 1-hour cache writes once per message id', async () => {
+  const usageEntry = {
+    type: 'assistant',
+    message: {
+      id: 'msg-one-hour',
+      usage: {
+        input_tokens: 10,
+        output_tokens: 5,
+        cache_creation_input_tokens: 1000,
+        cache_read_input_tokens: 0,
+        cache_creation: { ephemeral_1h_input_tokens: 400, ephemeral_5m_input_tokens: 600 },
+      },
+    },
+  };
+
+  const result = await parseTempTranscript('session-tokens-one-hour.jsonl', [usageEntry, usageEntry]);
+
+  assert.equal(result.sessionTokens.cacheCreationTokens, 1000);
+  assert.equal(result.sessionTokens.cacheCreationOneHourTokens, 400);
 });
 
 test('parseTranscript replaces a zero placeholder with later message usage', async () => {
@@ -733,6 +757,7 @@ test('parseTranscript replaces a zero placeholder with later message usage', asy
     outputTokens: 25,
     cacheCreationTokens: 10,
     cacheReadTokens: 5,
+    cacheCreationOneHourTokens: 0,
   });
 });
 
@@ -757,6 +782,7 @@ test('parseTranscript adds only positive per-field message usage deltas', async 
     outputTokens: 25,
     cacheCreationTokens: 0,
     cacheReadTokens: 0,
+    cacheCreationOneHourTokens: 0,
   });
 });
 
@@ -778,6 +804,7 @@ test('parseTranscript counts different message IDs with identical usage', async 
     outputTokens: 50,
     cacheCreationTokens: 20,
     cacheReadTokens: 10,
+    cacheCreationOneHourTokens: 0,
   });
 });
 
@@ -801,6 +828,7 @@ test('parseTranscript deduplicates adjacent idless usage with the legacy fingerp
     outputTokens: 25,
     cacheCreationTokens: 10,
     cacheReadTokens: 5,
+    cacheCreationOneHourTokens: 0,
   });
 });
 
@@ -840,6 +868,7 @@ test('parseTranscript treats malformed and oversized message IDs as idless', asy
     outputTokens: 75,
     cacheCreationTokens: 30,
     cacheReadTokens: 15,
+    cacheCreationOneHourTokens: 0,
   });
 });
 
@@ -1364,6 +1393,7 @@ test('parseTranscript ignores malformed session token values', async () => {
       outputTokens: 2,
       cacheCreationTokens: 12,
       cacheReadTokens: 1,
+      cacheCreationOneHourTokens: 0,
     });
   } finally {
     await rm(dir, { recursive: true, force: true });
