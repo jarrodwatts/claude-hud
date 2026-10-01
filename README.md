@@ -280,17 +280,11 @@ It shows an expiry time rather than a countdown because the statusline only repa
 
 ClaudeHUD detects the cache tier from the transcript when possible. The existing `display.promptCacheTtlSeconds` setting remains a fallback for older or proxied transcripts that do not expose tier details:
 
-`display.showCacheHitRate` is also opt-in. When enabled, ClaudeHUD shows the **session-wide cache hit rate** as `Cache hit X%` (e.g. `Cache hit 98.3%`), computed from the cumulative transcript totals:
-
-```
-hit_rate = cacheReadTokens / (inputTokens + cacheReadTokens + cacheCreationTokens)
-```
-
-`inputTokens` (non-cached input) is included in the denominator so the rate stays in `[0%, 100%]` even when the cache was pre-warmed in a prior transcript window — without it, a session whose `cacheCreationTokens` is zero would collapse to 100% and become uninformative. Absolute counts are visible in the existing `Tokens` line; this setting only adds the percentage.
-
 - **The TTL is detected.** Every cache write records the tier it used (`usage.cache_creation.ephemeral_5m_input_tokens` vs `ephemeral_1h_input_tokens`), so a 1-hour session counts down against an hour, and a session that changes tier mid-run is followed. Detected values take precedence over the configured fallback.
 - **The clock starts at the request**, not at the response it produced, because that is when the cache is read or written. Anchoring on the response would hand the session however long that response took to generate.
 - **Subagent responses are ignored.** A subagent runs against its own cache and does not refresh the main session's.
+
+`display.showCacheHitRate` is opt-in and shows the session's cache hit rate, e.g. `Cache hit 98.3%`: cache reads as a share of all input tokens (uncached input, cache reads, and cache writes), from cumulative transcript totals.
 
 ### Usage Limits
 

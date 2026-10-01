@@ -240,10 +240,7 @@ export interface HudConfig {
     // Compatibility fallback used only until transcript tier detection has a
     // real 5-minute or 1-hour cache write to follow.
     promptCacheTtlSeconds: number;
-    // Show the session-wide cache hit rate as `Cache hit X%`, computed from
-    // the cumulative transcript `cacheReadTokens` / (`inputTokens` +
-    // `cacheReadTokens` + `cacheCreationTokens`). Hidden when there is no
-    // input activity. Default off.
+    // Show the session's prompt-cache hit rate as `Cache hit X%`. Default off.
     showCacheHitRate: boolean;
     showSessionTokens: boolean;
     showOutputStyle: boolean;
