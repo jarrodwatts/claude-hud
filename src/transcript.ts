@@ -69,21 +69,24 @@ function name(value: unknown): string | undefined {
 
 const mcpServer = (toolName: string): string | undefined => name(MCP_TOOL.exec(toolName)?.[1]);
 
+// Tool inputs are written by the model, so their text is untrusted terminal input.
+const text = (value: unknown): string | undefined =>
+  typeof value === 'string' ? sanitizeDisplayText(value) || undefined : undefined;
+
 function toolTarget(toolName: string, input: Record<string, unknown> | undefined): string | undefined {
   if (!input) return undefined;
   switch (toolName) {
     case 'Read':
     case 'Write':
     case 'Edit':
-      return (input.file_path ?? input.path) as string | undefined;
+      return text(input.file_path ?? input.path);
     case 'Glob':
     case 'Grep':
-      return input.pattern as string | undefined;
+      return text(input.pattern);
     case 'Skill':
       return name(input.skill);
     case 'Bash': {
-      if (typeof input.command !== 'string') return undefined;
-      const command = input.command.replace(/\s+/g, ' ').trim();
+      const command = text(input.command)?.replace(/\s+/g, ' ').trim();
       if (!command) return undefined;
       return command.length > 30 ? `${command.slice(0, 30).trimEnd()}...` : command;
     }
@@ -106,6 +109,13 @@ function taskStatus(status: unknown): TodoItem['status'] | null {
     default:
       return null;
   }
+}
+
+function toTodo(value: unknown): TodoItem[] {
+  const todo = value as { content?: unknown; status?: unknown } | null;
+  const content = text(todo?.content);
+  const status = taskStatus(todo?.status);
+  return content && status ? [{ content, status }] : [];
 }
 
 class Parser {
@@ -233,9 +243,9 @@ class Parser {
         background: input?.run_in_background === true,
       });
     } else if (toolName === 'TodoWrite') {
-      if (Array.isArray(input?.todos)) this.replaceTodos(input.todos as TodoItem[]);
+      if (Array.isArray(input?.todos)) this.replaceTodos(input.todos.flatMap(toTodo));
     } else if (toolName === 'TaskCreate') {
-      const content = [input?.subject, input?.description].find((v) => typeof v === 'string' && v) as string | undefined;
+      const content = text(input?.subject) ?? text(input?.description);
       this.todos.push({ content: content ?? 'Untitled task', status: taskStatus(input?.status) ?? 'pending' });
       const taskId = typeof input?.taskId === 'string' || typeof input?.taskId === 'number' ? String(input.taskId) : block.id;
       if (taskId) this.taskIndex.set(taskId, this.todos.length - 1);
@@ -244,7 +254,7 @@ class Parser {
       if (!todo) return;
       const status = taskStatus(input?.status);
       if (status) todo.status = status;
-      const content = [input?.subject, input?.description].find((v) => typeof v === 'string' && v) as string | undefined;
+      const content = text(input?.subject) ?? text(input?.description);
       if (content) todo.content = content;
     } else {
       this.tools.set(block.id as string, {

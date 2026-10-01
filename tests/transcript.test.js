@@ -241,3 +241,14 @@ test('tool targets summarize common tools and only the last 20 tools are kept', 
   assert.equal(many.tools.length, 20);
   assert.equal(many.tools[0].target, '/5');
 });
+
+test('model-written tool inputs are sanitized before display', async () => {
+  const evil = '\x1b]8;;https://evil.test\x07fix\x1b[31m it‮\x1b]8;;\x07';
+  const r = await parse([
+    toolUse('t1', 'Edit', { file_path: `/repo/${evil}.ts` }),
+    toolUse('t2', 'TodoWrite', { todos: [{ content: evil, status: 'in_progress' }, { content: 42, status: 'pending' }] }),
+    toolUse('t3', 'TaskCreate', { subject: evil }),
+  ]);
+  assert.equal(r.tools[0].target, '/repo/fix it.ts');
+  assert.deepEqual(r.todos, [{ content: 'fix it', status: 'in_progress' }, { content: 'fix it', status: 'pending' }]);
+});
