@@ -201,7 +201,7 @@ function parseFileStats(porcelainOutput: string): FileStats {
 
     if (line.startsWith('??')) {
       stats.untracked++;
-    } else if (index === 'A') {
+    } else if (index === 'A' || (index === 'U' && worktree === 'A')) {
       stats.added++;
       const fullPath = parsePorcelainPath(line.slice(2).trimStart());
       stats.trackedFiles.push({ basename: fullPath.split('/').pop() ?? fullPath, fullPath, type: 'added' });
@@ -209,29 +209,12 @@ function parseFileStats(porcelainOutput: string): FileStats {
       stats.deleted++;
       const fullPath = parsePorcelainPath(line.slice(2).trimStart());
       stats.trackedFiles.push({ basename: fullPath.split('/').pop() ?? fullPath, fullPath, type: 'deleted' });
-    } else if (index === 'M' || worktree === 'M' || index === 'R' || index === 'C') {
-      // M=modified, R=renamed (counts as modified), C=copied (counts as modified)
+    } else if (index === 'M' || worktree === 'M' || index === 'R' || index === 'C' || index === 'U') {
+      // M=modified, R=renamed and C=copied (count as modified), U=unmerged (UU)
       stats.modified++;
       // For renames, git porcelain shows "old -> new"; take the destination path
       const fullPath = parsePorcelainPath(line.slice(2).trimStart().split(' -> ').pop() ?? line.slice(2).trimStart());
       stats.trackedFiles.push({ basename: fullPath.split('/').pop() ?? fullPath, fullPath, type: 'modified' });
-    } else if (index === 'U' || worktree === 'U') {
-      // Unmerged (conflicted) entries. The branches above already classify the
-      // five combinations carrying a non-U letter on one side — AA and AU as
-      // added, DD, UD and DU as deleted — so what reaches here is UU (both
-      // modified) and UA (added by them). Without this branch neither matches
-      // any condition, so a repo stopped mid merge or rebase reports dirty with
-      // an empty file list.
-      //
-      // Classify by whichever side carries a real status letter, which keeps UA
-      // with its mirror state AU; UU has no such letter and counts as modified.
-      const other = index === 'U' ? worktree : index;
-      const type = other === 'A' ? 'added' : other === 'D' ? 'deleted' : 'modified';
-      if (type === 'added') stats.added++;
-      else if (type === 'deleted') stats.deleted++;
-      else stats.modified++;
-      const fullPath = parsePorcelainPath(line.slice(2).trimStart());
-      stats.trackedFiles.push({ basename: fullPath.split('/').pop() ?? fullPath, fullPath, type });
     }
   }
 
