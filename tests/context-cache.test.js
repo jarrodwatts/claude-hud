@@ -199,10 +199,6 @@ test('applyContextWindowFallback caches a synthesized percent without mutating a
 
     applyContextWindowFallback(stdin, makeDeps(tempHome, 1_100_000));
 
-    // The live frame's used_percentage is the renderer's sentinel for "a
-    // native percentage exists" (getNativePercent() in stdin.ts): writing to
-    // it here would disable getBufferedPercent()'s autocompact buffer. The
-    // frame must stay untouched even though a percent gets cached.
     assert.equal(stdin.context_window.used_percentage, 0);
     assert.equal(stdin.context_window.remaining_percentage, 100);
     assert.deepEqual(stdin.context_window.current_usage, {
@@ -241,14 +237,8 @@ test('applyContextWindowFallback refreshes a stale cache when a later frame has 
     });
     stdin.transcript_path = transcriptPath;
 
-    // Simulates the in-flight-request gap: Claude Code emits used_percentage: 0
-    // while current_usage already carries the real, higher token counts.
-    // Before this fix, hasGoodContext() required the raw used_percentage > 0
-    // to write, so this frame never refreshed the cache and it stayed frozen
-    // at 38% indefinitely while the renderer moved on to ~61%.
     applyContextWindowFallback(stdin, makeDeps(tempHome, 1_100_000));
 
-    // The live frame must not be mutated by the cache write.
     assert.equal(stdin.context_window.used_percentage, 0);
     assert.equal(stdin.context_window.remaining_percentage, 100);
 
