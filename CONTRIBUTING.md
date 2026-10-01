@@ -16,74 +16,22 @@ We will not take:
 - OS disk or other system gauges. Use `extra-cmd`.
 - A HUD-side guess for advisor or multi-iteration context double-count, or for local models that omit `context_window`. Those need a same-invocation stdin fixture from Claude Code.
 
-## How to Contribute
-
-1) Fork and clone the repo
-2) Create a branch
-3) Make your changes
-4) Run tests and update docs if needed
-5) Open a pull request
-
 ## Development
 
 ```bash
 npm ci
-npm run build
 npm test
 ```
 
-## Tests
-
 `npm test` builds and runs Node's test runner. `tests/golden.test.js` runs the CLI end to end for every case in `tests/golden/cases.mjs` and compares stdout with `tests/golden/expected.txt`. When a change is meant to alter output, run `npm run test:update-snapshots` and check the diff to `expected.txt` before committing it. Keep tests deterministic: pin the clock and use temp directories.
-
-## Code Style
-
-- Keep changes focused and small.
-- Prefer tests for behavior changes.
-- Avoid introducing dependencies unless necessary.
-
-## Build Process
-
-**Important**: PRs should only modify files in `src/` — do not include changes to `dist/`.
-
-CI automatically builds and commits `dist/` after your PR is merged. This keeps PRs focused on source code and makes review easier.
-
-```
-Your PR: src/ changes only → Merge → CI builds dist/ → Committed automatically
-```
 
 ## Pull Requests
 
-- Describe the problem and the fix.
-- Include tests or explain why they are not needed.
-- Link issues when relevant.
-- Only modify `src/` files — CI handles `dist/` automatically.
+- Keep changes focused, and describe the problem and the fix.
+- Add tests for behavior changes, or explain why they aren't needed.
+- Treat any text from stdin, the transcript, git, or config as untrusted: sanitize it before it reaches the terminal.
+- Add a row to both `README.md` and `README.zh.md` for any new config key.
+- Don't include `dist/`. CI builds and commits it after merge.
+- Avoid new dependencies.
 
-## Releasing New Versions
-
-When shipping a new version:
-
-1. **Update version numbers** in all three files:
-   - `package.json` → `"version": "X.Y.Z"`
-   - `.claude-plugin/plugin.json` → `"version": "X.Y.Z"`
-   - `.claude-plugin/marketplace.json` → `"version": "X.Y.Z"`
-
-2. **Update CHANGELOG.md** with changes since last release
-
-3. **Commit and merge** — CI builds dist/ automatically
-
-### How Users Get Updates
-
-Claude Code plugins support updates through the `/plugin` interface:
-
-- **Update now** — Fetches latest from main branch, installs immediately
-- **Mark for update** — Stages update for later
-
-Claude Code compares the `version` field in `plugin.json` against the installed version. Bumping the version number (e.g., 0.0.1 → 0.0.2) allows users to see an update is available.
-
-### Version Strategy
-
-We use semantic versioning (`MAJOR.MINOR.PATCH`):
-- **PATCH** (0.0.x): Bug fixes, minor improvements
-- **MINOR** (0.x.0): New features, non-breaking changes
-- **MAJOR** (x.0.0): Breaking changes
+Releases are cut by maintainers; see [RELEASING.md](RELEASING.md).
