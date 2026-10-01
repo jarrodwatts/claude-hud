@@ -22,7 +22,6 @@ function baseContext() {
     rulesCount: 0,
     mcpCount: 0,
     hooksCount: 0,
-    sessionDuration: '',
     gitStatus: null,
     usageData: null,
     config: {
@@ -45,7 +44,6 @@ function baseContext() {
         showAgents: true,
         showTodos: true,
         mergeGroups: [['context', 'usage']],
-        autocompactBuffer: 'enabled',
         usageThreshold: 0,
         sevenDayThreshold: 80,
         environmentThreshold: 0,
@@ -312,7 +310,7 @@ test('render ignores OSC 8 hyperlink sequences when measuring line width', () =>
   ctx.config.display.showConfigCounts = false;
   ctx.config.display.showUsage = false;
   ctx.stdin.cwd = '/tmp/my-project';
-  ctx.sessionDuration = '1m';
+  ctx.stdin.cost = { ...ctx.stdin.cost, total_duration_ms: 60_000 };
   ctx.extraLabel = '\x1b]8;;file:///tmp/my-project\x1b\\linked-label\x1b]8;;\x1b\\';
 
   let lines = [];
@@ -335,7 +333,7 @@ test('render ignores BEL-terminated OSC 8 hyperlink sequences when measuring lin
   ctx.config.display.showConfigCounts = false;
   ctx.config.display.showUsage = false;
   ctx.stdin.cwd = '/tmp/my-project';
-  ctx.sessionDuration = '1m';
+  ctx.stdin.cost = { ...ctx.stdin.cost, total_duration_ms: 60_000 };
   ctx.extraLabel = '\x1b]8;;file:///tmp/my-project\x07linked-label\x1b]8;;\x07';
 
   let lines = [];

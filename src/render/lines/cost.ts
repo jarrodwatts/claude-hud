@@ -2,13 +2,15 @@ import type { RenderContext } from '../../types.js';
 import { formatUsd } from '../../cost.js';
 import { t } from '../../i18n/index.js';
 import { label } from '../colors.js';
+import { sessionCostUsd } from '../derive.js';
 
 export function renderCostEstimate(ctx: RenderContext): string | null {
   const display = ctx.config?.display;
   const parts: string[] = [];
 
-  if (display?.showCost === true && ctx.costUsd !== null) {
-    parts.push(`${t('label.cost')} ${formatUsd(ctx.costUsd)}`);
+  const costUsd = display?.showCost === true ? sessionCostUsd(ctx) : null;
+  if (costUsd !== null) {
+    parts.push(`${t('label.cost')} ${formatUsd(costUsd)}`);
   }
   if (display?.showDailyCost === true && ctx.costTotals) {
     parts.push(`${t('label.today')} ${formatUsd(ctx.costTotals.todayUsd)}`);

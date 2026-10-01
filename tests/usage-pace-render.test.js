@@ -63,7 +63,6 @@ function renderContext(usageData, display = {}) {
     rulesCount: 0,
     mcpCount: 0,
     hooksCount: 0,
-    sessionDuration: '',
     gitStatus: null,
     usageData,
     memoryUsage: null,

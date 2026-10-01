@@ -4,6 +4,17 @@ All notable changes to Claude HUD will be documented in this file.
 
 ## [Unreleased]
 
+### Changed
+- Require Claude Code v2.1.260 or later and read `version`, `cost`, `prompt_cache`, `session_name`, `output_style`, and `workspace.repo` from its stdin instead of deriving them.
+- The prompt-cache expiry and hit rate come from Claude Code's `prompt_cache`, so the expiry no longer reads `expired` while the cache is warm.
+- `display.showCost` shows Claude Code's own cost; the local pricing-table estimate is removed.
+- Context percentage always follows Claude Code's `used_percentage`, falling back to the last request's size in the transcript when Claude Code reports none. `display.autocompactBuffer` and `display.promptCacheTtlSeconds` no longer exist.
+- Session duration is Claude Code's running time for the session.
+- The default HUD no longer parses the transcript, runs `claude --version`, or writes a context cache on each render.
+
+### Security
+- Sanitize the output style before display; it was read from project settings and rendered raw.
+
 ## [0.9.0] - 2026-10-01
 
 ### Added

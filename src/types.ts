@@ -1,7 +1,6 @@
 import type { HudConfig } from './config.js';
 import type { GitRepoIdentity, GitStatus } from './git.js';
 import type { AuthInfo } from './auth.js';
-import type { ContextUsage } from './stdin.js';
 import type { CostTotals } from './daily-cost.js';
 
 // The statusline payload Claude Code writes to stdin (code.claude.com/docs/en/statusline).
@@ -188,16 +187,10 @@ export interface TranscriptData {
 export interface RenderContext {
   stdin: StdinData;
   transcript: TranscriptData;
-  context: ContextUsage;
   claudeMdCount: number;
   rulesCount: number;
   mcpCount: number;
   hooksCount: number;
-  sessionDuration: string;
-  sessionName?: string;
-  outputStyle?: string;
-  claudeCodeVersion?: string;
-  costUsd: number | null;
   costTotals: CostTotals | null;
   outputSpeed: number | null;
   gitStatus: GitStatus | null;
@@ -205,7 +198,5 @@ export interface RenderContext {
   memoryUsage: MemoryInfo | null;
   config: HudConfig;
   extraLabel: string | null;
-  effortLevel?: string;
-  effortSymbol?: string;
   authInfo?: AuthInfo | null;
 }

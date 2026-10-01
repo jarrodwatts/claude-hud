@@ -15,7 +15,6 @@ const UNSAFE_CONFIG_KEYS = new Set(['__proto__', 'prototype', 'constructor']);
 const LANGUAGES = ['en', 'zh', 'zh-Hans', 'zh-Hant', 'zh-TW'] as const satisfies readonly Language[];
 const LINE_LAYOUTS = ['compact', 'expanded'] as const;
 const PATH_LEVELS = [1, 2, 3, 'full'] as const;
-const AUTOCOMPACT_BUFFER_MODES = ['enabled', 'disabled'] as const;
 const CONTEXT_VALUE_MODES = ['percent', 'tokens', 'remaining', 'both'] as const;
 const USAGE_VALUE_MODES = ['percent', 'remaining'] as const;
 const GIT_BRANCH_OVERFLOW_MODES = ['truncate', 'wrap'] as const;
@@ -62,7 +61,6 @@ const FIRST_LINE_SEGMENTS = [
 
 export type LineLayoutType = typeof LINE_LAYOUTS[number];
 export type PathLevels = typeof PATH_LEVELS[number];
-export type AutocompactBufferMode = typeof AUTOCOMPACT_BUFFER_MODES[number];
 export type ContextValueMode = typeof CONTEXT_VALUE_MODES[number];
 export type UsageValueMode = typeof USAGE_VALUE_MODES[number];
 export type GitBranchOverflowMode = typeof GIT_BRANCH_OVERFLOW_MODES[number];
@@ -165,7 +163,6 @@ export interface HudConfig {
     effortFormat: EffortFormatMode;
     showMemoryUsage: boolean;
     showPromptCache: boolean;
-    promptCacheTtlSeconds: number;
     showCacheHitRate: boolean;
     showSessionTokens: boolean;
     showOutputStyle: boolean;
@@ -175,7 +172,6 @@ export interface HudConfig {
     mergeGroups: HudElement[][];
     // Elements pushed to the right edge of a merged line, when it fits and the width is known.
     rightAlign: HudElement[];
-    autocompactBuffer: AutocompactBufferMode;
     contextWarningThreshold: number;
     contextCriticalThreshold: number;
     usageThreshold: number;
@@ -265,7 +261,6 @@ export const DEFAULT_CONFIG: HudConfig = {
     effortFormat: 'full',
     showMemoryUsage: false,
     showPromptCache: false,
-    promptCacheTtlSeconds: 300,
     showCacheHitRate: false,
     showSessionTokens: false,
     showOutputStyle: false,
@@ -274,7 +269,6 @@ export const DEFAULT_CONFIG: HudConfig = {
     showCompactions: false,
     mergeGroups: DEFAULT_MERGE_GROUPS.map(group => [...group]),
     rightAlign: [],
-    autocompactBuffer: 'enabled',
     contextWarningThreshold: 70,
     contextCriticalThreshold: 85,
     usageThreshold: 0,
@@ -408,10 +402,8 @@ const RULES: Record<string, Rule> = {
   'display.skillsMaxVisible': count,
   'display.authUserLength': count,
   'display.effortFormat': oneOf(EFFORT_FORMATS),
-  'display.promptCacheTtlSeconds': (value, fallback) => (isNumber(value) && value > 0 ? Math.floor(value) : fallback),
   'display.mergeGroups': mergeGroups,
   'display.rightAlign': names(ELEMENTS, false),
-  'display.autocompactBuffer': oneOf(AUTOCOMPACT_BUFFER_MODES),
   'display.contextWarningThreshold': clamp(0, 100),
   'display.contextCriticalThreshold': clamp(0, 100),
   'display.usageThreshold': clamp(0, 100),

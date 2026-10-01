@@ -7,12 +7,14 @@ import {
   type ProgressLabelInput,
 } from "./label-align.js";
 import { formatTokens, formatContextValue } from "../../utils/format.js";
+import { contextUsage } from '../derive.js';
 
 export function renderIdentityLine(
   ctx: RenderContext,
   labelOptions: ProgressLabelInput = {},
 ): string {
-  const percent = ctx.context.percent;
+  const context = contextUsage(ctx);
+  const percent = context.percent;
   const colors = ctx.config?.colors;
 
   const display = ctx.config?.display;
@@ -21,7 +23,7 @@ export function renderIdentityLine(
     critical: display?.contextCriticalThreshold,
   };
   const contextValueMode = display?.contextValue ?? "percent";
-  const contextValue = formatContextValue(ctx.context, contextValueMode);
+  const contextValue = formatContextValue(context, contextValueMode);
   const contextValueDisplay = `${getContextColor(percent, colors, contextThresholds)}${contextValue}${RESET}`;
 
   let line =

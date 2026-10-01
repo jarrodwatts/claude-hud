@@ -38,8 +38,7 @@ function stripAnsi(str) {
  * The prompt cache value for an anchor and TTL, derived rather than hardcoded so
  * the assertion holds in any timezone or locale.
  */
-function expectedCacheExpiry(anchorAt, ttlSeconds) {
-  const expiresAt = new Date(anchorAt.getTime() + ttlSeconds * 1000);
+function expectedCacheExpiry(expiresAt) {
   return `Cache ⏱ until ${expiresAt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
 }
 
@@ -61,7 +60,6 @@ function baseContext() {
     rulesCount: 0,
     mcpCount: 0,
     hooksCount: 0,
-    sessionDuration: '',
     gitStatus: null,
     usageData: null,
     memoryUsage: null,
@@ -72,7 +70,7 @@ function baseContext() {
       elementOrder: ['project', 'context', 'usage', 'promptCache', 'memory', 'environment', 'tools', 'skills', 'mcp', 'agents', 'todos'],
       gitStatus: { enabled: true, showDirty: true, showAheadBehind: false, showFileStats: false, branchOverflow: 'truncate', pushWarningThreshold: 0, pushCriticalThreshold: 0 },
       jjStatus: { enabled: true, showDirty: true, showConflicts: true },
-      display: { showModel: true, showProject: true, showContextBar: true, contextValue: 'percent', showConfigCounts: true, showCost: false, showDuration: true, showSpeed: false, showTokenBreakdown: true, showUsage: true, usageValue: 'percent', usageBarEnabled: false, showResetLabel: true, showTools: true, showSkills: false, showMcp: false, showAgents: true, showTodos: true, showSessionTokens: false, showSessionName: false, showClaudeCodeVersion: false, showMemoryUsage: false, showPromptCache: false, showOutputStyle: false, mergeGroups: [['context', 'usage']], autocompactBuffer: 'enabled', usageThreshold: 0, sevenDayThreshold: 80, environmentThreshold: 0, customLine: '' },
+      display: { showModel: true, showProject: true, showContextBar: true, contextValue: 'percent', showConfigCounts: true, showCost: false, showDuration: true, showSpeed: false, showTokenBreakdown: true, showUsage: true, usageValue: 'percent', usageBarEnabled: false, showResetLabel: true, showTools: true, showSkills: false, showMcp: false, showAgents: true, showTodos: true, showSessionTokens: false, showSessionName: false, showClaudeCodeVersion: false, showMemoryUsage: false, showPromptCache: false, showOutputStyle: false, mergeGroups: [['context', 'usage']], usageThreshold: 0, sevenDayThreshold: 80, environmentThreshold: 0, customLine: '' },
       colors: {
         context: 'green',
         usage: 'brightBlue',
@@ -159,8 +157,7 @@ async function withDeterministicSpeedCache(fn) {
 
 test('renderSessionLine adds token breakdown when context is high', () => {
   const ctx = baseContext();
-  // For 90%: (tokens + 33000) / 200000 = 0.9 → tokens = 147000
-  ctx.stdin.context_window.current_usage.input_tokens = 147000;
+  ctx.stdin.context_window.current_usage.input_tokens = 180000;
   const line = renderSessionLine(ctx);
   assert.ok(line.includes('in:'), 'expected token breakdown');
   assert.ok(line.includes('cache:'), 'expected cache breakdown');
@@ -169,8 +166,7 @@ test('renderSessionLine adds token breakdown when context is high', () => {
 test('renderSessionLine token breakdown honours contextCriticalThreshold', () => {
   const ctx = baseContext();
   ctx.config.display.contextCriticalThreshold = 50;
-  // For 55%: (tokens + 33000) / 200000 = 0.55 → tokens = 77000
-  ctx.stdin.context_window.current_usage.input_tokens = 77000;
+  ctx.stdin.context_window.current_usage.input_tokens = 110000;
   const line = renderSessionLine(ctx);
   assert.ok(line.includes('in:'), 'expected token breakdown at 55% when critical threshold is 50');
 });
@@ -203,8 +199,7 @@ test('renderSessionLine token display uses autoCompactWindow as denominator when
 test('renderIdentityLine token breakdown honours contextCriticalThreshold', () => {
   const ctx = baseContext();
   ctx.config.display.contextCriticalThreshold = 50;
-  // For 55%: (tokens + 33000) / 200000 = 0.55 → tokens = 77000
-  ctx.stdin.context_window.current_usage.input_tokens = 77000;
+  ctx.stdin.context_window.current_usage.input_tokens = 110000;
   const line = renderIdentityLine(ctx);
   assert.ok(line.includes('in:'), 'expected token breakdown at 55% when critical threshold is 50');
 });
@@ -220,15 +215,13 @@ test('renderIdentityLine suppresses token breakdown below raised contextCritical
 
 test('renderSessionLine includes duration and formats large tokens', () => {
   const ctx = baseContext();
-  ctx.sessionDuration = '1m';
-  // Use 1M context, need 85%+ to show breakdown
-  // For 85%: (tokens + 165000) / 1000000 = 0.85 → tokens = 685000
+  ctx.stdin.cost = { ...ctx.stdin.cost, total_duration_ms: 60_000 };
   ctx.stdin.context_window.context_window_size = 1000000;
-  ctx.stdin.context_window.current_usage.input_tokens = 685000;
+  ctx.stdin.context_window.current_usage.input_tokens = 850000;
   ctx.stdin.context_window.current_usage.cache_read_input_tokens = 1500;
   const line = renderSessionLine(ctx);
   assert.ok(line.includes('⏱️'));
-  assert.ok(line.includes('685k') || line.includes('685.0k'), 'expected large input token display');
+  assert.ok(line.includes('850k'), 'expected large input token display');
   assert.ok(line.includes('2k'), 'expected cache token display');
 });
 
@@ -247,10 +240,9 @@ test('renderSessionLine includes session time when enabled in compact layout', (
 
 test('renderSessionLine handles missing input tokens and cache creation usage', () => {
   const ctx = baseContext();
-  // For 90%: (tokens + 33000) / 200000 = 0.9 → tokens = 147000 (all from cache)
   ctx.stdin.context_window.context_window_size = 200000;
   ctx.stdin.context_window.current_usage = {
-    cache_creation_input_tokens: 147000,
+    cache_creation_input_tokens: 180000,
   };
   const line = renderSessionLine(ctx);
   assert.ok(line.includes('90%'));
@@ -259,10 +251,9 @@ test('renderSessionLine handles missing input tokens and cache creation usage', 
 
 test('renderSessionLine handles missing cache token fields', () => {
   const ctx = baseContext();
-  // For 90%: (tokens + 33000) / 200000 = 0.9 → tokens = 147000
   ctx.stdin.context_window.context_window_size = 200000;
   ctx.stdin.context_window.current_usage = {
-    input_tokens: 147000,
+    input_tokens: 180000,
   };
   const line = renderSessionLine(ctx);
   assert.ok(line.includes('cache: 0'));
@@ -426,8 +417,7 @@ test('renderSessionLine supports remaining-based context display', () => {
   ctx.stdin.context_window.context_window_size = 200000;
   ctx.stdin.context_window.current_usage.input_tokens = 12345;
   const line = renderSessionLine(ctx);
-  // 12345/200k = 6.17% raw, scale ≈ 0.026, buffer ≈ 858 → 7% buffered → 93% remaining
-  assert.ok(line.includes('93%'), 'should include remaining percentage');
+  assert.ok(line.includes('94%'), 'should include remaining percentage');
 });
 
 test('renderSessionLine supports combined context display', () => {
@@ -436,7 +426,7 @@ test('renderSessionLine supports combined context display', () => {
   ctx.stdin.context_window.context_window_size = 200000;
   ctx.stdin.context_window.current_usage.input_tokens = 12345;
   const line = renderSessionLine(ctx);
-  assert.ok(line.includes('7% (12k/200k)'), 'should include percentage and token counts');
+  assert.ok(line.includes('6% (12k/200k)'), 'should include percentage and token counts');
 });
 
 test('render expanded layout supports remaining-based context display', () => {
@@ -455,8 +445,7 @@ test('render expanded layout supports remaining-based context display', () => {
     console.log = originalLog;
   }
 
-  // 12345/200k = 6.17% raw, scale ≈ 0.026, buffer ≈ 858 → 7% buffered → 93% remaining
-  assert.ok(logs.some(line => line.includes('Context') && line.includes('93%')), 'expected remaining percentage on context line');
+  assert.ok(logs.some(line => line.includes('Context') && line.includes('94%')), 'expected remaining percentage on context line');
 });
 
 test('render expanded layout supports combined context display', () => {
@@ -476,7 +465,7 @@ test('render expanded layout supports combined context display', () => {
   }
 
   assert.ok(
-    logs.some(line => line.includes('Context') && line.includes('7% (12k/200k)')),
+    logs.some(line => line.includes('Context') && line.includes('6% (12k/200k)')),
     'expected combined percentage and token counts on context line'
   );
 });
@@ -485,11 +474,11 @@ test('render expanded layout includes prompt cache as its own opt-in element', (
   const ctx = baseContext();
   ctx.config.lineLayout = 'expanded';
   ctx.config.display.showPromptCache = true;
-  ctx.transcript.promptCacheAnchorAt = new Date(Date.now() - 45_000);
+  const expiresAt = new Date(Date.now() + 255_000);
+  ctx.stdin.prompt_cache = { caching_observed: true, warm: true, ttl: '5m', expires_at: expiresAt.getTime() / 1000 };
 
-  const expected = expectedCacheExpiry(ctx.transcript.promptCacheAnchorAt, 300);
   const lines = captureRenderLines(ctx);
-  assert.ok(lines.some(line => line.includes(expected)), `should render prompt cache line, got: ${lines.join(' | ')}`);
+  assert.ok(lines.some(line => line.includes(expectedCacheExpiry(expiresAt))), `should render prompt cache line, got: ${lines.join(' | ')}`);
 });
 
 test('renderSessionLine omits project name when cwd is undefined', () => {
@@ -502,7 +491,7 @@ test('renderSessionLine omits project name when cwd is undefined', () => {
 test('renderSessionLine includes session name when showSessionName is true', () => {
   const ctx = baseContext();
   ctx.stdin.cwd = '/tmp/my-project';
-  ctx.transcript.sessionName = 'Renamed Session';
+  ctx.stdin.session_name = 'Renamed Session';
   ctx.config.display.showSessionName = true;
   const line = renderSessionLine(ctx);
   assert.ok(line.includes('Renamed Session'));
@@ -512,7 +501,7 @@ test('renderSessionLine includes Claude Code version when enabled', () => {
   const ctx = baseContext();
   ctx.stdin.cwd = '/tmp/my-project';
   ctx.config.display.showClaudeCodeVersion = true;
-  ctx.claudeCodeVersion = '2.1.81';
+  ctx.stdin.version = '2.1.81';
   const line = stripAnsi(renderSessionLine(ctx));
   assert.ok(line.includes('CC v2.1.81'));
 });
@@ -528,17 +517,17 @@ test('renderPromptCacheLine returns null when disabled or missing transcript dat
 test('renderSessionLine includes the prompt cache expiry when enabled', () => {
   const ctx = baseContext();
   ctx.config.display.showPromptCache = true;
-  ctx.transcript.promptCacheAnchorAt = new Date(Date.now() - 30_000);
+  const expiresAt = new Date(Date.now() + 270_000);
+  ctx.stdin.prompt_cache = { caching_observed: true, warm: true, ttl: '5m', expires_at: expiresAt.getTime() / 1000 };
 
-  const expected = expectedCacheExpiry(ctx.transcript.promptCacheAnchorAt, 300);
   const line = stripAnsi(renderSessionLine(ctx));
-  assert.ok(line.includes(expected), `should include prompt cache expiry, got: ${line}`);
+  assert.ok(line.includes(expectedCacheExpiry(expiresAt)), `should include prompt cache expiry, got: ${line}`);
 });
 
 test('renderSessionLine hides session name by default', () => {
   const ctx = baseContext();
   ctx.stdin.cwd = '/tmp/my-project';
-  ctx.transcript.sessionName = 'Renamed Session';
+  ctx.stdin.session_name = 'Renamed Session';
   const line = renderSessionLine(ctx);
   assert.ok(!line.includes('Renamed Session'));
 });
@@ -636,7 +625,7 @@ test('project paths strip terminal escapes and bidi overrides in both layouts', 
 test('renderProjectLine includes session name when showSessionName is true', () => {
   const ctx = baseContext();
   ctx.stdin.cwd = '/tmp/my-project';
-  ctx.transcript.sessionName = 'Renamed Session';
+  ctx.stdin.session_name = 'Renamed Session';
   ctx.config.display.showSessionName = true;
   const line = renderProjectLine(ctx);
   assert.ok(line?.includes('Renamed Session'));
@@ -646,7 +635,7 @@ test('renderProjectLine includes Claude Code version when enabled', () => {
   const ctx = baseContext();
   ctx.stdin.cwd = '/tmp/my-project';
   ctx.config.display.showClaudeCodeVersion = true;
-  ctx.claudeCodeVersion = '2.1.81';
+  ctx.stdin.version = '2.1.81';
   const line = stripAnsi(renderProjectLine(ctx));
   assert.ok(line.includes('CC v2.1.81'));
 });
@@ -831,7 +820,7 @@ test('renderProjectLine omits extraLabel when null', () => {
 test('renderProjectLine hides session name by default', () => {
   const ctx = baseContext();
   ctx.stdin.cwd = '/tmp/my-project';
-  ctx.transcript.sessionName = 'Renamed Session';
+  ctx.stdin.session_name = 'Renamed Session';
   const line = renderProjectLine(ctx);
   assert.ok(!line?.includes('Renamed Session'));
 });
@@ -991,8 +980,8 @@ test('renderProjectLine keeps effort attached to the model before a trailing pro
     const ctx = baseContext();
     ctx.config.lineLayout = 'expanded';
     ctx.stdin.model = { display_name: 'Claude Opus 4.6' };
-    ctx.effortLevel = 'xhigh';
-    ctx.effortSymbol = '◕';
+    ctx.stdin.effort = { level: 'xhigh' };
+    ctx.config.display.showEffortLevel = true;
 
     const line = stripAnsi(renderProjectLine(ctx) ?? '');
     assert.ok(line.includes('[Claude Opus 4.6 ◕ xhigh | Bedrock]'), `got: ${line}`);
@@ -1008,8 +997,8 @@ test('renderSessionLine keeps effort attached to the model before a trailing pro
     const ctx = baseContext();
     ctx.config.lineLayout = 'compact';
     ctx.stdin.model = { display_name: 'Claude Opus 4.6' };
-    ctx.effortLevel = 'xhigh';
-    ctx.effortSymbol = '◕';
+    ctx.stdin.effort = { level: 'xhigh' };
+    ctx.config.display.showEffortLevel = true;
 
     const line = stripAnsi(renderSessionLine(ctx));
     assert.ok(line.includes('[Claude Opus 4.6 ◕ xhigh | Bedrock]'), `got: ${line}`);
@@ -1022,8 +1011,9 @@ test('renderSessionLine keeps effort attached to the model before a trailing pro
 test('renderProjectLine appends the effort label after the model when no provider is shown', () => {
   const ctx = baseContext();
   ctx.stdin.model = { display_name: 'Claude Opus 4.6' };
-  ctx.effortLevel = 'ultracode(xhigh)';
-  ctx.effortSymbol = '◕';
+  ctx.stdin.effort = { level: 'xhigh' };
+  ctx.transcript.ultracodeActive = true;
+  ctx.config.display.showEffortLevel = true;
   const line = stripAnsi(renderProjectLine(ctx) ?? '');
   assert.ok(line.includes('[Claude Opus 4.6 ◕ ultracode(xhigh)]'), `got: ${line}`);
 });
@@ -1033,8 +1023,9 @@ test('renderProjectLine keeps the effort label inside the model core with a cust
   ctx.stdin.model = { display_name: 'Claude Opus 4.6' };
   ctx.config.display.showProvider = true;
   ctx.config.display.providerName = 'MyProxy';
-  ctx.effortLevel = 'ultracode(xhigh)';
-  ctx.effortSymbol = '◕';
+  ctx.stdin.effort = { level: 'xhigh' };
+  ctx.transcript.ultracodeActive = true;
+  ctx.config.display.showEffortLevel = true;
   const line = stripAnsi(renderProjectLine(ctx) ?? '');
   assert.ok(line.includes('[MyProxy | Claude Opus 4.6 ◕ ultracode(xhigh)]'), `got: ${line}`);
 });
@@ -1044,8 +1035,9 @@ test('renderProjectLine keeps ultracode effort attached to the model before a tr
   try {
     const ctx = baseContext();
     ctx.stdin.model = { display_name: 'Claude Opus 4.6' };
-    ctx.effortLevel = 'ultracode(xhigh)';
-    ctx.effortSymbol = '◕';
+    ctx.stdin.effort = { level: 'xhigh' };
+    ctx.transcript.ultracodeActive = true;
+    ctx.config.display.showEffortLevel = true;
     const line = stripAnsi(renderProjectLine(ctx) ?? '');
     assert.ok(line.includes('[Claude Opus 4.6 ◕ ultracode(xhigh) | Bedrock]'), `got: ${line}`);
     assert.ok(!line.includes('Bedrock ◕ ultracode'), `effort must not attach to provider: ${line}`);
@@ -1059,8 +1051,9 @@ test('renderSessionLine composes the effort label with a custom provider (compac
   ctx.stdin.model = { display_name: 'Claude Opus 4.6' };
   ctx.config.display.showProvider = true;
   ctx.config.display.providerName = 'MyProxy';
-  ctx.effortLevel = 'ultracode(xhigh)';
-  ctx.effortSymbol = '◕';
+  ctx.stdin.effort = { level: 'xhigh' };
+  ctx.transcript.ultracodeActive = true;
+  ctx.config.display.showEffortLevel = true;
   const line = stripAnsi(renderSessionLine(ctx));
   assert.ok(line.includes('[MyProxy | Claude Opus 4.6 ◕ ultracode(xhigh)]'), `got: ${line}`);
 });
@@ -1069,8 +1062,8 @@ test('renderProjectLine renders only the effort symbol when effortFormat is symb
   const ctx = baseContext();
   ctx.stdin.model = { display_name: 'Claude Opus 4.6' };
   ctx.config.display.effortFormat = 'symbol';
-  ctx.effortLevel = 'high';
-  ctx.effortSymbol = '◑';
+  ctx.stdin.effort = { level: 'high' };
+  ctx.config.display.showEffortLevel = true;
   const line = stripAnsi(renderProjectLine(ctx) ?? '');
   assert.ok(line.includes('[Claude Opus 4.6 ◑]'), `got: ${line}`);
   assert.ok(!line.includes('high'), `level text must be dropped: ${line}`);
@@ -1080,8 +1073,8 @@ test('renderProjectLine renders only the effort level when effortFormat is text'
   const ctx = baseContext();
   ctx.stdin.model = { display_name: 'Claude Opus 4.6' };
   ctx.config.display.effortFormat = 'text';
-  ctx.effortLevel = 'high';
-  ctx.effortSymbol = '◑';
+  ctx.stdin.effort = { level: 'high' };
+  ctx.config.display.showEffortLevel = true;
   const line = stripAnsi(renderProjectLine(ctx) ?? '');
   assert.ok(line.includes('[Claude Opus 4.6 high]'), `got: ${line}`);
   assert.ok(!line.includes('◑'), `symbol must be dropped: ${line}`);
@@ -1091,8 +1084,8 @@ test('renderProjectLine keeps full effort output when effortFormat is full', () 
   const ctx = baseContext();
   ctx.stdin.model = { display_name: 'Claude Opus 4.6' };
   ctx.config.display.effortFormat = 'full';
-  ctx.effortLevel = 'high';
-  ctx.effortSymbol = '◑';
+  ctx.stdin.effort = { level: 'high' };
+  ctx.config.display.showEffortLevel = true;
   const line = stripAnsi(renderProjectLine(ctx) ?? '');
   assert.ok(line.includes('[Claude Opus 4.6 ◑ high]'), `got: ${line}`);
 });
@@ -1101,8 +1094,9 @@ test('renderProjectLine keeps the full ultracode label under effortFormat symbol
   const ctx = baseContext();
   ctx.stdin.model = { display_name: 'Claude Opus 4.6' };
   ctx.config.display.effortFormat = 'symbol';
-  ctx.effortLevel = 'ultracode(xhigh)';
-  ctx.effortSymbol = '◕';
+  ctx.stdin.effort = { level: 'xhigh' };
+  ctx.transcript.ultracodeActive = true;
+  ctx.config.display.showEffortLevel = true;
   const line = stripAnsi(renderProjectLine(ctx) ?? '');
   assert.ok(line.includes('[Claude Opus 4.6 ◕ ultracode(xhigh)]'), `got: ${line}`);
 });
@@ -1111,8 +1105,8 @@ test('renderProjectLine falls back to the level text under effortFormat symbol w
   const ctx = baseContext();
   ctx.stdin.model = { display_name: 'Claude Opus 4.6' };
   ctx.config.display.effortFormat = 'symbol';
-  ctx.effortLevel = 'unknown';
-  ctx.effortSymbol = '';
+  ctx.stdin.effort = { level: 'unknown' };
+  ctx.config.display.showEffortLevel = true;
   const line = stripAnsi(renderProjectLine(ctx) ?? '');
   assert.ok(line.includes('[Claude Opus 4.6 unknown]'), `got: ${line}`);
 });
@@ -1122,8 +1116,8 @@ test('renderSessionLine renders only the effort symbol when effortFormat is symb
   ctx.config.lineLayout = 'compact';
   ctx.stdin.model = { display_name: 'Claude Opus 4.6' };
   ctx.config.display.effortFormat = 'symbol';
-  ctx.effortLevel = 'high';
-  ctx.effortSymbol = '◑';
+  ctx.stdin.effort = { level: 'high' };
+  ctx.config.display.showEffortLevel = true;
   const line = stripAnsi(renderSessionLine(ctx));
   assert.ok(line.includes('[Claude Opus 4.6 ◑]'), `got: ${line}`);
   assert.ok(!line.includes('high'), `level text must be dropped: ${line}`);
@@ -1201,7 +1195,7 @@ test('label color overrides apply across shared secondary text surfaces', () => 
 
 test('renderEnvironmentLine shows output style when enabled', () => {
   const ctx = baseContext();
-  ctx.outputStyle = 'tech-leader';
+  ctx.stdin.output_style = { name: 'tech-leader' };
   ctx.config.display.showConfigCounts = false;
   ctx.config.display.showOutputStyle = true;
 
@@ -1211,7 +1205,7 @@ test('renderEnvironmentLine shows output style when enabled', () => {
 test('renderEnvironmentLine appends output style after config counts', () => {
   const ctx = baseContext();
   ctx.claudeMdCount = 1;
-  ctx.outputStyle = 'learning';
+  ctx.stdin.output_style = { name: 'learning' };
   ctx.config.display.showOutputStyle = true;
 
   const line = renderEnvironmentLine(ctx);
@@ -1314,9 +1308,9 @@ test('renderProjectLine includes duration when showDuration is true', () => {
   const ctx = baseContext();
   ctx.stdin.cwd = '/tmp/my-project';
   ctx.config.display.showDuration = true;
-  ctx.sessionDuration = '12m 34s';
+  ctx.stdin.cost = { ...ctx.stdin.cost, total_duration_ms: 754_000 };
   const line = renderProjectLine(ctx);
-  assert.ok(line?.includes('12m 34s'), 'should include session duration');
+  assert.ok(line?.includes('12m'), 'should include session duration');
 });
 
 test('renderSessionLine shows native cost when stdin cost.total_cost_usd is available', () => {
@@ -1328,29 +1322,13 @@ test('renderSessionLine shows native cost when stdin cost.total_cost_usd is avai
   assert.ok(line.includes('Cost $5.47'));
 });
 
-test('renderSessionLine shows the daily cost when showDailyCost is enabled', async () => {
-  const configDir = await mkdtemp(path.join(tmpdir(), 'claude-hud-daily-render-'));
-  const originalConfigDir = process.env.CLAUDE_CONFIG_DIR;
-  process.env.CLAUDE_CONFIG_DIR = configDir;
-  try {
-    const ctx = baseContext();
-    ctx.config.display.showDailyCost = true;
-    ctx.stdin.session_id = 'render-test-session';
-    ctx.stdin.cost = { total_cost_usd: 2.0 };
+test('renderSessionLine shows the daily cost when showDailyCost is enabled', () => {
+  const ctx = baseContext();
+  ctx.config.display.showDailyCost = true;
+  ctx.costTotals = { todayUsd: 1.25, weekUsd: null };
 
-    // First render seeds the baseline, second render accrues the increment.
-    renderSessionLine(ctx);
-    ctx.stdin.cost = { total_cost_usd: 3.25 };
-    const line = stripAnsi(renderSessionLine(ctx));
-    assert.ok(line.includes('Today $1.25'), `expected daily cost, got: ${line}`);
-  } finally {
-    if (originalConfigDir === undefined) {
-      delete process.env.CLAUDE_CONFIG_DIR;
-    } else {
-      process.env.CLAUDE_CONFIG_DIR = originalConfigDir;
-    }
-    await rm(configDir, { recursive: true, force: true });
-  }
+  const line = stripAnsi(renderSessionLine(ctx));
+  assert.ok(line.includes('Today $1.25'), `expected daily cost, got: ${line}`);
 });
 
 test('renderSessionLine keeps the daily cost hidden by default', () => {
@@ -1362,22 +1340,6 @@ test('renderSessionLine keeps the daily cost hidden by default', () => {
   const line = stripAnsi(renderSessionLine(ctx));
   assert.ok(line.includes('Cost $5.47'));
   assert.ok(!line.includes('Today'), `daily cost must remain opt-in: ${line}`);
-});
-
-test('renderProjectLine falls back to an estimate when native cost is absent', () => {
-  const ctx = baseContext();
-  ctx.stdin.cwd = '/tmp/my-project';
-  ctx.config.display.showCost = true;
-  ctx.stdin.model = { display_name: 'Claude Opus 4.5' };
-  ctx.transcript.sessionTokens = {
-    inputTokens: 100000,
-    cacheCreationTokens: 10000,
-    cacheReadTokens: 20000,
-    outputTokens: 50000,
-  };
-
-  const line = stripAnsi(renderProjectLine(ctx));
-  assert.ok(line.includes('Est. $1.82'), `expected fallback estimate, got: ${line}`);
 });
 
 test('renderProjectLine hides cost for provider-routed sessions', () => {
@@ -1400,24 +1362,6 @@ test('renderProjectLine hides cost for provider-routed sessions', () => {
   } finally {
     delete process.env.CLAUDE_CODE_USE_BEDROCK;
   }
-});
-
-test('renderProjectLine shows the estimate for provider-routed sessions when showRoutedCost is on', () => {
-  const ctx = baseContext();
-  ctx.stdin.cwd = '/tmp/my-project';
-  ctx.stdin.model = { id: 'anthropic.claude-sonnet-4-20250514-v1:0' };
-  ctx.config.display.showCost = true;
-  ctx.config.display.showRoutedCost = true;
-  ctx.stdin.cost = { total_cost_usd: 0 };
-  ctx.transcript.sessionTokens = {
-    inputTokens: 100000,
-    cacheCreationTokens: 10000,
-    cacheReadTokens: 20000,
-    outputTokens: 50000,
-  };
-
-  const line = stripAnsi(renderProjectLine(ctx));
-  assert.ok(line.includes('Est. $1.09'), `expected routed estimate, got: ${line}`);
 });
 
 test('renderProjectLine shows native cost for provider-routed sessions when showRoutedCost is on', () => {
@@ -1467,42 +1411,38 @@ test('renderProjectLine omits duration when showDuration is false', () => {
   const ctx = baseContext();
   ctx.stdin.cwd = '/tmp/my-project';
   ctx.config.display.showDuration = false;
-  ctx.sessionDuration = '12m 34s';
+  ctx.stdin.cost = { ...ctx.stdin.cost, total_duration_ms: 754_000 };
   const line = renderProjectLine(ctx);
-  assert.ok(!line?.includes('12m 34s'), 'should not include session duration when disabled');
+  assert.ok(!line?.includes('12m'), 'should not include session duration when disabled');
 });
 
 test('renderProjectLine treats missing showDuration as disabled in expanded layout', () => {
   const ctx = baseContext();
   ctx.config.lineLayout = 'expanded';
   delete ctx.config.display.showDuration;
-  ctx.sessionDuration = '12m 34s';
+  ctx.stdin.cost = { ...ctx.stdin.cost, total_duration_ms: 754_000 };
 
   const line = stripAnsi(renderProjectLine(ctx) ?? '');
-  assert.ok(!line.includes('12m 34s'), `duration must remain opt-in: ${line}`);
+  assert.ok(!line.includes('12m'), `duration must remain opt-in: ${line}`);
 });
 
 test('renderSessionLine treats missing showDuration as disabled in compact layout', () => {
   const ctx = baseContext();
   ctx.config.lineLayout = 'compact';
   delete ctx.config.display.showDuration;
-  ctx.sessionDuration = '12m 34s';
+  ctx.stdin.cost = { ...ctx.stdin.cost, total_duration_ms: 754_000 };
 
   const line = stripAnsi(renderSessionLine(ctx));
-  assert.ok(!line.includes('12m 34s'), `duration must remain opt-in: ${line}`);
+  assert.ok(!line.includes('12m'), `duration must remain opt-in: ${line}`);
 });
 
-test('renderProjectLine includes speed when showSpeed is true and speed is available', async () => {
-  await withDeterministicSpeedCache(async ({ transcriptPath }) => {
-    const ctx = baseContext();
-    ctx.stdin.transcript_path = transcriptPath;
-    ctx.stdin.cwd = '/tmp/my-project';
-    ctx.stdin.context_window.current_usage.output_tokens = 2000;
-    ctx.config.display.showSpeed = true;
+test('renderProjectLine includes speed when showSpeed is true and speed is available', () => {
+  const ctx = baseContext();
+  ctx.stdin.cwd = '/tmp/my-project';
+  ctx.config.display.showSpeed = true;
+  ctx.outputSpeed = 1000;
 
-    const line = renderProjectLine(ctx);
-    assert.ok(line?.includes('out: 1000.0 tok/s'), 'should include deterministic speed');
-  });
+  assert.ok(renderProjectLine(ctx)?.includes('out: 1000.0 tok/s'));
 });
 
 test('renderProjectLine omits speed when showSpeed is false', () => {
@@ -1514,23 +1454,18 @@ test('renderProjectLine omits speed when showSpeed is false', () => {
   assert.ok(!line?.includes('tok/s'), 'should not include speed when disabled');
 });
 
-test('render expanded layout includes speed and duration on the project line', async () => {
-  await withDeterministicSpeedCache(async ({ transcriptPath }) => {
-    const ctx = baseContext();
-    ctx.stdin.transcript_path = transcriptPath;
-    ctx.config.lineLayout = 'expanded';
-    ctx.stdin.cwd = '/tmp/my-project';
-    ctx.stdin.context_window.current_usage.output_tokens = 2000;
-    ctx.config.display.showSpeed = true;
-    ctx.sessionDuration = '12m 34s';
+test('render expanded layout includes speed and duration on the project line', () => {
+  const ctx = baseContext();
+  ctx.config.lineLayout = 'expanded';
+  ctx.stdin.cwd = '/tmp/my-project';
+  ctx.config.display.showSpeed = true;
+  ctx.outputSpeed = 1000;
+  ctx.stdin.cost = { ...ctx.stdin.cost, total_duration_ms: 754_000 };
 
-    const lines = withTerminal(120, () => captureRenderLines(ctx));
-    const projectLine = lines.find(line => line.includes('my-project'));
-
-    assert.ok(projectLine, 'expected an expanded project line');
-    assert.ok(projectLine.includes('out: 1000.0 tok/s'), 'should include deterministic speed');
-    assert.ok(projectLine.includes('⏱️  12m 34s'), 'should include session duration');
-  });
+  const lines = withTerminal(120, () => captureRenderLines(ctx));
+  const projectLine = lines.find(line => line.includes('my-project'));
+  assert.ok(projectLine?.includes('out: 1000.0 tok/s'), 'should include speed');
+  assert.ok(projectLine?.includes('⏱️  12m'), 'should include session duration');
 });
 
 test('renderSessionLine omits project name when showProject is false', () => {
@@ -2530,7 +2465,7 @@ test('renderUsageLine translates labels when Chinese is enabled', () => {
   }
 });
 
-test('renderSessionLine shows Bedrock label and hides usage for bedrock model ids', () => {
+test('renderSessionLine shows the Bedrock label for bedrock model ids', () => {
   process.env.CLAUDE_CODE_USE_BEDROCK = '1';
   try {
     const ctx = baseContext();
@@ -2545,7 +2480,6 @@ test('renderSessionLine shows Bedrock label and hides usage for bedrock model id
     const line = renderSessionLine(ctx);
     assert.ok(line.includes('Sonnet'), 'should include model name');
     assert.ok(line.includes('Bedrock'), 'should include Bedrock label');
-    assert.ok(!line.includes('5h'), 'should hide usage display');
   } finally {
     delete process.env.CLAUDE_CODE_USE_BEDROCK;
   }
@@ -3141,32 +3075,10 @@ test('renderSessionLine hides usage when showUsage config is false (hybrid toggl
   assert.ok(!line.includes('Pro'), 'should not show plan name when showUsage is false');
 });
 
-test('renderSessionLine uses buffered percent when autocompactBuffer is enabled', () => {
-  const ctx = baseContext();
-  // 60000 tokens / 200000 = 30% raw, scale = (0.30 - 0.05) / (0.50 - 0.05) ≈ 0.556
-  // buffer = 200000 * 0.165 * 0.556 ≈ 18333, (60000 + 18333) / 200000 = 39.2% → 39%
-  ctx.stdin.context_window.current_usage.input_tokens = 60000;
-  ctx.config.display.autocompactBuffer = 'enabled';
-  const line = renderSessionLine(ctx);
-  // Should show 39% (buffered), not 30% (raw)
-  assert.ok(line.includes('39%'), `expected buffered percent 39%, got: ${line}`);
-});
-
-test('renderSessionLine uses raw percent when autocompactBuffer is disabled', () => {
-  const ctx = baseContext();
-  // 60000 tokens / 200000 = 30% raw
-  ctx.stdin.context_window.current_usage.input_tokens = 60000;
-  ctx.config.display.autocompactBuffer = 'disabled';
-  const line = renderSessionLine(ctx);
-  // Should show 30% (raw), not 39% (buffered)
-  assert.ok(line.includes('30%'), `expected raw percent 30%, got: ${line}`);
-});
-
 test('renderSessionLine avoids inflated startup percentage before native context data exists', () => {
   const ctx = baseContext();
   ctx.stdin.context_window.current_usage = {};
   ctx.stdin.context_window.used_percentage = null;
-  ctx.config.display.autocompactBuffer = 'enabled';
 
   const line = renderSessionLine(ctx);
 
@@ -4279,7 +4191,7 @@ test('renderProjectLine honors projectLineOrder with project before model', () =
 test('renderProjectLine orders trailing segments like sessionName ahead of the line', () => {
   const ctx = baseContext();
   ctx.stdin.cwd = '/tmp/my-project';
-  ctx.transcript.sessionName = 'Renamed Session';
+  ctx.stdin.session_name = 'Renamed Session';
   ctx.config.display.showSessionName = true;
   ctx.config.projectLineOrder = mergeConfig({ projectLineOrder: ['sessionName'] }).projectLineOrder;
   const line = stripAnsi(renderProjectLine(ctx));
@@ -4340,10 +4252,10 @@ test('renderSessionLine keeps the default compact order when projectLineOrder is
 test('renderSessionLine preserves the native compact order with all keyed segments enabled', () => {
   const ctx = baseContext();
   ctx.stdin.cwd = '/tmp/my-project';
-  ctx.transcript.sessionName = 'Renamed Session';
+  ctx.stdin.session_name = 'Renamed Session';
   ctx.transcript.advisorModel = 'claude-opus-4-7';
-  ctx.claudeCodeVersion = '2.1.9';
-  ctx.sessionDuration = '12m 34s';
+  ctx.stdin.version = '2.1.9';
+  ctx.stdin.cost = { ...ctx.stdin.cost, total_duration_ms: 754_000 };
   ctx.extraLabel = 'EXTRA';
   ctx.authInfo = { method: 'Claude Max 20x', user: null };
   ctx.config = mergeConfig({
@@ -4365,7 +4277,7 @@ test('renderSessionLine preserves the native compact order with all keyed segmen
   assert.equal(segments[2], 'Renamed Session');
   assert.equal(segments[3], 'CC v2.1.9');
   assert.equal(segments[4], 'Advisor: Opus 4.7');
-  assert.equal(segments[5], '⏱️  12m 34s');
+  assert.equal(segments[5], '⏱️  12m');
   assert.equal(segments[6], 'EXTRA');
   assert.equal(segments[7], 'Claude Max 20x');
   assert.equal(segments[8], 'TAIL');

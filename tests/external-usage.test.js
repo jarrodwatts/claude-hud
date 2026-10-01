@@ -6,7 +6,7 @@ import * as path from 'node:path';
 import { tmpdir } from 'node:os';
 import { DEFAULT_CONFIG } from '../dist/config.js';
 import { getUsageFromStdin } from '../dist/stdin.js';
-import { getUsageFromExternalSnapshot, writeExternalUsageSnapshot } from '../dist/external-usage.js';
+import { getUsageFromExternalSnapshot, resolveUsage, writeExternalUsageSnapshot } from '../dist/external-usage.js';
 
 async function withTempFile(content) {
   const dir = await mkdtemp(path.join(tmpdir(), 'claude-hud-external-usage-'));
@@ -497,6 +497,48 @@ test('getUsageFromExternalSnapshot ignores a non-array model_scoped value', asyn
     const usage = getUsageFromExternalSnapshot(makeConfig(filePath), updatedAt + 60_000);
     assert.equal(usage?.scopedWindows, undefined);
     assert.equal(usage?.fiveHour, 10);
+  } finally {
+    await cleanup();
+  }
+});
+
+test('getUsageFromExternalSnapshot bounds and clamps scoped windows', async () => {
+  const updatedAt = Date.UTC(2026, 3, 20, 12, 0, 0);
+  const { filePath, cleanup } = await withTempFile(JSON.stringify({
+    updated_at: new Date(updatedAt).toISOString(),
+    model_scoped: Array.from({ length: 12 }, (_, i) => ({ display_name: `${'x'.repeat(100)}${i}`, utilization: i === 0 ? 140 : -5 })),
+  }));
+  try {
+    const windows = getUsageFromExternalSnapshot(makeConfig(filePath), updatedAt)?.scopedWindows ?? [];
+    assert.equal(windows.length, 8);
+    assert.equal(windows[0].label.length, 64);
+    assert.deepEqual(windows.slice(0, 2).map((w) => w.percent), [100, 0]);
+  } finally {
+    await cleanup();
+  }
+});
+
+test('resolveUsage prefers stdin and fills gaps from the snapshot', async () => {
+  const updatedAt = Date.UTC(2026, 3, 20, 12, 0, 0);
+  const { filePath, cleanup } = await withTempFile(JSON.stringify({
+    updated_at: new Date(updatedAt).toISOString(),
+    five_hour: { used_percentage: 90, resets_at: null },
+    seven_day: { used_percentage: 60, resets_at: '2026-04-27T12:00:00.000Z' },
+    balance_label: '¥6.35',
+    model_scoped: [{ display_name: 'Fable', utilization: 38 }],
+  }));
+  try {
+    const config = makeConfig(filePath);
+    const fiveHourOnly = makeUsage({ sevenDay: null, sevenDayResetAt: null });
+    assert.deepEqual(resolveUsage(config, fiveHourOnly, updatedAt), {
+      ...fiveHourOnly,
+      balanceLabel: '¥6.35',
+      sevenDay: 60,
+      sevenDayResetAt: new Date('2026-04-27T12:00:00.000Z'),
+      scopedWindows: [{ label: 'Fable', percent: 38, resetAt: null }],
+    });
+    assert.equal(resolveUsage(config, null, updatedAt)?.fiveHour, 90, 'snapshot stands in when stdin has none');
+    assert.equal(resolveUsage(makeConfig(''), makeUsage(), updatedAt).balanceLabel, undefined);
   } finally {
     await cleanup();
   }

@@ -153,7 +153,7 @@ Claude Code → stdin JSON → claude-hud → stdout → 在终端中显示
 
 ### 手动配置
 
-直接编辑 `~/.claude/plugins/claude-hud/config.json` 来配置高级选项，如 `colors.*`、`pathLevels`、`maxWidth`、阈值覆盖、`display.timeFormat`、`display.hourCycle` 以及 `display.promptCacheTtlSeconds`。运行 `/claude-hud:configure` 时会保留这些手动设置，同时你仍可更改 `language`、布局和常用引导式开关。
+直接编辑 `~/.claude/plugins/claude-hud/config.json` 来配置高级选项，如 `colors.*`、`pathLevels`、`maxWidth`、阈值覆盖、`display.timeFormat` 以及 `display.hourCycle`。运行 `/claude-hud:configure` 时会保留这些手动设置，同时你仍可更改 `language`、布局和常用引导式开关。
 
 简体与繁体中文 HUD 标签均为显式 opt-in 选项。除非你在 `/claude-hud:configure` 中选择中文语言或在配置中设置 `language`，否则默认使用英文。`zh` 别名对应简体中文，`zh-TW` 对应繁体中文；引导式配置会写入规范值 `zh-Hans` 或 `zh-Hant`。
 
@@ -191,12 +191,12 @@ Claude Code → stdin JSON → claude-hud → stdout → 在终端中显示
 | `display.contextValue` | `percent` \| `tokens` \| `remaining` \| `both` | `percent` | 上下文显示格式（`45%`、`45k/200k`、剩余 `55%` 或 `45% (45k/200k)`） |
 | `display.autoCompactWindow` | number \| `null` | `null` | 设为正数（如 `200000`）时，按此自动压缩窗口而不是完整模型上下文窗口计算上下文百分比，以匹配 `/context`。留空或 `null` 保持默认全窗口行为 |
 | `display.showConfigCounts` | boolean | false | 显示 CLAUDE.md、rules、MCPs、hooks 数量 |
-| `display.showCost` | boolean | false | 使用 Claude Code 原生提供的 `cost.total_cost_usd` 显示会话费用（可用时），并附带本地估算回退方案 |
-| `display.showRoutedCost` | boolean | false | 同时为路由提供商（Bedrock/Vertex）显示费用，`showCost` 默认将其隐藏。需同时开启 `showCost`。原生 `cost.total_cost_usd` 为正值时使用它（`Cost`），否则用 token 估算（`Est.`） |
+| `display.showCost` | boolean | false | 显示 Claude Code 上报的会话费用（`cost.total_cost_usd`） |
+| `display.showRoutedCost` | boolean | false | 同时为 Bedrock 和 Vertex 会话显示费用。它们通过云服务商计费，因此 `showCost` 默认隐藏其费用。需同时开启 `showCost` |
 | `display.showDailyCost` | boolean | false | 显示当天跨会话累计花费，格式为 `Today $12.34`，从原生 `cost.total_cost_usd` 写入插件数据目录中的按日账本。本地午夜重置。与 `showCost` 独立 |
 | `display.showWeeklyCost` | boolean | false | 显示自每周额度窗口开始以来的累计花费，格式为 `Week $123.45`，与 `showDailyCost` 使用同一账本。仅订阅用户可用：需要 7 天用量窗口 |
-| `display.showOutputStyle` | boolean | false | 从配置文件显示当前 Claude Code `outputStyle`，格式为 `style: <名称>` |
-| `display.showDuration` | boolean | false | 显示会话时长 `⏱️ 5m` |
+| `display.showOutputStyle` | boolean | false | 显示当前输出风格，格式为 `style: <名称>` |
+| `display.showDuration` | boolean | false | 显示会话已运行的时长，例如 `⏱️ 5m` |
 | `display.showSpeed` | boolean | false | 显示最近一次响应的输出 Token 速度 `out: 42.1 tok/s` |
 | `display.showUsage` | boolean | true | 显示 Claude 订阅用户的使用率限制（可用时） |
 | `display.usageValue` | `percent` \| `remaining` | `percent` | 使用率显示格式（已使用 `25%`，或剩余 `75%`） |
@@ -221,7 +221,7 @@ Claude Code → stdin JSON → claude-hud → stdout → 在终端中显示
 | `display.skillsMaxVisible` | number | `4` | Skills 行在 `+N more` 之前最多显示的 Skill 名称数。`0` 表示不限制 |
 | `display.showAgents` | boolean | false | 显示 Agent 活动行 |
 | `display.showTodos` | boolean | false | 显示待办进度行 |
-| `display.showSessionName` | boolean | false | 显示会话 slug 或 `/rename` 设置的自定义标题 |
+| `display.showSessionName` | boolean | false | 显示会话名称：`/rename` 设置的名称，或 Claude Code 生成的标题 |
 | `display.showAuth` | boolean | false | 在第一行末尾显示当前登录的认证方式（订阅计划），例如 `Claude Max 20x`。来自 `~/.claude.json`（或覆盖配置目录时的 `$CLAUDE_CONFIG_DIR/.claude.json`）的 `oauthAccount`；无 OAuth 但设置了 `ANTHROPIC_API_KEY` 时显示 `API Key` |
 | `display.showAuthUser` | boolean | false | 在认证方式旁显示已登录账号（邮箱本地部分，回退到资料显示名） |
 | `display.authUserLength` | number | `8` | 账号名截断前的最大字符数，超出以 `…` 截断。`0` 显示全名 |
@@ -232,11 +232,10 @@ Claude Code → stdin JSON → claude-hud → stdout → 在终端中显示
 | `display.showCompactions` | boolean | false | 显示本会话已发生的上下文压缩次数（手动 `/compact` 或自动压缩），从 transcript 的 `compact_boundary` 记录计数，例如 `压缩次数: 2`。第一次压缩前不显示 |
 | `display.showEffortLevel` | boolean | false | 在模型徽章中显示当前推理力度。Ultracode 渲染为 `ultracode(xhigh)`，从会话 transcript 检测，因此能跟踪运行时的 `/effort` 变更 |
 | `display.effortFormat` | `full` \| `symbol` \| `text` | `full` | `showEffortLevel` 开启时的渲染方式：符号加级别文本（`◑ high`）、仅符号（`◑`）、或仅级别文本（`high`）。`symbol` 下 Ultracode 仍保持完整的 `◕ ultracode(xhigh)`，以免丢失标记；没有已知符号的级别回退到级别文本 |
-| `display.showClaudeCodeVersion` | boolean | false | 显示当前会话运行的 Claude Code 版本，如 `CC v2.1.81`。会话未上报可用版本时回退显示已安装的版本 |
+| `display.showClaudeCodeVersion` | boolean | false | 显示当前运行的 Claude Code 版本，如 `CC v2.1.81` |
 | `display.showMemoryUsage` | boolean | false | 在展开布局中显示近似系统 RAM 使用行 |
-| `display.showPromptCache` | boolean | false | 显示 prompt cache 的过期时刻，数据来自 transcript |
-| `display.promptCacheTtlSeconds` | number | `300` | 仅当 transcript 尚未报告 5 分钟或 1 小时缓存层级时使用的兼容回退值 |
-| `display.showCacheHitRate` | boolean | false | 以 `Cache hit X%` 形式显示整个会话的 prompt cache 命中率，数据来自 transcript 累积值 |
+| `display.showPromptCache` | boolean | false | 显示主会话 prompt cache 的过期时刻 |
+| `display.showCacheHitRate` | boolean | false | 以 `Cache hit X%` 形式显示本会话的 prompt cache 命中率 |
 | `colors.context` | 颜色值 | `green` | 上下文进度条和百分比的基础颜色 |
 | `colors.usage` | 颜色值 | `brightBlue` | 使用率进度条和低于警告阈值时百分比的颜色 |
 | `colors.warning` | 颜色值 | `yellow` | 上下文阈值和使用率警告文本的警告颜色 |
@@ -257,21 +256,15 @@ Claude Code → stdin JSON → claude-hud → stdout → 在终端中显示
 
 `display.showMemoryUsage` 为完全 opt-in 选项，仅在 `expanded` 布局下渲染。它报告本地机器的近似系统 RAM 使用情况，而非 Claude Code 或特定进程内的精确内存压力。由于可回收的 OS 缓存缓冲区仍可能被计入已用内存，该数字可能高估实际压力。
 
-`display.showCost` 为完全 opt-in 选项。ClaudeHUD 优先使用 Claude Code 在 stdin 上提供的原生 `cost.total_cost_usd` 字段（可用时）。如果该字段缺失或对直连 Anthropic 会话无效，ClaudeHUD 会回退到现有的基于本地转录文件的估算方案，确保费用行在旧负载下仍能工作。原生字段在会话中首个 API 响应之前为空，因此费用显示可能在响应到达前保持隐藏。对于已知的路由提供商（如 Bedrock、Vertex AI），ClaudeHUD 也会隐藏费用显示，因为云提供商计费会话可能报告 `$0.00` 或省略该字段，即使会话并非真正免费。设置 `display.showRoutedCost: true`（并同时开启 `showCost`）即可为这些提供商启用费用显示：原生 `cost.total_cost_usd` 为正值时显示为 `Cost`，否则回退到基于 Anthropic 定价表的 token 估算 `Est.`。
+`display.showCost` 为完全 opt-in 选项，显示 Claude Code 自己计算的会话费用（按标价计算，或使用你的 `modelPricing` 表）。首个响应到达前保持隐藏。Bedrock 和 Vertex 通过云服务商计费，因此除非同时设置 `display.showRoutedCost`，否则会隐藏它们的费用。
 
-官方 MiniMax Anthropic 兼容端点会显示 `MiniMax` 提供商标签。MiniMax M2.7 可使用其公开 token 和缓存价格进行本地估算；M3 的价格取决于单次请求的上下文层级，而累计会话 token 无法安全推断该层级，因此不会猜测 M3 费用。
+官方 MiniMax Anthropic 兼容端点会显示 `MiniMax` 提供商标签。
 
-`display.showPromptCache` 为完全 opt-in 选项。启用后，ClaudeHUD 会显示 **prompt cache 的过期时刻**（例如 `Cache ⏱ until 14:30`），过期后显示 `expired`。它与 HUD 中其他时刻一样遵循 `display.hourCycle` 和 `display.showClockSeconds`。如果 transcript 里还没有主会话响应，这个元素会继续隐藏。
+`display.showPromptCache` 为完全 opt-in 选项。启用后，ClaudeHUD 会显示 **prompt cache 的过期时刻**（例如 `Cache ⏱ until 14:30`），过期后显示 `expired`。它与 HUD 中其他时刻一样遵循 `display.hourCycle` 和 `display.showClockSeconds`。Claude Code 在主会话首个响应之后才上报缓存，在此之前这个元素保持隐藏。
 
 它显示过期时刻而不是倒计时，因为状态栏只在 Claude Code 活动时重绘。在两个回合之间——正好是缓存流失的时候——倒计时会停在最后一次显示的数值上并继续报告它；而时刻无论渲染多陈旧都仍然正确。
 
-ClaudeHUD 会尽可能从 transcript 检测缓存层级。对于不提供层级详情的旧版或代理 transcript，现有的 `display.promptCacheTtlSeconds` 设置仍作为回退值：
-
-- **TTL 是检测出来的。** 每次缓存写入都会记录所用的层级（`usage.cache_creation.ephemeral_5m_input_tokens` 与 `ephemeral_1h_input_tokens`），因此 1 小时的会话按 1 小时计时，中途更换层级的会话也会被跟随。检测值优先于配置的回退值。
-- **计时从请求开始**，而不是从它产生的响应开始，因为缓存是在请求时被读取或写入的。若以响应为基准，会把生成该响应所用的时间也算作可用时间。
-- **忽略 subagent 响应。** subagent 使用自己的缓存，不会刷新主会话的缓存。
-
-`display.showCacheHitRate` 为 opt-in 选项，显示本会话的缓存命中率，例如 `Cache hit 98.3%`：缓存读取占全部输入 token（非缓存输入、缓存读取和缓存写入）的比例，数据来自 transcript 累积值。
+`display.showCacheHitRate` 为 opt-in 选项，显示本会话的缓存命中率，例如 `Cache hit 98.3%`：缓存读取占全部输入 token（非缓存输入、缓存读取和缓存写入）的比例，数据由 Claude Code 上报。
 
 ### 使用率限制
 
@@ -334,8 +327,7 @@ Context █████░░░░░ 45% │ Usage ███████░░
 - 确保你已使用 Claude 订阅账户登录（而非 API 密钥）
 - 检查配置中的 `display.showUsage` 未设为 `false`
 - API 用户看不到使用率显示（他们按 Token 付费，没有使用率限制）
-- AWS Bedrock 模型显示 `Bedrock` 并隐藏使用率限制（使用率由 AWS 管理）
-- Bedrock 和 Vertex AI 模型默认隐藏费用估算（计费与 Anthropic 直连不同）；可通过 `display.showRoutedCost` 启用
+- Bedrock 和 Vertex 会话没有订阅用户限额，因此不显示使用率；其费用默认也隐藏（可通过 `display.showRoutedCost` 启用）
 - Claude Code 可能在会话中首个模型响应之前将 `rate_limits` 留空
 - 某些 Claude Code 构建版本和订阅层级即使在首个响应之后仍可能省略 `rate_limits`
 - 如果你配置了 `display.externalUsagePath`，ClaudeHUD 会先尝试读取该本地快照，再决定是否隐藏使用率
@@ -484,7 +476,7 @@ CLAUDE_HUD_DISABLE=1 claude
 
 ## 运行环境要求
 
-- Claude Code v1.0.80+
+- Claude Code v2.1.260+
 - macOS/Linux：Node.js 18+ 或 Bun
 - Windows：Node.js 18+
 

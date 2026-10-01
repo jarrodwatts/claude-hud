@@ -22,6 +22,7 @@ import { orderFirstLineParts } from './first-line-order.js';
 import type { FirstLinePart } from './first-line-order.js';
 import { getVcsDisplayState } from './vcs-status.js';
 import { resolveUsagePaces, type UsagePace } from '../usage-pace.js';
+import { claudeCodeVersion, contextUsage, sessionDuration, sessionName } from './derive.js';
 
 
 /**
@@ -31,7 +32,8 @@ import { resolveUsagePaces, type UsagePace } from '../usage-pace.js';
 export function renderSessionLine(ctx: RenderContext): string {
   const model = formatModelName(resolveModelName(ctx.stdin, ctx.transcript, ctx.config?.display?.modelSource), ctx.config?.display?.modelFormat, ctx.config?.display?.modelOverride);
 
-  const percent = ctx.context.percent;
+  const context = contextUsage(ctx);
+  const percent = context.percent;
 
   const colors = ctx.config?.colors;
   const display = ctx.config?.display;
@@ -51,7 +53,7 @@ export function renderSessionLine(ctx: RenderContext): string {
   };
   const resetsKey = timeFormat === 'absolute' ? 'format.resets' : 'format.resetsIn';
   const contextValueMode = display?.contextValue ?? 'percent';
-  const contextValue = formatContextValue(ctx.context, contextValueMode);
+  const contextValue = formatContextValue(context, contextValueMode);
   const contextValueDisplay = `${getContextColor(percent, colors, contextThresholds)}${contextValue}${RESET}`;
 
   const customLine = display?.customLine;
@@ -137,12 +139,14 @@ export function renderSessionLine(ctx: RenderContext): string {
   }
 
   // Session name (custom title from /rename, or auto-generated slug)
-  if (display?.showSessionName && ctx.sessionName) {
-    push(label(ctx.sessionName, colors), 'sessionName');
+  const name = display?.showSessionName ? sessionName(ctx) : undefined;
+  if (name) {
+    push(label(name, colors), 'sessionName');
   }
 
-  if (display?.showClaudeCodeVersion && ctx.claudeCodeVersion) {
-    push(label(`CC v${ctx.claudeCodeVersion}`, colors), 'version');
+  const version = display?.showClaudeCodeVersion ? claudeCodeVersion(ctx) : undefined;
+  if (version) {
+    push(label(`CC v${version}`, colors), 'version');
   }
 
   // Config counts (respects environmentThreshold)
@@ -351,8 +355,9 @@ export function renderSessionLine(ctx: RenderContext): string {
     }
   }
 
-  if (display?.showDuration === true && ctx.sessionDuration) {
-    push(label(`⏱️  ${ctx.sessionDuration}`, colors), 'duration');
+  const duration = display?.showDuration === true ? sessionDuration(ctx) : '';
+  if (duration) {
+    push(label(`⏱️  ${duration}`, colors), 'duration');
   }
 
   const sessionTimeLine = renderSessionTimeLine(ctx);

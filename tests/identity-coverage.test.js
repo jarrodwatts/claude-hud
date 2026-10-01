@@ -26,7 +26,6 @@ function baseContext() {
     rulesCount: 0,
     mcpCount: 0,
     hooksCount: 0,
-    sessionDuration: '',
     gitStatus: null,
     usageData: null,
     memoryUsage: null,
@@ -36,7 +35,7 @@ function baseContext() {
       pathLevels: 1,
       elementOrder: ['project', 'context', 'usage'],
       gitStatus: { enabled: true, showDirty: true, showAheadBehind: false, showFileStats: false, branchOverflow: 'truncate', pushWarningThreshold: 0, pushCriticalThreshold: 0 },
-      display: { showModel: true, showProject: true, showContextBar: true, contextValue: 'percent', showConfigCounts: true, showCost: false, showDuration: true, showSpeed: false, showTokenBreakdown: true, showUsage: true, usageValue: 'percent', usageBarEnabled: false, showResetLabel: true, showTools: true, showSkills: false, showMcp: false, showAgents: true, showTodos: true, showSessionTokens: false, showSessionName: false, showClaudeCodeVersion: false, showMemoryUsage: false, showPromptCache: false, showOutputStyle: false, mergeGroups: [['context', 'usage']], autocompactBuffer: 'enabled', usageThreshold: 0, sevenDayThreshold: 80, environmentThreshold: 0, customLine: '' },
+      display: { showModel: true, showProject: true, showContextBar: true, contextValue: 'percent', showConfigCounts: true, showCost: false, showDuration: true, showSpeed: false, showTokenBreakdown: true, showUsage: true, usageValue: 'percent', usageBarEnabled: false, showResetLabel: true, showTools: true, showSkills: false, showMcp: false, showAgents: true, showTodos: true, showSessionTokens: false, showSessionName: false, showClaudeCodeVersion: false, showMemoryUsage: false, showPromptCache: false, showOutputStyle: false, mergeGroups: [['context', 'usage']], usageThreshold: 0, sevenDayThreshold: 80, environmentThreshold: 0, customLine: '' },
       colors: {
         context: 'green',
         usage: 'brightBlue',
@@ -154,15 +153,6 @@ test('renderIdentityLine supports progress label alignment options', () => {
   assert.ok(lineNoAlign.includes('Context'));
   assert.ok(lineAlign.includes('Context'));
   assert.equal(lineAlignOptions, lineAlign);
-});
-
-test('renderIdentityLine disables autocompact buffer when set to disabled', () => {
-  const ctx = baseContext();
-  ctx.config.display.autocompactBuffer = 'disabled';
-  const line = stripAnsi(renderIdentityLine(ctx));
-  assert.ok(line.includes('Context'));
-  // Should show raw percent
-  assert.ok(line.includes('5%'));
 });
 
 test('renderIdentityLine formats million-scale tokens correctly', () => {

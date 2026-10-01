@@ -1,7 +1,7 @@
 import * as os from "node:os";
 import { realpathSync } from "node:fs";
 import { fileURLToPath } from "node:url";
-import { getContextUsage, getUsageFromStdin, isContextUnreported, readStdin, stdinText } from "./stdin.js";
+import { getUsageFromStdin, isContextUnreported, readStdin } from "./stdin.js";
 import { parseTranscript } from "./transcript.js";
 import { render } from "./render/index.js";
 import { countConfigs, type ConfigCounts } from "./config-reader.js";
@@ -11,15 +11,11 @@ import { loadConfig, type HudConfig } from "./config.js";
 import { parseExtraCmdArg, runExtraCmd } from "./extra-cmd.js";
 import { getMemoryUsage } from "./memory.js";
 import { readAuthInfo } from "./auth.js";
-import { resolveEffortLevel } from "./effort.js";
-import { getNativeCostUsd } from "./cost.js";
 import { getCostTotals } from "./daily-cost.js";
 import { getOutputSpeed } from "./speed.js";
 import { resolveUsage, writeExternalUsageSnapshot } from "./external-usage.js";
 import { setLanguage, t } from "./i18n/index.js";
 import type { StdinData, TranscriptData } from "./types.js";
-
-export { getUsageFromExternalSnapshot, writeExternalUsageSnapshot } from "./external-usage.js";
 
 const EMPTY_TRANSCRIPT: TranscriptData = { tools: [], skills: [], mcpServers: [], mcpErrors: [], agents: [], todos: [] };
 const NO_COUNTS: ConfigCounts = { claudeMdCount: 0, rulesCount: 0, mcpCount: 0, hooksCount: 0 };
@@ -55,14 +51,6 @@ export async function resolveVcsStatus(
     : null;
 }
 
-export function formatSessionDuration(ms: number | null | undefined): string {
-  if (typeof ms !== "number" || !Number.isFinite(ms) || ms < 0) return "";
-  const mins = Math.floor(ms / 60000);
-  if (mins < 1) return "<1m";
-  if (mins < 60) return `${mins}m`;
-  return `${Math.floor(mins / 60)}h ${mins % 60}m`;
-}
-
 export async function main(): Promise<void> {
   if (isHudDisabled()) return;
 
@@ -93,21 +81,13 @@ export async function main(): Promise<void> {
       writeExternalUsageSnapshot(config, stdinUsage, now);
     }
     const usageData = display.showUsage ? resolveUsage(config, stdinUsage, now) : null;
-    const allowRoutedCost = display.showRoutedCost;
-    const effort = display.showEffortLevel ? resolveEffortLevel(stdin.effort, transcript.ultracodeActive) : null;
 
     render({
       stdin,
       transcript,
-      context: getContextUsage(stdin, display.autoCompactWindow, transcript.contextTokens),
       ...(display.showConfigCounts ? countConfigs(stdin.cwd) : NO_COUNTS),
-      sessionDuration: display.showDuration ? formatSessionDuration(stdin.cost?.total_duration_ms) : "",
-      sessionName: display.showSessionName ? stdinText(stdin.session_name) : undefined,
-      outputStyle: display.showOutputStyle ? stdinText(stdin.output_style?.name, 40) : undefined,
-      claudeCodeVersion: display.showClaudeCodeVersion ? stdinText(stdin.version, 32) : undefined,
-      costUsd: display.showCost ? getNativeCostUsd(stdin, { allowRoutedCost }) : null,
       costTotals: display.showDailyCost || display.showWeeklyCost
-        ? getCostTotals(stdin, { allowRoutedCost, sevenDayResetAt: usageData?.sevenDayResetAt ?? null })
+        ? getCostTotals(stdin, { allowRoutedCost: display.showRoutedCost, sevenDayResetAt: usageData?.sevenDayResetAt ?? null })
         : null,
       outputSpeed: display.showSpeed ? getOutputSpeed(stdin, os.homedir()) : null,
       gitStatus,
@@ -115,8 +95,6 @@ export async function main(): Promise<void> {
       memoryUsage,
       config,
       extraLabel,
-      effortLevel: effort?.level,
-      effortSymbol: effort?.symbol,
       authInfo: display.showAuth || display.showAuthUser ? readAuthInfo() : null,
     });
   } catch (error) {

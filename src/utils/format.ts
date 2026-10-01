@@ -28,3 +28,11 @@ export function formatContextValue(
   if (mode === 'remaining') return `${Math.max(0, 100 - percent)}%`;
   return `${percent}%`;
 }
+
+export function formatSessionDuration(ms: number | null | undefined): string {
+  if (typeof ms !== 'number' || !Number.isFinite(ms) || ms < 0) return '';
+  const mins = Math.floor(ms / 60000);
+  if (mins < 1) return '<1m';
+  if (mins < 60) return `${mins}m`;
+  return `${Math.floor(mins / 60)}h ${mins % 60}m`;
+}
