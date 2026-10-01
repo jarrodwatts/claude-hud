@@ -456,6 +456,49 @@ test('mergeConfig sanitizes invalid external usage fallback settings', () => {
   assert.equal(config.display.externalUsageFreshnessMs, 0);
 });
 
+test('mergeConfig expands ~ in external usage paths', () => {
+  const config = mergeConfig({
+    display: {
+      externalUsagePath: '~/usage.json',
+      externalUsageWritePath: '~/write-usage.json',
+    },
+  });
+  assert.equal(config.display.externalUsagePath, path.join(os.homedir(), 'usage.json'));
+  assert.equal(config.display.externalUsageWritePath, path.join(os.homedir(), 'write-usage.json'));
+});
+
+test('mergeConfig expands ${VAR} in external usage paths without re-expanding values', () => {
+  const original = { A: process.env.CLAUDE_HUD_TEST_A, B: process.env.CLAUDE_HUD_TEST_B };
+  process.env.CLAUDE_HUD_TEST_A = '/opt/claude-hud';
+  process.env.CLAUDE_HUD_TEST_B = '${CLAUDE_HUD_TEST_A}';
+  try {
+    const config = mergeConfig({
+      display: {
+        externalUsagePath: '${CLAUDE_HUD_TEST_A}/usage.json',
+        externalUsageWritePath: '${CLAUDE_HUD_TEST_B}/usage.json',
+      },
+    });
+    assert.equal(config.display.externalUsagePath, '/opt/claude-hud/usage.json');
+    assert.equal(config.display.externalUsageWritePath, '${CLAUDE_HUD_TEST_A}/usage.json');
+  } finally {
+    for (const [key, value] of Object.entries(original)) {
+      if (value === undefined) {
+        delete process.env[`CLAUDE_HUD_TEST_${key}`];
+      } else {
+        process.env[`CLAUDE_HUD_TEST_${key}`] = value;
+      }
+    }
+  }
+});
+
+test('mergeConfig leaves an unresolved variable reference untouched', () => {
+  delete process.env.CLAUDE_HUD_MISSING_VAR;
+  const config = mergeConfig({
+    display: { externalUsagePath: '${CLAUDE_HUD_MISSING_VAR}/usage.json' },
+  });
+  assert.equal(config.display.externalUsagePath, '${CLAUDE_HUD_MISSING_VAR}/usage.json');
+});
+
 test('mergeConfig falls back to empty for non-string modelOverride', () => {
   assert.equal(mergeConfig({ display: { modelOverride: 123 } }).display.modelOverride, '');
   assert.equal(mergeConfig({ display: { modelOverride: null } }).display.modelOverride, '');

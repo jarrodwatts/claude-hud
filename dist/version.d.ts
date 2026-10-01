@@ -16,6 +16,7 @@ type ClaudeVersionInvocation = {
 };
 export declare function _parseClaudeCodeVersion(output: string): string | undefined;
 export declare function _getClaudeVersionInvocation(binaryPath: string, platform?: NodeJS.Platform, windowsCmd?: string): ClaudeVersionInvocation;
+export declare function resolveStdinClaudeCodeVersion(value: unknown): string | undefined;
 export declare function getClaudeCodeVersion(): Promise<string | undefined>;
 export declare function _resetVersionCache(): void;
 export declare function _setExecFileImplForTests(impl: ExecFileImpl | null): void;

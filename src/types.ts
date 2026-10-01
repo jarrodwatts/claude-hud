@@ -4,6 +4,7 @@ import type { AuthInfo } from './auth.js';
 
 export interface StdinData {
   session_id?: string;
+  version?: string | null;
   transcript_path?: string;
   cwd?: string;
   workspace?: {
