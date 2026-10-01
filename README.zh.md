@@ -195,7 +195,7 @@ Claude Code → stdin JSON → claude-hud → stdout → 在终端中显示
 | `display.showDailyCost` | boolean | false | 显示当天跨会话累计花费，格式为 `Today $12.34`，从原生 `cost.total_cost_usd` 写入插件数据目录中的按日账本。本地午夜重置。与 `showCost` 独立 |
 | `display.showOutputStyle` | boolean | false | 从配置文件显示当前 Claude Code `outputStyle`，格式为 `style: <名称>` |
 | `display.showDuration` | boolean | false | 显示会话时长 `⏱️ 5m` |
-| `display.showSpeed` | boolean | false | 显示输出 Token 速度 `out: 42.1 tok/s` |
+| `display.showSpeed` | boolean | false | 显示最近一次响应的输出 Token 速度 `out: 42.1 tok/s` |
 | `display.showUsage` | boolean | true | 显示 Claude 订阅用户的使用率限制（可用时） |
 | `display.usageValue` | `percent` \| `remaining` | `percent` | 使用率显示格式（已使用 `25%`，或剩余 `75%`） |
 | `display.usageBarEnabled` | boolean | true | 将使用率显示为可视化进度条而非文本 |
@@ -215,6 +215,7 @@ Claude Code → stdin JSON → claude-hud → stdout → 在终端中显示
 | `display.showMcp` | boolean | false | 显示从 `mcp__server__tool` 调用检测到的活动 MCP 服务器 |
 | `display.toolNameMaxLength` | number | `0` | 工具名称最大显示长度。`0` 保留完整名称；截断 MCP 名称时可能缩短为最后一段 |
 | `display.toolsMaxVisible` | number | `4` | 工具行最多显示的已完成工具数。`0` 表示不限制 |
+| `display.skillsMaxVisible` | number | `4` | Skills 行在 `+N more` 之前最多显示的 Skill 名称数。`0` 表示不限制 |
 | `display.showAgents` | boolean | false | 显示 Agent 活动行 |
 | `display.showTodos` | boolean | false | 显示待办进度行 |
 | `display.showSessionName` | boolean | false | 显示会话 slug 或 `/rename` 设置的自定义标题 |

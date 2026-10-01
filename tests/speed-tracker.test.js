@@ -31,6 +31,23 @@ function stdinWith(transcriptPath, outputTokens) {
   };
 }
 
+function stdinWithApiTime(transcriptPath, currentUsage, apiDurationMs) {
+  return {
+    transcript_path: transcriptPath,
+    context_window: { current_usage: currentUsage },
+    cost: { total_api_duration_ms: apiDurationMs },
+  };
+}
+
+// Consecutive usage/cost states captured from Claude Code 2.1.280 statusline
+// stdin with refreshInterval: 1. current_usage stayed frozen for the ~17s the
+// second response streamed, then changed together with total_api_duration_ms.
+const CAPTURED_RESPONSES = [
+  { usage: { input_tokens: 2, output_tokens: 248, cache_creation_input_tokens: 918, cache_read_input_tokens: 57259 }, apiMs: 111298 },
+  { usage: { input_tokens: 2, output_tokens: 1542, cache_creation_input_tokens: 731, cache_read_input_tokens: 58177 }, apiMs: 128087 },
+  { usage: { input_tokens: 2, output_tokens: 2022, cache_creation_input_tokens: 2969, cache_read_input_tokens: 58908 }, apiMs: 150208 },
+];
+
 test('getOutputSpeed returns null when output tokens are missing', () => {
   const speed = getOutputSpeed({
     transcript_path: '/tmp/claude-hud-speed-missing.jsonl',
@@ -326,6 +343,88 @@ test('getOutputSpeed writes cache under CLAUDE_CONFIG_DIR by default', async () 
   } finally {
     restoreEnvVar('HOME', originalHome);
     restoreEnvVar('CLAUDE_CONFIG_DIR', originalConfigDir);
+    await rm(tempHome, { recursive: true, force: true });
+  }
+});
+
+test('getOutputSpeed reports each finished response from API time, not render-to-render diffs', async () => {
+  const tempHome = await createTempHome();
+  const transcriptPath = await createTranscript(tempHome);
+
+  try {
+    const base = { homeDir: () => tempHome };
+    const [first, second, third] = CAPTURED_RESPONSES;
+    const at = (response, now) =>
+      getOutputSpeed(stdinWithApiTime(transcriptPath, response.usage, response.apiMs), { ...base, now: () => now });
+
+    assert.equal(at(first, 1000), null);
+
+    // The second response streams for ~17s while stdin keeps repeating the
+    // first response's usage. There is nothing to measure yet.
+    for (let now = 2000; now <= 18000; now += 1000) {
+      assert.equal(at(first, now), null);
+    }
+
+    // When it lands, the old wall-clock diff reported (1542 - 248) / 1s
+    // ≈ 1290 tok/s for one render (#481). The response itself produced
+    // 1542 tokens in 16.8s of API time.
+    const landed = at(second, 19000);
+    assert.ok(landed !== null);
+    assert.ok(Math.abs(landed - 1542 / 16.789) < 0.01);
+
+    // The reading stays up until the next response lands.
+    assert.equal(at(second, 20000), landed);
+    assert.equal(at(second, 40000), landed);
+
+    const next = at(third, 45000);
+    assert.ok(next !== null);
+    assert.ok(Math.abs(next - 2022 / 22.121) < 0.01);
+  } finally {
+    await rm(tempHome, { recursive: true, force: true });
+  }
+});
+
+test('getOutputSpeed does not charge side-request API time to the next response', async () => {
+  const tempHome = await createTempHome();
+  const transcriptPath = await createTranscript(tempHome);
+
+  try {
+    const base = { homeDir: () => tempHome, now: () => 1000 };
+    const usageA = { input_tokens: 10, output_tokens: 100, cache_read_input_tokens: 1000 };
+    const usageB = { input_tokens: 10, output_tokens: 500, cache_read_input_tokens: 1200 };
+    const usageC = { input_tokens: 10, output_tokens: 300, cache_read_input_tokens: 1800 };
+
+    assert.equal(getOutputSpeed(stdinWithApiTime(transcriptPath, usageA, 1000), base), null);
+
+    const afterB = getOutputSpeed(stdinWithApiTime(transcriptPath, usageB, 11000), base);
+    assert.ok(Math.abs(afterB - 50) < 0.01);
+
+    // A subagent spends 20s of API time without touching the main usage.
+    const duringSubagent = getOutputSpeed(stdinWithApiTime(transcriptPath, usageB, 31000), base);
+    assert.equal(duringSubagent, afterB);
+
+    // The next main response took 6s; the subagent's 20s must not be billed to it.
+    const afterC = getOutputSpeed(stdinWithApiTime(transcriptPath, usageC, 37000), base);
+    assert.ok(Math.abs(afterC - 50) < 0.01);
+  } finally {
+    await rm(tempHome, { recursive: true, force: true });
+  }
+});
+
+test('getOutputSpeed resets the response rate when API time goes backwards', async () => {
+  const tempHome = await createTempHome();
+  const transcriptPath = await createTranscript(tempHome);
+
+  try {
+    const base = { homeDir: () => tempHome, now: () => 1000 };
+    const [first, second, third] = CAPTURED_RESPONSES;
+
+    getOutputSpeed(stdinWithApiTime(transcriptPath, first.usage, first.apiMs), base);
+    assert.ok(getOutputSpeed(stdinWithApiTime(transcriptPath, second.usage, second.apiMs), base) !== null);
+
+    // A restarted process reports a smaller cumulative API time for the same transcript.
+    assert.equal(getOutputSpeed(stdinWithApiTime(transcriptPath, third.usage, 5000), base), null);
+  } finally {
     await rm(tempHome, { recursive: true, force: true });
   }
 });

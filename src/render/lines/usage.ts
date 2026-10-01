@@ -4,7 +4,7 @@ import type { MessageKey } from "../../i18n/types.js";
 import { shouldHideUsage } from "../../stdin.js";
 import { critical, label, getQuotaColor, quotaBar, RESET } from "../colors.js";
 import { getAdaptiveBarWidth } from "../../utils/terminal.js";
-import { t } from "../../i18n/index.js";
+import { t, interpolate } from "../../i18n/index.js";
 import {
   progressLabel,
   type ProgressLabelInput,
@@ -346,5 +346,5 @@ function formatElapsedWindow(resetAt: Date | null, windowMs: number): string {
   const windowStart = resetAt.getTime() - windowMs;
   const rawElapsed = ((Date.now() - windowStart) / windowMs) * 100;
   const elapsed = Math.max(0, Math.min(100, Math.round(rawElapsed)));
-  return `${elapsed}% elapsed`;
+  return interpolate(t("format.elapsed"), { value: elapsed });
 }

@@ -210,7 +210,7 @@ Simplified and Traditional Chinese HUD labels are available as explicit opt-ins.
 | `display.showDailyCost` | boolean | false | Show today's cumulative spend across sessions as `Today $12.34`, accumulated from the native `cost.total_cost_usd` into a small per-day ledger in the plugin data directory. Resets at local midnight. Independent of `showCost` |
 | `display.showOutputStyle` | boolean | false | Show the active Claude Code `outputStyle` from settings files as `style: <name>` |
 | `display.showDuration` | boolean | false | Show session duration `⏱️ 5m` |
-| `display.showSpeed` | boolean | false | Show output token speed `out: 42.1 tok/s` |
+| `display.showSpeed` | boolean | false | Show the latest response's output speed `out: 42.1 tok/s` |
 | `display.showUsage` | boolean | true | Show Claude subscriber usage limits when available |
 | `display.usageValue` | `percent` \| `remaining` | `percent` | Usage display format (`25%` used, or `75%` remaining) |
 | `display.usageBarEnabled` | boolean | true | Display usage as visual bar instead of text |
@@ -230,6 +230,7 @@ Simplified and Traditional Chinese HUD labels are available as explicit opt-ins.
 | `display.showMcp` | boolean | false | Show active MCP servers detected from `mcp__server__tool` invocations |
 | `display.toolNameMaxLength` | number | `0` | Maximum displayed tool-name length. `0` keeps full names; MCP names may shorten to their final segment when truncating |
 | `display.toolsMaxVisible` | number | `4` | Maximum completed tools shown on the tools line. `0` means unlimited |
+| `display.skillsMaxVisible` | number | `4` | Maximum skill names shown on the skills line before `+N more`. `0` means unlimited |
 | `display.showAgents` | boolean | false | Show agents activity line |
 | `display.showTodos` | boolean | false | Show todos progress line |
 | `display.showSessionName` | boolean | false | Show session slug or custom title from `/rename` |

@@ -656,6 +656,15 @@ test('parseTranscript sanitizes and caps assistant model IDs at ingestion', asyn
   assert.doesNotMatch(result.lastAssistantModel ?? '', /[\x1b\u202E]/u);
 });
 
+test('parseTranscript ignores synthetic assistant model records', async () => {
+  const result = await parseTempTranscript('transcript-model-synthetic.jsonl', [
+    { type: 'assistant', message: { model: 'deepseek-v4-flash' } },
+    { type: 'assistant', message: { model: '<synthetic>' } },
+  ]);
+
+  assert.equal(result.lastAssistantModel, 'deepseek-v4-flash');
+});
+
 test('parseTranscript deduplicates adjacent duplicate assistant usage by message.id', async () => {
   const usageEntry = {
     type: 'assistant',

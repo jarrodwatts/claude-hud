@@ -606,7 +606,8 @@ export async function parseTranscript(transcriptPath: string): Promise<Transcrip
         // model Claude Code thinks it's using (e.g. proxy redirect via cc-switch).
         if (entry.type === 'assistant') {
           const transcriptModel = sanitizeTranscriptModel(entry.message?.model);
-          if (transcriptModel) {
+          // Claude Code writes '<synthetic>' on locally generated assistant records.
+          if (transcriptModel && transcriptModel !== '<synthetic>') {
             result.lastAssistantModel = transcriptModel;
           }
         }
