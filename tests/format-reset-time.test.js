@@ -1,232 +1,76 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { formatResetTime } from '../dist/render/format-reset-time.js';
-
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
-
-/** Returns a Date that is `ms` milliseconds in the future. */
-function future(ms) {
-  return new Date(Date.now() + ms);
-}
+import { formatAgo, formatResetTime, formatWindowTime, limitTimeFormat } from '../dist/render/time.js';
 
 const MINUTE = 60_000;
 const HOUR = 60 * MINUTE;
 const DAY = 24 * HOUR;
+const NOW = new Date(2026, 9, 1, 12, 0).getTime();
+const AUTO = { hourCycle: 'auto', showSeconds: false };
+const H23 = { hourCycle: 'h23', showSeconds: false };
+const at = (ms) => new Date(NOW + ms);
+const relative = (ms) => formatResetTime(at(ms), 'relative', AUTO, NOW);
 
-// ---------------------------------------------------------------------------
-// Null / past guard
-// ---------------------------------------------------------------------------
-
-test('returns empty string for null', () => {
-  assert.equal(formatResetTime(null), '');
-  assert.equal(formatResetTime(null, 'absolute'), '');
-  assert.equal(formatResetTime(null, 'both'), '');
+test('formatResetTime is empty for an unknown or past reset', () => {
+  for (const mode of ['relative', 'absolute', 'both']) {
+    assert.equal(formatResetTime(null, mode, AUTO, NOW), '');
+    assert.equal(formatResetTime(at(-HOUR), mode, AUTO, NOW), '');
+    assert.equal(formatResetTime(at(0), mode, AUTO, NOW), '');
+  }
 });
 
-test('returns empty string for a date in the past', () => {
-  const past = new Date(Date.now() - HOUR);
-  assert.equal(formatResetTime(past), '');
-  assert.equal(formatResetTime(past, 'absolute'), '');
-  assert.equal(formatResetTime(past, 'both'), '');
+test('relative rounds up to the minute and drops zero units', () => {
+  assert.equal(relative(1), '1m');
+  assert.equal(relative(30 * MINUTE), '30m');
+  assert.equal(relative(59 * MINUTE + 1), '1h');
+  assert.equal(relative(2 * HOUR + 30 * MINUTE), '2h 30m');
+  assert.equal(relative(3 * HOUR), '3h');
+  assert.equal(relative(6 * DAY + 7 * HOUR), '6d 7h');
+  assert.equal(relative(3 * DAY), '3d');
 });
 
-// ---------------------------------------------------------------------------
-// relative mode (default)
-// ---------------------------------------------------------------------------
-
-test('relative: shows minutes when < 1 hour', () => {
-  const result = formatResetTime(future(30 * MINUTE));
-  assert.match(result, /^\d+m$/);
+test('absolute shows the clock today and adds the date on another day', () => {
+  assert.equal(formatResetTime(at(2 * HOUR + 30 * MINUTE), 'absolute', H23, NOW), 'at 14:30');
+  const tomorrow = at(30 * HOUR);
+  const date = tomorrow.toLocaleDateString([], { month: 'short', day: 'numeric' });
+  assert.equal(formatResetTime(tomorrow, 'absolute', H23, NOW), `at ${date} 18:00`);
+  const auto = at(2 * HOUR).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  assert.equal(formatResetTime(at(2 * HOUR), 'absolute', AUTO, NOW), `at ${auto}`);
 });
 
-test('relative: shows hours + minutes when < 24 hours', () => {
-  const result = formatResetTime(future(2 * HOUR + 30 * MINUTE));
-  assert.match(result, /^2h 30m$/);
+test('both joins relative and absolute with a comma', () => {
+  assert.equal(formatResetTime(at(2 * HOUR), 'both', H23, NOW), '2h, at 14:00');
 });
 
-test('relative: shows hours only when minutes == 0', () => {
-  // Exactly N hours: Math.ceil(N*60 mins) = N*60 → mins % 60 === 0
-  const result = formatResetTime(future(3 * HOUR));
-  assert.match(result, /^3h$/);
+test('hour cycle and seconds options shape the clock', () => {
+  const midnight = new Date(2026, 9, 2, 0, 5).getTime();
+  const nearMidnight = midnight - MINUTE;
+  assert.match(formatResetTime(new Date(midnight), 'absolute', H23, nearMidnight), /00:05$/);
+  assert.match(formatResetTime(new Date(midnight), 'absolute', { hourCycle: 'h24', showSeconds: false }, nearMidnight), /24:05$/);
+  assert.equal(formatResetTime(at(HOUR + 5_000), 'absolute', { hourCycle: 'h23', showSeconds: true }, NOW), 'at 13:00:05');
 });
 
-test('relative: shows days + hours for durations >= 24 hours', () => {
-  const result = formatResetTime(future(6 * DAY + 7 * HOUR));
-  assert.match(result, /^6d 7h$/);
+test('formatWindowTime shows the elapsed share of the window, clamped', () => {
+  const window = 5 * HOUR;
+  assert.equal(formatWindowTime(at(90 * MINUTE), window, 'elapsed', H23, NOW), '70% elapsed');
+  assert.equal(formatWindowTime(at(10 * HOUR), window, 'elapsed', H23, NOW), '0% elapsed');
+  assert.equal(formatWindowTime(at(-HOUR), window, 'elapsed', H23, NOW), '100% elapsed');
+  assert.equal(formatWindowTime(null, window, 'elapsed', H23, NOW), '');
+  assert.equal(formatWindowTime(at(90 * MINUTE), window, 'elapsedAndAbsolute', H23, NOW), '70% elapsed, at 13:30');
+  assert.equal(formatWindowTime(at(90 * MINUTE), window, 'both', H23, NOW), '1h 30m, at 13:30');
 });
 
-test('relative: shows days only when remaining hours == 0', () => {
-  // Exactly N days → hours % 24 === 0
-  const result = formatResetTime(future(3 * DAY));
-  assert.match(result, /^3d$/);
+test('limitTimeFormat maps elapsed modes to a reset format', () => {
+  assert.equal(limitTimeFormat('elapsed'), 'relative');
+  assert.equal(limitTimeFormat('elapsedAndAbsolute'), 'absolute');
+  assert.equal(limitTimeFormat('both'), 'both');
 });
 
-test('relative: is the default when mode is omitted', () => {
-  const withDefault = formatResetTime(future(90 * MINUTE));
-  const withExplicit = formatResetTime(future(90 * MINUTE), 'relative');
-  // Both should match the same pattern (values may differ by a few ms)
-  assert.match(withDefault, /^\d+h( \d+m)?$/);
-  assert.match(withExplicit, /^\d+h( \d+m)?$/);
-});
-
-// ---------------------------------------------------------------------------
-// absolute mode
-// ---------------------------------------------------------------------------
-
-test('absolute: starts with "at " prefix', () => {
-  const result = formatResetTime(future(2 * HOUR), 'absolute');
-  assert.ok(result.startsWith('at '), `Expected "at " prefix, got: ${result}`);
-});
-
-test('absolute: returns a non-empty string for a future date', () => {
-  const result = formatResetTime(future(2 * HOUR), 'absolute');
-  assert.ok(result.length > 3, `Expected a non-trivial absolute string, got: ${result}`);
-});
-
-test('absolute: includes date component when reset is tomorrow or later', () => {
-  const resetAt = future(30 * HOUR); // guaranteed to be a different calendar day
-  const result = formatResetTime(resetAt, 'absolute');
-  const expectedDate = resetAt.toLocaleDateString([], {
-    month: 'short',
-    day: 'numeric',
-  });
-  const expectedTime = resetAt.toLocaleTimeString([], {
-    hour: '2-digit',
-    minute: '2-digit',
-  });
-
-  assert.ok(result.startsWith('at '), `Expected "at " prefix, got: ${result}`);
-  assert.ok(result.includes(expectedDate), `Expected localized date in next-day reset, got: ${result}`);
-  assert.ok(result.endsWith(expectedTime), `Expected localized time in next-day reset, got: ${result}`);
-});
-
-// ---------------------------------------------------------------------------
-// both mode
-// ---------------------------------------------------------------------------
-
-test('both: contains the relative duration', () => {
-  const result = formatResetTime(future(2 * HOUR + 30 * MINUTE), 'both');
-  assert.match(result, /2h 30m/);
-});
-
-test('both: contains the absolute "at" part after a comma', () => {
-  const result = formatResetTime(future(2 * HOUR), 'both');
-  assert.match(result, /, at .+/);
-});
-
-test('both: format is "<relative>, <absolute>"', () => {
-  const result = formatResetTime(future(2 * HOUR), 'both');
-  // e.g. "2h, at 14:30" — comma avoids nested parens when caller wraps in (...)
-  assert.match(result, /^\d+h( \d+m)?, at .+$/);
-});
-
-// ---------------------------------------------------------------------------
-// hourCycle / showSeconds opts
-// ---------------------------------------------------------------------------
-
-test('opts: default (auto) matches the pre-existing locale-driven output', () => {
-  const resetAt = future(2 * HOUR);
-  const withoutOpts = formatResetTime(resetAt, 'absolute');
-  const withAutoOpts = formatResetTime(resetAt, 'absolute', { hourCycle: 'auto', showSeconds: false });
-  assert.equal(withoutOpts, withAutoOpts);
-});
-
-// A reset two hours out lands on the next calendar day whenever these run
-// between 22:00 and midnight local time, and the formatter then prefixes a
-// localized date. That prefix is correct and is covered by its own test above,
-// so these assert the clock component rather than the whole string.
-
-test('opts: h23 avoids AM/PM and uses 00-23 hours', () => {
-  const resetAt = future(2 * HOUR);
-  const result = formatResetTime(resetAt, 'absolute', { hourCycle: 'h23', showSeconds: false });
-  assert.doesNotMatch(result, /AM|PM/i);
-  assert.ok(result.startsWith('at '), `Expected "at " prefix, got: ${result}`);
-  assert.match(result, /\d{2}:\d{2}$/);
-});
-
-test('opts: showSeconds adds a seconds component', () => {
-  const resetAt = future(2 * HOUR);
-  const result = formatResetTime(resetAt, 'absolute', { hourCycle: 'h23', showSeconds: true });
-  assert.ok(result.startsWith('at '), `Expected "at " prefix, got: ${result}`);
-  assert.match(result, /\d{2}:\d{2}:\d{2}$/);
-});
-
-test('opts: midnight boundary — h23 shows 00, not 24', () => {
-  const resetAt = new Date();
-  resetAt.setDate(resetAt.getDate() + 1);
-  resetAt.setHours(0, 5, 0, 0);
-  const result = formatResetTime(resetAt, 'absolute', { hourCycle: 'h23', showSeconds: false });
-  assert.match(result, /00:05$/);
-});
-
-test('opts: midnight boundary — h24 shows 24, not 00', () => {
-  const resetAt = new Date();
-  resetAt.setDate(resetAt.getDate() + 1);
-  resetAt.setHours(0, 5, 0, 0);
-  const result = formatResetTime(resetAt, 'absolute', { hourCycle: 'h24', showSeconds: false });
-  assert.match(result, /24:05$/);
-});
-
-// ---------------------------------------------------------------------------
-// config integration — mergeConfig accepts and validates timeFormat
-// ---------------------------------------------------------------------------
-
-test('mergeConfig defaults timeFormat to "relative"', async () => {
-  const { mergeConfig } = await import('../dist/config.js');
-  const config = mergeConfig({});
-  assert.equal(config.display.timeFormat, 'relative');
-});
-
-test('mergeConfig accepts "absolute" timeFormat', async () => {
-  const { mergeConfig } = await import('../dist/config.js');
-  const config = mergeConfig({ display: { timeFormat: 'absolute' } });
-  assert.equal(config.display.timeFormat, 'absolute');
-});
-
-test('mergeConfig accepts "both" timeFormat', async () => {
-  const { mergeConfig } = await import('../dist/config.js');
-  const config = mergeConfig({ display: { timeFormat: 'both' } });
-  assert.equal(config.display.timeFormat, 'both');
-});
-
-test('mergeConfig rejects invalid timeFormat and falls back to "relative"', async () => {
-  const { mergeConfig } = await import('../dist/config.js');
-  const config = mergeConfig({ display: { timeFormat: 'invalid-value' } });
-  assert.equal(config.display.timeFormat, 'relative');
-});
-
-// ---------------------------------------------------------------------------
-// config integration — mergeConfig accepts and validates hourCycle / showClockSeconds
-// ---------------------------------------------------------------------------
-
-test('mergeConfig defaults hourCycle to "auto"', async () => {
-  const { mergeConfig } = await import('../dist/config.js');
-  const config = mergeConfig({});
-  assert.equal(config.display.hourCycle, 'auto');
-});
-
-test('mergeConfig accepts a valid hourCycle', async () => {
-  const { mergeConfig } = await import('../dist/config.js');
-  const config = mergeConfig({ display: { hourCycle: 'h23' } });
-  assert.equal(config.display.hourCycle, 'h23');
-});
-
-test('mergeConfig rejects invalid hourCycle and falls back to "auto"', async () => {
-  const { mergeConfig } = await import('../dist/config.js');
-  const config = mergeConfig({ display: { hourCycle: 'not-a-cycle' } });
-  assert.equal(config.display.hourCycle, 'auto');
-});
-
-test('mergeConfig defaults showClockSeconds to false', async () => {
-  const { mergeConfig } = await import('../dist/config.js');
-  const config = mergeConfig({});
-  assert.equal(config.display.showClockSeconds, false);
-});
-
-test('mergeConfig accepts showClockSeconds true', async () => {
-  const { mergeConfig } = await import('../dist/config.js');
-  const config = mergeConfig({ display: { showClockSeconds: true } });
-  assert.equal(config.display.showClockSeconds, true);
+test('formatAgo', () => {
+  assert.equal(formatAgo(-1), 'just now');
+  assert.equal(formatAgo(45_000), '45s ago');
+  assert.equal(formatAgo(5 * MINUTE), '5m ago');
+  assert.equal(formatAgo(2 * HOUR + 5 * MINUTE), '2h 5m ago');
+  assert.equal(formatAgo(3 * HOUR), '3h ago');
+  assert.equal(formatAgo(3 * DAY + 4 * HOUR), '3d 4h ago');
 });

@@ -1,18 +1,9 @@
 import type { ContextUsage } from '../stdin.js';
 
-/**
- * Format a token count into a human-readable short string.
- *   >= 1M  → "1.2M"
- *   >= 1k  → "45k"
- *   < 1k   → "800"
- */
+/** `1.2M`, `45k`, or `800`. */
 export function formatTokens(n: number): string {
-  if (n >= 1000000) {
-    return `${(n / 1000000).toFixed(1)}M`;
-  }
-  if (n >= 1000) {
-    return `${(n / 1000).toFixed(0)}k`;
-  }
+  if (n >= 1000000) return `${(n / 1000000).toFixed(1)}M`;
+  if (n >= 1000) return `${(n / 1000).toFixed(0)}k`;
   return n.toString();
 }
 

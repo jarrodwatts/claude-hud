@@ -137,7 +137,6 @@ const options = {
   'showContextBar=false': { display: { showContextBar: false } },
   'showTokenBreakdown=false': { display: { showTokenBreakdown: false } },
   'contextThresholds=50/60': { display: { contextWarningThreshold: 50, contextCriticalThreshold: 60 } },
-  'autocompactBuffer=disabled': { display: { autocompactBuffer: 'disabled' } },
   'autoCompactWindow=160000': { display: { autoCompactWindow: 160_000 } },
   'usageValue=remaining': { display: { usageValue: 'remaining' } },
   'usageBarEnabled=false': { display: { usageBarEnabled: false } },
@@ -226,5 +225,28 @@ for (const name of ['typical', 'apiUser', 'contextCritical', 'limitReached', 'nu
 }
 add('compact/git-dirty@40', { stdin: typical, config: { lineLayout: 'compact' }, git: 'dirty', columns: 40 });
 add('compact/usageCompact', { stdin: typical, config: { lineLayout: 'compact', display: { usageCompact: true } } });
+
+const ACTIVITY = { display: { showTools: true, showAgents: true, showTodos: true } };
+add('activity/expanded', { stdin: typical, config: ACTIVITY, transcript: 'transcript-activity.jsonl' });
+add('activity/compact', { stdin: typical, config: { ...ACTIVITY, lineLayout: 'compact' }, transcript: 'transcript-activity.jsonl' });
+add('default/typical@30', { stdin: typical, columns: 30 });
+add('default/cjk-path@40', { stdin: typical, projectName: '我的项目', columns: 40 });
+add('default/cjk-path+zh-Hans@40', { stdin: typical, projectName: '我的项目', config: { language: 'zh-Hans' }, columns: 40 });
+const ONE_ROW = { elementOrder: ['project', 'context', 'usage'], display: { mergeGroups: [['project', 'context', 'usage']] } };
+add('option/oneRow@120', { stdin: rich, config: ONE_ROW, columns: 120 });
+add('option/oneRow-stacks@50', { stdin: rich, config: ONE_ROW, columns: 50 });
+add('option/oneRow+rightAlign=context@120', {
+  stdin: rich,
+  config: { ...ONE_ROW, display: { ...ONE_ROW.display, rightAlign: ['context'] } },
+  columns: 120,
+});
+const PUSH_THRESHOLDS = { gitStatus: { showAheadBehind: true, pushWarningThreshold: 1, pushCriticalThreshold: 3 } };
+add('git/ahead+pushThresholds', { stdin: typical, config: PUSH_THRESHOLDS, git: 'ahead' });
+add('compact/ahead+pushThresholds', { stdin: typical, config: { ...PUSH_THRESHOLDS, lineLayout: 'compact' }, git: 'ahead' });
+add('compact/timeFormat=elapsed', { stdin: typical, config: { lineLayout: 'compact', display: { timeFormat: 'elapsed' } } });
+add('compact/timeFormat=elapsed+text', {
+  stdin: stdin.limitReached,
+  config: { lineLayout: 'compact', display: { timeFormat: 'elapsed', usageBarEnabled: false } },
+});
 
 export default cases;

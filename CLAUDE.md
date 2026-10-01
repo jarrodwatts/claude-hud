@@ -82,29 +82,22 @@ src/
 ├── utils/               # Shared helpers
 ├── types.ts             # TypeScript interfaces
 └── render/
-    ├── index.ts             # Main render coordinator
-    ├── session-line.ts      # Compact mode: single line with all info
-    ├── tools-line.ts        # Tool activity (opt-in)
-    ├── skills-mcp-line.ts   # Skills & MCP activity (opt-in)
-    ├── agents-line.ts       # Agent status (opt-in)
-    ├── todos-line.ts        # Todo progress (opt-in)
-    ├── colors.ts            # ANSI color helpers
-    ├── width.ts             # Terminal width / CJK-aware measurement
-    ├── format-reset-time.ts # Usage reset time formatting
-    └── lines/
-        ├── index.ts         # Barrel export
-        ├── project.ts       # Model bracket + project + git (+ advisor)
-        ├── identity.ts      # Context bar
-        ├── usage.ts         # Usage bar (merged with context by default)
-        ├── environment.ts   # Config counts (opt-in)
-        ├── advisor.ts       # Advisor model label (opt-in)
-        ├── cost.ts          # Session cost display
-        ├── prompt-cache.ts  # Prompt cache countdown
-        ├── memory.ts        # Memory usage display
-        ├── session-time.ts  # Session duration / timestamps
-        ├── session-tokens.ts # Session token totals
-        ├── added-dirs.ts    # /add-dir workspace directories
-        └── label-align.ts   # Label column alignment
+    ├── index.ts      # renderLines(ctx, columns, now): pick layout, wrap, reset
+    ├── frame.ts      # Frame: context plus now, wrap width, and bar width, read once
+    ├── expanded.ts   # Expanded layout: elementOrder rows, mergeGroups, rightAlign
+    ├── compact.ts    # Compact layout: one session line, then activity lines
+    ├── parts.ts      # Model badge, project + VCS, cost, advisor, and other first-line parts
+    ├── context.ts    # Context bar, value, and token breakdown
+    ├── usage.ts      # Usage windows, limit notice, balance
+    ├── vcs.ts        # git:(…)/jj:(…) segment and the git files line
+    ├── lines.ts      # Environment, prompt cache, session time, memory, added dirs
+    ├── activity.ts   # Tools, skills, MCP, agents, todos lines
+    ├── labels.ts     # Bar label alignment
+    ├── time.ts       # Reset, elapsed, and "ago" formatting
+    ├── order.ts      # projectLineOrder
+    ├── ansi.ts       # ANSI-aware width, truncation, and wrapping
+    ├── derive.ts     # Values derived from stdin
+    └── colors.ts     # ANSI color helpers
 ```
 
 ### Output Format (default expanded layout)

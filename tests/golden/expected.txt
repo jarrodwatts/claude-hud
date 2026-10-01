@@ -108,10 +108,6 @@
 \e[0m\e[36m[Opus 5.5]\e[0m │ \e]8;;file://<BASE>/home/dev/my-project\e\\e[33mmy-project\e[0m\e]8;;\e\
 \e[0m\e[2mContext\e[0m \e[32m█████\e[2m░░░░░\e[0m \e[32m45%\e[0m │ \e[2mUsage\e[0m \e[94m███\e[2m░░░░░░░\e[0m \e[94m25%\e[0m (resets in 1h 30m)
 
-### option/autocompactBuffer=disabled
-\e[0m\e[36m[Opus 5.5]\e[0m │ \e]8;;file://<BASE>/home/dev/my-project\e\\e[33mmy-project\e[0m\e]8;;\e\
-\e[0m\e[2mContext\e[0m \e[32m█████\e[2m░░░░░\e[0m \e[32m45%\e[0m │ \e[2mUsage\e[0m \e[94m███\e[2m░░░░░░░\e[0m \e[94m25%\e[0m (resets in 1h 30m)
-
 ### option/autoCompactWindow=160000
 \e[0m\e[36m[Opus 5.5]\e[0m │ \e]8;;file://<BASE>/home/dev/my-project\e\\e[33mmy-project\e[0m\e]8;;\e\
 \e[0m\e[2mContext\e[0m \e[32m██████\e[2m░░░░\e[0m \e[32m56%\e[0m │ \e[2mUsage\e[0m \e[94m███\e[2m░░░░░░░\e[0m \e[94m25%\e[0m (resets in 1h 30m)
@@ -411,7 +407,7 @@
 \e[0m\e[2mCompactions: 1\e[0m
 
 ### kitchen-sink/compact
-\e[0m\e[36m[Opus 5.5 ◑ high]\e[0m \e[32m█████\e[2m░░░░░\e[0m \e[32m45%\e[0m | \e[33mmy-project\e[0m \e[35mgit:(\e[0m\e[36mmain* !1 ?1\e[0m\e[35m)\e[0m \e[35m⎇ feat-auth\e[0m | \e[2mauth-fix\e[0m | \e[2mCC v2.1.286\e[0m | \e[2mUsage\e[0m \e[94m███\e[2m░░░░░░░\e[0m \e[94m25%\e[0m (1h 30m / 5h) | \e[2mtok: 262k (in: 6k, out: 2k, cache: 254k)\e[0m | \e[2mCompactions: 1\e[0m | \e[2mAdvisor:\e[0m Opus 5.5 | \e[2m⏱️  1h 0m\e[0m | \e[2mStarted:\e[0m 2026-10-01 11:00 \e[2m│\e[0m \e[2mLast reply:\e[0m 1m ago | \e[2mCache\e[0m \e[32m⏱ until 12:04 PM\e[0m | \e[2mCache hit\e[0m 91.0% | \e[2mCost $1.23 | Today $0.0000 | Week $0.0000\e[0m
+\e[0m\e[36m[Opus 5.5 ◑ high]\e[0m \e[32m█████\e[2m░░░░░\e[0m \e[32m45%\e[0m | \e[33mmy-project\e[0m \e[35mgit:(\e[0m\e]8;;https://github.com/jarrodwatts/claude-hud/tree/main\e\\e[36mmain*\e[0m\e]8;;\e\ \e[36m!1 ?1\e[0m\e[35m)\e[0m \e[35m⎇ feat-auth\e[0m | \e[2mauth-fix\e[0m | \e[2mCC v2.1.286\e[0m | \e[2mUsage\e[0m \e[94m███\e[2m░░░░░░░\e[0m \e[94m25%\e[0m (1h 30m / 5h) | \e[2mtok: 262k (in: 6k, out: 2k, cache: 254k)\e[0m | \e[2mCompactions: 1\e[0m | \e[2mAdvisor:\e[0m Opus 5.5 | \e[2m⏱️  1h 0m\e[0m | \e[2mStarted:\e[0m 2026-10-01 11:00 \e[2m│\e[0m \e[2mLast reply:\e[0m 1m ago | \e[2mCache\e[0m \e[32m⏱ until 12:04 PM\e[0m | \e[2mCache hit\e[0m 91.0% | \e[2mCost $1.23 | Today $0.0000 | Week $0.0000\e[0m
 \e[0m\e[33m◐\e[0m \e[36mEdit\e[0m\e[2m: .../auth.test.ts\e[0m | \e[32m✓\e[0m Read \e[2m×1\e[0m | \e[32m✓\e[0m Grep \e[2m×1\e[0m | \e[32m✓\e[0m Bash \e[2m×1\e[0m | \e[32m✓\e[0m mcp__github__search_issues \e[2m×1\e[0m | \e[2m+1 more\e[0m
 \e[0m\e[32m✓\e[0m Skills \e[2m(1)\e[0m: \e[36mfrontend-design\e[0m
 \e[0m\e[32m✓\e[0m MCPs \e[2m(1)\e[0m: \e[36mgithub\e[0m
@@ -439,7 +435,7 @@
 
 ### kitchen-sink/compact@60
 \e[0m\e[36m[Opus 5.5 ◑ high]\e[0m \e[32m███\e[2m░░░\e[0m \e[32m45%\e[0m
-\e[0m\e[33mmy-project\e[0m \e[35mgit:(\e[0m\e[36mmain* !1 ?1\e[0m\e[35m)\e[0m \e[35m⎇ feat-auth\e[0m | \e[2mauth-fix\e[0m
+\e[0m\e[33mmy-project\e[0m \e[35mgit:(\e[0m\e]8;;https://github.com/jarrodwatts/claude-hud/tree/main\e\\e[36mmain*\e[0m\e]8;;\e\ \e[36m!1 ?1\e[0m\e[35m)\e[0m \e[35m⎇ feat-auth\e[0m | \e[2mauth-fix\e[0m
 \e[0m\e[2mCC v2.1.286\e[0m | \e[2mUsage\e[0m \e[94m██\e[2m░░░░\e[0m \e[94m25%\e[0m (1h 30m / 5h)
 \e[0m\e[2mtok: 262k (in: 6k, out: 2k, cache: 254k)\e[0m | \e[2mCompactions: 1\e[0m
 \e[0m\e[2mAdvisor:\e[0m Opus 5.5 | \e[2m⏱️  1h 0m\e[0m
@@ -471,7 +467,7 @@
 \e[0m\e[2mCompactions: 1\e[0m
 
 ### kitchen-sink/compact@120
-\e[0m\e[36m[Opus 5.5 ◑ high]\e[0m \e[32m█████\e[2m░░░░░\e[0m \e[32m45%\e[0m | \e[33mmy-project\e[0m \e[35mgit:(\e[0m\e[36mmain* !1 ?1\e[0m\e[35m)\e[0m \e[35m⎇ feat-auth\e[0m | \e[2mauth-fix\e[0m | \e[2mCC v2.1.286\e[0m
+\e[0m\e[36m[Opus 5.5 ◑ high]\e[0m \e[32m█████\e[2m░░░░░\e[0m \e[32m45%\e[0m | \e[33mmy-project\e[0m \e[35mgit:(\e[0m\e]8;;https://github.com/jarrodwatts/claude-hud/tree/main\e\\e[36mmain*\e[0m\e]8;;\e\ \e[36m!1 ?1\e[0m\e[35m)\e[0m \e[35m⎇ feat-auth\e[0m | \e[2mauth-fix\e[0m | \e[2mCC v2.1.286\e[0m
 \e[0m\e[2mUsage\e[0m \e[94m███\e[2m░░░░░░░\e[0m \e[94m25%\e[0m (1h 30m / 5h) | \e[2mtok: 262k (in: 6k, out: 2k, cache: 254k)\e[0m | \e[2mCompactions: 1\e[0m | \e[2mAdvisor:\e[0m Opus 5.5
 \e[0m\e[2m⏱️  1h 0m\e[0m | \e[2mStarted:\e[0m 2026-10-01 11:00 \e[2m│\e[0m \e[2mLast reply:\e[0m 1m ago | \e[2mCache\e[0m \e[32m⏱ until 12:04 PM\e[0m | \e[2mCache hit\e[0m 91.0% | \e[2mCost $1.23
 \e[0mToday $0.0000 | Week $0.0000\e[0m
@@ -482,7 +478,7 @@
 \e[0m\e[33m▸\e[0m Fix authentication bug \e[2m(1/3)\e[0m
 
 ### kitchen-sink/compact+separators
-\e[0m\e[36m[Opus 5.5 ◑ high]\e[0m \e[32m█████\e[2m░░░░░\e[0m \e[32m45%\e[0m | \e[33mmy-project\e[0m \e[35mgit:(\e[0m\e[36mmain* !1 ?1\e[0m\e[35m)\e[0m \e[35m⎇ feat-auth\e[0m | \e[2mauth-fix\e[0m | \e[2mCC v2.1.286\e[0m | \e[2mUsage\e[0m \e[94m███\e[2m░░░░░░░\e[0m \e[94m25%\e[0m (1h 30m / 5h) | \e[2mtok: 262k (in: 6k, out: 2k, cache: 254k)\e[0m | \e[2mCompactions: 1\e[0m | \e[2mAdvisor:\e[0m Opus 5.5 | \e[2m⏱️  1h 0m\e[0m | \e[2mStarted:\e[0m 2026-10-01 11:00 \e[2m│\e[0m \e[2mLast reply:\e[0m 1m ago | \e[2mCache\e[0m \e[32m⏱ until 12:04 PM\e[0m | \e[2mCache hit\e[0m 91.0% | \e[2mCost $1.23 | Today $0.0000 | Week $0.0000\e[0m
+\e[0m\e[36m[Opus 5.5 ◑ high]\e[0m \e[32m█████\e[2m░░░░░\e[0m \e[32m45%\e[0m | \e[33mmy-project\e[0m \e[35mgit:(\e[0m\e]8;;https://github.com/jarrodwatts/claude-hud/tree/main\e\\e[36mmain*\e[0m\e]8;;\e\ \e[36m!1 ?1\e[0m\e[35m)\e[0m \e[35m⎇ feat-auth\e[0m | \e[2mauth-fix\e[0m | \e[2mCC v2.1.286\e[0m | \e[2mUsage\e[0m \e[94m███\e[2m░░░░░░░\e[0m \e[94m25%\e[0m (1h 30m / 5h) | \e[2mtok: 262k (in: 6k, out: 2k, cache: 254k)\e[0m | \e[2mCompactions: 1\e[0m | \e[2mAdvisor:\e[0m Opus 5.5 | \e[2m⏱️  1h 0m\e[0m | \e[2mStarted:\e[0m 2026-10-01 11:00 \e[2m│\e[0m \e[2mLast reply:\e[0m 1m ago | \e[2mCache\e[0m \e[32m⏱ until 12:04 PM\e[0m | \e[2mCache hit\e[0m 91.0% | \e[2mCost $1.23 | Today $0.0000 | Week $0.0000\e[0m
 \e[0m\e[2m──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────\e[0m
 \e[0m\e[33m◐\e[0m \e[36mEdit\e[0m\e[2m: .../auth.test.ts\e[0m | \e[32m✓\e[0m Read \e[2m×1\e[0m | \e[32m✓\e[0m Grep \e[2m×1\e[0m | \e[32m✓\e[0m Bash \e[2m×1\e[0m | \e[32m✓\e[0m mcp__github__search_issues \e[2m×1\e[0m | \e[2m+1 more\e[0m
 \e[0m\e[32m✓\e[0m Skills \e[2m(1)\e[0m: \e[36mfrontend-design\e[0m
@@ -531,3 +527,57 @@
 
 ### compact/usageCompact
 \e[0m\e[36m[Opus 5.5]\e[0m \e[32m█████\e[2m░░░░░\e[0m \e[32m45%\e[0m | \e[33mmy-project\e[0m | \e[2m5h:\e[0m \e[94m25%\e[0m \e[2m(1h 30m)\e[0m
+
+### activity/expanded
+\e[0m\e[36m[Opus 5.5]\e[0m │ \e]8;;file://<BASE>/home/dev/my-project\e\\e[33mmy-project\e[0m\e]8;;\e\
+\e[0m\e[2mContext\e[0m \e[32m█████\e[2m░░░░░\e[0m \e[32m45%\e[0m │ \e[2mUsage\e[0m \e[94m███\e[2m░░░░░░░\e[0m \e[94m25%\e[0m (resets in 1h 30m)
+\e[0m\e[33m◐\e[0m \e[36mBash\e[0m\e[2m: npm test\e[0m | \e[32m✓\e[0m Read \e[2m×1\e[0m
+\e[0m\e[33m◐\e[0m \e[35mgeneral-purpose\e[0m\e[2m: Review the diff\e[0m \e[2m(2m 0s)\e[0m
+\e[0m\e[32m✓\e[0m \e[35mExplore\e[0m \e[2m[haiku]\e[0m\e[2m: Find callers\e[0m \e[2m(30s)\e[0m
+\e[0m\e[32m✓\e[0m All todos complete \e[2m(2/2)\e[0m
+
+### activity/compact
+\e[0m\e[36m[Opus 5.5]\e[0m \e[32m█████\e[2m░░░░░\e[0m \e[32m45%\e[0m | \e[33mmy-project\e[0m | \e[2mUsage\e[0m \e[94m███\e[2m░░░░░░░\e[0m \e[94m25%\e[0m (1h 30m / 5h)
+\e[0m\e[33m◐\e[0m \e[36mBash\e[0m\e[2m: npm test\e[0m | \e[32m✓\e[0m Read \e[2m×1\e[0m
+\e[0m\e[33m◐\e[0m \e[35mgeneral-purpose\e[0m\e[2m: Review the diff\e[0m \e[2m(2m 0s)\e[0m
+\e[0m\e[32m✓\e[0m \e[35mExplore\e[0m \e[2m[haiku]\e[0m\e[2m: Find callers\e[0m \e[2m(30s)\e[0m
+\e[0m\e[32m✓\e[0m All todos complete \e[2m(2/2)\e[0m
+
+### default/typical@30
+\e[0m\e[36m[Opus 5.5]\e[0m │ \e]8;;file://<BASE>/home/dev/my-project\e\\e[33mmy-project\e[0m\e]8;;\e\
+\e[0m\e[2mContext\e[0m \e[32m██\e[2m░░\e[0m \e[32m45%\e[0m
+\e[0m\e[2mUsage  \e[0m \e[94m█\e[2m░░░\e[0m \e[94m25%\e[0m (resets in...\e[0m
+
+### default/cjk-path@40
+\e[0m\e[36m[Opus 5.5]\e[0m │ \e]8;;file://<BASE>/home/dev/%E6%88%91%E7%9A%84%E9%A1%B9%E7%9B%AE\e\\e[33m我的项目\e[0m\e]8;;\e\
+\e[0m\e[2mContext\e[0m \e[32m██\e[2m░░\e[0m \e[32m45%\e[0m
+\e[0m\e[2mUsage  \e[0m \e[94m█\e[2m░░░\e[0m \e[94m25%\e[0m (resets in 1h 30m)
+
+### default/cjk-path+zh-Hans@40
+\e[0m\e[36m[Opus 5.5]\e[0m │ \e]8;;file://<BASE>/home/dev/%E6%88%91%E7%9A%84%E9%A1%B9%E7%9B%AE\e\\e[33m我的项目\e[0m\e]8;;\e\
+\e[0m\e[2m上下文\e[0m \e[32m██\e[2m░░\e[0m \e[32m45%\e[0m
+\e[0m\e[2m用量  \e[0m \e[94m█\e[2m░░░\e[0m \e[94m25%\e[0m (重置剩余 1h 30m)
+
+### option/oneRow@120
+\e[0m\e[36m[Opus 5.5]\e[0m │ \e]8;;file://<BASE>/home/dev/my-project\e\\e[33mmy-project\e[0m\e]8;;\e\ │ \e[2mContext\e[0m \e[32m█████\e[2m░░░░░\e[0m \e[32m45%\e[0m │ \e[2mUsage\e[0m \e[94m███\e[2m░░░░░░░\e[0m \e[94m25%\e[0m (resets in 1h 30m)
+
+### option/oneRow-stacks@50
+\e[0m\e[36m[Opus 5.5]\e[0m │ \e]8;;file://<BASE>/home/dev/my-project\e\\e[33mmy-project\e[0m\e]8;;\e\
+\e[0m\e[2mContext\e[0m \e[32m██\e[2m░░\e[0m \e[32m45%\e[0m
+\e[0m\e[2mUsage  \e[0m \e[94m█\e[2m░░░\e[0m \e[94m25%\e[0m (resets in 1h 30m)
+
+### option/oneRow+rightAlign=context@120
+\e[0m\e[36m[Opus 5.5]\e[0m │ \e]8;;file://<BASE>/home/dev/my-project\e\\e[33mmy-project\e[0m\e]8;;\e\                                 \e[2mContext\e[0m \e[32m█████\e[2m░░░░░\e[0m \e[32m45%\e[0m │ \e[2mUsage\e[0m \e[94m███\e[2m░░░░░░░\e[0m \e[94m25%\e[0m (resets in 1h 30m)
+
+### git/ahead+pushThresholds
+\e[0m\e[36m[Opus 5.5]\e[0m │ \e]8;;file://<BASE>/home/dev/my-project\e\\e[33mmy-project\e[0m\e]8;;\e\ \e[35mgit:(\e[0m\e[36mmain\e[0m \e[33m↑2\e[0m\e[35m)\e[0m
+\e[0m\e[2mContext\e[0m \e[32m█████\e[2m░░░░░\e[0m \e[32m45%\e[0m │ \e[2mUsage\e[0m \e[94m███\e[2m░░░░░░░\e[0m \e[94m25%\e[0m (resets in 1h 30m)
+
+### compact/ahead+pushThresholds
+\e[0m\e[36m[Opus 5.5]\e[0m \e[32m█████\e[2m░░░░░\e[0m \e[32m45%\e[0m | \e[33mmy-project\e[0m \e[35mgit:(\e[0m\e[36mmain\e[0m \e[33m↑2\e[0m\e[35m)\e[0m | \e[2mUsage\e[0m \e[94m███\e[2m░░░░░░░\e[0m \e[94m25%\e[0m (1h 30m / 5h)
+
+### compact/timeFormat=elapsed
+\e[0m\e[36m[Opus 5.5]\e[0m \e[32m█████\e[2m░░░░░\e[0m \e[32m45%\e[0m | \e[33mmy-project\e[0m | \e[2mUsage\e[0m \e[94m███\e[2m░░░░░░░\e[0m \e[94m25%\e[0m (70% elapsed)
+
+### compact/timeFormat=elapsed+text
+\e[0m\e[36m[Opus 5.5]\e[0m \e[32m█████\e[2m░░░░░\e[0m \e[32m45%\e[0m | \e[33mmy-project\e[0m | \e[31m⚠ Limit reached (resets in 30m)\e[0m

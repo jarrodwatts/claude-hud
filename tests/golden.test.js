@@ -24,6 +24,15 @@ async function setUpGit(cwd, env, state) {
   );
   git('init', '-q', '-b', 'main');
   git('commit', '-q', '--allow-empty', '-m', 'init');
+  if (state === 'ahead') {
+    const remote = path.join(path.dirname(cwd), 'remote.git');
+    execFileSync('git', ['init', '-q', '--bare', remote], { env, stdio: 'ignore' });
+    git('remote', 'add', 'origin', remote);
+    git('push', '-q', '-u', 'origin', 'main');
+    git('commit', '-q', '--allow-empty', '-m', 'two');
+    git('commit', '-q', '--allow-empty', '-m', 'three');
+    return;
+  }
   if (state !== 'dirty') return;
   await writeFile(path.join(cwd, 'tracked.txt'), 'one\n');
   git('add', 'tracked.txt');
@@ -37,11 +46,11 @@ async function runCase(spec) {
   try {
     const home = path.join(base, 'home');
     const configDir = path.join(home, '.claude');
-    const project = path.join(home, 'dev', 'my-project');
+    const project = path.join(home, 'dev', spec.projectName ?? 'my-project');
     const transcript = path.join(configDir, 'projects', 'golden', 'transcript.jsonl');
     await mkdir(project, { recursive: true });
     await mkdir(path.dirname(transcript), { recursive: true });
-    await copyFile(path.join(goldenDir, 'transcript.jsonl'), transcript);
+    await copyFile(path.join(goldenDir, spec.transcript ?? 'transcript.jsonl'), transcript);
     if (spec.config) {
       const pluginDir = path.join(configDir, 'plugins', 'claude-hud');
       await mkdir(pluginDir, { recursive: true });

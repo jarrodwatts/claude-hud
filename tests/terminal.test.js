@@ -1,111 +1,49 @@
-import { test, describe, beforeEach, afterEach } from 'node:test';
+import { test, beforeEach, afterEach } from 'node:test';
 import assert from 'node:assert/strict';
-import { getAdaptiveBarWidth, getTerminalWidth } from '../dist/utils/terminal.js';
+import { getTerminalWidth } from '../dist/utils/terminal.js';
 
-test('getTerminalWidth caps hostile widths', () => {
-  const originalColumns = process.env.COLUMNS;
-  process.env.COLUMNS = '600000000';
-  try {
-    assert.equal(getTerminalWidth({ preferEnv: true }), 1000);
-  } finally {
-    if (originalColumns === undefined) delete process.env.COLUMNS;
-    else process.env.COLUMNS = originalColumns;
-  }
+let saved;
+
+beforeEach(() => {
+  saved = {
+    stdout: Object.getOwnPropertyDescriptor(process.stdout, 'columns'),
+    stderr: Object.getOwnPropertyDescriptor(process.stderr, 'columns'),
+    env: process.env.COLUMNS,
+  };
+  delete process.env.COLUMNS;
 });
 
-describe('getAdaptiveBarWidth', () => {
-  let originalStdoutColumns;
-  let originalStderrColumns;
-  let originalEnvColumns;
+afterEach(() => {
+  for (const [stream, descriptor] of [[process.stdout, saved.stdout], [process.stderr, saved.stderr]]) {
+    if (descriptor) Object.defineProperty(stream, 'columns', descriptor);
+    else delete stream.columns;
+  }
+  if (saved.env === undefined) delete process.env.COLUMNS;
+  else process.env.COLUMNS = saved.env;
+});
 
-  beforeEach(() => {
-    originalStdoutColumns = Object.getOwnPropertyDescriptor(process.stdout, 'columns');
-    originalStderrColumns = Object.getOwnPropertyDescriptor(process.stderr, 'columns');
-    originalEnvColumns = process.env.COLUMNS;
-    delete process.env.COLUMNS;
-  });
+const setColumns = (stream, value) => Object.defineProperty(stream, 'columns', { value, configurable: true });
 
-  afterEach(() => {
-    if (originalStdoutColumns) {
-      Object.defineProperty(process.stdout, 'columns', originalStdoutColumns);
-    } else {
-      delete process.stdout.columns;
-    }
-    if (originalStderrColumns) {
-      Object.defineProperty(process.stderr, 'columns', originalStderrColumns);
-    } else {
-      delete process.stderr.columns;
-    }
-    if (originalEnvColumns !== undefined) {
-      process.env.COLUMNS = originalEnvColumns;
-    } else {
-      delete process.env.COLUMNS;
-    }
-  });
+test('getTerminalWidth prefers COLUMNS, then stdout, then stderr', () => {
+  setColumns(process.stdout, 120);
+  setColumns(process.stderr, 90);
+  process.env.COLUMNS = '70';
+  assert.equal(getTerminalWidth(), 70);
+  delete process.env.COLUMNS;
+  assert.equal(getTerminalWidth(), 120);
+  setColumns(process.stdout, undefined);
+  assert.equal(getTerminalWidth(), 90);
+  setColumns(process.stderr, undefined);
+  assert.equal(getTerminalWidth(), null);
+});
 
-  test('returns 4 for narrow terminal (<60 cols)', () => {
-    Object.defineProperty(process.stdout, 'columns', { value: 40, configurable: true });
-    assert.equal(getAdaptiveBarWidth(), 4);
-  });
-
-  test('returns 4 for exactly 59 cols', () => {
-    Object.defineProperty(process.stdout, 'columns', { value: 59, configurable: true });
-    assert.equal(getAdaptiveBarWidth(), 4);
-  });
-
-  test('returns 6 for medium terminal (60-99 cols)', () => {
-    Object.defineProperty(process.stdout, 'columns', { value: 70, configurable: true });
-    assert.equal(getAdaptiveBarWidth(), 6);
-  });
-
-  test('returns 6 for exactly 60 cols', () => {
-    Object.defineProperty(process.stdout, 'columns', { value: 60, configurable: true });
-    assert.equal(getAdaptiveBarWidth(), 6);
-  });
-
-  test('returns 6 for exactly 99 cols', () => {
-    Object.defineProperty(process.stdout, 'columns', { value: 99, configurable: true });
-    assert.equal(getAdaptiveBarWidth(), 6);
-  });
-
-  test('returns 10 for wide terminal (>=100 cols)', () => {
-    Object.defineProperty(process.stdout, 'columns', { value: 120, configurable: true });
-    assert.equal(getAdaptiveBarWidth(), 10);
-  });
-
-  test('returns 10 for exactly 100 cols', () => {
-    Object.defineProperty(process.stdout, 'columns', { value: 100, configurable: true });
-    assert.equal(getAdaptiveBarWidth(), 10);
-  });
-
-  test('returns 10 when stdout.columns is undefined (non-TTY/piped)', () => {
-    Object.defineProperty(process.stdout, 'columns', { value: undefined, configurable: true });
-    assert.equal(getAdaptiveBarWidth(), 10);
-  });
-
-  test('treats COLUMNS env var as a hard override when present', () => {
-    Object.defineProperty(process.stdout, 'columns', { value: 120, configurable: true });
-    process.env.COLUMNS = '70';
-    assert.equal(getAdaptiveBarWidth(), 6);
-  });
-
-  test('falls back to COLUMNS env var when stdout.columns unavailable', () => {
-    Object.defineProperty(process.stdout, 'columns', { value: undefined, configurable: true });
-    process.env.COLUMNS = '70';
-    assert.equal(getAdaptiveBarWidth(), 6);
-  });
-
-  test('falls back to stderr.columns when stdout.columns and COLUMNS are unavailable', () => {
-    Object.defineProperty(process.stdout, 'columns', { value: undefined, configurable: true });
-    Object.defineProperty(process.stderr, 'columns', { value: 70, configurable: true });
-    delete process.env.COLUMNS;
-    assert.equal(getAdaptiveBarWidth(), 6);
-  });
-
-  test('returns 10 when stdout.columns, stderr.columns, and COLUMNS are unavailable', () => {
-    Object.defineProperty(process.stdout, 'columns', { value: undefined, configurable: true });
-    Object.defineProperty(process.stderr, 'columns', { value: undefined, configurable: true });
-    delete process.env.COLUMNS;
-    assert.equal(getAdaptiveBarWidth(), 10);
-  });
+test('getTerminalWidth ignores invalid values and caps hostile widths', () => {
+  setColumns(process.stdout, undefined);
+  setColumns(process.stderr, undefined);
+  for (const value of ['', 'abc', '0', '-5']) {
+    process.env.COLUMNS = value;
+    assert.equal(getTerminalWidth(), null, value);
+  }
+  process.env.COLUMNS = '600000000';
+  assert.equal(getTerminalWidth(), 1000);
 });
