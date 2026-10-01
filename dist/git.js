@@ -1,240 +1,169 @@
 import { createDebug } from './debug.js';
-import { createGitRunner } from './git-runner.js';
+import { GitTimeoutError, runGit } from './git-runner.js';
 const debug = createDebug('git');
-export async function getGitBranch(cwd) {
+const QUIET = ['-c', 'core.quotePath=false', '--no-optional-locks'];
+export async function getGitStatus(cwd, options = {}) {
     if (!cwd)
         return null;
-    let runner;
+    let output;
     try {
-        runner = createGitRunner(cwd);
-        return await resolveGitRef(runner);
+        output = await runGit(cwd, [...QUIET, 'status', '--porcelain=v2', '--branch', '-z'], 1000);
     }
     catch (err) {
-        debug('Failed to get git branch:', err instanceof Error ? err.message : err);
+        debug('git status failed:', err instanceof Error ? err.message : err);
+        return err instanceof GitTimeoutError ? getBranchOnly(cwd, options.repo) : null;
+    }
+    const parsed = parseStatus(output);
+    const branch = parsed.head ?? await describeDetachedHead(cwd, parsed.oid);
+    if (!branch)
         return null;
+    const status = {
+        branch,
+        isDirty: parsed.dirty,
+        ahead: parsed.ahead,
+        behind: parsed.behind,
+        branchUrl: githubRefUrl(options.repo, branch),
+    };
+    if (!parsed.dirty)
+        return status;
+    status.fileStats = parsed.fileStats;
+    if (options.lineDiffs) {
+        try {
+            const diffs = parseNumstat(await runGit(cwd, [...QUIET, 'diff', '--numstat', '-z', 'HEAD'], 2000));
+            status.lineDiff = { added: 0, deleted: 0 };
+            for (const diff of diffs.values()) {
+                status.lineDiff.added += diff.added;
+                status.lineDiff.deleted += diff.deleted;
+            }
+            for (const file of parsed.fileStats.trackedFiles) {
+                const diff = diffs.get(file.fullPath);
+                if (diff)
+                    file.lineDiff = diff;
+            }
+        }
+        catch (err) {
+            debug('git diff --numstat failed:', err instanceof Error ? err.message : err);
+        }
     }
-    finally {
-        await runner?.close();
-    }
+    return status;
 }
-export async function getGitStatus(cwd) {
-    if (!cwd)
-        return null;
-    let runner;
+// A status that timed out in a large repo still leaves the branch worth showing.
+async function getBranchOnly(cwd, repo) {
     try {
-        runner = createGitRunner(cwd);
-        // Get branch name
-        const branch = await resolveGitRef(runner);
-        if (!branch)
+        const branch = (await runGit(cwd, ['rev-parse', '--abbrev-ref', 'HEAD'], 1000)).trim();
+        if (!branch || branch === 'HEAD')
             return null;
-        // Check for dirty state and parse file stats
-        let isDirty = false;
-        let fileStats;
-        let lineDiff;
-        try {
-            const { stdout: statusOut } = await runner.run(['-c', 'core.quotePath=false', '--no-optional-locks', 'status', '--porcelain'], 1000);
-            const trimmed = statusOut.trim();
-            isDirty = trimmed.length > 0;
-            if (isDirty) {
-                fileStats = parseFileStats(trimmed);
-            }
-        }
-        catch (err) {
-            debug('Failed to get git status:', err instanceof Error ? err.message : err);
-        }
-        // Get per-file and total line diffs
-        if (isDirty) {
-            try {
-                const { stdout: numstatOut } = await runner.run(['-c', 'core.quotePath=false', '--no-optional-locks', 'diff', '--numstat', 'HEAD'], 2000);
-                const trackedPaths = new Set(fileStats?.trackedFiles.map((file) => file.fullPath) ?? []);
-                const { totalDiff, perFileDiff } = parseNumstat(numstatOut, trackedPaths);
-                lineDiff = totalDiff;
-                if (fileStats) {
-                    applyLineDiffsToFiles(fileStats.trackedFiles, perFileDiff);
-                }
-            }
-            catch (err) {
-                debug('Failed to get line diff:', err instanceof Error ? err.message : err);
-            }
-        }
-        // Get ahead/behind counts
-        let ahead = 0;
-        let behind = 0;
-        try {
-            const { stdout: revOut } = await runner.run(['rev-list', '--left-right', '--count', '@{upstream}...HEAD'], 1000);
-            const parts = revOut.trim().split(/\s+/);
-            if (parts.length === 2) {
-                behind = parseInt(parts[0], 10) || 0;
-                ahead = parseInt(parts[1], 10) || 0;
-            }
-        }
-        catch (err) {
-            debug('Failed to get ahead/behind (no upstream?):', err instanceof Error ? err.message : err);
-        }
-        // Build GitHub branch URL from remote
-        let branchUrl;
-        try {
-            const { stdout: remoteOut } = await runner.run(['remote', 'get-url', 'origin'], 1000);
-            const remote = remoteOut.trim();
-            const httpsBase = remote
-                .replace(/^git@github\.com:/, 'https://github.com/')
-                .replace(/^ssh:\/\/git@github\.com\//, 'https://github.com/')
-                .replace(/\.git$/, '');
-            if (httpsBase.startsWith('https://github.com/')) {
-                branchUrl = buildGitHubRefUrl(httpsBase, branch);
-            }
-        }
-        catch (err) {
-            debug('Failed to get remote URL:', err instanceof Error ? err.message : err);
-        }
-        return { branch, isDirty, ahead, behind, fileStats, lineDiff, branchUrl };
+        return { branch, isDirty: false, ahead: 0, behind: 0, branchUrl: githubRefUrl(repo, branch) };
     }
-    catch (err) {
-        debug('getGitStatus failed:', err instanceof Error ? err.message : err);
+    catch {
         return null;
     }
-    finally {
-        await runner?.close();
-    }
 }
-async function resolveGitRef(runner) {
-    const { stdout: branchOut } = await runner.run(['rev-parse', '--abbrev-ref', 'HEAD'], 1000);
-    const branch = branchOut.trim();
-    if (branch && branch !== 'HEAD') {
-        return branch;
-    }
+async function describeDetachedHead(cwd, oid) {
     try {
-        const { stdout: tagOut } = await runner.run(['describe', '--tags', '--exact-match', 'HEAD'], 1000);
-        const tag = tagOut.trim();
+        const tag = (await runGit(cwd, ['describe', '--tags', '--exact-match', 'HEAD'], 1000)).trim();
         if (tag)
             return tag;
     }
     catch {
-        // Detached commits often are not tagged; fall back to a short commit id.
+        // Untagged commit.
     }
-    const { stdout: shortShaOut } = await runner.run(['rev-parse', '--short', 'HEAD'], 1000);
-    const shortSha = shortShaOut.trim();
-    return shortSha ? `detached:${shortSha}` : null;
+    return oid && /^[0-9a-f]{7,}$/.test(oid) ? `detached:${oid.slice(0, 7)}` : null;
 }
-function encodeGitHubRef(ref) {
-    return ref.split('/').map(encodeURIComponent).join('/');
-}
-function buildGitHubRefUrl(httpsBase, ref) {
-    const detachedMatch = ref.match(/^detached:([0-9a-f]+)$/);
-    if (detachedMatch) {
-        return `${httpsBase}/commit/${detachedMatch[1]}`;
+const GITHUB_NAME = /^[A-Za-z0-9_.-]+$/;
+function githubRefUrl(repo, ref) {
+    if (repo?.host !== 'github.com' || !GITHUB_NAME.test(repo.owner ?? '') || !GITHUB_NAME.test(repo.name ?? '')) {
+        return undefined;
     }
-    return `${httpsBase}/tree/${encodeGitHubRef(ref)}`;
+    const base = `https://github.com/${repo.owner}/${repo.name}`;
+    const sha = /^detached:([0-9a-f]+)$/.exec(ref)?.[1];
+    return sha ? `${base}/commit/${sha}` : `${base}/tree/${ref.split('/').map(encodeURIComponent).join('/')}`;
 }
-/**
- * Parse git status --porcelain output and count file stats (Starship-compatible format)
- * Status codes: M=modified, A=added, D=deleted, ??=untracked
- */
-function parseFileStats(porcelainOutput) {
-    const stats = { modified: 0, added: 0, deleted: 0, untracked: 0, trackedFiles: [] };
-    const lines = porcelainOutput.split('\n').filter(Boolean);
-    for (const line of lines) {
-        if (line.length < 2)
-            continue;
-        const index = line[0]; // staged status
-        const worktree = line[1]; // unstaged status
-        if (line.startsWith('??')) {
+// Fields before the path in `git status --porcelain=v2` records, by record type.
+const PATH_FIELD = { '1': 8, '2': 9, u: 10 };
+export function parseStatus(output) {
+    const parsed = {
+        oid: null,
+        head: null,
+        ahead: 0,
+        behind: 0,
+        dirty: false,
+        fileStats: { modified: 0, added: 0, deleted: 0, untracked: 0, trackedFiles: [] },
+    };
+    const stats = parsed.fileStats;
+    const records = output.split('\0');
+    for (let i = 0; i < records.length; i++) {
+        const record = records[i];
+        if (record.startsWith('# branch.oid ')) {
+            parsed.oid = record.slice('# branch.oid '.length);
+        }
+        else if (record.startsWith('# branch.head ')) {
+            const head = record.slice('# branch.head '.length);
+            parsed.head = head === '(detached)' ? null : head;
+        }
+        else if (record.startsWith('# branch.ab ')) {
+            const match = /^\+(\d+) -(\d+)$/.exec(record.slice('# branch.ab '.length));
+            if (match) {
+                parsed.ahead = Number(match[1]);
+                parsed.behind = Number(match[2]);
+            }
+        }
+        else if (record.startsWith('? ')) {
+            parsed.dirty = true;
             stats.untracked++;
         }
-        else if (index === 'A' || (index === 'U' && worktree === 'A')) {
-            stats.added++;
-            const fullPath = parsePorcelainPath(line.slice(2).trimStart());
-            stats.trackedFiles.push({ basename: fullPath.split('/').pop() ?? fullPath, fullPath, type: 'added' });
-        }
-        else if (index === 'D' || worktree === 'D') {
-            stats.deleted++;
-            const fullPath = parsePorcelainPath(line.slice(2).trimStart());
-            stats.trackedFiles.push({ basename: fullPath.split('/').pop() ?? fullPath, fullPath, type: 'deleted' });
-        }
-        else if (index === 'M' || worktree === 'M' || index === 'R' || index === 'C' || index === 'U') {
-            // M=modified, R=renamed and C=copied (count as modified), U=unmerged (UU)
-            stats.modified++;
-            // For renames, git porcelain shows "old -> new"; take the destination path
-            const fullPath = parsePorcelainPath(line.slice(2).trimStart().split(' -> ').pop() ?? line.slice(2).trimStart());
-            stats.trackedFiles.push({ basename: fullPath.split('/').pop() ?? fullPath, fullPath, type: 'modified' });
+        else if (record[1] === ' ' && record[0] in PATH_FIELD) {
+            parsed.dirty = true;
+            const fullPath = pathAfterFields(record, PATH_FIELD[record[0]]);
+            if (record[0] === '2')
+                i++; // A rename or copy is followed by its original path.
+            const type = classify(record[2], record[3]);
+            if (!type)
+                continue;
+            stats[type]++;
+            stats.trackedFiles.push({ basename: fullPath.split('/').pop() ?? fullPath, fullPath, type });
         }
     }
-    return stats;
+    return parsed;
 }
-const C_ESCAPES = { a: '\x07', b: '\b', f: '\f', n: '\n', r: '\r', t: '\t', v: '\v' };
-// Undo git's quote_c_style. Octal escapes are bytes, so decode runs of them as UTF-8.
-function unquoteCStyle(body) {
-    return body.replace(/(?:\\[0-7]{3})+|\\(.)/g, (match, escaped) => {
-        if (escaped !== undefined)
-            return C_ESCAPES[escaped] ?? escaped;
-        const bytes = match.slice(1).split('\\').map((octal) => parseInt(octal, 8));
-        return Buffer.from(bytes).toString('utf8');
-    });
+function pathAfterFields(record, fields) {
+    let index = 0;
+    for (let field = 0; field < fields; field++)
+        index = record.indexOf(' ', index) + 1;
+    return record.slice(index);
 }
-function parsePorcelainPath(pathField) {
-    if (pathField.length >= 2 && pathField.startsWith('"') && pathField.endsWith('"')) {
-        return unquoteCStyle(pathField.slice(1, -1));
-    }
-    return pathField;
+// Index (x) and worktree (y) status letters. Renames, copies, and UU conflicts count as modified.
+function classify(x, y) {
+    if (x === 'A' || (x === 'U' && y === 'A'))
+        return 'added';
+    if (x === 'D' || y === 'D')
+        return 'deleted';
+    if (x === 'M' || y === 'M' || x === 'R' || x === 'C' || x === 'U')
+        return 'modified';
+    return null;
 }
-/**
- * Extract the destination path from a numstat path field.
- *
- * For renames, `git diff --numstat` emits the path as `old => new`
- * (sometimes with a shared directory prefix like `pkg/{old.ts => new.ts}`).
- * `git status --porcelain` reports the renamed file under its destination
- * only, so we key `perFileDiff` by the destination to make lookups match.
- */
-function extractNumstatDestination(filePath) {
-    const braceMatch = filePath.match(/^(.*)\{(.*) => (.*)\}(.*)$/);
-    if (braceMatch) {
-        const [, prefix, , dest, suffix] = braceMatch;
-        return `${prefix}${dest}${suffix}`.replace(/\/{2,}/g, '/');
-    }
-    const arrowIndex = filePath.indexOf(' => ');
-    if (arrowIndex !== -1) {
-        return filePath.slice(arrowIndex + 4);
-    }
-    return filePath;
-}
-function resolveNumstatPath(filePath, trackedPaths) {
-    if (trackedPaths.has(filePath)) {
-        return filePath;
-    }
-    const destinationPath = extractNumstatDestination(filePath);
-    if (destinationPath !== filePath && trackedPaths.has(destinationPath)) {
-        return destinationPath;
-    }
-    return filePath;
-}
-/**
- * Parse `git diff --numstat HEAD` output.
- * Returns total line diff and a map of fullPath -> LineDiff.
- */
-function parseNumstat(numstatOutput, trackedPaths) {
-    const totalDiff = { added: 0, deleted: 0 };
-    const perFileDiff = new Map();
-    for (const line of numstatOutput.trim().split('\n').filter(Boolean)) {
-        const parts = line.split('\t');
-        if (parts.length < 3)
+// `git diff --numstat -z`: "added\tdeleted\tpath", or for a rename an empty
+// path followed by the old and new paths as separate records.
+export function parseNumstat(output) {
+    const diffs = new Map();
+    const records = output.split('\0');
+    for (let i = 0; i < records.length; i++) {
+        const record = records[i];
+        const first = record.indexOf('\t');
+        const second = record.indexOf('\t', first + 1);
+        if (first === -1 || second === -1)
             continue;
-        const added = parseInt(parts[0], 10);
-        const deleted = parseInt(parts[1], 10);
-        const filePath = resolveNumstatPath(parts[2], trackedPaths);
+        let filePath = record.slice(second + 1);
+        if (filePath === '') {
+            filePath = records[i + 2] ?? '';
+            i += 2;
+        }
+        const added = Number.parseInt(record.slice(0, first), 10);
+        const deleted = Number.parseInt(record.slice(first + 1, second), 10);
         if (Number.isNaN(added) || Number.isNaN(deleted))
             continue; // binary file
-        totalDiff.added += added;
-        totalDiff.deleted += deleted;
-        perFileDiff.set(filePath, { added, deleted });
+        diffs.set(filePath, { added, deleted });
     }
-    return { totalDiff, perFileDiff };
-}
-function applyLineDiffsToFiles(files, perFileDiff) {
-    for (const file of files) {
-        const diff = perFileDiff.get(file.fullPath);
-        if (diff) {
-            file.lineDiff = diff;
-        }
-    }
+    return diffs;
 }
 //# sourceMappingURL=git.js.map

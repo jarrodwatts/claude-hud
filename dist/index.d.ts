@@ -11,7 +11,7 @@ import { getMemoryUsage } from "./memory.js";
 import { readAuthInfo } from "./auth.js";
 import { applyContextWindowFallback } from "./context-cache.js";
 import { getUsageFromExternalSnapshot, writeExternalUsageSnapshot } from "./external-usage.js";
-import type { GitStatus } from "./git.js";
+import type { GitRepoIdentity, GitStatus } from "./git.js";
 import type { HudConfig } from "./config.js";
 export { getUsageFromExternalSnapshot, writeExternalUsageSnapshot } from "./external-usage.js";
 export type MainDeps = {
@@ -47,7 +47,7 @@ export declare function isHudDisabled(env?: NodeJS.ProcessEnv): boolean;
  * Prefers jj when an eligible `.jj` marker is found and the opt-in is enabled.
  * If the bounded jj probe fails, Git remains the safe compatibility fallback.
  */
-export declare function resolveVcsStatus(deps: Pick<MainDeps, "getGitStatus" | "getJjStatus" | "isJjRepo">, config: HudConfig, cwd?: string): Promise<GitStatus | null>;
+export declare function resolveVcsStatus(deps: Pick<MainDeps, "getGitStatus" | "getJjStatus" | "isJjRepo">, config: HudConfig, cwd?: string, repo?: GitRepoIdentity | null): Promise<GitStatus | null>;
 export declare function main(overrides?: Partial<MainDeps>): Promise<void>;
 export declare function formatSessionDuration(sessionStart?: Date, now?: () => number): string;
 //# sourceMappingURL=index.d.ts.map

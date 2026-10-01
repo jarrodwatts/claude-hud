@@ -1,24 +1,24 @@
 import { spawn, type ChildProcess } from 'node:child_process';
 export declare const GIT_MAX_OUTPUT_BYTES: number;
-export interface GitCommandRunner {
-    run(args: readonly string[], timeout: number): Promise<{
-        stdout: string;
-    }>;
-    close(): Promise<void>;
+export declare class GitTimeoutError extends Error {
 }
 export declare function createGitEnvironment(base?: NodeJS.ProcessEnv): NodeJS.ProcessEnv;
-export declare function createGitRunner(cwd: string, platform?: NodeJS.Platform): GitCommandRunner;
-type KillableChild = Pick<ChildProcess, 'pid' | 'exitCode' | 'signalCode' | 'kill'>;
+/** Run git and resolve with its stdout. Rejects on non-zero exit, timeout, or oversized output. */
+export declare function runGit(cwd: string, args: readonly string[], timeout: number, platform?: NodeJS.Platform): Promise<string>;
 /**
- * Terminate only the Windows process tree rooted at the child this worker
- * spawned. `taskkill.exe` is invoked directly (never through a shell), and a
- * direct child kill is retained as a bounded fallback if tree termination is
- * unavailable.
+ * Windows does not kill a process's children when it dies, so a statusline
+ * cancelled mid-render would orphan git.exe. Git runs under a one-shot worker
+ * that tree-kills it when the IPC channel to this process closes, whether
+ * because we gave up waiting or because we were killed.
  */
+export declare function runGitInWorker(gitExecutable: string, cwd: string, args: readonly string[], timeout: number): Promise<string>;
+type KillableChild = Pick<ChildProcess, 'pid' | 'exitCode' | 'signalCode' | 'kill'>;
+/** Kill the process tree rooted at `child` with taskkill, falling back to killing just the child. */
 export declare function terminateWindowsProcessTree(child: KillableChild, spawnImpl?: typeof spawn, environment?: NodeJS.ProcessEnv): Promise<void>;
+/** System32\taskkill.exe under a drive-absolute SystemRoot, never a PATH lookup a repo could plant. */
 export declare function resolveTaskkillPath(environment?: NodeJS.ProcessEnv): string | null;
 type ResolveCandidate = (candidate: string) => string | null;
-/** Resolve git.exe from absolute PATH entries before the worker enters a repo cwd. */
+/** Resolve git.exe from absolute PATH entries only, so a git.exe in the repo cwd is never picked up. */
 export declare function resolveWindowsGitExecutable(environment?: NodeJS.ProcessEnv, resolveCandidate?: ResolveCandidate): string | null;
 export {};
 //# sourceMappingURL=git-runner.d.ts.map

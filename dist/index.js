@@ -34,7 +34,7 @@ export function isHudDisabled(env = process.env) {
  * Prefers jj when an eligible `.jj` marker is found and the opt-in is enabled.
  * If the bounded jj probe fails, Git remains the safe compatibility fallback.
  */
-export async function resolveVcsStatus(deps, config, cwd) {
+export async function resolveVcsStatus(deps, config, cwd, repo) {
     if (!cwd)
         return null;
     if (config.jjStatus.enabled && deps.isJjRepo(cwd)) {
@@ -43,7 +43,7 @@ export async function resolveVcsStatus(deps, config, cwd) {
             return jjStatus;
     }
     if (config.gitStatus.enabled) {
-        return deps.getGitStatus(cwd);
+        return deps.getGitStatus(cwd, { lineDiffs: config.gitStatus.showFileStats, repo });
     }
     return null;
 }
@@ -97,7 +97,7 @@ export async function main(overrides = {}) {
         const { claudeMdCount, rulesCount, mcpCount, hooksCount, outputStyle } = await deps.countConfigs(stdin.cwd);
         const config = await deps.loadConfig();
         setLanguage(config.language);
-        const gitStatus = await resolveVcsStatus(deps, config, stdin.cwd);
+        const gitStatus = await resolveVcsStatus(deps, config, stdin.cwd, stdin.workspace?.repo);
         let usageData = null;
         const shouldReadUsage = config.display.showUsage !== false;
         const shouldWriteUsage = Boolean(config.display.externalUsageWritePath);

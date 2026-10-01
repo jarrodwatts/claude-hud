@@ -28,6 +28,26 @@ export interface GitStatus {
     /** jj-native: true when the working-copy commit has an unresolved conflict. */
     conflict?: boolean;
 }
-export declare function getGitBranch(cwd?: string): Promise<string | null>;
-export declare function getGitStatus(cwd?: string): Promise<GitStatus | null>;
+/** The `workspace.repo` identity Claude Code parses from the origin remote. */
+export interface GitRepoIdentity {
+    host?: string;
+    owner?: string;
+    name?: string;
+}
+export interface GitStatusOptions {
+    lineDiffs?: boolean;
+    repo?: GitRepoIdentity | null;
+}
+export declare function getGitStatus(cwd?: string, options?: GitStatusOptions): Promise<GitStatus | null>;
+interface ParsedStatus {
+    oid: string | null;
+    head: string | null;
+    ahead: number;
+    behind: number;
+    dirty: boolean;
+    fileStats: FileStats;
+}
+export declare function parseStatus(output: string): ParsedStatus;
+export declare function parseNumstat(output: string): Map<string, LineDiff>;
+export {};
 //# sourceMappingURL=git.d.ts.map

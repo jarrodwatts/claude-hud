@@ -7,57 +7,26 @@ import path from 'node:path';
 import { execFileSync } from 'node:child_process';
 import {
   GIT_MAX_OUTPUT_BYTES,
+  GitTimeoutError,
   createGitEnvironment,
-  createGitRunner,
   resolveTaskkillPath,
   resolveWindowsGitExecutable,
+  runGit,
+  runGitInWorker,
   terminateWindowsProcessTree,
 } from '../dist/git-runner.js';
-import { startWindowsGitWorker } from '../dist/windows-git-worker.js';
 
-class FakeRuntime extends EventEmitter {
-  argv = ['node', 'windows-git-worker.js', '/fixture/git'];
-  connected = true;
-  messages = [];
-  disconnectCalls = 0;
-  exitCalls = [];
+const SLOW = ['-c', 'alias.slow=!sleep 5', 'slow'];
 
-  send(message) {
-    this.messages.push(message);
-    return true;
-  }
+// A timed-out git is tree-killed asynchronously, and Windows locks a running
+// process's cwd. Retrying for ~3s, short of the 5s sleep, also proves the kill.
+const removeOnceReleased = (dir) => rm(dir, { recursive: true, force: true, maxRetries: 15, retryDelay: 200 });
 
-  disconnect() {
-    this.disconnectCalls++;
-    this.connected = false;
-    this.emit('disconnect');
-  }
-
-  exit(code) {
-    this.exitCalls.push(code);
-  }
-
-  parentDisconnect() {
-    this.connected = false;
-    this.emit('disconnect');
-  }
+function absoluteGit() {
+  return process.platform === 'win32'
+    ? resolveWindowsGitExecutable()
+    : execFileSync('sh', ['-c', 'command -v git'], { encoding: 'utf8' }).trim();
 }
-
-function createLongRunningChild() {
-  const child = new EventEmitter();
-  child.stdout = new EventEmitter();
-  child.pid = 5151;
-  child.exitCode = null;
-  child.signalCode = null;
-  child.killCalls = 0;
-  child.kill = () => {
-    child.killCalls++;
-    return true;
-  };
-  return child;
-}
-
-const nextTurn = () => new Promise((resolve) => setImmediate(resolve));
 
 test('Git subprocess environment disables prompts and optional locks', () => {
   const environment = createGitEnvironment({
@@ -159,93 +128,29 @@ test('Windows tree termination falls back to the exact child when SystemRoot is 
   assert.equal(fallbackKills, 1);
 });
 
-test('guardian disconnect terminates its active child tree and becomes idle', async () => {
-  const runtime = new FakeRuntime();
-  const child = createLongRunningChild();
-  const descendant = { alive: true };
-  const terminated = [];
-  const controller = startWindowsGitWorker({
-    runtime,
-    spawnGit: () => child,
-    terminateTree: async (ownedChild) => {
-      terminated.push(ownedChild.pid);
-      descendant.alive = false;
-      queueMicrotask(() => ownedChild.emit('close', null, 'SIGTERM'));
-    },
-  });
-
-  controller.handleMessage({
-    type: 'run',
-    id: 1,
-    cwd: '/fixture/repo',
-    args: ['rev-parse', '--abbrev-ref', 'HEAD'],
-    timeout: 1000,
-  });
-  assert.deepEqual(controller.getState(), { active: true, starting: false, shuttingDown: false });
-
-  runtime.parentDisconnect();
-  await nextTurn();
-
-  assert.deepEqual(terminated, [5151]);
-  assert.equal(descendant.alive, false);
-  assert.deepEqual(controller.getState(), { active: false, starting: false, shuttingDown: true });
-  assert.deepEqual(runtime.exitCalls, []);
-});
-
-test('disconnect during spawn still registers and terminates the returned child tree', async () => {
-  const runtime = new FakeRuntime();
-  const child = createLongRunningChild();
-  const descendant = { alive: true };
-  const terminated = [];
-  let controller;
-  controller = startWindowsGitWorker({
-    runtime,
-    spawnGit: () => {
-      controller.beginShutdown();
-      return child;
-    },
-    terminateTree: async (ownedChild) => {
-      terminated.push(ownedChild.pid);
-      descendant.alive = false;
-      queueMicrotask(() => ownedChild.emit('close', null, 'SIGTERM'));
-    },
-  });
-
-  controller.handleMessage({
-    type: 'run',
-    id: 2,
-    cwd: '/fixture/repo',
-    args: ['status', '--porcelain'],
-    timeout: 1000,
-  });
-  await nextTurn();
-
-  assert.deepEqual(terminated, [5151]);
-  assert.equal(descendant.alive, false);
-  assert.equal(runtime.disconnectCalls, 1);
-  assert.deepEqual(controller.getState(), { active: false, starting: false, shuttingDown: true });
-  assert.deepEqual(runtime.exitCalls, []);
-});
-
-test('Windows Git runner reuses one guardian for sequential bounded commands', {
-  skip: process.platform === 'win32' ? false : 'requires Windows git.exe resolution',
-}, async () => {
+test('runGit returns stdout and rejects on failure', async () => {
   const dir = await mkdtemp(path.join(tmpdir(), 'claude-hud-git-runner-'));
-  const runner = createGitRunner(dir, 'win32');
   try {
-    execFileSync('git', ['init'], { cwd: dir, stdio: 'ignore' });
-    execFileSync('git', ['config', 'user.email', 'test@test.com'], { cwd: dir, stdio: 'ignore' });
-    execFileSync('git', ['config', 'user.name', 'Test'], { cwd: dir, stdio: 'ignore' });
-    execFileSync('git', ['config', 'commit.gpgsign', 'false'], { cwd: dir, stdio: 'ignore' });
-    execFileSync('git', ['commit', '--allow-empty', '-m', 'init'], { cwd: dir, stdio: 'ignore' });
-
-    const branch = await runner.run(['rev-parse', '--abbrev-ref', 'HEAD'], 1000);
-    const status = await runner.run(['--no-optional-locks', 'status', '--porcelain'], 1000);
-
-    assert.match(branch.stdout.trim(), /^(main|master)$/);
-    assert.equal(status.stdout, '');
+    assert.match(await runGit(dir, ['--version'], 10_000), /^git version /);
+    await assert.rejects(runGit(dir, ['rev-parse', 'HEAD'], 10_000), (err) => !(err instanceof GitTimeoutError));
+    await assert.rejects(runGit(dir, SLOW, 200), GitTimeoutError);
   } finally {
-    await runner.close();
-    await rm(dir, { recursive: true, force: true });
+    await removeOnceReleased(dir);
+  }
+});
+
+test('the git worker relays stdout, exit status, and times out by disconnecting', async () => {
+  const git = absoluteGit();
+  const dir = await mkdtemp(path.join(tmpdir(), 'claude-hud-git-worker-'));
+  try {
+    assert.match(await runGitInWorker(git, dir, ['--version'], 10_000), /^git version /);
+    await assert.rejects(runGitInWorker(git, dir, ['rev-parse', 'HEAD'], 10_000), /exited with code/);
+    await assert.rejects(runGitInWorker('relative/git', dir, ['--version'], 10_000), /exited with code 2/);
+
+    const started = Date.now();
+    await assert.rejects(runGitInWorker(git, dir, SLOW, 300), GitTimeoutError);
+    assert.ok(Date.now() - started < 4000, 'gave up before the slow command finished');
+  } finally {
+    await removeOnceReleased(dir);
   }
 });
