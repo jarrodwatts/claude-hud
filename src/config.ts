@@ -203,9 +203,7 @@ export interface HudConfig {
     // Accumulate the native stdin cost into a per-day ledger and show
     // today's cumulative spend across sessions. Default off.
     showDailyCost: boolean;
-    // Accumulate spend over the weekly quota window (the one behind the
-    // `Weekly` usage bar) and show the week's total. Independent of
-    // `showDailyCost`. Default off.
+    // Show spend over the weekly quota window behind the `Weekly` usage bar. Default off.
     showWeeklyCost: boolean;
     showDuration: boolean;
     showSpeed: boolean;

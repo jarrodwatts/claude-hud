@@ -178,8 +178,7 @@ test('weekly total spans days and follows the quota window', () => {
   assert.equal(totals.todayUsd, 0);
   assert.equal(totals.weekUsd, 5.0);
 
-  // A new quota window drops the carried spend; like the day rollover, the
-  // increment seen on the first render of the window counts toward it.
+  // A new quota window drops the carried spend but counts the increment seen on its first render.
   const next = { sevenDayResetAt: new Date(NOON + 8 * DAY_MS) };
   totals = getCostTotals({ session_id: 'b', cost: { total_cost_usd: 2.5 } }, next, deps(NOON + DAY_MS + 2000));
   assert.equal(totals.weekUsd, 2.0);
@@ -187,4 +186,18 @@ test('weekly total spans days and follows the quota window', () => {
     getCostTotals({ session_id: 'b', cost: { total_cost_usd: 3.0 } }, next, deps(NOON + DAY_MS + 3000)).weekUsd,
     2.5,
   );
+});
+
+test('weekly total stays null until the 7-day reset time is known', () => {
+  getCostTotals({ session_id: 'a', cost: { total_cost_usd: 1.0 } }, undefined, deps(NOON));
+  const totals = getCostTotals({ session_id: 'a', cost: { total_cost_usd: 3.0 } }, undefined, deps(NOON + 1000));
+  assert.equal(totals.todayUsd, 2.0);
+  assert.equal(totals.weekUsd, null);
+
+  const withWindow = getCostTotals(
+    { session_id: 'a', cost: { total_cost_usd: 3.0 } },
+    { sevenDayResetAt: new Date(NOON + 2 * DAY_MS) },
+    deps(NOON + 2000),
+  );
+  assert.equal(withWindow.weekUsd, 2.0);
 });

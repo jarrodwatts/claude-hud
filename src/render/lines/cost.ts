@@ -28,7 +28,7 @@ export function renderCostEstimate(ctx: RenderContext): string | null {
       if (display?.showDailyCost === true) {
         parts.push(`${t('label.today')} ${formatUsd(totals.todayUsd)}`);
       }
-      if (display?.showWeeklyCost === true) {
+      if (display?.showWeeklyCost === true && totals.weekUsd !== null) {
         parts.push(`${t('label.week')} ${formatUsd(totals.weekUsd)}`);
       }
     }

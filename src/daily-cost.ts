@@ -30,9 +30,7 @@ type LedgerSession = {
   // increment above the baseline counts toward the day, so a session that
   // started yesterday contributes only what it spent today.
   baseline: number;
-  // Same idea for the weekly quota window: native total when the session was
-  // first seen inside the current window, so only spend since the window
-  // opened counts toward the week.
+  // Native total when the session was first seen inside the current weekly window.
   weekBaseline: number;
   // Highest native total_cost_usd seen for the session. Storing the absolute
   // total rather than a delta makes the ledger self-healing: if two
@@ -47,16 +45,14 @@ type Ledger = {
   // Local calendar day the ledger covers, as YYYYMMDD.
   date: string;
   sessions: Record<string, LedgerSession>;
-  // The weekly quota window the accumulator covers. `resetAt` is the 7d reset
-  // reported by the usage data (ms since epoch, null while unknown), `start`
-  // when accumulation for this window began, and `carry` the spend of sessions
-  // already dropped from `sessions` but still inside the window.
-  week: { resetAt: number | null; start: number; carry: number };
+  // When weekly accumulation began, and spend from sessions already dropped from `sessions`.
+  week: { start: number; carry: number };
 };
 
 export type CostTotals = {
   todayUsd: number;
-  weekUsd: number;
+  // Null until the 7-day usage window's reset time is known.
+  weekUsd: number | null;
 };
 
 export type DailyCostDeps = {
@@ -95,8 +91,7 @@ function parseLedgerSession(value: unknown): LedgerSession | null {
   ) {
     return null;
   }
-  // Ledgers written before the weekly window existed fall back to the day
-  // baseline, so the week starts out counting today's spend rather than none.
+  // Pre-weekly ledgers have week.start 0, so the first known window resets this anyway.
   const week = typeof weekBaseline === 'number' && Number.isFinite(weekBaseline) && weekBaseline >= 0
     ? weekBaseline
     : baseline;
@@ -104,13 +99,12 @@ function parseLedgerSession(value: unknown): LedgerSession | null {
 }
 
 function parseWeek(value: unknown): Ledger['week'] {
-  const fallback = { resetAt: null, start: 0, carry: 0 };
+  const fallback = { start: 0, carry: 0 };
   if (!value || typeof value !== 'object' || Array.isArray(value)) {
     return fallback;
   }
-  const { resetAt, start, carry } = value as Record<string, unknown>;
+  const { start, carry } = value as Record<string, unknown>;
   return {
-    resetAt: typeof resetAt === 'number' && Number.isFinite(resetAt) && resetAt > 0 ? resetAt : null,
     start: typeof start === 'number' && Number.isFinite(start) && start > 0 ? start : 0,
     carry: typeof carry === 'number' && Number.isFinite(carry) && carry >= 0 ? carry : 0,
   };
@@ -208,7 +202,7 @@ export function getCostTotals(
 
   let ledger = readLedger(ledgerPath);
   let changed = ledger === null;
-  ledger ??= { date: today, sessions: {}, week: { resetAt: null, start: now, carry: 0 } };
+  ledger ??= { date: today, sessions: {}, week: { start: now, carry: 0 } };
 
   if (ledger.date !== today) {
     // Day rollover: carry recently seen sessions over with baseline reset to
@@ -228,25 +222,14 @@ export function getCostTotals(
     changed = true;
   }
 
-  // Align the weekly accumulator with the quota window behind the `Weekly`
-  // usage bar: it must have started after the window opened, otherwise it
-  // covers spend from a previous window and has to restart. Without a known
-  // reset time the window falls back to seven days from the first render.
-  const resetAt = options?.sevenDayResetAt?.getTime() ?? null;
-  const windowStart = resetAt !== null && Number.isFinite(resetAt)
-    ? resetAt - SEVEN_DAY_WINDOW_MS
-    : null;
-  const expired = windowStart !== null
-    ? ledger.week.start < windowStart
-    : now - ledger.week.start >= SEVEN_DAY_WINDOW_MS;
-  if (expired) {
+  // Restart the week when the quota window behind the `Weekly` bar opened after accumulation began.
+  const resetAt = options?.sevenDayResetAt?.getTime();
+  const windowStart = resetAt !== undefined && Number.isFinite(resetAt) ? resetAt - SEVEN_DAY_WINDOW_MS : null;
+  if (windowStart !== null && ledger.week.start < windowStart) {
     for (const session of Object.values(ledger.sessions)) {
       session.weekBaseline = session.total;
     }
-    ledger.week = { resetAt, start: now, carry: 0 };
-    changed = true;
-  } else if (resetAt !== null && ledger.week.resetAt !== resetAt) {
-    ledger.week = { ...ledger.week, resetAt };
+    ledger.week = { start: now, carry: 0 };
     changed = true;
   }
 
@@ -295,7 +278,7 @@ export function getCostTotals(
   for (const session of Object.values(ledger.sessions)) {
     weekUsd += Math.max(0, session.total - session.weekBaseline);
   }
-  return { todayUsd, weekUsd: Number.isFinite(weekUsd) ? weekUsd : todayUsd };
+  return { todayUsd, weekUsd: windowStart !== null && Number.isFinite(weekUsd) ? weekUsd : null };
 }
 
 /** Today's cumulative spend across sessions, or null when nothing is recorded. */
