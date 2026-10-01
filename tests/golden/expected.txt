@@ -1,0 +1,532 @@
+### default/typical
+\e[0m\e[36m[Opus 5.5]\e[0m │ \e]8;;file://<BASE>/home/dev/my-project\e\\e[33mmy-project\e[0m\e]8;;\e\
+\e[0m\e[2mContext\e[0m \e[32m█████\e[2m░░░░░\e[0m \e[32m45%\e[0m │ \e[2mUsage\e[0m \e[94m███\e[2m░░░░░░░\e[0m \e[94m25%\e[0m (resets in 1h 30m)
+
+### default/rich
+\e[0m\e[36m[Opus 5.5]\e[0m │ \e]8;;file://<BASE>/home/dev/my-project\e\\e[33mmy-project\e[0m\e]8;;\e\
+\e[0m\e[2mContext\e[0m \e[32m█████\e[2m░░░░░\e[0m \e[32m45%\e[0m │ \e[2mUsage\e[0m \e[94m███\e[2m░░░░░░░\e[0m \e[94m25%\e[0m (resets in 1h 30m)
+
+### default/minimal
+\e[0m\e[36m[Opus]\e[0m │ \e]8;;file://<BASE>/home/dev/my-project\e\\e[33mmy-project\e[0m\e]8;;\e\
+\e[0m\e[2mContext\e[0m \e[32m\e[2m░░░░░░░░░░\e[0m \e[32m0%\e[0m
+
+### default/apiUser
+\e[0m\e[36m[Opus 5.5]\e[0m │ \e]8;;file://<BASE>/home/dev/my-project\e\\e[33mmy-project\e[0m\e]8;;\e\
+\e[0m\e[2mContext\e[0m \e[32m█████\e[2m░░░░░\e[0m \e[32m45%\e[0m
+
+### default/contextWarning
+\e[0m\e[36m[Opus 5.5]\e[0m │ \e]8;;file://<BASE>/home/dev/my-project\e\\e[33mmy-project\e[0m\e]8;;\e\
+\e[0m\e[2mContext\e[0m \e[33m████████\e[2m░░\e[0m \e[33m75%\e[0m │ \e[2mUsage\e[0m \e[94m███\e[2m░░░░░░░\e[0m \e[94m25%\e[0m (resets in 1h 30m)
+
+### default/contextCritical
+\e[0m\e[36m[Opus 5.5]\e[0m │ \e]8;;file://<BASE>/home/dev/my-project\e\\e[33mmy-project\e[0m\e]8;;\e\
+\e[0m\e[2mContext\e[0m \e[31m█████████\e[2m░\e[0m \e[31m92%\e[0m\e[2m (in: 12k, cache: 172k)\e[0m │ \e[2mUsage\e[0m \e[94m███\e[2m░░░░░░░\e[0m \e[94m25%\e[0m (resets in 1h 30m)
+
+### default/nullContext
+\e[0m\e[36m[Opus 5.5]\e[0m │ \e]8;;file://<BASE>/home/dev/my-project\e\\e[33mmy-project\e[0m\e]8;;\e\
+\e[0m\e[2mContext\e[0m \e[32m██\e[2m░░░░░░░░\e[0m \e[32m16%\e[0m │ \e[2mUsage\e[0m \e[94m███\e[2m░░░░░░░\e[0m \e[94m25%\e[0m (resets in 1h 30m)
+
+### default/zeroPercentLiveUsage
+\e[0m\e[36m[Opus 5.5]\e[0m │ \e]8;;file://<BASE>/home/dev/my-project\e\\e[33mmy-project\e[0m\e]8;;\e\
+\e[0m\e[2mContext\e[0m \e[32m██████\e[2m░░░░\e[0m \e[32m60%\e[0m │ \e[2mUsage\e[0m \e[94m███\e[2m░░░░░░░\e[0m \e[94m25%\e[0m (resets in 1h 30m)
+
+### default/oneMillion
+\e[0m\e[36m[Opus 5.5 (1M context)]\e[0m │ \e]8;;file://<BASE>/home/dev/my-project\e\\e[33mmy-project\e[0m\e]8;;\e\
+\e[0m\e[2mContext\e[0m \e[32m█\e[2m░░░░░░░░░\e[0m \e[32m9%\e[0m │ \e[2mUsage\e[0m \e[94m███\e[2m░░░░░░░\e[0m \e[94m25%\e[0m (resets in 1h 30m)
+
+### default/limitReached
+\e[0m\e[36m[Opus 5.5]\e[0m │ \e]8;;file://<BASE>/home/dev/my-project\e\\e[33mmy-project\e[0m\e]8;;\e\
+\e[0m\e[2mContext\e[0m \e[32m█████\e[2m░░░░░\e[0m \e[32m45%\e[0m │ \e[2mUsage\e[0m \e[31m⚠ Limit reached (resets in 30m)\e[0m
+
+### default/weeklyHigh
+\e[0m\e[36m[Opus 5.5]\e[0m │ \e]8;;file://<BASE>/home/dev/my-project\e\\e[33mmy-project\e[0m\e]8;;\e\
+\e[0m\e[2mContext\e[0m \e[32m█████\e[2m░░░░░\e[0m \e[32m45%\e[0m │ \e[2mUsage\e[0m \e[94m███\e[2m░░░░░░░\e[0m \e[94m25%\e[0m (resets in 1h 30m) | \e[2mWeekly\e[0m \e[95m█████████\e[2m░\e[0m \e[95m85%\e[0m (resets in 1d)
+
+### default/spendLimit
+\e[0m\e[36m[Opus 5.5]\e[0m │ \e]8;;file://<BASE>/home/dev/my-project\e\\e[33mmy-project\e[0m\e]8;;\e\
+\e[0m\e[2mContext\e[0m \e[32m█████\e[2m░░░░░\e[0m \e[32m45%\e[0m │ \e[2mUsage\e[0m \e[94m███\e[2m░░░░░░░\e[0m \e[94m25%\e[0m (resets in 1h 30m)
+
+### default/addedDirs
+\e[0m\e[36m[Opus 5.5]\e[0m │ \e]8;;file://<BASE>/home/dev/my-project\e\\e[33mmy-project\e[0m\e]8;;\e\ \e]8;;file:///work/shared-lib\e\\e[2m+shared-lib\e[0m\e]8;;\e\ \e]8;;file:///work/docs\e\\e[2m+docs\e[0m\e]8;;\e\
+\e[0m\e[2mContext\e[0m \e[32m█████\e[2m░░░░░\e[0m \e[32m45%\e[0m │ \e[2mUsage\e[0m \e[94m███\e[2m░░░░░░░\e[0m \e[94m25%\e[0m (resets in 1h 30m)
+
+### default/bedrock
+\e[0m\e[36m[Opus 5.5]\e[0m │ \e]8;;file://<BASE>/home/dev/my-project\e\\e[33mmy-project\e[0m\e]8;;\e\
+\e[0m\e[2mContext\e[0m \e[32m█████\e[2m░░░░░\e[0m \e[32m45%\e[0m
+
+### default/typical@40
+\e[0m\e[36m[Opus 5.5]\e[0m │ \e]8;;file://<BASE>/home/dev/my-project\e\\e[33mmy-project\e[0m\e]8;;\e\
+\e[0m\e[2mContext\e[0m \e[32m██\e[2m░░\e[0m \e[32m45%\e[0m
+\e[0m\e[2mUsage  \e[0m \e[94m█\e[2m░░░\e[0m \e[94m25%\e[0m (resets in 1h 30m)
+
+### default/typical@60
+\e[0m\e[36m[Opus 5.5]\e[0m │ \e]8;;file://<BASE>/home/dev/my-project\e\\e[33mmy-project\e[0m\e]8;;\e\
+\e[0m\e[2mContext\e[0m \e[32m███\e[2m░░░\e[0m \e[32m45%\e[0m │ \e[2mUsage\e[0m \e[94m██\e[2m░░░░\e[0m \e[94m25%\e[0m (resets in 1h 30m)
+
+### default/typical@80
+\e[0m\e[36m[Opus 5.5]\e[0m │ \e]8;;file://<BASE>/home/dev/my-project\e\\e[33mmy-project\e[0m\e]8;;\e\
+\e[0m\e[2mContext\e[0m \e[32m███\e[2m░░░\e[0m \e[32m45%\e[0m │ \e[2mUsage\e[0m \e[94m██\e[2m░░░░\e[0m \e[94m25%\e[0m (resets in 1h 30m)
+
+### default/typical@120
+\e[0m\e[36m[Opus 5.5]\e[0m │ \e]8;;file://<BASE>/home/dev/my-project\e\\e[33mmy-project\e[0m\e]8;;\e\
+\e[0m\e[2mContext\e[0m \e[32m█████\e[2m░░░░░\e[0m \e[32m45%\e[0m │ \e[2mUsage\e[0m \e[94m███\e[2m░░░░░░░\e[0m \e[94m25%\e[0m (resets in 1h 30m)
+
+### default/git-clean
+\e[0m\e[36m[Opus 5.5]\e[0m │ \e]8;;file://<BASE>/home/dev/my-project\e\\e[33mmy-project\e[0m\e]8;;\e\ \e[35mgit:(\e[0m\e[36mmain\e[0m\e[35m)\e[0m
+\e[0m\e[2mContext\e[0m \e[32m█████\e[2m░░░░░\e[0m \e[32m45%\e[0m │ \e[2mUsage\e[0m \e[94m███\e[2m░░░░░░░\e[0m \e[94m25%\e[0m (resets in 1h 30m)
+
+### default/git-dirty
+\e[0m\e[36m[Opus 5.5]\e[0m │ \e]8;;file://<BASE>/home/dev/my-project\e\\e[33mmy-project\e[0m\e]8;;\e\ \e[35mgit:(\e[0m\e[36mmain*\e[0m\e[35m)\e[0m
+\e[0m\e[2mContext\e[0m \e[32m█████\e[2m░░░░░\e[0m \e[32m45%\e[0m │ \e[2mUsage\e[0m \e[94m███\e[2m░░░░░░░\e[0m \e[94m25%\e[0m (resets in 1h 30m)
+
+### default/git-dirty@40
+\e[0m\e[36m[Opus 5.5]\e[0m │ \e]8;;file://<BASE>/home/dev/my-project\e\\e[33mmy-project\e[0m\e]8;;\e\ \e[35mgit:(\e[0m\e[36mmain*\e[0m\e[35m)\e[0m
+\e[0m\e[2mContext\e[0m \e[32m██\e[2m░░\e[0m \e[32m45%\e[0m
+\e[0m\e[2mUsage  \e[0m \e[94m█\e[2m░░░\e[0m \e[94m25%\e[0m (resets in 1h 30m)
+
+### option/contextValue=tokens
+\e[0m\e[36m[Opus 5.5]\e[0m │ \e]8;;file://<BASE>/home/dev/my-project\e\\e[33mmy-project\e[0m\e]8;;\e\
+\e[0m\e[2mContext\e[0m \e[32m█████\e[2m░░░░░\e[0m \e[32m90k/200k\e[0m │ \e[2mUsage\e[0m \e[94m███\e[2m░░░░░░░\e[0m \e[94m25%\e[0m (resets in 1h 30m)
+
+### option/contextValue=remaining
+\e[0m\e[36m[Opus 5.5]\e[0m │ \e]8;;file://<BASE>/home/dev/my-project\e\\e[33mmy-project\e[0m\e]8;;\e\
+\e[0m\e[2mContext\e[0m \e[32m█████\e[2m░░░░░\e[0m \e[32m55%\e[0m │ \e[2mUsage\e[0m \e[94m███\e[2m░░░░░░░\e[0m \e[94m25%\e[0m (resets in 1h 30m)
+
+### option/contextValue=both
+\e[0m\e[36m[Opus 5.5]\e[0m │ \e]8;;file://<BASE>/home/dev/my-project\e\\e[33mmy-project\e[0m\e]8;;\e\
+\e[0m\e[2mContext\e[0m \e[32m█████\e[2m░░░░░\e[0m \e[32m45% (90k/200k)\e[0m │ \e[2mUsage\e[0m \e[94m███\e[2m░░░░░░░\e[0m \e[94m25%\e[0m (resets in 1h 30m)
+
+### option/showContextBar=false
+\e[0m\e[36m[Opus 5.5]\e[0m │ \e]8;;file://<BASE>/home/dev/my-project\e\\e[33mmy-project\e[0m\e]8;;\e\
+\e[0m\e[2mContext\e[0m \e[32m45%\e[0m │ \e[2mUsage\e[0m \e[94m███\e[2m░░░░░░░\e[0m \e[94m25%\e[0m (resets in 1h 30m)
+
+### option/showTokenBreakdown=false
+\e[0m\e[36m[Opus 5.5]\e[0m │ \e]8;;file://<BASE>/home/dev/my-project\e\\e[33mmy-project\e[0m\e]8;;\e\
+\e[0m\e[2mContext\e[0m \e[32m█████\e[2m░░░░░\e[0m \e[32m45%\e[0m │ \e[2mUsage\e[0m \e[94m███\e[2m░░░░░░░\e[0m \e[94m25%\e[0m (resets in 1h 30m)
+
+### option/contextThresholds=50/60
+\e[0m\e[36m[Opus 5.5]\e[0m │ \e]8;;file://<BASE>/home/dev/my-project\e\\e[33mmy-project\e[0m\e]8;;\e\
+\e[0m\e[2mContext\e[0m \e[32m█████\e[2m░░░░░\e[0m \e[32m45%\e[0m │ \e[2mUsage\e[0m \e[94m███\e[2m░░░░░░░\e[0m \e[94m25%\e[0m (resets in 1h 30m)
+
+### option/autocompactBuffer=disabled
+\e[0m\e[36m[Opus 5.5]\e[0m │ \e]8;;file://<BASE>/home/dev/my-project\e\\e[33mmy-project\e[0m\e]8;;\e\
+\e[0m\e[2mContext\e[0m \e[32m█████\e[2m░░░░░\e[0m \e[32m45%\e[0m │ \e[2mUsage\e[0m \e[94m███\e[2m░░░░░░░\e[0m \e[94m25%\e[0m (resets in 1h 30m)
+
+### option/autoCompactWindow=160000
+\e[0m\e[36m[Opus 5.5]\e[0m │ \e]8;;file://<BASE>/home/dev/my-project\e\\e[33mmy-project\e[0m\e]8;;\e\
+\e[0m\e[2mContext\e[0m \e[32m██████\e[2m░░░░\e[0m \e[32m56%\e[0m │ \e[2mUsage\e[0m \e[94m███\e[2m░░░░░░░\e[0m \e[94m25%\e[0m (resets in 1h 30m)
+
+### option/usageValue=remaining
+\e[0m\e[36m[Opus 5.5]\e[0m │ \e]8;;file://<BASE>/home/dev/my-project\e\\e[33mmy-project\e[0m\e]8;;\e\
+\e[0m\e[2mContext\e[0m \e[32m█████\e[2m░░░░░\e[0m \e[32m45%\e[0m │ \e[2mUsage\e[0m \e[94m███\e[2m░░░░░░░\e[0m \e[94m75%\e[0m (resets in 1h 30m)
+
+### option/usageBarEnabled=false
+\e[0m\e[36m[Opus 5.5]\e[0m │ \e]8;;file://<BASE>/home/dev/my-project\e\\e[33mmy-project\e[0m\e]8;;\e\
+\e[0m\e[2mContext\e[0m \e[32m█████\e[2m░░░░░\e[0m \e[32m45%\e[0m │ \e[2mUsage\e[0m \e[2m5h\e[0m \e[94m25%\e[0m (resets in 1h 30m)
+
+### option/usageCompact=true
+\e[0m\e[36m[Opus 5.5]\e[0m │ \e]8;;file://<BASE>/home/dev/my-project\e\\e[33mmy-project\e[0m\e]8;;\e\
+\e[0m\e[2mContext\e[0m \e[32m█████\e[2m░░░░░\e[0m \e[32m45%\e[0m │ \e[2m5h:\e[0m \e[94m25%\e[0m \e[2m(1h 30m)\e[0m
+
+### option/showResetLabel=false
+\e[0m\e[36m[Opus 5.5]\e[0m │ \e]8;;file://<BASE>/home/dev/my-project\e\\e[33mmy-project\e[0m\e]8;;\e\
+\e[0m\e[2mContext\e[0m \e[32m█████\e[2m░░░░░\e[0m \e[32m45%\e[0m │ \e[2mUsage\e[0m \e[94m███\e[2m░░░░░░░\e[0m \e[94m25%\e[0m (1h 30m)
+
+### option/timeFormat=absolute
+\e[0m\e[36m[Opus 5.5]\e[0m │ \e]8;;file://<BASE>/home/dev/my-project\e\\e[33mmy-project\e[0m\e]8;;\e\
+\e[0m\e[2mContext\e[0m \e[32m█████\e[2m░░░░░\e[0m \e[32m45%\e[0m │ \e[2mUsage\e[0m \e[94m███\e[2m░░░░░░░\e[0m \e[94m25%\e[0m (resets at 01:30 PM)
+
+### option/timeFormat=both
+\e[0m\e[36m[Opus 5.5]\e[0m │ \e]8;;file://<BASE>/home/dev/my-project\e\\e[33mmy-project\e[0m\e]8;;\e\
+\e[0m\e[2mContext\e[0m \e[32m█████\e[2m░░░░░\e[0m \e[32m45%\e[0m │ \e[2mUsage\e[0m \e[94m███\e[2m░░░░░░░\e[0m \e[94m25%\e[0m (resets in 1h 30m, at 01:30 PM)
+
+### option/timeFormat=elapsed
+\e[0m\e[36m[Opus 5.5]\e[0m │ \e]8;;file://<BASE>/home/dev/my-project\e\\e[33mmy-project\e[0m\e]8;;\e\
+\e[0m\e[2mContext\e[0m \e[32m█████\e[2m░░░░░\e[0m \e[32m45%\e[0m │ \e[2mUsage\e[0m \e[94m███\e[2m░░░░░░░\e[0m \e[94m25%\e[0m (70% elapsed)
+
+### option/timeFormat=elapsedAndAbsolute
+\e[0m\e[36m[Opus 5.5]\e[0m │ \e]8;;file://<BASE>/home/dev/my-project\e\\e[33mmy-project\e[0m\e]8;;\e\
+\e[0m\e[2mContext\e[0m \e[32m█████\e[2m░░░░░\e[0m \e[32m45%\e[0m │ \e[2mUsage\e[0m \e[94m███\e[2m░░░░░░░\e[0m \e[94m25%\e[0m (70% elapsed, at 01:30 PM)
+
+### option/hourCycle=h12+seconds
+\e[0m\e[36m[Opus 5.5]\e[0m │ \e]8;;file://<BASE>/home/dev/my-project\e\\e[33mmy-project\e[0m\e]8;;\e\
+\e[0m\e[2mContext\e[0m \e[32m█████\e[2m░░░░░\e[0m \e[32m45%\e[0m │ \e[2mUsage\e[0m \e[94m███\e[2m░░░░░░░\e[0m \e[94m25%\e[0m (resets at 01:30:00 PM)
+
+### option/usageThreshold=50
+\e[0m\e[36m[Opus 5.5]\e[0m │ \e]8;;file://<BASE>/home/dev/my-project\e\\e[33mmy-project\e[0m\e]8;;\e\
+\e[0m\e[2mContext\e[0m \e[32m█████\e[2m░░░░░\e[0m \e[32m45%\e[0m
+
+### option/sevenDayThreshold=0
+\e[0m\e[36m[Opus 5.5]\e[0m │ \e]8;;file://<BASE>/home/dev/my-project\e\\e[33mmy-project\e[0m\e]8;;\e\
+\e[0m\e[2mContext\e[0m \e[32m█████\e[2m░░░░░\e[0m \e[32m45%\e[0m │ \e[2mUsage\e[0m \e[94m███\e[2m░░░░░░░\e[0m \e[94m25%\e[0m (resets in 1h 30m) | \e[2mWeekly\e[0m \e[94m████\e[2m░░░░░░\e[0m \e[94m41%\e[0m (resets in 3d 1h)
+
+### option/showUsage=false
+\e[0m\e[36m[Opus 5.5]\e[0m │ \e]8;;file://<BASE>/home/dev/my-project\e\\e[33mmy-project\e[0m\e]8;;\e\
+\e[0m\e[2mContext\e[0m \e[32m█████\e[2m░░░░░\e[0m \e[32m45%\e[0m
+
+### option/usagePace=true
+\e[0m\e[36m[Opus 5.5]\e[0m │ \e]8;;file://<BASE>/home/dev/my-project\e\\e[33mmy-project\e[0m\e]8;;\e\
+\e[0m\e[2mContext\e[0m \e[32m█████\e[2m░░░░░\e[0m \e[32m45%\e[0m │ \e[2mUsage\e[0m \e[94m███\e[2m░░░░░░░\e[0m \e[94m25%\e[0m (resets in 1h 30m)
+
+### option/modelFormat=compact
+\e[0m\e[36m[Opus 5.5]\e[0m │ \e]8;;file://<BASE>/home/dev/my-project\e\\e[33mmy-project\e[0m\e]8;;\e\
+\e[0m\e[2mContext\e[0m \e[32m█████\e[2m░░░░░\e[0m \e[32m45%\e[0m │ \e[2mUsage\e[0m \e[94m███\e[2m░░░░░░░\e[0m \e[94m25%\e[0m (resets in 1h 30m)
+
+### option/modelFormat=short
+\e[0m\e[36m[Opus 5.5]\e[0m │ \e]8;;file://<BASE>/home/dev/my-project\e\\e[33mmy-project\e[0m\e]8;;\e\
+\e[0m\e[2mContext\e[0m \e[32m█████\e[2m░░░░░\e[0m \e[32m45%\e[0m │ \e[2mUsage\e[0m \e[94m███\e[2m░░░░░░░\e[0m \e[94m25%\e[0m (resets in 1h 30m)
+
+### option/modelOverride
+\e[0m\e[36m[My Model]\e[0m │ \e]8;;file://<BASE>/home/dev/my-project\e\\e[33mmy-project\e[0m\e]8;;\e\
+\e[0m\e[2mContext\e[0m \e[32m█████\e[2m░░░░░\e[0m \e[32m45%\e[0m │ \e[2mUsage\e[0m \e[94m███\e[2m░░░░░░░\e[0m \e[94m25%\e[0m (resets in 1h 30m)
+
+### option/showProvider+providerName
+\e[0m\e[36m[Acme Proxy | Opus 5.5]\e[0m │ \e]8;;file://<BASE>/home/dev/my-project\e\\e[33mmy-project\e[0m\e]8;;\e\
+\e[0m\e[2mContext\e[0m \e[32m█████\e[2m░░░░░\e[0m \e[32m45%\e[0m │ \e[2mUsage\e[0m \e[94m███\e[2m░░░░░░░\e[0m \e[94m25%\e[0m (resets in 1h 30m)
+
+### option/showModel=false
+\e[0m\e]8;;file://<BASE>/home/dev/my-project\e\\e[33mmy-project\e[0m\e]8;;\e\
+\e[0m\e[2mContext\e[0m \e[32m█████\e[2m░░░░░\e[0m \e[32m45%\e[0m │ \e[2mUsage\e[0m \e[94m███\e[2m░░░░░░░\e[0m \e[94m25%\e[0m (resets in 1h 30m)
+
+### option/showProject=false
+\e[0m\e[36m[Opus 5.5]\e[0m
+\e[0m\e[2mContext\e[0m \e[32m█████\e[2m░░░░░\e[0m \e[32m45%\e[0m │ \e[2mUsage\e[0m \e[94m███\e[2m░░░░░░░\e[0m \e[94m25%\e[0m (resets in 1h 30m)
+
+### option/pathLevels=2
+\e[0m\e[36m[Opus 5.5]\e[0m │ \e]8;;file://<BASE>/home/dev/my-project\e\\e[33mdev/my-project\e[0m\e]8;;\e\
+\e[0m\e[2mContext\e[0m \e[32m█████\e[2m░░░░░\e[0m \e[32m45%\e[0m │ \e[2mUsage\e[0m \e[94m███\e[2m░░░░░░░\e[0m \e[94m25%\e[0m (resets in 1h 30m)
+
+### option/addedDirsLayout=line
+\e[0m\e[36m[Opus 5.5]\e[0m │ \e]8;;file://<BASE>/home/dev/my-project\e\\e[33mmy-project\e[0m\e]8;;\e\
+\e[0m\e[2mContext\e[0m \e[32m█████\e[2m░░░░░\e[0m \e[32m45%\e[0m │ \e[2mUsage\e[0m \e[94m███\e[2m░░░░░░░\e[0m \e[94m25%\e[0m (resets in 1h 30m)
+
+### option/showAddedDirs=false
+\e[0m\e[36m[Opus 5.5]\e[0m │ \e]8;;file://<BASE>/home/dev/my-project\e\\e[33mmy-project\e[0m\e]8;;\e\
+\e[0m\e[2mContext\e[0m \e[32m█████\e[2m░░░░░\e[0m \e[32m45%\e[0m │ \e[2mUsage\e[0m \e[94m███\e[2m░░░░░░░\e[0m \e[94m25%\e[0m (resets in 1h 30m)
+
+### option/elementOrder=usage,context,project
+\e[0m\e[2mUsage\e[0m \e[94m███\e[2m░░░░░░░\e[0m \e[94m25%\e[0m (resets in 1h 30m) │ \e[2mContext\e[0m \e[32m█████\e[2m░░░░░\e[0m \e[32m45%\e[0m
+\e[0m\e[36m[Opus 5.5]\e[0m │ \e]8;;file://<BASE>/home/dev/my-project\e\\e[33mmy-project\e[0m\e]8;;\e\
+
+### option/mergeGroups=[]
+\e[0m\e[36m[Opus 5.5]\e[0m │ \e]8;;file://<BASE>/home/dev/my-project\e\\e[33mmy-project\e[0m\e]8;;\e\
+\e[0m\e[2mContext\e[0m \e[32m█████\e[2m░░░░░\e[0m \e[32m45%\e[0m
+\e[0m\e[2mUsage\e[0m \e[94m███\e[2m░░░░░░░\e[0m \e[94m25%\e[0m (resets in 1h 30m)
+
+### option/mergeGroups=project+context+usage
+\e[0m\e[36m[Opus 5.5]\e[0m │ \e]8;;file://<BASE>/home/dev/my-project\e\\e[33mmy-project\e[0m\e]8;;\e\
+\e[0m\e[2mContext\e[0m \e[32m█████\e[2m░░░░░\e[0m \e[32m45%\e[0m │ \e[2mUsage\e[0m \e[94m███\e[2m░░░░░░░\e[0m \e[94m25%\e[0m (resets in 1h 30m)
+
+### option/rightAlign=context
+\e[0m\e[36m[Opus 5.5]\e[0m │ \e]8;;file://<BASE>/home/dev/my-project\e\\e[33mmy-project\e[0m\e]8;;\e\
+\e[0m\e[2mContext\e[0m \e[32m█████\e[2m░░░░░\e[0m \e[32m45%\e[0m │ \e[2mUsage\e[0m \e[94m███\e[2m░░░░░░░\e[0m \e[94m25%\e[0m (resets in 1h 30m)
+
+### option/projectLineOrder
+\e[0m\e]8;;file://<BASE>/home/dev/my-project\e\\e[33mmy-project\e[0m\e]8;;\e\ │ \e[36m[Opus 5.5]\e[0m │ \e[2mCost $1.23\e[0m
+\e[0m\e[2mContext\e[0m \e[32m█████\e[2m░░░░░\e[0m \e[32m45%\e[0m │ \e[2mUsage\e[0m \e[94m███\e[2m░░░░░░░\e[0m \e[94m25%\e[0m (resets in 1h 30m)
+
+### option/customLine=first
+\e[0m\e[38;5;208mship it\e[0m │ \e[36m[Opus 5.5]\e[0m │ \e]8;;file://<BASE>/home/dev/my-project\e\\e[33mmy-project\e[0m\e]8;;\e\
+\e[0m\e[2mContext\e[0m \e[32m█████\e[2m░░░░░\e[0m \e[32m45%\e[0m │ \e[2mUsage\e[0m \e[94m███\e[2m░░░░░░░\e[0m \e[94m25%\e[0m (resets in 1h 30m)
+
+### option/customLine=last
+\e[0m\e[36m[Opus 5.5]\e[0m │ \e]8;;file://<BASE>/home/dev/my-project\e\\e[33mmy-project\e[0m\e]8;;\e\ │ \e[38;5;208mship it\e[0m
+\e[0m\e[2mContext\e[0m \e[32m█████\e[2m░░░░░\e[0m \e[32m45%\e[0m │ \e[2mUsage\e[0m \e[94m███\e[2m░░░░░░░\e[0m \e[94m25%\e[0m (resets in 1h 30m)
+
+### option/maxWidth=60
+\e[0m\e[36m[Opus 5.5]\e[0m │ \e]8;;file://<BASE>/home/dev/my-project\e\\e[33mmy-project\e[0m\e]8;;\e\
+\e[0m\e[2mContext\e[0m \e[32m█████\e[2m░░░░░\e[0m \e[32m45%\e[0m
+\e[0m\e[2mUsage  \e[0m \e[94m███\e[2m░░░░░░░\e[0m \e[94m25%\e[0m (resets in 1h 30m)
+
+### option/language=zh-Hans
+\e[0m\e[36m[Opus 5.5]\e[0m │ \e]8;;file://<BASE>/home/dev/my-project\e\\e[33mmy-project\e[0m\e]8;;\e\
+\e[0m\e[2m上下文\e[0m \e[32m█████\e[2m░░░░░\e[0m \e[32m45%\e[0m │ \e[2m用量\e[0m \e[94m███\e[2m░░░░░░░\e[0m \e[94m25%\e[0m (重置剩余 1h 30m)
+
+### option/language=zh-Hant
+\e[0m\e[36m[Opus 5.5]\e[0m │ \e]8;;file://<BASE>/home/dev/my-project\e\\e[33mmy-project\e[0m\e]8;;\e\
+\e[0m\e[2m上下文\e[0m \e[32m█████\e[2m░░░░░\e[0m \e[32m45%\e[0m │ \e[2m用量\e[0m \e[94m███\e[2m░░░░░░░\e[0m \e[94m25%\e[0m (重置剩餘 1h 30m)
+
+### option/colors
+\e[0m\e[31m[Opus 5.5]\e[0m │ \e]8;;file://<BASE>/home/dev/my-project\e\\e[33mmy-project\e[0m\e]8;;\e\
+\e[0m\e[2mContext\e[0m \e[38;2;0;255;136m■■■■■\e[2m·····\e[0m \e[38;2;0;255;136m45%\e[0m │ \e[2mUsage\e[0m \e[38;5;141m■■■\e[2m·······\e[0m \e[38;5;141m25%\e[0m (resets in 1h 30m)
+
+### option/effortFormat=symbol
+\e[0m\e[36m[Opus 5.5 ◑]\e[0m │ \e]8;;file://<BASE>/home/dev/my-project\e\\e[33mmy-project\e[0m\e]8;;\e\
+\e[0m\e[2mContext\e[0m \e[32m█████\e[2m░░░░░\e[0m \e[32m45%\e[0m │ \e[2mUsage\e[0m \e[94m███\e[2m░░░░░░░\e[0m \e[94m25%\e[0m (resets in 1h 30m)
+
+### option/effortFormat=text
+\e[0m\e[36m[Opus 5.5 high]\e[0m │ \e]8;;file://<BASE>/home/dev/my-project\e\\e[33mmy-project\e[0m\e]8;;\e\
+\e[0m\e[2mContext\e[0m \e[32m█████\e[2m░░░░░\e[0m \e[32m45%\e[0m │ \e[2mUsage\e[0m \e[94m███\e[2m░░░░░░░\e[0m \e[94m25%\e[0m (resets in 1h 30m)
+
+### option/toolsMaxVisible=2+toolNameMaxLength=6
+\e[0m\e[36m[Opus 5.5]\e[0m │ \e]8;;file://<BASE>/home/dev/my-project\e\\e[33mmy-project\e[0m\e]8;;\e\
+\e[0m\e[2mContext\e[0m \e[32m█████\e[2m░░░░░\e[0m \e[32m45%\e[0m │ \e[2mUsage\e[0m \e[94m███\e[2m░░░░░░░\e[0m \e[94m25%\e[0m (resets in 1h 30m)
+\e[0m\e[33m◐\e[0m \e[36mEdit\e[0m\e[2m: .../auth.test.ts\e[0m | \e[32m✓\e[0m Read \e[2m×1\e[0m | \e[32m✓\e[0m Grep \e[2m×1\e[0m | \e[2m+4 more\e[0m
+
+### option/skillsMaxVisible=1
+\e[0m\e[36m[Opus 5.5]\e[0m │ \e]8;;file://<BASE>/home/dev/my-project\e\\e[33mmy-project\e[0m\e]8;;\e\
+\e[0m\e[2mContext\e[0m \e[32m█████\e[2m░░░░░\e[0m \e[32m45%\e[0m │ \e[2mUsage\e[0m \e[94m███\e[2m░░░░░░░\e[0m \e[94m25%\e[0m (resets in 1h 30m)
+\e[0m\e[32m✓\e[0m Skills \e[2m(1)\e[0m: \e[36mfrontend-design\e[0m
+
+### option/gitStatus.enabled=false
+\e[0m\e[36m[Opus 5.5]\e[0m │ \e]8;;file://<BASE>/home/dev/my-project\e\\e[33mmy-project\e[0m\e]8;;\e\
+\e[0m\e[2mContext\e[0m \e[32m█████\e[2m░░░░░\e[0m \e[32m45%\e[0m │ \e[2mUsage\e[0m \e[94m███\e[2m░░░░░░░\e[0m \e[94m25%\e[0m (resets in 1h 30m)
+
+### option/gitStatus.showDirty=false
+\e[0m\e[36m[Opus 5.5]\e[0m │ \e]8;;file://<BASE>/home/dev/my-project\e\\e[33mmy-project\e[0m\e]8;;\e\ \e[35mgit:(\e[0m\e[36mmain\e[0m\e[35m)\e[0m
+\e[0m\e[2mContext\e[0m \e[32m█████\e[2m░░░░░\e[0m \e[32m45%\e[0m │ \e[2mUsage\e[0m \e[94m███\e[2m░░░░░░░\e[0m \e[94m25%\e[0m (resets in 1h 30m)
+
+### option/branchOverflow=wrap
+\e[0m\e[36m[Opus 5.5]\e[0m │ \e]8;;file://<BASE>/home/dev/my-project\e\\e[33mmy-project\e[0m\e]8;;\e\ │ \e[35mgit:(\e[0m\e[36mmain*\e[0m\e[35m)\e[0m
+\e[0m\e[2mContext\e[0m \e[32m█████\e[2m░░░░░\e[0m \e[32m45%\e[0m │ \e[2mUsage\e[0m \e[94m███\e[2m░░░░░░░\e[0m \e[94m25%\e[0m (resets in 1h 30m)
+
+### toggle/showTools
+\e[0m\e[36m[Opus 5.5]\e[0m │ \e]8;;file://<BASE>/home/dev/my-project\e\\e[33mmy-project\e[0m\e]8;;\e\
+\e[0m\e[2mContext\e[0m \e[32m█████\e[2m░░░░░\e[0m \e[32m45%\e[0m │ \e[2mUsage\e[0m \e[94m███\e[2m░░░░░░░\e[0m \e[94m25%\e[0m (resets in 1h 30m)
+\e[0m\e[33m◐\e[0m \e[36mEdit\e[0m\e[2m: .../auth.test.ts\e[0m | \e[32m✓\e[0m Read \e[2m×1\e[0m | \e[32m✓\e[0m Grep \e[2m×1\e[0m | \e[32m✓\e[0m Bash \e[2m×1\e[0m | \e[32m✓\e[0m Skill \e[2m×1\e[0m | \e[2m+2 more\e[0m
+
+### toggle/showAgents
+\e[0m\e[36m[Opus 5.5]\e[0m │ \e]8;;file://<BASE>/home/dev/my-project\e\\e[33mmy-project\e[0m\e]8;;\e\
+\e[0m\e[2mContext\e[0m \e[32m█████\e[2m░░░░░\e[0m \e[32m45%\e[0m │ \e[2mUsage\e[0m \e[94m███\e[2m░░░░░░░\e[0m \e[94m25%\e[0m (resets in 1h 30m)
+\e[0m\e[33m◐\e[0m \e[35mgeneral-purpose\e[0m\e[2m: Run the full test suite\e[0m \e[2m(5m 0s)\e[0m
+
+### toggle/showTodos
+\e[0m\e[36m[Opus 5.5]\e[0m │ \e]8;;file://<BASE>/home/dev/my-project\e\\e[33mmy-project\e[0m\e]8;;\e\
+\e[0m\e[2mContext\e[0m \e[32m█████\e[2m░░░░░\e[0m \e[32m45%\e[0m │ \e[2mUsage\e[0m \e[94m███\e[2m░░░░░░░\e[0m \e[94m25%\e[0m (resets in 1h 30m)
+\e[0m\e[33m▸\e[0m Fix authentication bug \e[2m(1/3)\e[0m
+
+### toggle/showSkills
+\e[0m\e[36m[Opus 5.5]\e[0m │ \e]8;;file://<BASE>/home/dev/my-project\e\\e[33mmy-project\e[0m\e]8;;\e\
+\e[0m\e[2mContext\e[0m \e[32m█████\e[2m░░░░░\e[0m \e[32m45%\e[0m │ \e[2mUsage\e[0m \e[94m███\e[2m░░░░░░░\e[0m \e[94m25%\e[0m (resets in 1h 30m)
+\e[0m\e[32m✓\e[0m Skills \e[2m(1)\e[0m: \e[36mfrontend-design\e[0m
+
+### toggle/showMcp
+\e[0m\e[36m[Opus 5.5]\e[0m │ \e]8;;file://<BASE>/home/dev/my-project\e\\e[33mmy-project\e[0m\e]8;;\e\
+\e[0m\e[2mContext\e[0m \e[32m█████\e[2m░░░░░\e[0m \e[32m45%\e[0m │ \e[2mUsage\e[0m \e[94m███\e[2m░░░░░░░\e[0m \e[94m25%\e[0m (resets in 1h 30m)
+\e[0m\e[31m⚠ github\e[0m
+\e[0m\e[32m✓\e[0m MCPs \e[2m(1)\e[0m: \e[36mgithub\e[0m
+
+### toggle/showCost
+\e[0m\e[36m[Opus 5.5]\e[0m │ \e]8;;file://<BASE>/home/dev/my-project\e\\e[33mmy-project\e[0m\e]8;;\e\ │ \e[2mCost $1.23\e[0m
+\e[0m\e[2mContext\e[0m \e[32m█████\e[2m░░░░░\e[0m \e[32m45%\e[0m │ \e[2mUsage\e[0m \e[94m███\e[2m░░░░░░░\e[0m \e[94m25%\e[0m (resets in 1h 30m)
+
+### toggle/showDailyCost
+\e[0m\e[36m[Opus 5.5]\e[0m │ \e]8;;file://<BASE>/home/dev/my-project\e\\e[33mmy-project\e[0m\e]8;;\e\ │ \e[2mToday $0.0000\e[0m
+\e[0m\e[2mContext\e[0m \e[32m█████\e[2m░░░░░\e[0m \e[32m45%\e[0m │ \e[2mUsage\e[0m \e[94m███\e[2m░░░░░░░\e[0m \e[94m25%\e[0m (resets in 1h 30m)
+
+### toggle/showWeeklyCost
+\e[0m\e[36m[Opus 5.5]\e[0m │ \e]8;;file://<BASE>/home/dev/my-project\e\\e[33mmy-project\e[0m\e]8;;\e\ │ \e[2mWeek $0.0000\e[0m
+\e[0m\e[2mContext\e[0m \e[32m█████\e[2m░░░░░\e[0m \e[32m45%\e[0m │ \e[2mUsage\e[0m \e[94m███\e[2m░░░░░░░\e[0m \e[94m25%\e[0m (resets in 1h 30m)
+
+### toggle/showDuration
+\e[0m\e[36m[Opus 5.5]\e[0m │ \e]8;;file://<BASE>/home/dev/my-project\e\\e[33mmy-project\e[0m\e]8;;\e\ │ \e[2m⏱️  1h 0m\e[0m
+\e[0m\e[2mContext\e[0m \e[32m█████\e[2m░░░░░\e[0m \e[32m45%\e[0m │ \e[2mUsage\e[0m \e[94m███\e[2m░░░░░░░\e[0m \e[94m25%\e[0m (resets in 1h 30m)
+
+### toggle/showSpeed
+\e[0m\e[36m[Opus 5.5]\e[0m │ \e]8;;file://<BASE>/home/dev/my-project\e\\e[33mmy-project\e[0m\e]8;;\e\
+\e[0m\e[2mContext\e[0m \e[32m█████\e[2m░░░░░\e[0m \e[32m45%\e[0m │ \e[2mUsage\e[0m \e[94m███\e[2m░░░░░░░\e[0m \e[94m25%\e[0m (resets in 1h 30m)
+
+### toggle/showSessionName
+\e[0m\e[36m[Opus 5.5]\e[0m │ \e]8;;file://<BASE>/home/dev/my-project\e\\e[33mmy-project\e[0m\e]8;;\e\ │ \e[2mauth-fix\e[0m
+\e[0m\e[2mContext\e[0m \e[32m█████\e[2m░░░░░\e[0m \e[32m45%\e[0m │ \e[2mUsage\e[0m \e[94m███\e[2m░░░░░░░\e[0m \e[94m25%\e[0m (resets in 1h 30m)
+
+### toggle/showClaudeCodeVersion
+\e[0m\e[36m[Opus 5.5]\e[0m │ \e]8;;file://<BASE>/home/dev/my-project\e\\e[33mmy-project\e[0m\e]8;;\e\ │ \e[2mCC v2.1.286\e[0m
+\e[0m\e[2mContext\e[0m \e[32m█████\e[2m░░░░░\e[0m \e[32m45%\e[0m │ \e[2mUsage\e[0m \e[94m███\e[2m░░░░░░░\e[0m \e[94m25%\e[0m (resets in 1h 30m)
+
+### toggle/showEffortLevel
+\e[0m\e[36m[Opus 5.5 ◑ high]\e[0m │ \e]8;;file://<BASE>/home/dev/my-project\e\\e[33mmy-project\e[0m\e]8;;\e\
+\e[0m\e[2mContext\e[0m \e[32m█████\e[2m░░░░░\e[0m \e[32m45%\e[0m │ \e[2mUsage\e[0m \e[94m███\e[2m░░░░░░░\e[0m \e[94m25%\e[0m (resets in 1h 30m)
+
+### toggle/showPromptCache
+\e[0m\e[36m[Opus 5.5]\e[0m │ \e]8;;file://<BASE>/home/dev/my-project\e\\e[33mmy-project\e[0m\e]8;;\e\
+\e[0m\e[2mContext\e[0m \e[32m█████\e[2m░░░░░\e[0m \e[32m45%\e[0m │ \e[2mUsage\e[0m \e[94m███\e[2m░░░░░░░\e[0m \e[94m25%\e[0m (resets in 1h 30m)
+\e[0m\e[2mCache\e[0m \e[2m⏱ expired\e[0m
+
+### toggle/showCacheHitRate
+\e[0m\e[36m[Opus 5.5]\e[0m │ \e]8;;file://<BASE>/home/dev/my-project\e\\e[33mmy-project\e[0m\e]8;;\e\
+\e[0m\e[2mContext\e[0m \e[32m█████\e[2m░░░░░\e[0m \e[32m45%\e[0m │ \e[2mUsage\e[0m \e[94m███\e[2m░░░░░░░\e[0m \e[94m25%\e[0m (resets in 1h 30m)
+\e[0m\e[2mCache hit\e[0m 87.7%
+
+### toggle/showSessionTokens
+\e[0m\e[36m[Opus 5.5]\e[0m │ \e]8;;file://<BASE>/home/dev/my-project\e\\e[33mmy-project\e[0m\e]8;;\e\
+\e[0m\e[2mContext\e[0m \e[32m█████\e[2m░░░░░\e[0m \e[32m45%\e[0m │ \e[2mUsage\e[0m \e[94m███\e[2m░░░░░░░\e[0m \e[94m25%\e[0m (resets in 1h 30m)
+\e[0m\e[2mTokens 262k (in: 6k, out: 2k, cache: 254k)\e[0m
+
+### toggle/showOutputStyle
+\e[0m\e[36m[Opus 5.5]\e[0m │ \e]8;;file://<BASE>/home/dev/my-project\e\\e[33mmy-project\e[0m\e]8;;\e\
+\e[0m\e[2mContext\e[0m \e[32m█████\e[2m░░░░░\e[0m \e[32m45%\e[0m │ \e[2mUsage\e[0m \e[94m███\e[2m░░░░░░░\e[0m \e[94m25%\e[0m (resets in 1h 30m)
+
+### toggle/showSessionStartDate
+\e[0m\e[36m[Opus 5.5]\e[0m │ \e]8;;file://<BASE>/home/dev/my-project\e\\e[33mmy-project\e[0m\e]8;;\e\
+\e[0m\e[2mContext\e[0m \e[32m█████\e[2m░░░░░\e[0m \e[32m45%\e[0m │ \e[2mUsage\e[0m \e[94m███\e[2m░░░░░░░\e[0m \e[94m25%\e[0m (resets in 1h 30m)
+\e[0m\e[2mStarted:\e[0m 2026-10-01 11:00
+
+### toggle/showLastResponseAt
+\e[0m\e[36m[Opus 5.5]\e[0m │ \e]8;;file://<BASE>/home/dev/my-project\e\\e[33mmy-project\e[0m\e]8;;\e\
+\e[0m\e[2mContext\e[0m \e[32m█████\e[2m░░░░░\e[0m \e[32m45%\e[0m │ \e[2mUsage\e[0m \e[94m███\e[2m░░░░░░░\e[0m \e[94m25%\e[0m (resets in 1h 30m)
+\e[0m\e[2mLast reply:\e[0m 1m ago
+
+### toggle/showCompactions
+\e[0m\e[36m[Opus 5.5]\e[0m │ \e]8;;file://<BASE>/home/dev/my-project\e\\e[33mmy-project\e[0m\e]8;;\e\
+\e[0m\e[2mContext\e[0m \e[32m█████\e[2m░░░░░\e[0m \e[32m45%\e[0m │ \e[2mUsage\e[0m \e[94m███\e[2m░░░░░░░\e[0m \e[94m25%\e[0m (resets in 1h 30m)
+\e[0m\e[2mCompactions: 1\e[0m
+
+### toggle/showAdvisor
+\e[0m\e[36m[Opus 5.5]\e[0m │ \e]8;;file://<BASE>/home/dev/my-project\e\\e[33mmy-project\e[0m\e]8;;\e\ │ \e[2mAdvisor:\e[0m Opus 5.5
+\e[0m\e[2mContext\e[0m \e[32m█████\e[2m░░░░░\e[0m \e[32m45%\e[0m │ \e[2mUsage\e[0m \e[94m███\e[2m░░░░░░░\e[0m \e[94m25%\e[0m (resets in 1h 30m)
+
+### toggle/showConfigCounts
+\e[0m\e[36m[Opus 5.5]\e[0m │ \e]8;;file://<BASE>/home/dev/my-project\e\\e[33mmy-project\e[0m\e]8;;\e\
+\e[0m\e[2mContext\e[0m \e[32m█████\e[2m░░░░░\e[0m \e[32m45%\e[0m │ \e[2mUsage\e[0m \e[94m███\e[2m░░░░░░░\e[0m \e[94m25%\e[0m (resets in 1h 30m)
+\e[0m\e[31m⚠ github\e[0m
+
+### toggle/usagePace
+\e[0m\e[36m[Opus 5.5]\e[0m │ \e]8;;file://<BASE>/home/dev/my-project\e\\e[33mmy-project\e[0m\e]8;;\e\
+\e[0m\e[2mContext\e[0m \e[32m█████\e[2m░░░░░\e[0m \e[32m45%\e[0m │ \e[2mUsage\e[0m \e[94m███\e[2m░░░░░░░\e[0m \e[94m25%\e[0m (resets in 1h 30m)
+
+### toggle/showRoutedCost+bedrock
+\e[0m\e[36m[Opus 5.5]\e[0m │ \e]8;;file://<BASE>/home/dev/my-project\e\\e[33mmy-project\e[0m\e]8;;\e\ │ \e[2mCost $1.23\e[0m
+\e[0m\e[2mContext\e[0m \e[32m█████\e[2m░░░░░\e[0m \e[32m45%\e[0m
+
+### toggle/showCost+bedrock
+\e[0m\e[36m[Opus 5.5]\e[0m │ \e]8;;file://<BASE>/home/dev/my-project\e\\e[33mmy-project\e[0m\e]8;;\e\
+\e[0m\e[2mContext\e[0m \e[32m█████\e[2m░░░░░\e[0m \e[32m45%\e[0m
+
+### kitchen-sink/expanded
+\e[0m\e[36m[Opus 5.5 ◑ high]\e[0m │ \e]8;;file://<BASE>/home/dev/my-project\e\\e[33mmy-project\e[0m\e]8;;\e\ \e[35mgit:(\e[0m\e[36mmain*\e[0m [\e[32m+2\e[0m]\e[35m)\e[0m \e[35m⎇ feat-auth\e[0m │ \e[2mAdvisor:\e[0m Opus 5.5 │ \e[2mauth-fix\e[0m │ \e[2mCC v2.1.286\e[0m │ \e[2m⏱️  1h 0m\e[0m │ \e[2mCost $1.23 | Today $0.0000 | Week $0.0000\e[0m
+\e[0m\e[2mContext\e[0m \e[32m█████\e[2m░░░░░\e[0m \e[32m45%\e[0m │ \e[2mUsage\e[0m \e[94m███\e[2m░░░░░░░\e[0m \e[94m25%\e[0m (resets in 1h 30m)
+\e[0m\e[2mCache\e[0m \e[2m⏱ expired\e[0m
+\e[0m\e[2mCache hit\e[0m 87.7%
+\e[0m\e[31m⚠ github\e[0m
+\e[0m\e[33m◐\e[0m \e[36mEdit\e[0m\e[2m: .../auth.test.ts\e[0m | \e[32m✓\e[0m Read \e[2m×1\e[0m | \e[32m✓\e[0m Grep \e[2m×1\e[0m | \e[32m✓\e[0m Bash \e[2m×1\e[0m | \e[32m✓\e[0m mcp__github__search_issues \e[2m×1\e[0m | \e[2m+1 more\e[0m
+\e[0m\e[32m✓\e[0m Skills \e[2m(1)\e[0m: \e[36mfrontend-design\e[0m
+\e[0m\e[32m✓\e[0m MCPs \e[2m(1)\e[0m: \e[36mgithub\e[0m
+\e[0m\e[33m◐\e[0m \e[35mgeneral-purpose\e[0m\e[2m: Run the full test suite\e[0m \e[2m(5m 0s)\e[0m
+\e[0m\e[33m▸\e[0m Fix authentication bug \e[2m(1/3)\e[0m
+\e[0m\e[2mStarted:\e[0m 2026-10-01 11:00 \e[2m│\e[0m \e[2mLast reply:\e[0m 1m ago
+\e[0m\e[33m~\e[0m\e]8;;file://<BASE>/home/dev/my-project/tracked.txt\e\\e[33mtracked.txt\e[0m\e]8;;\e\\e[2m(\e[32m+2\e[0m)\e[0m  \e[2m?1\e[0m
+\e[0m\e[2mTokens 262k (in: 6k, out: 2k, cache: 254k)\e[0m
+\e[0m\e[2mCompactions: 1\e[0m
+
+### kitchen-sink/compact
+\e[0m\e[36m[Opus 5.5 ◑ high]\e[0m \e[32m█████\e[2m░░░░░\e[0m \e[32m45%\e[0m | \e[33mmy-project\e[0m \e[35mgit:(\e[0m\e[36mmain* !1 ?1\e[0m\e[35m)\e[0m \e[35m⎇ feat-auth\e[0m | \e[2mauth-fix\e[0m | \e[2mCC v2.1.286\e[0m | \e[2mUsage\e[0m \e[94m███\e[2m░░░░░░░\e[0m \e[94m25%\e[0m (1h 30m / 5h) | \e[2mtok: 262k (in: 6k, out: 2k, cache: 254k)\e[0m | \e[2mCompactions: 1\e[0m | \e[2mAdvisor:\e[0m Opus 5.5 | \e[2m⏱️  1h 0m\e[0m | \e[2mStarted:\e[0m 2026-10-01 11:00 \e[2m│\e[0m \e[2mLast reply:\e[0m 1m ago | \e[2mCache\e[0m \e[2m⏱ expired\e[0m | \e[2mCache hit\e[0m 87.7% | \e[2mCost $1.23 | Today $0.0000 | Week $0.0000\e[0m
+\e[0m\e[33m◐\e[0m \e[36mEdit\e[0m\e[2m: .../auth.test.ts\e[0m | \e[32m✓\e[0m Read \e[2m×1\e[0m | \e[32m✓\e[0m Grep \e[2m×1\e[0m | \e[32m✓\e[0m Bash \e[2m×1\e[0m | \e[32m✓\e[0m mcp__github__search_issues \e[2m×1\e[0m | \e[2m+1 more\e[0m
+\e[0m\e[32m✓\e[0m Skills \e[2m(1)\e[0m: \e[36mfrontend-design\e[0m
+\e[0m\e[32m✓\e[0m MCPs \e[2m(1)\e[0m: \e[36mgithub\e[0m
+\e[0m\e[33m◐\e[0m \e[35mgeneral-purpose\e[0m\e[2m: Run the full test suite\e[0m \e[2m(5m 0s)\e[0m
+\e[0m\e[33m▸\e[0m Fix authentication bug \e[2m(1/3)\e[0m
+
+### kitchen-sink/expanded@60
+\e[0m\e[36m[Opus 5.5 ◑ high]\e[0m │ \e]8;;file://<BASE>/home/dev/my-project\e\\e[33mmy-project\e[0m\e]8;;\e\ \e[35mgit:(\e[0m\e[36mmain*\e[0m [\e[32m+2\e[0m]\e[35m)\e[0m \e[35m⎇ feat-auth\e[0m
+\e[0m\e[2mAdvisor:\e[0m Opus 5.5 │ \e[2mauth-fix\e[0m │ \e[2mCC v2.1.286\e[0m │ \e[2m⏱️  1h 0m\e[0m
+\e[0m\e[2mCost $1.23 | Today $0.0000 | Week $0.0000\e[0m
+\e[0m\e[2mContext\e[0m \e[32m███\e[2m░░░\e[0m \e[32m45%\e[0m │ \e[2mUsage\e[0m \e[94m██\e[2m░░░░\e[0m \e[94m25%\e[0m (resets in 1h 30m)
+\e[0m\e[2mCache\e[0m \e[2m⏱ expired\e[0m
+\e[0m\e[2mCache hit\e[0m 87.7%
+\e[0m\e[31m⚠ github\e[0m
+\e[0m\e[33m◐\e[0m \e[36mEdit\e[0m\e[2m: .../auth.test.ts\e[0m | \e[32m✓\e[0m Read \e[2m×1\e[0m | \e[32m✓\e[0m Grep \e[2m×1\e[0m | \e[32m✓\e[0m Bash \e[2m×1\e[0m
+\e[0m\e[32m✓\e[0m mcp__github__search_issues \e[2m×1\e[0m | \e[2m+1 more\e[0m
+\e[0m\e[32m✓\e[0m Skills \e[2m(1)\e[0m: \e[36mfrontend-design\e[0m
+\e[0m\e[32m✓\e[0m MCPs \e[2m(1)\e[0m: \e[36mgithub\e[0m
+\e[0m\e[33m◐\e[0m \e[35mgeneral-purpose\e[0m\e[2m: Run the full test suite\e[0m \e[2m(5m 0s)\e[0m
+\e[0m\e[33m▸\e[0m Fix authentication bug \e[2m(1/3)\e[0m
+\e[0m\e[2mStarted:\e[0m 2026-10-01 11:00 \e[2m│\e[0m \e[2mLast reply:\e[0m 1m ago
+\e[0m\e[33m~\e[0m\e]8;;file://<BASE>/home/dev/my-project/tracked.txt\e\\e[33mtracked.txt\e[0m\e]8;;\e\\e[2m(\e[32m+2\e[0m)\e[0m  \e[2m?1\e[0m
+\e[0m\e[2mTokens 262k (in: 6k, out: 2k, cache: 254k)\e[0m
+\e[0m\e[2mCompactions: 1\e[0m
+
+### kitchen-sink/compact@60
+\e[0m\e[36m[Opus 5.5 ◑ high]\e[0m \e[32m███\e[2m░░░\e[0m \e[32m45%\e[0m
+\e[0m\e[33mmy-project\e[0m \e[35mgit:(\e[0m\e[36mmain* !1 ?1\e[0m\e[35m)\e[0m \e[35m⎇ feat-auth\e[0m | \e[2mauth-fix\e[0m
+\e[0m\e[2mCC v2.1.286\e[0m | \e[2mUsage\e[0m \e[94m██\e[2m░░░░\e[0m \e[94m25%\e[0m (1h 30m / 5h)
+\e[0m\e[2mtok: 262k (in: 6k, out: 2k, cache: 254k)\e[0m | \e[2mCompactions: 1\e[0m
+\e[0m\e[2mAdvisor:\e[0m Opus 5.5 | \e[2m⏱️  1h 0m\e[0m
+\e[0m\e[2mStarted:\e[0m 2026-10-01 11:00 \e[2m│\e[0m \e[2mLast reply:\e[0m 1m ago
+\e[0m\e[2mCache\e[0m \e[2m⏱ expired\e[0m | \e[2mCache hit\e[0m 87.7% | \e[2mCost $1.23
+\e[0mToday $0.0000 | Week $0.0000\e[0m
+\e[0m\e[33m◐\e[0m \e[36mEdit\e[0m\e[2m: .../auth.test.ts\e[0m | \e[32m✓\e[0m Read \e[2m×1\e[0m | \e[32m✓\e[0m Grep \e[2m×1\e[0m | \e[32m✓\e[0m Bash \e[2m×1\e[0m
+\e[0m\e[32m✓\e[0m mcp__github__search_issues \e[2m×1\e[0m | \e[2m+1 more\e[0m
+\e[0m\e[32m✓\e[0m Skills \e[2m(1)\e[0m: \e[36mfrontend-design\e[0m
+\e[0m\e[32m✓\e[0m MCPs \e[2m(1)\e[0m: \e[36mgithub\e[0m
+\e[0m\e[33m◐\e[0m \e[35mgeneral-purpose\e[0m\e[2m: Run the full test suite\e[0m \e[2m(5m 0s)\e[0m
+\e[0m\e[33m▸\e[0m Fix authentication bug \e[2m(1/3)\e[0m
+
+### kitchen-sink/expanded@120
+\e[0m\e[36m[Opus 5.5 ◑ high]\e[0m │ \e]8;;file://<BASE>/home/dev/my-project\e\\e[33mmy-project\e[0m\e]8;;\e\ \e[35mgit:(\e[0m\e[36mmain*\e[0m [\e[32m+2\e[0m]\e[35m)\e[0m \e[35m⎇ feat-auth\e[0m │ \e[2mAdvisor:\e[0m Opus 5.5 │ \e[2mauth-fix\e[0m │ \e[2mCC v2.1.286\e[0m │ \e[2m⏱️  1h 0m\e[0m
+\e[0m\e[2mCost $1.23 | Today $0.0000 | Week $0.0000\e[0m
+\e[0m\e[2mContext\e[0m \e[32m█████\e[2m░░░░░\e[0m \e[32m45%\e[0m │ \e[2mUsage\e[0m \e[94m███\e[2m░░░░░░░\e[0m \e[94m25%\e[0m (resets in 1h 30m)
+\e[0m\e[2mCache\e[0m \e[2m⏱ expired\e[0m
+\e[0m\e[2mCache hit\e[0m 87.7%
+\e[0m\e[31m⚠ github\e[0m
+\e[0m\e[33m◐\e[0m \e[36mEdit\e[0m\e[2m: .../auth.test.ts\e[0m | \e[32m✓\e[0m Read \e[2m×1\e[0m | \e[32m✓\e[0m Grep \e[2m×1\e[0m | \e[32m✓\e[0m Bash \e[2m×1\e[0m | \e[32m✓\e[0m mcp__github__search_issues \e[2m×1\e[0m | \e[2m+1 more\e[0m
+\e[0m\e[32m✓\e[0m Skills \e[2m(1)\e[0m: \e[36mfrontend-design\e[0m
+\e[0m\e[32m✓\e[0m MCPs \e[2m(1)\e[0m: \e[36mgithub\e[0m
+\e[0m\e[33m◐\e[0m \e[35mgeneral-purpose\e[0m\e[2m: Run the full test suite\e[0m \e[2m(5m 0s)\e[0m
+\e[0m\e[33m▸\e[0m Fix authentication bug \e[2m(1/3)\e[0m
+\e[0m\e[2mStarted:\e[0m 2026-10-01 11:00 \e[2m│\e[0m \e[2mLast reply:\e[0m 1m ago
+\e[0m\e[33m~\e[0m\e]8;;file://<BASE>/home/dev/my-project/tracked.txt\e\\e[33mtracked.txt\e[0m\e]8;;\e\\e[2m(\e[32m+2\e[0m)\e[0m  \e[2m?1\e[0m
+\e[0m\e[2mTokens 262k (in: 6k, out: 2k, cache: 254k)\e[0m
+\e[0m\e[2mCompactions: 1\e[0m
+
+### kitchen-sink/compact@120
+\e[0m\e[36m[Opus 5.5 ◑ high]\e[0m \e[32m█████\e[2m░░░░░\e[0m \e[32m45%\e[0m | \e[33mmy-project\e[0m \e[35mgit:(\e[0m\e[36mmain* !1 ?1\e[0m\e[35m)\e[0m \e[35m⎇ feat-auth\e[0m | \e[2mauth-fix\e[0m | \e[2mCC v2.1.286\e[0m
+\e[0m\e[2mUsage\e[0m \e[94m███\e[2m░░░░░░░\e[0m \e[94m25%\e[0m (1h 30m / 5h) | \e[2mtok: 262k (in: 6k, out: 2k, cache: 254k)\e[0m | \e[2mCompactions: 1\e[0m | \e[2mAdvisor:\e[0m Opus 5.5
+\e[0m\e[2m⏱️  1h 0m\e[0m | \e[2mStarted:\e[0m 2026-10-01 11:00 \e[2m│\e[0m \e[2mLast reply:\e[0m 1m ago | \e[2mCache\e[0m \e[2m⏱ expired\e[0m | \e[2mCache hit\e[0m 87.7% | \e[2mCost $1.23
+\e[0mToday $0.0000 | Week $0.0000\e[0m
+\e[0m\e[33m◐\e[0m \e[36mEdit\e[0m\e[2m: .../auth.test.ts\e[0m | \e[32m✓\e[0m Read \e[2m×1\e[0m | \e[32m✓\e[0m Grep \e[2m×1\e[0m | \e[32m✓\e[0m Bash \e[2m×1\e[0m | \e[32m✓\e[0m mcp__github__search_issues \e[2m×1\e[0m | \e[2m+1 more\e[0m
+\e[0m\e[32m✓\e[0m Skills \e[2m(1)\e[0m: \e[36mfrontend-design\e[0m
+\e[0m\e[32m✓\e[0m MCPs \e[2m(1)\e[0m: \e[36mgithub\e[0m
+\e[0m\e[33m◐\e[0m \e[35mgeneral-purpose\e[0m\e[2m: Run the full test suite\e[0m \e[2m(5m 0s)\e[0m
+\e[0m\e[33m▸\e[0m Fix authentication bug \e[2m(1/3)\e[0m
+
+### kitchen-sink/compact+separators
+\e[0m\e[36m[Opus 5.5 ◑ high]\e[0m \e[32m█████\e[2m░░░░░\e[0m \e[32m45%\e[0m | \e[33mmy-project\e[0m \e[35mgit:(\e[0m\e[36mmain* !1 ?1\e[0m\e[35m)\e[0m \e[35m⎇ feat-auth\e[0m | \e[2mauth-fix\e[0m | \e[2mCC v2.1.286\e[0m | \e[2mUsage\e[0m \e[94m███\e[2m░░░░░░░\e[0m \e[94m25%\e[0m (1h 30m / 5h) | \e[2mtok: 262k (in: 6k, out: 2k, cache: 254k)\e[0m | \e[2mCompactions: 1\e[0m | \e[2mAdvisor:\e[0m Opus 5.5 | \e[2m⏱️  1h 0m\e[0m | \e[2mStarted:\e[0m 2026-10-01 11:00 \e[2m│\e[0m \e[2mLast reply:\e[0m 1m ago | \e[2mCache\e[0m \e[2m⏱ expired\e[0m | \e[2mCache hit\e[0m 87.7% | \e[2mCost $1.23 | Today $0.0000 | Week $0.0000\e[0m
+\e[0m\e[2m───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────\e[0m
+\e[0m\e[33m◐\e[0m \e[36mEdit\e[0m\e[2m: .../auth.test.ts\e[0m | \e[32m✓\e[0m Read \e[2m×1\e[0m | \e[32m✓\e[0m Grep \e[2m×1\e[0m | \e[32m✓\e[0m Bash \e[2m×1\e[0m | \e[32m✓\e[0m mcp__github__search_issues \e[2m×1\e[0m | \e[2m+1 more\e[0m
+\e[0m\e[32m✓\e[0m Skills \e[2m(1)\e[0m: \e[36mfrontend-design\e[0m
+\e[0m\e[32m✓\e[0m MCPs \e[2m(1)\e[0m: \e[36mgithub\e[0m
+\e[0m\e[33m◐\e[0m \e[35mgeneral-purpose\e[0m\e[2m: Run the full test suite\e[0m \e[2m(5m 0s)\e[0m
+\e[0m\e[33m▸\e[0m Fix authentication bug \e[2m(1/3)\e[0m
+
+### kitchen-sink/zh-Hans
+\e[0m\e[36m[Opus 5.5 ◑ high]\e[0m │ \e]8;;file://<BASE>/home/dev/my-project\e\\e[33mmy-project\e[0m\e]8;;\e\ \e[35mgit:(\e[0m\e[36mmain*\e[0m [\e[32m+2\e[0m]\e[35m)\e[0m \e[35m⎇ feat-auth\e[0m │ \e[2m顾问:\e[0m Opus 5.5 │ \e[2mauth-fix\e[0m │ \e[2mCC v2.1.286\e[0m │ \e[2m⏱️  1h 0m\e[0m │ \e[2m费用 $1.23 | 今日 $0.0000 | 本周 $0.0000\e[0m
+\e[0m\e[2m上下文\e[0m \e[32m█████\e[2m░░░░░\e[0m \e[32m45%\e[0m │ \e[2m用量\e[0m \e[94m███\e[2m░░░░░░░\e[0m \e[94m25%\e[0m (重置剩余 1h 30m)
+\e[0m\e[2m缓存\e[0m \e[2m⏱ 已过期\e[0m
+\e[0m\e[2m缓存命中\e[0m 87.7%
+\e[0m\e[31m⚠ github\e[0m
+\e[0m\e[33m◐\e[0m \e[36mEdit\e[0m\e[2m: .../auth.test.ts\e[0m | \e[32m✓\e[0m Read \e[2m×1\e[0m | \e[32m✓\e[0m Grep \e[2m×1\e[0m | \e[32m✓\e[0m Bash \e[2m×1\e[0m | \e[32m✓\e[0m mcp__github__search_issues \e[2m×1\e[0m | \e[2m+1 more\e[0m
+\e[0m\e[32m✓\e[0m Skills \e[2m(1)\e[0m: \e[36mfrontend-design\e[0m
+\e[0m\e[32m✓\e[0m MCPs \e[2m(1)\e[0m: \e[36mgithub\e[0m
+\e[0m\e[33m◐\e[0m \e[35mgeneral-purpose\e[0m\e[2m: Run the full test suite\e[0m \e[2m(5m 0s)\e[0m
+\e[0m\e[33m▸\e[0m Fix authentication bug \e[2m(1/3)\e[0m
+\e[0m\e[2m开始:\e[0m 2026-10-01 11:00 \e[2m│\e[0m \e[2m上次回复:\e[0m 1m 前
+\e[0m\e[33m~\e[0m\e]8;;file://<BASE>/home/dev/my-project/tracked.txt\e\\e[33mtracked.txt\e[0m\e]8;;\e\\e[2m(\e[32m+2\e[0m)\e[0m  \e[2m?1\e[0m
+\e[0m\e[2m词元 262k (输入: 6k, 输出: 2k, 缓存: 254k)\e[0m
+\e[0m\e[2m压缩次数: 1\e[0m
+
+### compact/typical
+\e[0m\e[36m[Opus 5.5]\e[0m \e[32m█████\e[2m░░░░░\e[0m \e[32m45%\e[0m | \e[33mmy-project\e[0m | \e[2mUsage\e[0m \e[94m███\e[2m░░░░░░░\e[0m \e[94m25%\e[0m (1h 30m / 5h)
+
+### compact/apiUser
+\e[0m\e[36m[Opus 5.5]\e[0m \e[32m█████\e[2m░░░░░\e[0m \e[32m45%\e[0m | \e[33mmy-project\e[0m
+
+### compact/contextCritical
+\e[0m\e[36m[Opus 5.5]\e[0m \e[31m█████████\e[2m░\e[0m \e[31m92%\e[0m | \e[33mmy-project\e[0m | \e[2mUsage\e[0m \e[94m███\e[2m░░░░░░░\e[0m \e[94m25%\e[0m (1h 30m / 5h)\e[2m (in: 12k, cache: 172k)\e[0m
+
+### compact/limitReached
+\e[0m\e[36m[Opus 5.5]\e[0m \e[32m█████\e[2m░░░░░\e[0m \e[32m45%\e[0m | \e[33mmy-project\e[0m | \e[31m⚠ Limit reached (resets in 30m)\e[0m
+
+### compact/nullContext
+\e[0m\e[36m[Opus 5.5]\e[0m \e[32m██\e[2m░░░░░░░░\e[0m \e[32m16%\e[0m | \e[33mmy-project\e[0m | \e[2mUsage\e[0m \e[94m███\e[2m░░░░░░░\e[0m \e[94m25%\e[0m (1h 30m / 5h)
+
+### compact/minimal
+\e[0m\e[36m[Opus]\e[0m \e[32m\e[2m░░░░░░░░░░\e[0m \e[32m0%\e[0m | \e[33mmy-project\e[0m
+
+### compact/git-dirty@40
+\e[0m\e[36m[Opus 5.5]\e[0m \e[32m██\e[2m░░\e[0m \e[32m45%\e[0m
+\e[0m\e[33mmy-project\e[0m \e[35mgit:(\e[0m\e[36mmain*\e[0m\e[35m)\e[0m
+\e[0m\e[2mUsage\e[0m \e[94m█\e[2m░░░\e[0m \e[94m25%\e[0m (1h 30m / 5h)
+
+### compact/usageCompact
+\e[0m\e[36m[Opus 5.5]\e[0m \e[32m█████\e[2m░░░░░\e[0m \e[32m45%\e[0m | \e[33mmy-project\e[0m | \e[2m5h:\e[0m \e[94m25%\e[0m \e[2m(1h 30m)\e[0m
