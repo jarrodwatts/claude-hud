@@ -219,6 +219,7 @@ export interface HudConfig {
     showMcp: boolean;
     toolNameMaxLength: number;
     toolsMaxVisible: number;
+    skillsMaxVisible: number;
     showAgents: boolean;
     showTodos: boolean;
     showSessionName: boolean;
@@ -342,6 +343,7 @@ export const DEFAULT_CONFIG: HudConfig = {
     showMcp: false,
     toolNameMaxLength: 0,
     toolsMaxVisible: 4,
+    skillsMaxVisible: 4,
     showAgents: false,
     showTodos: false,
     showSessionName: false,
@@ -853,6 +855,10 @@ export function mergeConfig(userConfig: Partial<HudConfig>): HudConfig {
     toolsMaxVisible: validateNonNegativeInteger(
       migrated.display?.toolsMaxVisible,
       DEFAULT_CONFIG.display.toolsMaxVisible,
+    ),
+    skillsMaxVisible: validateNonNegativeInteger(
+      migrated.display?.skillsMaxVisible,
+      DEFAULT_CONFIG.display.skillsMaxVisible,
     ),
     showAgents: typeof migrated.display?.showAgents === 'boolean'
       ? migrated.display.showAgents

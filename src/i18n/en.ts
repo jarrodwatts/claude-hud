@@ -35,6 +35,7 @@ export const en: Messages = {
   "format.tokPerSec": "tok/s",
   "format.justNow": "just now",
   "format.relativeTime": "{value} ago",
+  "format.elapsed": "{value}% elapsed",
 
   // Init
   "init.initializing": "[claude-hud] Initializing...",
