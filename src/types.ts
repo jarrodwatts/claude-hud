@@ -160,8 +160,6 @@ export interface TranscriptData {
   // last-response element.
   lastAssistantResponseAt?: Date;
   sessionTokens?: SessionTokenUsage;
-  lastCompactBoundaryAt?: Date;
-  lastCompactPostTokens?: number;
   // Number of compact_boundary entries (manual /compact or auto compaction)
   // with a valid timestamp seen in the transcript.
   compactionCount?: number;

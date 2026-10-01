@@ -1,8 +1,0 @@
-{"timestamp":"2024-01-01T00:00:00.000Z","message":{"content":[{"type":"tool_use","id":"tool-1","name":"Read","input":{"file_path":"/tmp/example.txt"}}]}}
-{"timestamp":"2024-01-01T00:00:01.000Z","message":{"content":[{"type":"tool_result","tool_use_id":"tool-1","is_error":false}]}}
-{"timestamp":"2024-01-01T00:00:02.000Z","message":{"content":[{"type":"tool_use","id":"agent-1","name":"Task","input":{"subagent_type":"explore","model":"haiku"}}]}}
-{"timestamp":"2024-01-01T00:00:03.000Z","message":{"content":[{"type":"tool_result","tool_use_id":"agent-1","is_error":false}]}}
-{"timestamp":"2024-01-01T00:00:04.000Z","message":{"content":[{"type":"tool_use","id":"todo-1","name":"TodoWrite","input":{"todos":[{"content":"First task","status":"completed"},{"content":"Second task","status":"in_progress"}]}}]}}
-{"timestamp":"2024-01-01T00:00:05.000Z","message":{"content":[{"type":"tool_use","id":"task-1","name":"TaskCreate","input":{"taskId":"alpha","subject":"Third task"}}]}}
-{"timestamp":"2024-01-01T00:00:06.000Z","message":{"content":[{"type":"tool_use","id":"task-2","name":"TaskCreate","input":{"subject":"Fourth task","status":"in_progress"}}]}}
-{"timestamp":"2024-01-01T00:00:07.000Z","message":{"content":[{"type":"tool_use","id":"task-3","name":"TaskUpdate","input":{"taskId":"alpha","status":"completed"}}]}}
