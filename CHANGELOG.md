@@ -4,6 +4,8 @@ All notable changes to Claude HUD will be documented in this file.
 
 ## [Unreleased]
 
+## [0.9.0] - 2026-10-01
+
 ### Added
 - `gitStatus.showWorktree` option to show the linked worktree name after the branch, e.g. `git:(feat/x) ⎇ feat-x`, read from stdin `workspace.git_worktree` (#780).
 - `display.usagePace` option to colour usage windows amber or red, marked `▲`, when they are on track to run out before they reset (#779).
