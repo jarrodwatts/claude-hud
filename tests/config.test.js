@@ -467,24 +467,26 @@ test('mergeConfig expands ~ in external usage paths', () => {
   assert.equal(config.display.externalUsageWritePath, path.join(os.homedir(), 'write-usage.json'));
 });
 
-test('mergeConfig expands ${VAR} and %VAR% env references in external usage paths', () => {
-  const original = process.env.CLAUDE_HUD_TEST_VAR;
-  process.env.CLAUDE_HUD_TEST_VAR = '/opt/claude-hud';
+test('mergeConfig expands ${VAR} in external usage paths without re-expanding values', () => {
+  const original = { A: process.env.CLAUDE_HUD_TEST_A, B: process.env.CLAUDE_HUD_TEST_B };
+  process.env.CLAUDE_HUD_TEST_A = '/opt/claude-hud';
+  process.env.CLAUDE_HUD_TEST_B = '${CLAUDE_HUD_TEST_A}';
   try {
-    const braced = mergeConfig({
-      display: { externalUsagePath: '${CLAUDE_HUD_TEST_VAR}/usage.json' },
+    const config = mergeConfig({
+      display: {
+        externalUsagePath: '${CLAUDE_HUD_TEST_A}/usage.json',
+        externalUsageWritePath: '${CLAUDE_HUD_TEST_B}/usage.json',
+      },
     });
-    assert.equal(braced.display.externalUsagePath, '/opt/claude-hud/usage.json');
-
-    const windowsStyle = mergeConfig({
-      display: { externalUsagePath: '%CLAUDE_HUD_TEST_VAR%/usage.json' },
-    });
-    assert.equal(windowsStyle.display.externalUsagePath, '/opt/claude-hud/usage.json');
+    assert.equal(config.display.externalUsagePath, '/opt/claude-hud/usage.json');
+    assert.equal(config.display.externalUsageWritePath, '${CLAUDE_HUD_TEST_A}/usage.json');
   } finally {
-    if (original === undefined) {
-      delete process.env.CLAUDE_HUD_TEST_VAR;
-    } else {
-      process.env.CLAUDE_HUD_TEST_VAR = original;
+    for (const [key, value] of Object.entries(original)) {
+      if (value === undefined) {
+        delete process.env[`CLAUDE_HUD_TEST_${key}`];
+      } else {
+        process.env[`CLAUDE_HUD_TEST_${key}`] = value;
+      }
     }
   }
 });

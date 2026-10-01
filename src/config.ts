@@ -1,12 +1,11 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import * as os from 'node:os';
-import { getClaudeConfigDir, getHudPluginDir } from './claude-config-dir.js';
+import { expandHomeDirPrefix, getClaudeConfigDir, getHudPluginDir } from './claude-config-dir.js';
 import { createDebug } from './debug.js';
 import type { Language } from './i18n/types.js';
 import { MAX_TERMINAL_WIDTH } from './utils/terminal.js';
 import { sanitizeDisplayText } from './utils/sanitize.js';
-import { expandPath } from './utils/expand-path.js';
 
 const debug = createDebug('config');
 const MAX_CONFIG_FILE_BYTES = 64 * 1024;
@@ -702,8 +701,13 @@ function validateAutoCompactWindow(value: unknown): number | null {
   return value;
 }
 
+// Unset variables stay literal so the absolute-path check rejects the path.
 function validateOptionalPath(value: unknown): string {
-  return typeof value === 'string' ? expandPath(value.trim()) : '';
+  if (typeof value !== 'string') {
+    return '';
+  }
+  return expandHomeDirPrefix(value.trim(), os.homedir())
+    .replace(/\$\{([A-Za-z_][A-Za-z0-9_]*)\}/g, (match, name: string) => process.env[name] ?? match);
 }
 
 function validateDisplayText(value: unknown, maxLength: number, fallback: string): string {
