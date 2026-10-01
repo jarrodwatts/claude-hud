@@ -176,6 +176,7 @@ Claude Code → stdin JSON → claude-hud → stdout → 在终端中显示
 | `gitStatus.pushWarningThreshold` | number | 0 | 当未推送提交数达到此值时，用警告色显示 ahead 计数（`0` 表示禁用） |
 | `gitStatus.pushCriticalThreshold` | number | 0 | 当未推送提交数达到此值时，用严重色显示 ahead 计数（`0` 表示禁用） |
 | `gitStatus.showFileStats` | boolean | false | 显示文件变更数量 `!M +A ✘D ?U` |
+| `gitStatus.showWorktree` | boolean | false | 在关联的 git worktree 中，于分支后显示其名称，例如 `git:(feat/x) ⎇ feat-x` |
 | `gitStatus.branchOverflow` | `truncate` \| `wrap` | `truncate` | 保持当前截断行为，或在可能时让 git 块以自己的换行边界单独换到下一行 |
 | `jjStatus.enabled` | boolean | false | 显式启用 jj（Jujutsu）状态。启用后若找到真实的 `.jj` 目录，该仓库将显示 jj 而不是 git，二者不会同时运行 |
 | `jjStatus.showDirty` | boolean | true | 当 jj 工作副本提交与其父提交不同时显示 `*` |

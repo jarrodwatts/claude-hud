@@ -191,6 +191,7 @@ Simplified and Traditional Chinese HUD labels are available as explicit opt-ins.
 | `gitStatus.pushWarningThreshold` | number | 0 | Color the ahead count with the warning color at or above this unpushed-commit count (`0` disables it) |
 | `gitStatus.pushCriticalThreshold` | number | 0 | Color the ahead count with the critical color at or above this unpushed-commit count (`0` disables it) |
 | `gitStatus.showFileStats` | boolean | false | Show file change counts `!M +A ✘D ?U` |
+| `gitStatus.showWorktree` | boolean | false | In a linked git worktree, show its name after the branch, e.g. `git:(feat/x) ⎇ feat-x` |
 | `gitStatus.branchOverflow` | `truncate` \| `wrap` | `truncate` | Keep current truncation behavior or let the git block wrap onto its own line boundary when possible |
 | `jjStatus.enabled` | boolean | false | Opt in to jj (Jujutsu) status. When enabled and a real `.jj` directory is found, jj is used instead of git for that repo — never both |
 | `jjStatus.showDirty` | boolean | true | Show `*` when the working-copy commit differs from its parent |

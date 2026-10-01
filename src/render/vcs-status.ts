@@ -13,6 +13,8 @@ export interface VcsDisplayState {
   fileStats?: FileStats;
   lineDiff?: LineDiff;
   branchUrl?: string;
+  // Linked worktree name, from stdin workspace.git_worktree.
+  worktree?: string;
   branchOverflow: GitBranchOverflowMode;
 }
 
@@ -23,6 +25,7 @@ export interface VcsDisplayState {
 export function getVcsDisplayState(
   status: GitStatus | null,
   config: Pick<Partial<HudConfig>, 'gitStatus' | 'jjStatus'>,
+  gitWorktree?: string,
 ): VcsDisplayState | null {
   if (!status) return null;
 
@@ -45,6 +48,9 @@ export function getVcsDisplayState(
     fileStats: isGit && gitConfig.showFileStats ? status.fileStats : undefined,
     lineDiff: isGit && gitConfig.showFileStats ? status.lineDiff : undefined,
     branchUrl: isGit ? status.branchUrl : undefined,
+    worktree: isGit && gitConfig.showWorktree && gitWorktree
+      ? sanitizeDisplayText(gitWorktree).trim() || undefined
+      : undefined,
     branchOverflow: gitConfig.branchOverflow,
   };
 }

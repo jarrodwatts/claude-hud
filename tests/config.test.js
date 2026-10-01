@@ -45,6 +45,7 @@ test('loadConfig returns valid config structure', async () => {
   assert.equal(typeof config.gitStatus.enabled, 'boolean');
   assert.equal(typeof config.gitStatus.showDirty, 'boolean');
   assert.equal(typeof config.gitStatus.showAheadBehind, 'boolean');
+  assert.equal(config.gitStatus.showWorktree, false);
   assert.ok(['truncate', 'wrap'].includes(config.gitStatus.branchOverflow), 'branchOverflow should be valid');
   assert.equal(typeof config.gitStatus.pushWarningThreshold, 'number');
   assert.equal(typeof config.gitStatus.pushCriticalThreshold, 'number');

@@ -4478,3 +4478,21 @@ test('render expanded layout still stacks a right-aligned group that does not fi
   assert.equal(combined, undefined, 'narrow terminals should stack instead of combining');
   assert.ok(contextLine, 'expected a standalone context line');
 });
+
+test('showWorktree appends the linked worktree name after the git segment', () => {
+  const ctx = baseContext();
+  ctx.stdin.cwd = '/tmp/my-project';
+  ctx.stdin.workspace = { git_worktree: 'feat-x\x1b[31m' };
+  ctx.gitStatus = { branch: 'feat/x', isDirty: false, ahead: 0, behind: 0 };
+
+  ctx.config.gitStatus = { ...ctx.config.gitStatus, showWorktree: false };
+  assert.ok(!stripAnsi(renderProjectLine(ctx)).includes('⎇'), 'hidden when showWorktree is off');
+
+  ctx.config.gitStatus = { ...ctx.config.gitStatus, showWorktree: true };
+  assert.ok(stripAnsi(renderProjectLine(ctx)).includes('git:(feat/x) ⎇ feat-x'));
+  assert.ok(stripAnsi(renderSessionLine(ctx)).includes('git:(feat/x) ⎇ feat-x'));
+  assert.ok(!renderProjectLine(ctx).includes('\x1b[31m'), 'worktree name is sanitized');
+
+  ctx.stdin.workspace = {};
+  assert.ok(!stripAnsi(renderProjectLine(ctx)).includes('⎇'), 'hidden in the main checkout');
+});

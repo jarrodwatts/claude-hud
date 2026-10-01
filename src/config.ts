@@ -181,6 +181,7 @@ export interface HudConfig {
     showDirty: boolean;
     showAheadBehind: boolean;
     showFileStats: boolean;
+    showWorktree: boolean;
     branchOverflow: GitBranchOverflowMode;
     pushWarningThreshold: number;
     pushCriticalThreshold: number;
@@ -318,6 +319,7 @@ export const DEFAULT_CONFIG: HudConfig = {
     showDirty: true,
     showAheadBehind: false,
     showFileStats: false,
+    showWorktree: false,
     branchOverflow: 'truncate',
     pushWarningThreshold: 0,
     pushCriticalThreshold: 0,
@@ -779,6 +781,9 @@ export function mergeConfig(userConfig: Partial<HudConfig>): HudConfig {
     showFileStats: typeof migrated.gitStatus?.showFileStats === 'boolean'
       ? migrated.gitStatus.showFileStats
       : DEFAULT_CONFIG.gitStatus.showFileStats,
+    showWorktree: typeof migrated.gitStatus?.showWorktree === 'boolean'
+      ? migrated.gitStatus.showWorktree
+      : DEFAULT_CONFIG.gitStatus.showWorktree,
     branchOverflow: validateGitBranchOverflow(migrated.gitStatus?.branchOverflow)
       ? migrated.gitStatus.branchOverflow
       : DEFAULT_CONFIG.gitStatus.branchOverflow,

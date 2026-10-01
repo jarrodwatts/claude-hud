@@ -95,7 +95,7 @@ export function renderSessionLine(ctx: RenderContext): string {
   }
 
   let gitPart = '';
-  const vcs = getVcsDisplayState(ctx.gitStatus, ctx.config);
+  const vcs = getVcsDisplayState(ctx.gitStatus, ctx.config, ctx.stdin.workspace?.git_worktree);
   const branchOverflow = vcs?.branchOverflow ?? ctx.config.gitStatus?.branchOverflow ?? 'truncate';
 
   if (vcs) {
@@ -129,6 +129,9 @@ export function renderSessionLine(ctx: RenderContext): string {
 
     const conflictPart = vcs.conflict ? ` ${critical('!conflict', colors)}` : '';
     gitPart = `${gitColor(`${vcs.kind}:(`, colors)}${gitBranchColor(gitParts.join(''), colors)}${conflictPart}${gitColor(')', colors)}`;
+    if (vcs.worktree) {
+      gitPart += ` ${gitColor(`⎇ ${vcs.worktree}`, colors)}`;
+    }
   }
 
   if (projectPart && gitPart) {
