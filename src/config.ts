@@ -1,7 +1,7 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import * as os from 'node:os';
-import { getClaudeConfigDir, getHudPluginDir } from './claude-config-dir.js';
+import { expandHomeDirPrefix, getClaudeConfigDir, getHudPluginDir } from './claude-config-dir.js';
 import { createDebug } from './debug.js';
 import type { Language } from './i18n/types.js';
 import { MAX_TERMINAL_WIDTH } from './utils/terminal.js';
@@ -205,6 +205,8 @@ export interface HudConfig {
     // Accumulate the native stdin cost into a per-day ledger and show
     // today's cumulative spend across sessions. Default off.
     showDailyCost: boolean;
+    // Show spend over the weekly quota window behind the `Weekly` usage bar. Default off.
+    showWeeklyCost: boolean;
     showDuration: boolean;
     showSpeed: boolean;
     showTokenBreakdown: boolean;
@@ -221,6 +223,7 @@ export interface HudConfig {
     showMcp: boolean;
     toolNameMaxLength: number;
     toolsMaxVisible: number;
+    skillsMaxVisible: number;
     showAgents: boolean;
     showTodos: boolean;
     showSessionName: boolean;
@@ -332,6 +335,7 @@ export const DEFAULT_CONFIG: HudConfig = {
     showCost: false,
     showRoutedCost: false,
     showDailyCost: false,
+    showWeeklyCost: false,
     showDuration: false,
     showSpeed: false,
     showTokenBreakdown: true,
@@ -346,6 +350,7 @@ export const DEFAULT_CONFIG: HudConfig = {
     showMcp: false,
     toolNameMaxLength: 0,
     toolsMaxVisible: 4,
+    skillsMaxVisible: 4,
     showAgents: false,
     showTodos: false,
     showSessionName: false,
@@ -706,8 +711,13 @@ function validateAutoCompactWindow(value: unknown): number | null {
   return value;
 }
 
+// Unset variables are left as written.
 function validateOptionalPath(value: unknown): string {
-  return typeof value === 'string' ? value.trim() : '';
+  if (typeof value !== 'string') {
+    return '';
+  }
+  return expandHomeDirPrefix(value.trim(), os.homedir())
+    .replace(/\$\{([A-Za-z_][A-Za-z0-9_]*)\}/g, (match, name: string) => process.env[name] ?? match);
 }
 
 function validateDisplayText(value: unknown, maxLength: number, fallback: string): string {
@@ -815,6 +825,9 @@ export function mergeConfig(userConfig: Partial<HudConfig>): HudConfig {
     showDailyCost: typeof migrated.display?.showDailyCost === 'boolean'
       ? migrated.display.showDailyCost
       : DEFAULT_CONFIG.display.showDailyCost,
+    showWeeklyCost: typeof migrated.display?.showWeeklyCost === 'boolean'
+      ? migrated.display.showWeeklyCost
+      : DEFAULT_CONFIG.display.showWeeklyCost,
     showDuration: typeof migrated.display?.showDuration === 'boolean'
       ? migrated.display.showDuration
       : DEFAULT_CONFIG.display.showDuration,
@@ -858,6 +871,10 @@ export function mergeConfig(userConfig: Partial<HudConfig>): HudConfig {
     toolsMaxVisible: validateNonNegativeInteger(
       migrated.display?.toolsMaxVisible,
       DEFAULT_CONFIG.display.toolsMaxVisible,
+    ),
+    skillsMaxVisible: validateNonNegativeInteger(
+      migrated.display?.skillsMaxVisible,
+      DEFAULT_CONFIG.display.skillsMaxVisible,
     ),
     showAgents: typeof migrated.display?.showAgents === 'boolean'
       ? migrated.display.showAgents

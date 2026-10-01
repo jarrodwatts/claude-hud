@@ -6,7 +6,7 @@ import { getGitStatus } from "./git.js";
 import { getJjStatus, isJjRepo } from "./jj.js";
 import { loadConfig } from "./config.js";
 import { parseExtraCmdArg, runExtraCmd } from "./extra-cmd.js";
-import { getClaudeCodeVersion } from "./version.js";
+import { getClaudeCodeVersion, resolveStdinClaudeCodeVersion } from "./version.js";
 import { getMemoryUsage } from "./memory.js";
 import { readAuthInfo } from "./auth.js";
 import { resolveEffortLevel } from "./effort.js";
@@ -140,7 +140,8 @@ export async function main(overrides = {}) {
         const extraLabel = extraCmd ? await deps.runExtraCmd(extraCmd) : null;
         const sessionDuration = formatSessionDuration(transcript.sessionStart, deps.now);
         const claudeCodeVersion = config.display.showClaudeCodeVersion
-            ? await deps.getClaudeCodeVersion()
+            ? (resolveStdinClaudeCodeVersion(stdin.version)
+                ?? await deps.getClaudeCodeVersion())
             : undefined;
         const effortInfo = config.display.showEffortLevel
             ? resolveEffortLevel(stdin.effort, { ultracodeActive: transcript.ultracodeActive })

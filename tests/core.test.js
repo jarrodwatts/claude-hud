@@ -639,6 +639,7 @@ test('parseTranscript accumulates session token usage from assistant messages', 
       outputTokens: 500,
       cacheCreationTokens: 9000,
       cacheReadTokens: 2000,
+      cacheCreationOneHourTokens: 0,
     });
   } finally {
     await rm(dir, { recursive: true, force: true });
@@ -654,6 +655,15 @@ test('parseTranscript sanitizes and caps assistant model IDs at ingestion', asyn
   assert.ok(result.lastAssistantModel?.startsWith('proxy-redlink'));
   assert.equal(result.lastAssistantModel?.length, 80);
   assert.doesNotMatch(result.lastAssistantModel ?? '', /[\x1b\u202E]/u);
+});
+
+test('parseTranscript ignores synthetic assistant model records', async () => {
+  const result = await parseTempTranscript('transcript-model-synthetic.jsonl', [
+    { type: 'assistant', message: { model: 'deepseek-v4-flash' } },
+    { type: 'assistant', message: { model: '<synthetic>' } },
+  ]);
+
+  assert.equal(result.lastAssistantModel, 'deepseek-v4-flash');
 });
 
 test('parseTranscript deduplicates adjacent duplicate assistant usage by message.id', async () => {
@@ -680,6 +690,7 @@ test('parseTranscript deduplicates adjacent duplicate assistant usage by message
     outputTokens: 25,
     cacheCreationTokens: 10,
     cacheReadTokens: 5,
+    cacheCreationOneHourTokens: 0,
   });
 });
 
@@ -708,7 +719,29 @@ test('parseTranscript deduplicates non-consecutive duplicate assistant usage by 
     outputTokens: 25,
     cacheCreationTokens: 10,
     cacheReadTokens: 5,
+    cacheCreationOneHourTokens: 0,
   });
+});
+
+test('parseTranscript counts 1-hour cache writes once per message id', async () => {
+  const usageEntry = {
+    type: 'assistant',
+    message: {
+      id: 'msg-one-hour',
+      usage: {
+        input_tokens: 10,
+        output_tokens: 5,
+        cache_creation_input_tokens: 1000,
+        cache_read_input_tokens: 0,
+        cache_creation: { ephemeral_1h_input_tokens: 400, ephemeral_5m_input_tokens: 600 },
+      },
+    },
+  };
+
+  const result = await parseTempTranscript('session-tokens-one-hour.jsonl', [usageEntry, usageEntry]);
+
+  assert.equal(result.sessionTokens.cacheCreationTokens, 1000);
+  assert.equal(result.sessionTokens.cacheCreationOneHourTokens, 400);
 });
 
 test('parseTranscript replaces a zero placeholder with later message usage', async () => {
@@ -733,6 +766,7 @@ test('parseTranscript replaces a zero placeholder with later message usage', asy
     outputTokens: 25,
     cacheCreationTokens: 10,
     cacheReadTokens: 5,
+    cacheCreationOneHourTokens: 0,
   });
 });
 
@@ -757,6 +791,7 @@ test('parseTranscript adds only positive per-field message usage deltas', async 
     outputTokens: 25,
     cacheCreationTokens: 0,
     cacheReadTokens: 0,
+    cacheCreationOneHourTokens: 0,
   });
 });
 
@@ -778,6 +813,7 @@ test('parseTranscript counts different message IDs with identical usage', async 
     outputTokens: 50,
     cacheCreationTokens: 20,
     cacheReadTokens: 10,
+    cacheCreationOneHourTokens: 0,
   });
 });
 
@@ -801,6 +837,7 @@ test('parseTranscript deduplicates adjacent idless usage with the legacy fingerp
     outputTokens: 25,
     cacheCreationTokens: 10,
     cacheReadTokens: 5,
+    cacheCreationOneHourTokens: 0,
   });
 });
 
@@ -840,6 +877,7 @@ test('parseTranscript treats malformed and oversized message IDs as idless', asy
     outputTokens: 75,
     cacheCreationTokens: 30,
     cacheReadTokens: 15,
+    cacheCreationOneHourTokens: 0,
   });
 });
 
@@ -1364,6 +1402,7 @@ test('parseTranscript ignores malformed session token values', async () => {
       outputTokens: 2,
       cacheCreationTokens: 12,
       cacheReadTokens: 1,
+      cacheCreationOneHourTokens: 0,
     });
   } finally {
     await rm(dir, { recursive: true, force: true });
@@ -1514,6 +1553,96 @@ test('parseTranscript falls back to latest slug when custom title is missing', a
     const result = await parseTranscript(filePath);
     assert.equal(result.sessionName, 'auto-slug-2');
   } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
+});
+
+for (const { name, entries, expected } of [
+  {
+    name: 'uses the generated session title without a manual rename',
+    entries: [{ type: 'ai-title', aiTitle: 'Investigate failing build' }],
+    expected: 'Investigate failing build',
+  },
+  {
+    name: 'strips terminal escapes from session titles',
+    entries: [{ type: 'ai-title', aiTitle: '\x1b]8;;https://example.com\x07Fix\x1b[31m build\u202E' }],
+    expected: 'Fix build',
+  },
+  {
+    name: 'prefers the latest generated title over legacy slugs',
+    entries: [
+      { type: 'ai-title', aiTitle: 'Initial title' },
+      { type: 'ai-title', aiTitle: 'Updated title' },
+      { type: 'assistant', slug: 'legacy-slug' },
+    ],
+    expected: 'Updated title',
+  },
+  {
+    name: 'preserves a manual rename when a generated title follows it',
+    entries: [
+      { type: 'custom-title', customTitle: 'My title' },
+      { type: 'ai-title', aiTitle: 'Generated title' },
+    ],
+    expected: 'My title',
+  },
+  {
+    name: 'applies a manual rename after a generated title',
+    entries: [
+      { type: 'ai-title', aiTitle: 'Generated title' },
+      { type: 'custom-title', customTitle: 'My title' },
+    ],
+    expected: 'My title',
+  },
+  {
+    name: 'ignores malformed generated titles and titles on unrelated records',
+    entries: [
+      { type: 'ai-title', aiTitle: 'Valid title' },
+      { type: 'ai-title', aiTitle: 42 },
+      { type: 'ai-title', aiTitle: null },
+      { type: 'assistant', aiTitle: 'Unrelated title' },
+    ],
+    expected: 'Valid title',
+  },
+  {
+    name: 'retains the legacy slug when no valid generated title exists',
+    entries: [
+      { type: 'user', slug: 'legacy-slug' },
+      { type: 'ai-title', aiTitle: 42 },
+    ],
+    expected: 'legacy-slug',
+  },
+]) {
+  test(`parseTranscript ${name}`, async () => {
+    const result = await parseTempTranscript('generated-session-name.jsonl', entries);
+    assert.equal(result.sessionName, expected);
+  });
+}
+
+test('parseTranscript refreshes cached session names from before ai-title support', async () => {
+  const dir = await mkdtemp(path.join(tmpdir(), 'claude-hud-ai-title-cache-'));
+  const configDir = path.join(dir, 'config');
+  const transcriptPath = path.join(dir, 'session.jsonl');
+  const originalConfigDir = process.env.CLAUDE_CONFIG_DIR;
+  process.env.CLAUDE_CONFIG_DIR = configDir;
+
+  try {
+    await writeFile(transcriptPath, JSON.stringify({ type: 'ai-title', aiTitle: 'Generated title' }), 'utf8');
+    await parseTranscript(transcriptPath);
+    const cachePath = await getTranscriptCacheFile(configDir);
+    const cache = JSON.parse(await readFile(cachePath, 'utf8'));
+    cache.version = 18;
+    delete cache.data.sessionName;
+    await writeFile(cachePath, JSON.stringify(cache), 'utf8');
+
+    const refreshed = await parseTranscript(transcriptPath);
+    assert.equal(refreshed.sessionName, 'Generated title');
+
+    _setCreateReadStreamForTests(() => { throw new Error('unchanged transcript should use the refreshed cache'); });
+    const cached = await parseTranscript(transcriptPath);
+    assert.equal(cached.sessionName, 'Generated title');
+  } finally {
+    _setCreateReadStreamForTests(null);
+    restoreEnvVar('CLAUDE_CONFIG_DIR', originalConfigDir);
     await rm(dir, { recursive: true, force: true });
   }
 });
@@ -2323,7 +2452,7 @@ test('countConfigs returns outputStyle with project local precedence', async () 
   }
 });
 
-test('countConfigs uses CLAUDE_CONFIG_DIR and matching .json sidecar for user scope', async () => {
+test('countConfigs uses CLAUDE_CONFIG_DIR and its in-dir .claude.json for user scope', async () => {
   const homeDir = await mkdtemp(path.join(tmpdir(), 'claude-hud-home-'));
   const customConfigDir = path.join(homeDir, '.claude-2');
   const originalHome = process.env.HOME;
@@ -2343,7 +2472,7 @@ test('countConfigs uses CLAUDE_CONFIG_DIR and matching .json sidecar for user sc
     );
     await writeFile(path.join(homeDir, '.claude.json'), JSON.stringify({ disabledMcpServers: ['defaultA'] }), 'utf8');
 
-    // Custom config directory and sidecar should drive user-scope counts.
+    // Custom config directory and its in-dir .claude.json should drive user-scope counts.
     await mkdir(customConfigDir, { recursive: true });
     await writeFile(path.join(customConfigDir, 'CLAUDE.md'), 'custom-global', 'utf8');
     await writeFile(
@@ -2355,7 +2484,7 @@ test('countConfigs uses CLAUDE_CONFIG_DIR and matching .json sidecar for user sc
       'utf8'
     );
     await writeFile(
-      `${customConfigDir}.json`,
+      path.join(customConfigDir, '.claude.json'),
       JSON.stringify({ disabledMcpServers: ['customA'] }),
       'utf8'
     );

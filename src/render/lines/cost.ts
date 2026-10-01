@@ -1,6 +1,6 @@
 import type { RenderContext } from '../../types.js';
 import { resolveSessionCost, formatUsd } from '../../cost.js';
-import { getDailyCostUsd } from '../../daily-cost.js';
+import { getCostTotals } from '../../daily-cost.js';
 import { t } from '../../i18n/index.js';
 import { label } from '../colors.js';
 
@@ -19,10 +19,18 @@ export function renderCostEstimate(ctx: RenderContext): string | null {
     }
   }
 
-  if (display?.showDailyCost === true) {
-    const dailyUsd = getDailyCostUsd(ctx.stdin, { allowRoutedCost });
-    if (dailyUsd !== null) {
-      parts.push(`${t('label.today')} ${formatUsd(dailyUsd)}`);
+  if (display?.showDailyCost === true || display?.showWeeklyCost === true) {
+    const totals = getCostTotals(ctx.stdin, {
+      allowRoutedCost,
+      sevenDayResetAt: ctx.usageData?.sevenDayResetAt ?? null,
+    });
+    if (totals !== null) {
+      if (display?.showDailyCost === true) {
+        parts.push(`${t('label.today')} ${formatUsd(totals.todayUsd)}`);
+      }
+      if (display?.showWeeklyCost === true && totals.weekUsd !== null) {
+        parts.push(`${t('label.week')} ${formatUsd(totals.weekUsd)}`);
+      }
     }
   }
 

@@ -13,6 +13,7 @@ export const zhHant: Messages = {
   "label.estimatedCost": "估算",
   "label.cost": "費用",
   "label.today": "今日",
+  "label.week": "本週",
   "label.tokens": "Token",
   "label.sessionStarted": "開始",
   "label.lastReply": "上次回覆",
@@ -36,6 +37,7 @@ export const zhHant: Messages = {
   "format.tokPerSec": "tok/s",
   "format.justNow": "剛剛",
   "format.relativeTime": "{value} 前",
+  "format.elapsed": "已過 {value}%",
 
   // Init
   "init.initializing": "[claude-hud] 正在初始化...",

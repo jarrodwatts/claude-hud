@@ -7,7 +7,8 @@ import { sanitizeDisplayText } from './utils/sanitize.js';
 
 /**
  * Authentication info for the current Claude Code login, derived from the
- * `oauthAccount` block Claude Code persists in {CLAUDE_CONFIG_DIR}.json.
+ * `oauthAccount` block Claude Code persists in ~/.claude.json, or
+ * $CLAUDE_CONFIG_DIR/.claude.json when the config directory is overridden.
  *
  *   method: human-readable auth/plan label (e.g. "Claude Max 20x", "API Key")
  *   user:   account identifier (email local part, falling back to displayName)
@@ -62,7 +63,7 @@ function extractTierSuffix(rateLimitTier: string): string | null {
 }
 
 /**
- * Derives auth info from the parsed contents of {CLAUDE_CONFIG_DIR}.json.
+ * Derives auth info from the parsed contents of claude.json.
  * Pure so it can be tested without touching the filesystem.
  */
 export function deriveAuthInfo(claudeJson: unknown, env: NodeJS.ProcessEnv = process.env): AuthInfo {

@@ -24,6 +24,7 @@ interface TranscriptLine {
   content?: string;
   slug?: string;
   customTitle?: string;
+  aiTitle?: string;
   // True on subagent (Task tool) records. These are interleaved into the main
   // session's transcript but belong to a separate conversation with its own
   // prompt cache.
@@ -130,7 +131,7 @@ interface TranscriptCacheFile {
   data: SerializedTranscriptData;
 }
 
-const TRANSCRIPT_CACHE_VERSION = 18;
+const TRANSCRIPT_CACHE_VERSION = 21;
 const MCP_TOOL_NAME_PATTERN = /^mcp__(.+?)__(.+)$/;
 const ACTIVITY_NAME_MAX_LEN = 64;
 const MESSAGE_ID_MAX_LEN = 128;
@@ -257,18 +258,21 @@ function accumulateMessageUsage(
     outputTokens: 0,
     cacheCreationTokens: 0,
     cacheReadTokens: 0,
+    cacheCreationOneHourTokens: 0,
   };
 
   total.inputTokens += Math.max(0, current.inputTokens - prior.inputTokens);
   total.outputTokens += Math.max(0, current.outputTokens - prior.outputTokens);
   total.cacheCreationTokens += Math.max(0, current.cacheCreationTokens - prior.cacheCreationTokens);
   total.cacheReadTokens += Math.max(0, current.cacheReadTokens - prior.cacheReadTokens);
+  total.cacheCreationOneHourTokens += Math.max(0, current.cacheCreationOneHourTokens - prior.cacheCreationOneHourTokens);
 
   usageByMessageId.set(messageId, {
     inputTokens: Math.max(prior.inputTokens, current.inputTokens),
     outputTokens: Math.max(prior.outputTokens, current.outputTokens),
     cacheCreationTokens: Math.max(prior.cacheCreationTokens, current.cacheCreationTokens),
     cacheReadTokens: Math.max(prior.cacheReadTokens, current.cacheReadTokens),
+    cacheCreationOneHourTokens: Math.max(prior.cacheCreationOneHourTokens, current.cacheCreationOneHourTokens),
   });
 }
 
@@ -283,6 +287,7 @@ function normalizeSessionTokens(tokens: unknown): SessionTokenUsage | undefined 
     outputTokens: normalizeTokenCount(raw.outputTokens),
     cacheCreationTokens: normalizeTokenCount(raw.cacheCreationTokens),
     cacheReadTokens: normalizeTokenCount(raw.cacheReadTokens),
+    cacheCreationOneHourTokens: normalizeTokenCount(raw.cacheCreationOneHourTokens),
   };
 }
 
@@ -515,6 +520,7 @@ export async function parseTranscript(transcriptPath: string): Promise<Transcrip
   const queueCompletionMap = new Map<string, Date>();
   let latestSlug: string | undefined;
   let customTitle: string | undefined;
+  let aiTitle: string | undefined;
   let latestAdvisorModel: string | undefined;
   let latestUltracodeActive: boolean | undefined;
   let lastCompactBoundaryAt: Date | undefined;
@@ -525,6 +531,7 @@ export async function parseTranscript(transcriptPath: string): Promise<Transcrip
     outputTokens: 0,
     cacheCreationTokens: 0,
     cacheReadTokens: 0,
+    cacheCreationOneHourTokens: 0,
   };
   const usageByMessageId = new Map<string, SessionTokenUsage>();
   let lastUsageKey: string | undefined;
@@ -557,6 +564,8 @@ export async function parseTranscript(transcriptPath: string): Promise<Transcrip
         const entry = JSON.parse(line) as TranscriptLine;
         if (entry.type === 'custom-title' && typeof entry.customTitle === 'string') {
           customTitle = entry.customTitle;
+        } else if (entry.type === 'ai-title' && typeof entry.aiTitle === 'string') {
+          aiTitle = entry.aiTitle;
         } else if (typeof entry.slug === 'string') {
           latestSlug = entry.slug;
         }
@@ -602,7 +611,8 @@ export async function parseTranscript(transcriptPath: string): Promise<Transcrip
         // model Claude Code thinks it's using (e.g. proxy redirect via cc-switch).
         if (entry.type === 'assistant') {
           const transcriptModel = sanitizeTranscriptModel(entry.message?.model);
-          if (transcriptModel) {
+          // Claude Code writes '<synthetic>' on locally generated assistant records.
+          if (transcriptModel && transcriptModel !== '<synthetic>') {
             result.lastAssistantModel = transcriptModel;
           }
         }
@@ -622,13 +632,14 @@ export async function parseTranscript(transcriptPath: string): Promise<Transcrip
             outputTokens: normalizeTokenCount(usage.output_tokens),
             cacheCreationTokens: normalizeTokenCount(usage.cache_creation_input_tokens),
             cacheReadTokens: normalizeTokenCount(usage.cache_read_input_tokens),
+            cacheCreationOneHourTokens: normalizeTokenCount(usage.cache_creation?.ephemeral_1h_input_tokens),
           };
 
           if (msgId !== null) {
             lastUsageKey = undefined;
             accumulateMessageUsage(usageByMessageId, msgId, normalizedUsage, sessionTokens);
           } else {
-            const usageKey = `${usage.input_tokens}|${usage.output_tokens}|${usage.cache_creation_input_tokens}|${usage.cache_read_input_tokens}`;
+            const usageKey = `${usage.input_tokens}|${usage.output_tokens}|${usage.cache_creation_input_tokens}|${usage.cache_read_input_tokens}|${normalizedUsage.cacheCreationOneHourTokens}`;
             const shouldCount = usageKey !== lastUsageKey;
             lastUsageKey = usageKey;
             if (shouldCount) {
@@ -636,6 +647,7 @@ export async function parseTranscript(transcriptPath: string): Promise<Transcrip
               sessionTokens.outputTokens += normalizedUsage.outputTokens;
               sessionTokens.cacheCreationTokens += normalizedUsage.cacheCreationTokens;
               sessionTokens.cacheReadTokens += normalizedUsage.cacheReadTokens;
+              sessionTokens.cacheCreationOneHourTokens += normalizedUsage.cacheCreationOneHourTokens;
             }
           }
         } else {
@@ -757,7 +769,8 @@ export async function parseTranscript(transcriptPath: string): Promise<Transcrip
   result.mcpErrors = Array.from(mcpErrorSet.values());
   result.agents = Array.from(agentMap.values()).slice(-10);
   result.todos = latestTodos;
-  result.sessionName = customTitle ?? latestSlug;
+  const sessionName = customTitle ?? aiTitle ?? latestSlug;
+  result.sessionName = sessionName ? sanitizeDisplayText(sessionName).trim() || undefined : undefined;
   result.sessionTokens = sessionTokens;
   result.lastCompactBoundaryAt = lastCompactBoundaryAt;
   result.lastCompactPostTokens = lastCompactPostTokens;

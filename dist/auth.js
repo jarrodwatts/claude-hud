@@ -43,7 +43,7 @@ function extractTierSuffix(rateLimitTier) {
     return match ? match[1] : null;
 }
 /**
- * Derives auth info from the parsed contents of {CLAUDE_CONFIG_DIR}.json.
+ * Derives auth info from the parsed contents of claude.json.
  * Pure so it can be tested without touching the filesystem.
  */
 export function deriveAuthInfo(claudeJson, env = process.env) {

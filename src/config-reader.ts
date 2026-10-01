@@ -401,13 +401,13 @@ function computeConfigCountsFresh(cwd?: string): ConfigCounts {
   const userLocalSettings = path.join(claudeDir, 'settings.local.json');
   outputStyle = readStringSetting(userLocalSettings, 'outputStyle') ?? outputStyle;
 
-  // {CLAUDE_CONFIG_DIR}.json (additional user-scope MCPs)
+  // ~/.claude.json, or $CLAUDE_CONFIG_DIR/.claude.json when overridden (additional user-scope MCPs)
   const userClaudeJson = getClaudeConfigJsonPath(homeDir);
   for (const name of getMcpServerNames(userClaudeJson)) {
     userMcpServers.add(name);
   }
 
-  // Get disabled user-scope MCPs from ~/.claude.json
+  // Get disabled user-scope MCPs from the same claude.json
   const disabledUserMcps = getDisabledMcpServers(userClaudeJson, 'disabledMcpServers');
   for (const name of disabledUserMcps) {
     userMcpServers.delete(name);

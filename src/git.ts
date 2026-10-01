@@ -201,7 +201,7 @@ function parseFileStats(porcelainOutput: string): FileStats {
 
     if (line.startsWith('??')) {
       stats.untracked++;
-    } else if (index === 'A') {
+    } else if (index === 'A' || (index === 'U' && worktree === 'A')) {
       stats.added++;
       const fullPath = parsePorcelainPath(line.slice(2).trimStart());
       stats.trackedFiles.push({ basename: fullPath.split('/').pop() ?? fullPath, fullPath, type: 'added' });
@@ -209,8 +209,8 @@ function parseFileStats(porcelainOutput: string): FileStats {
       stats.deleted++;
       const fullPath = parsePorcelainPath(line.slice(2).trimStart());
       stats.trackedFiles.push({ basename: fullPath.split('/').pop() ?? fullPath, fullPath, type: 'deleted' });
-    } else if (index === 'M' || worktree === 'M' || index === 'R' || index === 'C') {
-      // M=modified, R=renamed (counts as modified), C=copied (counts as modified)
+    } else if (index === 'M' || worktree === 'M' || index === 'R' || index === 'C' || index === 'U') {
+      // M=modified, R=renamed and C=copied (count as modified), U=unmerged (UU)
       stats.modified++;
       // For renames, git porcelain shows "old -> new"; take the destination path
       const fullPath = parsePorcelainPath(line.slice(2).trimStart().split(' -> ').pop() ?? line.slice(2).trimStart());
@@ -221,13 +221,20 @@ function parseFileStats(porcelainOutput: string): FileStats {
   return stats;
 }
 
+const C_ESCAPES: Record<string, string> = { a: '\x07', b: '\b', f: '\f', n: '\n', r: '\r', t: '\t', v: '\v' };
+
+// Undo git's quote_c_style. Octal escapes are bytes, so decode runs of them as UTF-8.
+function unquoteCStyle(body: string): string {
+  return body.replace(/(?:\\[0-7]{3})+|\\(.)/g, (match, escaped?: string) => {
+    if (escaped !== undefined) return C_ESCAPES[escaped] ?? escaped;
+    const bytes = match.slice(1).split('\\').map((octal) => parseInt(octal, 8));
+    return Buffer.from(bytes).toString('utf8');
+  });
+}
+
 function parsePorcelainPath(pathField: string): string {
-  if (pathField.startsWith('"') && pathField.endsWith('"')) {
-    try {
-      return JSON.parse(pathField);
-    } catch {
-      return pathField.slice(1, -1);
-    }
+  if (pathField.length >= 2 && pathField.startsWith('"') && pathField.endsWith('"')) {
+    return unquoteCStyle(pathField.slice(1, -1));
   }
 
   return pathField;

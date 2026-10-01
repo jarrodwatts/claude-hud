@@ -1,7 +1,7 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import * as os from 'node:os';
-import { getClaudeConfigDir, getHudPluginDir } from './claude-config-dir.js';
+import { expandHomeDirPrefix, getClaudeConfigDir, getHudPluginDir } from './claude-config-dir.js';
 import { createDebug } from './debug.js';
 import { MAX_TERMINAL_WIDTH } from './utils/terminal.js';
 import { sanitizeDisplayText } from './utils/sanitize.js';
@@ -78,6 +78,7 @@ export const DEFAULT_CONFIG = {
         showCost: false,
         showRoutedCost: false,
         showDailyCost: false,
+        showWeeklyCost: false,
         showDuration: false,
         showSpeed: false,
         showTokenBreakdown: true,
@@ -92,6 +93,7 @@ export const DEFAULT_CONFIG = {
         showMcp: false,
         toolNameMaxLength: 0,
         toolsMaxVisible: 4,
+        skillsMaxVisible: 4,
         showAgents: false,
         showTodos: false,
         showSessionName: false,
@@ -401,8 +403,13 @@ function validateAutoCompactWindow(value) {
     }
     return value;
 }
+// Unset variables are left as written.
 function validateOptionalPath(value) {
-    return typeof value === 'string' ? value.trim() : '';
+    if (typeof value !== 'string') {
+        return '';
+    }
+    return expandHomeDirPrefix(value.trim(), os.homedir())
+        .replace(/\$\{([A-Za-z_][A-Za-z0-9_]*)\}/g, (match, name) => process.env[name] ?? match);
 }
 function validateDisplayText(value, maxLength, fallback) {
     return typeof value === 'string'
@@ -499,6 +506,9 @@ export function mergeConfig(userConfig) {
         showDailyCost: typeof migrated.display?.showDailyCost === 'boolean'
             ? migrated.display.showDailyCost
             : DEFAULT_CONFIG.display.showDailyCost,
+        showWeeklyCost: typeof migrated.display?.showWeeklyCost === 'boolean'
+            ? migrated.display.showWeeklyCost
+            : DEFAULT_CONFIG.display.showWeeklyCost,
         showDuration: typeof migrated.display?.showDuration === 'boolean'
             ? migrated.display.showDuration
             : DEFAULT_CONFIG.display.showDuration,
@@ -537,6 +547,7 @@ export function mergeConfig(userConfig) {
             : DEFAULT_CONFIG.display.showMcp,
         toolNameMaxLength: validateNonNegativeInteger(migrated.display?.toolNameMaxLength, DEFAULT_CONFIG.display.toolNameMaxLength),
         toolsMaxVisible: validateNonNegativeInteger(migrated.display?.toolsMaxVisible, DEFAULT_CONFIG.display.toolsMaxVisible),
+        skillsMaxVisible: validateNonNegativeInteger(migrated.display?.skillsMaxVisible, DEFAULT_CONFIG.display.skillsMaxVisible),
         showAgents: typeof migrated.display?.showAgents === 'boolean'
             ? migrated.display.showAgents
             : DEFAULT_CONFIG.display.showAgents,

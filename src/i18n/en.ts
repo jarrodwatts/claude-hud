@@ -13,6 +13,7 @@ export const en: Messages = {
   "label.estimatedCost": "Est.",
   "label.cost": "Cost",
   "label.today": "Today",
+  "label.week": "Week",
   "label.tokens": "Tokens",
   "label.sessionStarted": "Started",
   "label.lastReply": "Last reply",
@@ -36,6 +37,7 @@ export const en: Messages = {
   "format.tokPerSec": "tok/s",
   "format.justNow": "just now",
   "format.relativeTime": "{value} ago",
+  "format.elapsed": "{value}% elapsed",
 
   // Init
   "init.initializing": "[claude-hud] Initializing...",

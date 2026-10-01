@@ -12,6 +12,7 @@ import {
   _setResolveClaudeBinaryForTests,
   _setVersionInvocationEnvForTests,
   getClaudeCodeVersion,
+  resolveStdinClaudeCodeVersion,
 } from '../dist/version.js';
 
 function restoreEnvVar(name, value) {
@@ -284,4 +285,19 @@ test('getClaudeCodeVersion uses the Windows wrapper invocation for .cmd binaries
     restoreEnvVar('COMSPEC', originalComspec);
     await rm(tempHome, { recursive: true, force: true });
   }
+});
+
+test('resolveStdinClaudeCodeVersion reads the version Claude Code sends on stdin', () => {
+  assert.equal(resolveStdinClaudeCodeVersion('2.1.261'), '2.1.261');
+  assert.equal(resolveStdinClaudeCodeVersion('2.2.0-beta.1'), '2.2.0-beta.1');
+  assert.equal(resolveStdinClaudeCodeVersion('2.1.261 (Claude Code)'), '2.1.261');
+});
+
+test('resolveStdinClaudeCodeVersion falls through for absent or unusable values', () => {
+  assert.equal(resolveStdinClaudeCodeVersion(undefined), undefined);
+  assert.equal(resolveStdinClaudeCodeVersion(null), undefined);
+  assert.equal(resolveStdinClaudeCodeVersion(''), undefined);
+  assert.equal(resolveStdinClaudeCodeVersion('   '), undefined);
+  assert.equal(resolveStdinClaudeCodeVersion('unknown'), undefined);
+  assert.equal(resolveStdinClaudeCodeVersion(2.1), undefined);
 });

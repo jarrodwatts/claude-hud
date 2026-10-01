@@ -1,6 +1,6 @@
 import * as path from 'node:path';
 
-function expandHomeDirPrefix(inputPath: string, homeDir: string): string {
+export function expandHomeDirPrefix(inputPath: string, homeDir: string): string {
   if (inputPath === '~') {
     return homeDir;
   }
@@ -18,8 +18,17 @@ export function getClaudeConfigDir(homeDir: string): string {
   return path.resolve(expandHomeDirPrefix(envConfigDir, homeDir));
 }
 
+/**
+ * Path of Claude Code's top-level config file (oauthAccount, mcpServers, …).
+ *
+ * With CLAUDE_CONFIG_DIR set, Claude Code keeps it INSIDE that directory as `.claude.json`. With the default config directory it instead lives BESIDE it as `~/.claude.json`, not inside `~/.claude/`.
+ */
 export function getClaudeConfigJsonPath(homeDir: string): string {
-  return `${getClaudeConfigDir(homeDir)}.json`;
+  const envConfigDir = process.env.CLAUDE_CONFIG_DIR?.trim();
+  if (!envConfigDir) {
+    return path.join(homeDir, '.claude.json');
+  }
+  return path.join(getClaudeConfigDir(homeDir), '.claude.json');
 }
 
 export function getHudPluginDir(homeDir: string): string {

@@ -1,6 +1,7 @@
 import { isBedrockModelId, isVertexModelId } from './stdin.js';
 const TOKENS_PER_MILLION = 1_000_000;
 const CACHE_WRITE_MULTIPLIER = 1.25;
+const CACHE_WRITE_ONE_HOUR_MULTIPLIER = 2;
 const CACHE_READ_MULTIPLIER = 0.1;
 const SONNET_5_PROMO_END_MS = Date.UTC(2026, 8, 1);
 const SONNET_5_PATTERN = /\bsonnet 5(?: \d+)?\b/i;
@@ -84,11 +85,13 @@ export function estimateSessionCost(stdin, sessionTokens, options) {
         return null;
     }
     const inputUsd = calculateUsd(sessionTokens.inputTokens, pricing.inputUsdPerMillion);
-    const cacheWriteUsdPerMillion = pricing.cacheWriteUsdPerMillion === undefined
-        ? pricing.inputUsdPerMillion * CACHE_WRITE_MULTIPLIER
+    // 5-minute writes cost 1.25x input and 1-hour writes 2x; a published cache-write rate covers both.
+    const publishedCacheWrite = pricing.cacheWriteUsdPerMillion === undefined
+        ? undefined
         : pricing.cacheWriteUsdPerMillion ?? 0;
+    const oneHourWrites = Math.min(sessionTokens.cacheCreationOneHourTokens ?? 0, sessionTokens.cacheCreationTokens);
+    const cacheCreationUsd = calculateUsd(sessionTokens.cacheCreationTokens - oneHourWrites, publishedCacheWrite ?? pricing.inputUsdPerMillion * CACHE_WRITE_MULTIPLIER) + calculateUsd(oneHourWrites, publishedCacheWrite ?? pricing.inputUsdPerMillion * CACHE_WRITE_ONE_HOUR_MULTIPLIER);
     const cacheReadUsdPerMillion = pricing.cacheReadUsdPerMillion ?? pricing.inputUsdPerMillion * CACHE_READ_MULTIPLIER;
-    const cacheCreationUsd = calculateUsd(sessionTokens.cacheCreationTokens, cacheWriteUsdPerMillion);
     const cacheReadUsd = calculateUsd(sessionTokens.cacheReadTokens, cacheReadUsdPerMillion);
     const outputUsd = calculateUsd(sessionTokens.outputTokens, pricing.outputUsdPerMillion);
     return {

@@ -327,6 +327,7 @@ If user chooses "Remove", set `display.customLine` to `""` in config.
 | Session cost | `display.showCost` |
 | Routed provider cost | `display.showRoutedCost` |
 | Daily cost | `display.showDailyCost` |
+| Weekly cost | `display.showWeeklyCost` |
 | Usage limits | `display.showUsage` |
 | Usage bar style | `display.usageBarEnabled` |
 | Compact usage | `display.usageCompact` |

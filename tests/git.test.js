@@ -230,6 +230,46 @@ test('getGitStatus returns UTF-8 filenames when core.quotePath is true', async (
   }
 });
 
+test('getGitStatus decodes C-quoted tracked paths', {
+  skip: process.platform === 'win32' ? 'Windows filenames cannot contain control characters, " or \\' : false,
+}, async () => {
+  const dir = await mkdtemp(path.join(tmpdir(), 'claude-hud-git-'));
+  try {
+    execFileSync('git', ['init'], { cwd: dir, stdio: 'ignore' });
+    execFileSync('git', ['config', 'user.email', 'test@test.com'], { cwd: dir, stdio: 'ignore' });
+    execFileSync('git', ['config', 'user.name', 'Test'], { cwd: dir, stdio: 'ignore' });
+    execFileSync('git', ['config', 'commit.gpgsign', 'false'], { cwd: dir, stdio: 'ignore' });
+
+    const fileNames = [
+      'esc\x1b-del\x7f-日本.txt',
+      'bell\x07-vtab\x0b.txt',
+      'quote".and-backslash\\.txt',
+    ];
+    for (const fileName of fileNames) {
+      await writeFile(path.join(dir, fileName), 'one\n');
+    }
+    execFileSync('git', ['add', '--', ...fileNames], { cwd: dir, stdio: 'ignore' });
+    execFileSync('git', ['commit', '-m', 'add quoted paths'], { cwd: dir, stdio: 'ignore' });
+    for (const fileName of fileNames) {
+      await writeFile(path.join(dir, fileName), 'one\ntwo\n');
+    }
+
+    const porcelain = execFileSync(
+      'git', ['-c', 'core.quotePath=false', 'status', '--porcelain'],
+      { cwd: dir, encoding: 'utf8' }
+    );
+    for (const escape of ['\\033', '\\177', '\\a', '\\v', '\\"', '\\\\']) {
+      assert.ok(porcelain.includes(escape), `expected git to emit ${escape}, got ${JSON.stringify(porcelain)}`);
+    }
+
+    const result = await getGitStatus(dir);
+    const tracked = result?.fileStats?.trackedFiles ?? [];
+    assert.deepEqual(tracked.map((file) => file.fullPath).sort(), [...fileNames].sort());
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
+});
+
 test('getGitStatus counts staged added files', async () => {
   const dir = await mkdtemp(path.join(tmpdir(), 'claude-hud-git-'));
   try {
@@ -265,6 +305,96 @@ test('getGitStatus counts deleted files', async () => {
 
     const result = await getGitStatus(dir);
     assert.equal(result?.fileStats?.deleted, 1);
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
+});
+
+test('getGitStatus counts a both-modified conflict as modified', async () => {
+  const dir = await mkdtemp(path.join(tmpdir(), 'claude-hud-git-'));
+  try {
+    execFileSync('git', ['init'], { cwd: dir, stdio: 'ignore' });
+    execFileSync('git', ['config', 'user.email', 'test@test.com'], { cwd: dir, stdio: 'ignore' });
+    execFileSync('git', ['config', 'user.name', 'Test'], { cwd: dir, stdio: 'ignore' });
+
+    // Conflict the same file on two branches, leaving it unmerged as "UU".
+    await writeFile(path.join(dir, 'conflict.txt'), 'base\n');
+    execFileSync('git', ['add', 'conflict.txt'], { cwd: dir, stdio: 'ignore' });
+    execFileSync('git', ['commit', '-m', 'add file'], { cwd: dir, stdio: 'ignore' });
+
+    execFileSync('git', ['checkout', '-b', 'side'], { cwd: dir, stdio: 'ignore' });
+    await writeFile(path.join(dir, 'conflict.txt'), 'side\n');
+    execFileSync('git', ['commit', '-am', 'side edit'], { cwd: dir, stdio: 'ignore' });
+
+    execFileSync('git', ['checkout', '-'], { cwd: dir, stdio: 'ignore' });
+    await writeFile(path.join(dir, 'conflict.txt'), 'ours\n');
+    execFileSync('git', ['commit', '-am', 'our edit'], { cwd: dir, stdio: 'ignore' });
+
+    try {
+      execFileSync('git', ['merge', 'side'], { cwd: dir, stdio: 'ignore' });
+      assert.fail('expected the merge to conflict');
+    } catch (err) {
+      if (err instanceof assert.AssertionError) throw err;
+      // Expected: git exits non-zero and leaves the path unmerged.
+    }
+
+    const result = await getGitStatus(dir);
+    assert.equal(result?.isDirty, true);
+    assert.equal(result?.fileStats?.modified, 1);
+    assert.equal(result?.fileStats?.trackedFiles[0]?.fullPath, 'conflict.txt');
+    assert.equal(result?.fileStats?.trackedFiles[0]?.type, 'modified');
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
+});
+
+test('getGitStatus counts every unmerged path in a rename/rename conflict', async () => {
+  const dir = await mkdtemp(path.join(tmpdir(), 'claude-hud-git-'));
+  try {
+    execFileSync('git', ['init'], { cwd: dir, stdio: 'ignore' });
+    execFileSync('git', ['config', 'user.email', 'test@test.com'], { cwd: dir, stdio: 'ignore' });
+    execFileSync('git', ['config', 'user.name', 'Test'], { cwd: dir, stdio: 'ignore' });
+
+    // Renaming one file to two different names on two branches produces a mix
+    // of unmerged states (DD plus the added-by-us / added-by-them pair).
+    await writeFile(path.join(dir, 'original.txt'), 'base\n');
+    execFileSync('git', ['add', 'original.txt'], { cwd: dir, stdio: 'ignore' });
+    execFileSync('git', ['commit', '-m', 'add file'], { cwd: dir, stdio: 'ignore' });
+
+    execFileSync('git', ['checkout', '-b', 'side'], { cwd: dir, stdio: 'ignore' });
+    execFileSync('git', ['mv', 'original.txt', 'side.txt'], { cwd: dir, stdio: 'ignore' });
+    execFileSync('git', ['commit', '-m', 'side renames file'], { cwd: dir, stdio: 'ignore' });
+
+    execFileSync('git', ['checkout', '-'], { cwd: dir, stdio: 'ignore' });
+    execFileSync('git', ['mv', 'original.txt', 'ours.txt'], { cwd: dir, stdio: 'ignore' });
+    execFileSync('git', ['commit', '-m', 'we rename file'], { cwd: dir, stdio: 'ignore' });
+
+    try {
+      execFileSync('git', ['merge', 'side'], { cwd: dir, stdio: 'ignore' });
+      assert.fail('expected the merge to conflict');
+    } catch (err) {
+      if (err instanceof assert.AssertionError) throw err;
+      // Expected: git exits non-zero and leaves the paths unmerged.
+    }
+
+    // Compare against git's own report rather than a fixed set of status codes,
+    // which vary with git's rename detection across versions.
+    const porcelain = execFileSync(
+      'git',
+      ['-c', 'core.quotePath=false', 'status', '--porcelain'],
+      { cwd: dir, encoding: 'utf8' },
+    );
+    const reportedPaths = porcelain.split('\n').filter(Boolean).length;
+
+    const stats = (await getGitStatus(dir))?.fileStats;
+    assert.ok(stats, 'expected fileStats for a conflicted repo');
+    assert.ok(reportedPaths > 0, 'expected git to report unmerged paths');
+    assert.equal(
+      stats.modified + stats.added + stats.deleted + stats.untracked,
+      reportedPaths,
+      'every path git reports should be counted exactly once',
+    );
+    assert.equal(stats.trackedFiles.length + stats.untracked, reportedPaths);
   } finally {
     await rm(dir, { recursive: true, force: true });
   }

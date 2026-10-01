@@ -76,6 +76,46 @@ test('estimateSessionCost calculates cache costs correctly', () => {
   assert.ok(Math.abs(result.totalUsd - 4.05) < 1e-10);
 });
 
+test('estimateSessionCost prices 1-hour cache writes at 2x input', () => {
+  const tokens = {
+    inputTokens: 0,
+    outputTokens: 0,
+    cacheCreationTokens: 1_000_000,
+    cacheReadTokens: 0,
+    cacheCreationOneHourTokens: 400_000,
+  };
+  const result = estimateSessionCost({ model: { display_name: 'Claude Sonnet 4' } }, tokens);
+  assert.ok(result);
+  // 600k * $3 * 1.25 + 400k * $3 * 2
+  assert.ok(Math.abs(result.cacheCreationUsd - 4.65) < 1e-10);
+});
+
+test('estimateSessionCost clamps 1-hour cache writes to the total cache write', () => {
+  const tokens = {
+    inputTokens: 0,
+    outputTokens: 0,
+    cacheCreationTokens: 1_000_000,
+    cacheReadTokens: 0,
+    cacheCreationOneHourTokens: 5_000_000,
+  };
+  const result = estimateSessionCost({ model: { display_name: 'Claude Sonnet 4' } }, tokens);
+  assert.ok(result);
+  assert.equal(result.cacheCreationUsd, 6);
+});
+
+test('estimateSessionCost applies a published cache-write rate to 1-hour writes', () => {
+  const tokens = {
+    inputTokens: 0,
+    outputTokens: 0,
+    cacheCreationTokens: 1_000_000,
+    cacheReadTokens: 0,
+    cacheCreationOneHourTokens: 1_000_000,
+  };
+  const result = estimateSessionCost({ model: { id: 'MiniMax-M2.7' } }, tokens);
+  assert.ok(result);
+  assert.equal(result.cacheCreationUsd, 0.375);
+});
+
 test('estimateSessionCost applies MiniMax-M2.7 cache pricing from the model parameters', () => {
   const result = estimateSessionCost(
     { model: { id: 'MiniMax-M2.7' } },
@@ -169,7 +209,11 @@ test('estimateSessionCost prices Claude 5 point releases like their base model',
   assert.ok(opus51);
   assert.equal(opus51.inputUsd, 5);
 
-  const sonnet51 = estimateSessionCost({ model: { display_name: 'Sonnet 5.1' } }, tokens);
+  const sonnet51 = estimateSessionCost(
+    { model: { display_name: 'Sonnet 5.1' } },
+    tokens,
+    { now: new Date('2026-08-31T23:59:59.999Z') },
+  );
   assert.ok(sonnet51);
   assert.equal(sonnet51.inputUsd, 2);
 });

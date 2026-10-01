@@ -108,6 +108,7 @@ export interface HudConfig {
         showCost: boolean;
         showRoutedCost: boolean;
         showDailyCost: boolean;
+        showWeeklyCost: boolean;
         showDuration: boolean;
         showSpeed: boolean;
         showTokenBreakdown: boolean;
@@ -122,6 +123,7 @@ export interface HudConfig {
         showMcp: boolean;
         toolNameMaxLength: number;
         toolsMaxVisible: number;
+        skillsMaxVisible: number;
         showAgents: boolean;
         showTodos: boolean;
         showSessionName: boolean;
