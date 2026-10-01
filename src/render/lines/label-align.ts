@@ -2,7 +2,7 @@ import type { HudColorOverrides } from "../../config.js";
 import type { MessageKey } from "../../i18n/types.js";
 import { label } from "../colors.js";
 import { t } from "../../i18n/index.js";
-import { codePointCellWidth, isCjkAmbiguousWide } from "../width.js";
+import { textWidth as plainTextWidth } from "../ansi.js";
 
 /** Label keys that should be aligned when rendered on separate lines. */
 const PROGRESS_LABEL_KEYS: MessageKey[] = [
@@ -18,25 +18,6 @@ export interface ProgressLabelOptions {
 }
 
 export type ProgressLabelInput = boolean | ProgressLabelOptions;
-
-/**
- * Compute the visual width of a plain-text string (no ANSI).
- * CJK ideographs count as 2 cells; ASCII characters count as 1.
- * In CJK locales, East Asian Ambiguous-width chars also count as 2.
- */
-function plainTextWidth(str: string): number {
-  const ambiguousWide = isCjkAmbiguousWide();
-  let width = 0;
-  for (const char of str) {
-    const cp = char.codePointAt(0);
-    if (cp !== undefined) {
-      width += codePointCellWidth(cp, ambiguousWide);
-    } else {
-      width += 1;
-    }
-  }
-  return width;
-}
 
 /** Compute the max visual width across the progress-bar labels in view. */
 function maxLabelWidth(includeMemory = false): number {
@@ -78,5 +59,3 @@ export function progressLabel(
     : label(t(key), colors);
 }
 
-// Exported for testing only.
-export { plainTextWidth as _plainTextWidth, maxLabelWidth as _maxLabelWidth };
