@@ -1534,6 +1534,11 @@ for (const { name, entries, expected } of [
     expected: 'Investigate failing build',
   },
   {
+    name: 'strips terminal escapes from session titles',
+    entries: [{ type: 'ai-title', aiTitle: '\x1b]8;;https://example.com\x07Fix\x1b[31m build\u202E' }],
+    expected: 'Fix build',
+  },
+  {
     name: 'prefers the latest generated title over legacy slugs',
     entries: [
       { type: 'ai-title', aiTitle: 'Initial title' },

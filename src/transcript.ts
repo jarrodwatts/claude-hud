@@ -131,7 +131,7 @@ interface TranscriptCacheFile {
   data: SerializedTranscriptData;
 }
 
-const TRANSCRIPT_CACHE_VERSION = 19;
+const TRANSCRIPT_CACHE_VERSION = 20;
 const MCP_TOOL_NAME_PATTERN = /^mcp__(.+?)__(.+)$/;
 const ACTIVITY_NAME_MAX_LEN = 64;
 const MESSAGE_ID_MAX_LEN = 128;
@@ -762,7 +762,8 @@ export async function parseTranscript(transcriptPath: string): Promise<Transcrip
   result.mcpErrors = Array.from(mcpErrorSet.values());
   result.agents = Array.from(agentMap.values()).slice(-10);
   result.todos = latestTodos;
-  result.sessionName = customTitle ?? aiTitle ?? latestSlug;
+  const sessionName = customTitle ?? aiTitle ?? latestSlug;
+  result.sessionName = sessionName ? sanitizeDisplayText(sessionName).trim() || undefined : undefined;
   result.sessionTokens = sessionTokens;
   result.lastCompactBoundaryAt = lastCompactBoundaryAt;
   result.lastCompactPostTokens = lastCompactPostTokens;
