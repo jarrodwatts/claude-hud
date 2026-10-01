@@ -81,10 +81,6 @@ export function dim(text: string): string {
   return colorize(text, DIM);
 }
 
-export function claudeOrange(text: string): string {
-  return colorize(text, CLAUDE_ORANGE);
-}
-
 export function model(text: string, colors?: Partial<HudColorOverrides>): string {
   return withOverride(text, colors?.model, CYAN);
 }
@@ -117,7 +113,7 @@ export function critical(text: string, colors?: Partial<HudColorOverrides>): str
   return colorize(text, resolveAnsi(colors?.critical, RED));
 }
 
-export interface ContextThresholds {
+interface ContextThresholds {
   warning?: number;
   critical?: number;
 }

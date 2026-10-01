@@ -93,7 +93,7 @@ export function visibleWidth(str: string): number {
   return width;
 }
 
-export function stripAnsi(str: string): string {
+function stripAnsi(str: string): string {
   return tokenize(str).filter((token) => !token.escape).map((token) => token.text).join('');
 }
 
@@ -124,7 +124,7 @@ function closeOpenHyperlink(str: string): string {
   return lastUrl ? OSC8_CLOSE : '';
 }
 
-export function truncateToWidth(str: string, width: number): string {
+function truncateToWidth(str: string, width: number): string {
   if (width <= 0 || visibleWidth(str) <= width) return str;
   const suffix = width >= 3 ? '...' : '.'.repeat(width);
   const kept = sliceToWidth(str, width - suffix.length);
