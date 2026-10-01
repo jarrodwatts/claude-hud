@@ -1,8 +1,7 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import type { RenderContext } from '../../types.js';
-import { getModelName, formatModelName, resolveModelName } from '../../stdin.js';
-import { getOutputSpeed } from '../../speed-tracker.js';
+import { formatModelName, resolveModelName } from '../../stdin.js';
 import { git as gitColor, gitBranch as gitBranchColor, warning as warningColor, critical as criticalColor, label, model as modelColor, project as projectColor, red, green, yellow, dim, custom as customColor } from '../colors.js';
 import { t } from '../../i18n/index.js';
 import { renderCostEstimate } from './cost.js';
@@ -134,8 +133,8 @@ export function renderProjectLine(ctx: RenderContext): string | null {
     }
   }
 
-  if (display?.showSessionName && ctx.transcript.sessionName) {
-    push(label(ctx.transcript.sessionName, colors), 'sessionName');
+  if (display?.showSessionName && ctx.sessionName) {
+    push(label(ctx.sessionName, colors), 'sessionName');
   }
 
   if (display?.showClaudeCodeVersion && ctx.claudeCodeVersion) {
@@ -156,7 +155,7 @@ export function renderProjectLine(ctx: RenderContext): string | null {
   }
 
   if (display?.showSpeed) {
-    const speed = getOutputSpeed(ctx.stdin);
+    const speed = ctx.outputSpeed;
     if (speed !== null) {
       push(label(`${t('format.out')}: ${speed.toFixed(1)} ${t('format.tokPerSec')}`, colors), 'speed');
     }

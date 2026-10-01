@@ -1,7 +1,6 @@
 import type { RenderContext } from "../../types.js";
 import { isLimitReached } from "../../types.js";
 import type { MessageKey } from "../../i18n/types.js";
-import { shouldHideUsage } from "../../stdin.js";
 import { critical, label, formatQuotaPercent, quotaBar } from "../colors.js";
 import { getAdaptiveBarWidth } from "../../utils/terminal.js";
 import { t, interpolate } from "../../i18n/index.js";
@@ -30,10 +29,6 @@ export function renderUsageLine(
   }
 
   if (!ctx.usageData) {
-    return null;
-  }
-
-  if (shouldHideUsage(ctx.stdin)) {
     return null;
   }
 

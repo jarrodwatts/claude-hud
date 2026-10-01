@@ -10,7 +10,6 @@ export const en: Messages = {
   "label.cacheHitRate": "Cache hit",
   "label.rules": "rules",
   "label.hooks": "hooks",
-  "label.estimatedCost": "Est.",
   "label.cost": "Cost",
   "label.today": "Today",
   "label.week": "Week",

@@ -1,7 +1,6 @@
 import type { RenderContext } from '../types.js';
 import { isLimitReached } from '../types.js';
-import { getContextPercent, getBufferedPercent, getModelName, formatModelName, resolveModelName, shouldHideUsage } from '../stdin.js';
-import { getOutputSpeed } from '../speed-tracker.js';
+import { formatModelName, resolveModelName } from '../stdin.js';
 import { coloredBar, critical, git as gitColor, gitBranch as gitBranchColor, label, model as modelColor, project as projectColor, getContextColor, formatQuotaPercent, quotaBar, custom as customColor, RESET } from './colors.js';
 import { getAdaptiveBarWidth } from '../utils/terminal.js';
 import { renderCostEstimate } from './lines/cost.js';
@@ -14,7 +13,6 @@ import type { TimeFormatMode, UsageValueMode } from '../config.js';
 import { formatResetTime, type WallClockOptions } from './format-reset-time.js';
 import { formatTokens, formatContextValue } from '../utils/format.js';
 import { formatAuthSegment } from '../auth.js';
-import { createDebug } from '../debug.js';
 import { formatModelDisplay } from './model-display.js';
 import { formatSessionTokenSummary } from './lines/session-tokens.js';
 import { formatProjectPath } from './project-path.js';
@@ -25,7 +23,6 @@ import type { FirstLinePart } from './first-line-order.js';
 import { getVcsDisplayState } from './vcs-status.js';
 import { resolveUsagePaces, type UsagePace } from '../usage-pace.js';
 
-const debug = createDebug('session-line');
 
 /**
  * Renders the full session line (model + context bar + project + git + counts + usage + duration).
@@ -34,15 +31,7 @@ const debug = createDebug('session-line');
 export function renderSessionLine(ctx: RenderContext): string {
   const model = formatModelName(resolveModelName(ctx.stdin, ctx.transcript, ctx.config?.display?.modelSource), ctx.config?.display?.modelFormat, ctx.config?.display?.modelOverride);
 
-  const autoCompactWindow = ctx.config?.display?.autoCompactWindow ?? null;
-  const rawPercent = getContextPercent(ctx.stdin, autoCompactWindow);
-  const bufferedPercent = getBufferedPercent(ctx.stdin, autoCompactWindow);
-  const autocompactMode = ctx.config?.display?.autocompactBuffer ?? 'enabled';
-  const percent = autocompactMode === 'disabled' ? rawPercent : bufferedPercent;
-
-  if (autocompactMode === 'disabled') {
-    debug(`autocompactBuffer=disabled, showing raw ${rawPercent}% (buffered would be ${bufferedPercent}%)`);
-  }
+  const percent = ctx.context.percent;
 
   const colors = ctx.config?.colors;
   const display = ctx.config?.display;
@@ -62,7 +51,7 @@ export function renderSessionLine(ctx: RenderContext): string {
   };
   const resetsKey = timeFormat === 'absolute' ? 'format.resets' : 'format.resetsIn';
   const contextValueMode = display?.contextValue ?? 'percent';
-  const contextValue = formatContextValue(ctx, percent, contextValueMode);
+  const contextValue = formatContextValue(ctx.context, contextValueMode);
   const contextValueDisplay = `${getContextColor(percent, colors, contextThresholds)}${contextValue}${RESET}`;
 
   const customLine = display?.customLine;
@@ -148,8 +137,8 @@ export function renderSessionLine(ctx: RenderContext): string {
   }
 
   // Session name (custom title from /rename, or auto-generated slug)
-  if (display?.showSessionName && ctx.transcript.sessionName) {
-    push(label(ctx.transcript.sessionName, colors), 'sessionName');
+  if (display?.showSessionName && ctx.sessionName) {
+    push(label(ctx.sessionName, colors), 'sessionName');
   }
 
   if (display?.showClaudeCodeVersion && ctx.claudeCodeVersion) {
@@ -181,7 +170,7 @@ export function renderSessionLine(ctx: RenderContext): string {
   }
 
   // Usage limits display (shown when enabled in config, respects usageThreshold)
-  if (display?.showUsage !== false && ctx.usageData && !shouldHideUsage(ctx.stdin)) {
+  if (display?.showUsage !== false && ctx.usageData) {
     const usageCompact = display?.usageCompact ?? false;
     const showResetLabel = display?.showResetLabel ?? true;
     const usageValueMode = display?.usageValue ?? 'percent';
@@ -387,7 +376,7 @@ export function renderSessionLine(ctx: RenderContext): string {
   }
 
   if (display?.showSpeed) {
-    const speed = getOutputSpeed(ctx.stdin);
+    const speed = ctx.outputSpeed;
     if (speed !== null) {
       push(label(`${t('format.out')}: ${speed.toFixed(1)} ${t('format.tokPerSec')}`, colors), 'speed');
     }

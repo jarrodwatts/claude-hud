@@ -2,8 +2,7 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import type { HudConfig } from './config.js';
 import { createDebug } from './debug.js';
-import type { ExternalUsageSnapshot, UsageData } from './types.js';
-import { parseScopedWindows } from './stdin.js';
+import type { ExternalUsageSnapshot, ScopedUsageWindow, UsageData } from './types.js';
 import { sanitizeDisplayText } from './utils/sanitize.js';
 
 const debug = createDebug('external-usage');
@@ -25,7 +24,6 @@ type ExternalUsageWriteSnapshot = {
 
 type FileSystemDeps = {
   chmodSync: typeof fs.chmodSync;
-  existsSync: typeof fs.existsSync;
   readFileSync: typeof fs.readFileSync;
   renameSync: typeof fs.renameSync;
   rmSync: typeof fs.rmSync;
@@ -35,7 +33,6 @@ type FileSystemDeps = {
 
 const fsDeps: FileSystemDeps = {
   chmodSync: fs.chmodSync,
-  existsSync: fs.existsSync,
   readFileSync: fs.readFileSync,
   renameSync: fs.renameSync,
   rmSync: fs.rmSync,
@@ -105,69 +102,8 @@ function snapshotFromUsage(usage: UsageData, now: number): ExternalUsageWriteSna
   };
 }
 
-function comparableSnapshot(snapshot: unknown): Omit<ExternalUsageWriteSnapshot, 'updated_at'> | null {
-  if (!snapshot || typeof snapshot !== 'object' || Array.isArray(snapshot)) {
-    return null;
-  }
-
-  const topLevelKeys = Object.keys(snapshot);
-  if (
-    topLevelKeys.length !== 3
-    || !topLevelKeys.includes('updated_at')
-    || !topLevelKeys.includes('five_hour')
-    || !topLevelKeys.includes('seven_day')
-  ) {
-    return null;
-  }
-
-  const value = snapshot as Record<string, unknown>;
-  if (parseUpdatedAt(value.updated_at) === null) {
-    return null;
-  }
-
-  const fiveHour = comparableWindow(value.five_hour);
-  const sevenDay = comparableWindow(value.seven_day);
-  if (fiveHour === null || sevenDay === null) {
-    return null;
-  }
-
-  return {
-    five_hour: fiveHour,
-    seven_day: sevenDay,
-  };
-}
-
-function comparableWindow(value: unknown): ExternalUsageWriteSnapshot['five_hour'] | null {
-  if (!value || typeof value !== 'object' || Array.isArray(value)) {
-    return null;
-  }
-
-  const keys = Object.keys(value);
-  if (
-    keys.length !== 2
-    || !keys.includes('used_percentage')
-    || !keys.includes('resets_at')
-  ) {
-    return null;
-  }
-
-  const window = value as Record<string, unknown>;
-  const usedPercentage = parseUsagePercent(window.used_percentage);
-  if (window.used_percentage !== null && usedPercentage === null) {
-    return null;
-  }
-
-  const resetAt = parseDateValue(window.resets_at);
-  if (window.resets_at !== null && resetAt === null) {
-    return null;
-  }
-
-  return {
-    used_percentage: usedPercentage,
-    resets_at: resetAt?.toISOString() ?? null,
-  };
-}
-
+// Rewrite when the values change or the snapshot is older than the throttle, so readers
+// can trust updated_at without the file being rewritten on every render.
 function shouldWriteSnapshot(
   snapshotPath: string,
   nextSnapshot: ExternalUsageWriteSnapshot,
@@ -175,19 +111,13 @@ function shouldWriteSnapshot(
   deps: FileSystemDeps,
 ): boolean {
   try {
-    if (!deps.existsSync(snapshotPath)) {
+    if (now - deps.statSync(snapshotPath).mtimeMs > EXTERNAL_USAGE_WRITE_THROTTLE_MS) {
       return true;
     }
-
-    const stats = deps.statSync(snapshotPath);
-    if (now - stats.mtimeMs > EXTERNAL_USAGE_WRITE_THROTTLE_MS) {
-      return true;
-    }
-
-    const current = JSON.parse(deps.readFileSync(snapshotPath, 'utf8') as string) as unknown;
-    return JSON.stringify(comparableSnapshot(current)) !== JSON.stringify(comparableSnapshot(nextSnapshot));
-  } catch (err) {
-    debug('Failed to compare snapshot (will write):', err instanceof Error ? err.message : err);
+    const { updated_at: _, ...current } = JSON.parse(deps.readFileSync(snapshotPath, 'utf8') as string);
+    const { updated_at: __, ...next } = nextSnapshot;
+    return JSON.stringify(current) !== JSON.stringify(next);
+  } catch {
     return true;
   }
 }
@@ -327,4 +257,50 @@ export function getUsageFromExternalSnapshot(
     debug('Failed to read external usage snapshot:', err instanceof Error ? err.message : err);
     return null;
   }
+}
+
+const SCOPED_WINDOWS_MAX = 8;
+const SCOPED_LABEL_MAX_LENGTH = 64;
+
+// model_scoped windows ({ display_name, utilization 0-100, resets_at ISO-8601 }). The
+// snapshot is untrusted, so entries are bounded and malformed ones dropped.
+function parseScopedWindows(value: unknown): ScopedUsageWindow[] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+  const windows: ScopedUsageWindow[] = [];
+  for (const entry of value) {
+    if (windows.length >= SCOPED_WINDOWS_MAX) break;
+    const label = typeof entry?.display_name === 'string'
+      ? sanitizeDisplayText(entry.display_name).trim().slice(0, SCOPED_LABEL_MAX_LENGTH)
+      : '';
+    const percent = entry?.utilization === null ? null : parseUsagePercent(entry?.utilization);
+    if (!label || (entry?.utilization !== null && percent === null)) continue;
+    const resetAt = typeof entry?.resets_at === 'string' && !Number.isNaN(Date.parse(entry.resets_at))
+      ? new Date(entry.resets_at)
+      : null;
+    windows.push({ label, percent, resetAt });
+  }
+  return windows;
+}
+
+// Stdin wins. The snapshot fills in what it lacks (the 7-day window for clients that only
+// send five_hour, model-scoped windows, a balance label), or stands in when stdin has none.
+export function resolveUsage(config: HudConfig, stdinUsage: UsageData | null, now = Date.now()): UsageData | null {
+  if (!config.display.externalUsagePath) {
+    return stdinUsage;
+  }
+  const external = getUsageFromExternalSnapshot(config, now);
+  if (!stdinUsage || !external) {
+    return stdinUsage ?? external;
+  }
+  return {
+    ...stdinUsage,
+    ...(external.balanceLabel != null && { balanceLabel: external.balanceLabel }),
+    ...(stdinUsage.sevenDay == null && external.sevenDay != null && {
+      sevenDay: external.sevenDay,
+      sevenDayResetAt: external.sevenDayResetAt ?? null,
+    }),
+    ...(external.scopedWindows && { scopedWindows: external.scopedWindows }),
+  };
 }

@@ -1,5 +1,4 @@
-import type { RenderContext } from '../types.js';
-import { getTotalTokens } from '../stdin.js';
+import type { ContextUsage } from '../stdin.js';
 
 /**
  * Format a token count into a human-readable short string.
@@ -17,42 +16,15 @@ export function formatTokens(n: number): string {
   return n.toString();
 }
 
-/**
- * Format the context-window value for display.
- *   percent   → "45%"
- *   tokens    → "45k/200k"
- *   remaining → "55%"
- *   both      → "45% (45k/200k)"
- */
+// percent → "45%", tokens → "45k/200k", remaining → "55%", both → "45% (45k/200k)".
 export function formatContextValue(
-  ctx: RenderContext,
-  percent: number,
+  context: ContextUsage,
   mode: 'percent' | 'tokens' | 'remaining' | 'both',
 ): string {
-  const totalTokens = getTotalTokens(ctx.stdin);
-  const autoCompactWindow = ctx.config?.display?.autoCompactWindow ?? null;
-  const size =
-    typeof autoCompactWindow === 'number' && autoCompactWindow > 0
-      ? autoCompactWindow
-      : ctx.stdin.context_window?.context_window_size ?? 0;
-
-  if (mode === 'tokens') {
-    if (size > 0) {
-      return `${formatTokens(totalTokens)}/${formatTokens(size)}`;
-    }
-    return formatTokens(totalTokens);
-  }
-
-  if (mode === 'both') {
-    if (size > 0) {
-      return `${percent}% (${formatTokens(totalTokens)}/${formatTokens(size)})`;
-    }
-    return `${percent}%`;
-  }
-
-  if (mode === 'remaining') {
-    return `${Math.max(0, 100 - percent)}%`;
-  }
-
+  const { percent, tokens, size } = context;
+  const ratio = size > 0 ? `${formatTokens(tokens)}/${formatTokens(size)}` : formatTokens(tokens);
+  if (mode === 'tokens') return ratio;
+  if (mode === 'both') return size > 0 ? `${percent}% (${ratio})` : `${percent}%`;
+  if (mode === 'remaining') return `${Math.max(0, 100 - percent)}%`;
   return `${percent}%`;
 }

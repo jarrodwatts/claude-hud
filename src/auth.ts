@@ -1,8 +1,6 @@
 import * as fs from 'node:fs';
 import * as os from 'node:os';
-import * as path from 'node:path';
-import { randomUUID } from 'node:crypto';
-import { getClaudeConfigJsonPath, getHudPluginDir } from './claude-config-dir.js';
+import { getClaudeConfigJsonPath } from './claude-config-dir.js';
 import { sanitizeDisplayText } from './utils/sanitize.js';
 
 /**
@@ -107,157 +105,13 @@ export function deriveAuthInfo(claudeJson: unknown, env: NodeJS.ProcessEnv = pro
  * The identity combines mtime, ctime, size, device, and inode so a replacement
  * or rapid rewrite cannot reuse a stale entry based on one timestamp alone.
  */
-interface AuthCacheEntry {
-  version: number;
-  mtimeMs: number;
-  ctimeMs: number;
-  size: number;
-  dev: number;
-  ino: number;
-  method: string | null;
-  user: string | null;
-}
-
-function authCachePath(homeDir: string): string {
-  return path.join(getHudPluginDir(homeDir), AUTH_CACHE_DIRNAME, 'auth.json');
-}
-
-const AUTH_CACHE_DIRNAME = 'auth-cache';
-const AUTH_CACHE_VERSION = 1;
-const AUTH_CACHE_MAX_BYTES = 4096;
-
-function normalizeCachedValue(value: unknown): string | null | undefined {
-  if (value === null) return null;
-  if (typeof value !== 'string' || value.length === 0 || value.length > AUTH_VALUE_MAX_LEN) {
-    return undefined;
-  }
-  return sanitizeValue(value) === value ? value : undefined;
-}
-
-function readAuthCache(homeDir: string): AuthCacheEntry | null {
-  let fd: number | undefined;
-  try {
-    const flags = fs.constants.O_RDONLY | (fs.constants.O_NOFOLLOW ?? 0);
-    fd = fs.openSync(authCachePath(homeDir), flags);
-    const cacheStat = fs.fstatSync(fd);
-    if (!cacheStat.isFile() || cacheStat.size <= 0 || cacheStat.size > AUTH_CACHE_MAX_BYTES) {
-      return null;
-    }
-
-    const parsed: unknown = JSON.parse(fs.readFileSync(fd, 'utf-8'));
-    const method = parsed && typeof parsed === 'object'
-      ? normalizeCachedValue((parsed as Record<string, unknown>).method)
-      : undefined;
-    const user = parsed && typeof parsed === 'object'
-      ? normalizeCachedValue((parsed as Record<string, unknown>).user)
-      : undefined;
-    if (
-      parsed == null || typeof parsed !== 'object'
-      || (parsed as AuthCacheEntry).version !== AUTH_CACHE_VERSION
-      || typeof (parsed as AuthCacheEntry).mtimeMs !== 'number'
-      || typeof (parsed as AuthCacheEntry).ctimeMs !== 'number'
-      || typeof (parsed as AuthCacheEntry).size !== 'number'
-      || typeof (parsed as AuthCacheEntry).dev !== 'number'
-      || typeof (parsed as AuthCacheEntry).ino !== 'number'
-      || method === undefined
-      || user === undefined
-    ) {
-      return null;
-    }
-    return { ...(parsed as AuthCacheEntry), method, user };
-  } catch {
-    return null;
-  } finally {
-    if (fd !== undefined) {
-      try { fs.closeSync(fd); } catch { /* best effort */ }
-    }
-  }
-}
-
-function writeAuthCache(homeDir: string, entry: AuthCacheEntry): void {
-  let tmpPath: string | undefined;
-  let fd: number | undefined;
-  try {
-    const cachePath = authCachePath(homeDir);
-    const cacheDir = path.dirname(cachePath);
-    fs.mkdirSync(cacheDir, { recursive: true, mode: 0o700 });
-    const dirStat = fs.lstatSync(cacheDir);
-    if (!dirStat.isDirectory() || dirStat.isSymbolicLink()) return;
-    try { fs.chmodSync(cacheDir, 0o700); } catch { /* best effort */ }
-
-    // Write-then-rename: the status line can run concurrently across sessions,
-    // and a torn read would just miss the cache, but a torn WRITE would persist.
-    tmpPath = `${cachePath}.${process.pid}.${randomUUID()}.tmp`;
-    fd = fs.openSync(tmpPath, 'wx', 0o600);
-    fs.writeFileSync(fd, JSON.stringify(entry), 'utf-8');
-    fs.closeSync(fd);
-    fd = undefined;
-    fs.renameSync(tmpPath, cachePath);
-    tmpPath = undefined;
-    try { fs.chmodSync(cachePath, 0o600); } catch { /* best effort */ }
-  } catch {
-    // A cache write must never break the status line.
-  } finally {
-    if (fd !== undefined) {
-      try { fs.closeSync(fd); } catch { /* best effort */ }
-    }
-    if (tmpPath) {
-      try { fs.unlinkSync(tmpPath); } catch { /* best effort */ }
-    }
-  }
-}
-
-/**
- * Reads auth info for the current login. Never throws.
- *
- * claude.json is the user's entire CLI config and grows with project history —
- * 73 KB on the host this was measured on. The status line runs on every
- * interaction, so parsing it per tick is not free. The two derived fields are
- * cached against the file's (mtimeMs, ctimeMs, size, dev, ino) identity instead,
- * making the steady-state cost a stat plus a ~100-byte read.
- */
 export function readAuthInfo(): AuthInfo {
-  // Avoid reading a stale OAuth profile when the active source is an API key.
+  // An API key wins over whatever OAuth profile claude.json still holds.
   if (hasApiKey(process.env)) {
     return API_KEY_AUTH_INFO;
   }
-
-  const homeDir = os.homedir();
-  const configJsonPath = getClaudeConfigJsonPath(homeDir);
-
-  let stat: fs.Stats;
   try {
-    stat = fs.statSync(configJsonPath);
-  } catch {
-    return EMPTY_AUTH_INFO;
-  }
-
-  const cached = readAuthCache(homeDir);
-  if (
-    cached
-    && cached.mtimeMs === stat.mtimeMs
-    && cached.ctimeMs === stat.ctimeMs
-    && cached.size === stat.size
-    && cached.dev === stat.dev
-    && cached.ino === stat.ino
-  ) {
-    return { method: cached.method, user: cached.user };
-  }
-
-  try {
-    const content = fs.readFileSync(configJsonPath, 'utf-8');
-    const info = deriveAuthInfo(JSON.parse(content));
-    writeAuthCache(homeDir, {
-      version: AUTH_CACHE_VERSION,
-      mtimeMs: stat.mtimeMs,
-      ctimeMs: stat.ctimeMs,
-      size: stat.size,
-      dev: stat.dev,
-      ino: stat.ino,
-      method: info.method,
-      user: info.user,
-    });
-    return info;
+    return deriveAuthInfo(JSON.parse(fs.readFileSync(getClaudeConfigJsonPath(os.homedir()), 'utf8')));
   } catch {
     return EMPTY_AUTH_INFO;
   }

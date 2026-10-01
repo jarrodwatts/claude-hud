@@ -10,7 +10,6 @@ export const zhHant: Messages = {
   "label.cacheHitRate": "快取命中",
   "label.rules": "規則",
   "label.hooks": "Hook",
-  "label.estimatedCost": "估算",
   "label.cost": "費用",
   "label.today": "今日",
   "label.week": "本週",
