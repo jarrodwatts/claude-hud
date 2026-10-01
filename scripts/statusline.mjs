@@ -9,7 +9,10 @@ import { pathToFileURL } from 'node:url';
 const columns = Number.parseInt(process.env.COLUMNS ?? '', 10);
 if (columns > 0) process.env.COLUMNS = String(Math.max(1, columns - 4));
 
-const configDir = process.env.CLAUDE_CONFIG_DIR || path.join(os.homedir(), '.claude');
+const envDir = process.env.CLAUDE_CONFIG_DIR?.trim();
+const configDir = !envDir
+  ? path.join(os.homedir(), '.claude')
+  : envDir === '~' || envDir.startsWith('~/') ? path.join(os.homedir(), envDir.slice(1)) : envDir;
 const cacheDir = path.join(configDir, 'plugins', 'cache');
 const entry = process.versions.bun ? path.join('src', 'index.ts') : path.join('dist', 'index.js');
 

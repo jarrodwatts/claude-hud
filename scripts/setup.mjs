@@ -98,9 +98,13 @@ function main(argv) {
     if (seconds >= 1) statusLine.refreshInterval = seconds;
     else delete statusLine.refreshInterval;
   }
-  const temp = `${settingsPath}.${process.pid}.tmp`;
-  fs.writeFileSync(temp, `${JSON.stringify({ ...settings, statusLine }, null, 2)}\n`);
-  fs.renameSync(temp, settingsPath);
+  // Write the real file (settings.json is often a dotfiles symlink) and keep its permissions.
+  const target = fs.existsSync(settingsPath) ? fs.realpathSync(settingsPath) : settingsPath;
+  const mode = fs.existsSync(target) ? fs.statSync(target).mode & 0o777 : 0o600;
+  const temp = `${target}.${process.pid}.tmp`;
+  fs.writeFileSync(temp, `${JSON.stringify({ ...settings, statusLine }, null, 2)}\n`, { mode });
+  fs.chmodSync(temp, mode);
+  fs.renameSync(temp, target);
   return report;
 }
 

@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
-import { mkdtemp, mkdir, readFile, rm, writeFile, stat } from 'node:fs/promises';
+import { lstat, mkdtemp, mkdir, readFile, rm, stat, symlink, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
@@ -86,6 +86,23 @@ test('setup install writes the statusLine and keeps other settings', async () =>
     if (process.platform !== 'win32') {
       assert.equal((await stat(report.previousCommandPath)).mode & 0o777, 0o600);
     }
+  });
+});
+
+test('setup install writes through a settings.json symlink and keeps its mode', { skip: process.platform === 'win32' }, async () => {
+  await withConfigDir(async (configDir) => {
+    const realSettings = path.join(configDir, 'dotfiles-settings.json');
+    const settingsPath = path.join(configDir, 'settings.json');
+    await writeFile(realSettings, JSON.stringify({ env: { API_KEY: 'secret' } }), { mode: 0o600 });
+    await symlink(realSettings, settingsPath);
+
+    const result = run(setupScript, ['install', '--shell', 'posix'], { configDir });
+    assert.equal(result.status, 0, result.stderr);
+    assert.ok((await lstat(settingsPath)).isSymbolicLink());
+    assert.equal((await stat(realSettings)).mode & 0o777, 0o600);
+    const settings = JSON.parse(await readFile(realSettings, 'utf8'));
+    assert.equal(settings.env.API_KEY, 'secret');
+    assert.equal(settings.statusLine.type, 'command');
   });
 });
 
