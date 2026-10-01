@@ -233,6 +233,15 @@ export function _getClaudeVersionInvocation(
   };
 }
 
+// The running session's version; getClaudeCodeVersion() is the fallback when stdin omits it.
+export function resolveStdinClaudeCodeVersion(value: unknown): string | undefined {
+  if (typeof value !== 'string') {
+    return undefined;
+  }
+
+  return _parseClaudeCodeVersion(value);
+}
+
 export async function getClaudeCodeVersion(): Promise<string | undefined> {
   const homeDir = os.homedir();
   const diskCache = readVersionCache(homeDir);

@@ -169,7 +169,11 @@ test('estimateSessionCost prices Claude 5 point releases like their base model',
   assert.ok(opus51);
   assert.equal(opus51.inputUsd, 5);
 
-  const sonnet51 = estimateSessionCost({ model: { display_name: 'Sonnet 5.1' } }, tokens);
+  const sonnet51 = estimateSessionCost(
+    { model: { display_name: 'Sonnet 5.1' } },
+    tokens,
+    { now: new Date('2026-08-31T23:59:59.999Z') },
+  );
   assert.ok(sonnet51);
   assert.equal(sonnet51.inputUsd, 2);
 });

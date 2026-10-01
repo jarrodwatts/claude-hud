@@ -4,6 +4,7 @@ import * as path from "node:path";
 import { createHash } from "node:crypto";
 import { getHudPluginDir } from "./claude-config-dir.js";
 import { createDebug } from "./debug.js";
+import { getTotalTokens } from "./stdin.js";
 import type { StdinData } from "./types.js";
 
 const debug = createDebug('context-cache');
@@ -254,6 +255,30 @@ function hasGoodContext(contextWindow: ContextWindow): boolean {
   );
 }
 
+/** The frame to cache, deriving the percent from current_usage when Claude Code reports 0%. */
+function cacheableFrame(stdin: StdinData, contextWindow: ContextWindow): ContextWindow | null {
+  if (hasGoodContext(contextWindow)) {
+    return contextWindow;
+  }
+
+  const size = contextWindow.context_window_size ?? 0;
+  if (
+    (contextWindow.used_percentage ?? 0) !== 0 ||
+    isAllUsageZero(contextWindow.current_usage) ||
+    size <= 0
+  ) {
+    return null;
+  }
+
+  // Copy: stdin.ts would read a percent on the live frame as native and skip the buffer.
+  const usedPercentage = Math.min(100, Math.round((getTotalTokens(stdin) / size) * 100));
+  return {
+    ...contextWindow,
+    used_percentage: usedPercentage,
+    remaining_percentage: 100 - usedPercentage,
+  };
+}
+
 /**
  * Merge cached context fields into the current frame.
  * Prefer the frame's context_window_size when already present.
@@ -335,8 +360,9 @@ export function applyContextWindowFallback(
     }
   }
 
-  if (hasGoodContext(contextWindow)) {
-    writeCache(homeDir, transcriptPath, contextWindow, now, sessionName);
+  const frameToCache = cacheableFrame(stdin, contextWindow);
+  if (frameToCache) {
+    writeCache(homeDir, transcriptPath, frameToCache, now, sessionName);
     if (deps.random() < SWEEP_SAMPLE_RATE) {
       sweepCacheDir(getCacheDir(homeDir), now);
     }
