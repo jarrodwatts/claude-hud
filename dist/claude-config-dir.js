@@ -1,5 +1,5 @@
 import * as path from 'node:path';
-function expandHomeDirPrefix(inputPath, homeDir) {
+export function expandHomeDirPrefix(inputPath, homeDir) {
     if (inputPath === '~') {
         return homeDir;
     }
