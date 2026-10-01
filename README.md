@@ -348,7 +348,7 @@ Windows under 10% used stay neutral. An amber or red window stays visible even b
 
 ClaudeHUD is local-only by design. It does not make network requests, scrape credentials, or call undocumented Claude APIs. It reads the statusline JSON from stdin, the current session transcript path supplied by Claude Code, selected Claude configuration files under `~/.claude`, and git metadata for the current workspace.
 
-HUD state files (the transcript cache, output-speed state, and the daily cost ledger) are written under `~/.claude/plugins/claude-hud` with private permissions on POSIX filesystems.
+HUD state files (output-speed state and the daily cost ledger) are written under `~/.claude/plugins/claude-hud` with private permissions on POSIX filesystems.
 
 `--extra-cmd` is disabled unless `CLAUDE_HUD_ALLOW_EXTRA_CMD=1` (or `true`, `yes`, `on`) is present in the HUD process environment. Treat this option as arbitrary code execution: it runs the supplied shell command with your user privileges on statusline refreshes. Do not use commands copied from untrusted sources.
 

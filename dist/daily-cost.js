@@ -6,117 +6,65 @@ import { getNativeCostUsd } from './cost.js';
 import { createDebug } from './debug.js';
 import { SEVEN_DAY_WINDOW_MS } from './usage-pace.js';
 const debug = createDebug('daily-cost');
-const LEDGER_FILENAME = 'daily-cost.json';
-/**
- * Minimum interval between ledger rewrites when the accounted content did not
- * change, mirroring the external-usage snapshot semantics: content changes
- * (a higher total, a new session, day rollover) always write, while renders
- * that only refresh last-seen timestamps are throttled. Status line refreshes
- * are event-driven and can fire in rapid bursts (debounced at 300ms).
- */
+// Content changes always write; renders that only refresh last-seen times are throttled.
 export const DAILY_COST_WRITE_THROTTLE_MS = 30_000;
-/** Sessions unseen for longer than this are dropped so the ledger stays bounded. */
 const SESSION_MAX_AGE_MS = 24 * 60 * 60 * 1000;
 const defaultDeps = {
     homeDir: () => os.homedir(),
     now: () => Date.now(),
 };
 export function getDailyCostLedgerPath(homeDir) {
-    return path.join(getHudPluginDir(homeDir), LEDGER_FILENAME);
+    return path.join(getHudPluginDir(homeDir), 'daily-cost.json');
 }
-// Day boundaries follow the local clock, so the counter resets at the user's
-// midnight rather than at UTC midnight.
 function localDateKey(now) {
     const date = new Date(now);
-    const month = String(date.getMonth() + 1).padStart(2, '0');
-    const day = String(date.getDate()).padStart(2, '0');
-    return `${date.getFullYear()}${month}${day}`;
+    return `${date.getFullYear()}${String(date.getMonth() + 1).padStart(2, '0')}${String(date.getDate()).padStart(2, '0')}`;
 }
-function parseLedgerSession(value) {
-    if (!value || typeof value !== 'object' || Array.isArray(value)) {
-        return null;
-    }
-    const session = value;
-    const { baseline, total, ts, weekBaseline } = session;
-    if (typeof baseline !== 'number' || !Number.isFinite(baseline) || baseline < 0
-        || typeof total !== 'number' || !Number.isFinite(total) || total < 0
-        || typeof ts !== 'number' || !Number.isFinite(ts) || ts <= 0) {
-        return null;
-    }
-    // Pre-weekly ledgers have week.start 0, so the first known window resets this anyway.
-    const week = typeof weekBaseline === 'number' && Number.isFinite(weekBaseline) && weekBaseline >= 0
-        ? weekBaseline
-        : baseline;
-    return { baseline, weekBaseline: week, total, ts };
-}
-function parseWeek(value) {
-    const fallback = { start: 0, carry: 0 };
-    if (!value || typeof value !== 'object' || Array.isArray(value)) {
-        return fallback;
-    }
-    const { start, carry } = value;
-    return {
-        start: typeof start === 'number' && Number.isFinite(start) && start > 0 ? start : 0,
-        carry: typeof carry === 'number' && Number.isFinite(carry) && carry >= 0 ? carry : 0,
-    };
-}
+const isAmount = (value) => typeof value === 'number' && Number.isFinite(value) && value >= 0;
+const isObject = (value) => value !== null && typeof value === 'object' && !Array.isArray(value);
 function readLedger(ledgerPath) {
     try {
-        if (!fs.existsSync(ledgerPath)) {
-            return null;
-        }
-        const parsed = JSON.parse(fs.readFileSync(ledgerPath, 'utf8'));
-        if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
-            return null;
-        }
-        const value = parsed;
-        if (typeof value.date !== 'string' || !/^\d{8}$/.test(value.date)) {
-            return null;
-        }
-        if (!value.sessions || typeof value.sessions !== 'object' || Array.isArray(value.sessions)) {
+        const value = JSON.parse(fs.readFileSync(ledgerPath, 'utf8'));
+        if (!isObject(value) || typeof value.date !== 'string' || !/^\d{8}$/.test(value.date) || !isObject(value.sessions)) {
             return null;
         }
         const sessions = {};
         for (const [id, raw] of Object.entries(value.sessions)) {
-            const session = parseLedgerSession(raw);
-            if (session) {
-                sessions[id] = session;
-            }
+            if (!isObject(raw) || !isAmount(raw.baseline) || !isAmount(raw.total) || !isAmount(raw.ts) || raw.ts === 0)
+                continue;
+            // Ledgers written before weekly totals have no weekBaseline.
+            const weekBaseline = isAmount(raw.weekBaseline) ? raw.weekBaseline : raw.baseline;
+            sessions[id] = { baseline: raw.baseline, weekBaseline, total: raw.total, ts: raw.ts };
         }
-        return { date: value.date, sessions, week: parseWeek(value.week) };
+        const week = isObject(value.week) ? value.week : {};
+        return {
+            date: value.date,
+            sessions,
+            week: { start: isAmount(week.start) ? week.start : 0, carry: isAmount(week.carry) ? week.carry : 0 },
+        };
     }
     catch (err) {
-        debug('Failed to read ledger (starting fresh):', err instanceof Error ? err.message : err);
+        if (err.code !== 'ENOENT') {
+            debug('Failed to read ledger (starting fresh):', err instanceof Error ? err.message : err);
+        }
         return null;
     }
 }
-function shouldWriteLedger(ledgerPath, changed, now) {
-    if (changed) {
-        return true;
-    }
+function isThrottled(ledgerPath, now) {
     try {
-        const stats = fs.statSync(ledgerPath);
-        return now - stats.mtimeMs > DAILY_COST_WRITE_THROTTLE_MS;
+        return now - fs.statSync(ledgerPath).mtimeMs <= DAILY_COST_WRITE_THROTTLE_MS;
     }
     catch {
-        return true;
+        return false;
     }
 }
 function writeLedger(ledgerPath, ledger, now) {
-    const dir = path.dirname(ledgerPath);
-    const base = path.basename(ledgerPath);
-    const tmpPath = path.join(dir, `.${base}.${process.pid}.${now}.${Math.random().toString(36).slice(2)}.tmp`);
+    const tmpPath = `${ledgerPath}.${process.pid}.${now}.tmp`;
     try {
-        fs.mkdirSync(dir, { recursive: true, mode: 0o700 });
-        fs.writeFileSync(tmpPath, `${JSON.stringify(ledger, null, 2)}\n`, {
-            encoding: 'utf8',
-            mode: 0o600,
-            flag: 'wx',
-        });
+        fs.mkdirSync(path.dirname(ledgerPath), { recursive: true, mode: 0o700 });
+        fs.writeFileSync(tmpPath, `${JSON.stringify(ledger, null, 2)}\n`, { mode: 0o600, flag: 'wx' });
         fs.renameSync(tmpPath, ledgerPath);
-        fs.chmodSync(ledgerPath, 0o600);
-        // Keep the throttle anchored to the caller's clock rather than the
-        // filesystem's, so an injected clock (tests) stays consistent.
+        // The throttle reads mtime, so stamp it with the caller's clock.
         fs.utimesSync(ledgerPath, new Date(now), new Date(now));
     }
     catch (err) {
@@ -124,101 +72,71 @@ function writeLedger(ledgerPath, ledger, now) {
         try {
             fs.rmSync(tmpPath, { force: true });
         }
-        catch (cleanupErr) {
-            debug('Failed to clean up temp file:', cleanupErr instanceof Error ? cleanupErr.message : cleanupErr);
+        catch {
+            // Nothing left to clean up.
         }
     }
 }
-/**
- * Accumulate the native stdin cost into a per-day ledger and return today's
- * cumulative spend across sessions plus the spend since the weekly quota
- * window opened, or null when nothing has been recorded.
- *
- * On each render the current session's entry is advanced to the highest
- * native total seen; the first sighting of a session today records the
- * baseline so only today's increment counts. At local midnight, still-active
- * sessions carry over with their baseline reset to the last known total.
- */
+// Folds the session's native cost into the ledger and returns today's and this
+// week's spend across sessions, or null when nothing has been recorded.
 export function getCostTotals(stdin, options, deps = defaultDeps) {
     const now = deps.now();
     const today = localDateKey(now);
     const ledgerPath = getDailyCostLedgerPath(deps.homeDir());
-    let ledger = readLedger(ledgerPath);
-    let changed = ledger === null;
-    ledger ??= { date: today, sessions: {}, week: { start: now, carry: 0 } };
-    if (ledger.date !== today) {
-        // Day rollover: carry recently seen sessions over with baseline reset to
-        // their last known total, so a session spanning midnight contributes only
-        // today's part. Everything else starts from a clean slate.
-        const carried = {};
-        const week = { ...ledger.week };
-        for (const [id, session] of Object.entries(ledger.sessions)) {
-            if (now - session.ts <= SESSION_MAX_AGE_MS) {
-                carried[id] = { ...session, baseline: session.total };
-            }
-            else {
-                // Dropped from the ledger, but its spend stays inside the week.
-                week.carry += Math.max(0, session.total - session.weekBaseline);
-            }
-        }
-        ledger = { date: today, sessions: carried, week };
-        changed = true;
-    }
-    // Restart the week when the quota window behind the `Weekly` bar opened after accumulation began.
-    const resetAt = options?.sevenDayResetAt?.getTime();
-    const windowStart = resetAt !== undefined && Number.isFinite(resetAt) ? resetAt - SEVEN_DAY_WINDOW_MS : null;
-    if (windowStart !== null && ledger.week.start < windowStart) {
-        for (const session of Object.values(ledger.sessions)) {
-            session.weekBaseline = session.total;
-        }
-        ledger.week = { start: now, carry: 0 };
-        changed = true;
-    }
+    const stored = readLedger(ledgerPath);
+    const ledger = stored ?? { date: today, sessions: {}, week: { start: now, carry: 0 } };
+    let changed = stored === null;
+    // Sessions unseen for a day leave the ledger, but their spend stays inside the week.
     for (const [id, session] of Object.entries(ledger.sessions)) {
         if (now - session.ts > SESSION_MAX_AGE_MS) {
-            // The session leaves the ledger but its spend stays inside the week.
             ledger.week.carry += Math.max(0, session.total - session.weekBaseline);
             delete ledger.sessions[id];
             changed = true;
         }
     }
+    // At midnight, active sessions carry over so that only today's part of their spend counts.
+    if (ledger.date !== today) {
+        ledger.date = today;
+        for (const session of Object.values(ledger.sessions))
+            session.baseline = session.total;
+        changed = true;
+    }
+    // Restart the week when the quota window behind the Weekly bar opened after accumulation began.
+    const resetAt = options?.sevenDayResetAt?.getTime();
+    const windowStart = resetAt !== undefined && Number.isFinite(resetAt) ? resetAt - SEVEN_DAY_WINDOW_MS : null;
+    if (windowStart !== null && ledger.week.start < windowStart) {
+        for (const session of Object.values(ledger.sessions))
+            session.weekBaseline = session.total;
+        ledger.week = { start: now, carry: 0 };
+        changed = true;
+    }
     const sessionId = typeof stdin.session_id === 'string' ? stdin.session_id.trim() : '';
     const nativeCost = getNativeCostUsd(stdin, options);
-    if (sessionId && nativeCost !== null && nativeCost >= 0) {
-        const existing = ledger.sessions[sessionId];
-        if (!existing) {
+    if (sessionId && nativeCost !== null) {
+        const session = ledger.sessions[sessionId];
+        if (!session) {
             ledger.sessions[sessionId] = { baseline: nativeCost, weekBaseline: nativeCost, total: nativeCost, ts: now };
             changed = true;
         }
         else {
-            if (nativeCost > existing.total) {
-                existing.total = nativeCost;
+            if (nativeCost > session.total) {
+                session.total = nativeCost;
                 changed = true;
             }
-            existing.ts = now;
+            session.ts = now;
         }
     }
-    if (Object.keys(ledger.sessions).length === 0 && ledger.week.carry === 0) {
+    const sessions = Object.values(ledger.sessions);
+    if (sessions.length === 0 && ledger.week.carry === 0) {
         return null;
     }
-    let todayUsd = 0;
-    for (const session of Object.values(ledger.sessions)) {
-        todayUsd += Math.max(0, session.total - session.baseline);
-    }
-    if (!Number.isFinite(todayUsd)) {
-        return null;
-    }
-    if (shouldWriteLedger(ledgerPath, changed, now)) {
+    if (changed || !isThrottled(ledgerPath, now)) {
         writeLedger(ledgerPath, ledger, now);
     }
-    let weekUsd = ledger.week.carry;
-    for (const session of Object.values(ledger.sessions)) {
-        weekUsd += Math.max(0, session.total - session.weekBaseline);
-    }
-    return { todayUsd, weekUsd: windowStart !== null && Number.isFinite(weekUsd) ? weekUsd : null };
-}
-/** Today's cumulative spend across sessions, or null when nothing is recorded. */
-export function getDailyCostUsd(stdin, options, deps = defaultDeps) {
-    return getCostTotals(stdin, options, deps)?.todayUsd ?? null;
+    const sum = (pick) => sessions.reduce((total, s) => total + Math.max(0, s.total - pick(s)), 0);
+    return {
+        todayUsd: sum((s) => s.baseline),
+        weekUsd: windowStart !== null ? ledger.week.carry + sum((s) => s.weekBaseline) : null,
+    };
 }
 //# sourceMappingURL=daily-cost.js.map

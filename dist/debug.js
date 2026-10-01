@@ -1,15 +1,9 @@
-// Shared debug logging utility
-// Enable via: DEBUG=claude-hud or DEBUG=*
-const DEBUG = process.env.DEBUG?.includes('claude-hud') || process.env.DEBUG === '*';
-/**
- * Create a namespaced debug logger
- * @param namespace - Tag for log messages (e.g., 'config', 'usage')
- */
+// DEBUG=claude-hud (or DEBUG=*) logs to stderr, which `claude --debug` shows for the status line.
+const enabled = process.env.DEBUG?.includes('claude-hud') || process.env.DEBUG === '*';
 export function createDebug(namespace) {
-    return function debug(msg, ...args) {
-        if (DEBUG) {
+    return (msg, ...args) => {
+        if (enabled)
             console.error(`[claude-hud:${namespace}] ${msg}`, ...args);
-        }
     };
 }
 //# sourceMappingURL=debug.js.map

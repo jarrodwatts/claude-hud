@@ -6,7 +6,6 @@ import path from 'node:path';
 import { tmpdir } from 'node:os';
 import {
   getCostTotals,
-  getDailyCostUsd,
   getDailyCostLedgerPath,
   DAILY_COST_WRITE_THROTTLE_MS,
 } from '../dist/daily-cost.js';
@@ -30,6 +29,7 @@ function readLedger() {
 }
 
 // Noon local time, so +/- a few hours never crosses a day boundary.
+const todayUsd = (...args) => getCostTotals(...args)?.todayUsd ?? null;
 const NOON = new Date(2026, 6, 15, 12, 0, 0).getTime();
 const DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -48,54 +48,55 @@ afterEach(async () => {
 });
 
 test('returns null when nothing has been recorded', () => {
-  assert.equal(getDailyCostUsd({}, undefined, deps(NOON)), null);
-  assert.equal(getDailyCostUsd({ session_id: 'a' }, undefined, deps(NOON)), null);
-  assert.equal(getDailyCostUsd({ cost: { total_cost_usd: 1.5 } }, undefined, deps(NOON)), null);
+  assert.equal(todayUsd({}, undefined, deps(NOON)), null);
+  assert.equal(todayUsd({ session_id: 'a' }, undefined, deps(NOON)), null);
+  assert.equal(todayUsd({ cost: { total_cost_usd: 1.5 } }, undefined, deps(NOON)), null);
+  assert.equal(todayUsd({ session_id: 42, cost: { total_cost_usd: 1.5 } }, undefined, deps(NOON)), null);
 });
 
 test('first sighting records a baseline so only increments count', () => {
   const stdin = { session_id: 'a', cost: { total_cost_usd: 2.5 } };
-  assert.equal(getDailyCostUsd(stdin, undefined, deps(NOON)), 0);
+  assert.equal(todayUsd(stdin, undefined, deps(NOON)), 0);
 
   stdin.cost.total_cost_usd = 4.0;
-  assert.equal(getDailyCostUsd(stdin, undefined, deps(NOON + 1000)), 1.5);
+  assert.equal(todayUsd(stdin, undefined, deps(NOON + 1000)), 1.5);
 });
 
 test('total never regresses when stdin reports a lower cost', () => {
   const stdin = { session_id: 'a', cost: { total_cost_usd: 3.0 } };
-  getDailyCostUsd(stdin, undefined, deps(NOON));
+  todayUsd(stdin, undefined, deps(NOON));
   stdin.cost.total_cost_usd = 5.0;
-  assert.equal(getDailyCostUsd(stdin, undefined, deps(NOON + 1000)), 2.0);
+  assert.equal(todayUsd(stdin, undefined, deps(NOON + 1000)), 2.0);
   stdin.cost.total_cost_usd = 1.0;
-  assert.equal(getDailyCostUsd(stdin, undefined, deps(NOON + 2000)), 2.0);
+  assert.equal(todayUsd(stdin, undefined, deps(NOON + 2000)), 2.0);
 });
 
 test('sums increments across sessions', () => {
-  getDailyCostUsd({ session_id: 'a', cost: { total_cost_usd: 1.0 } }, undefined, deps(NOON));
-  getDailyCostUsd({ session_id: 'a', cost: { total_cost_usd: 3.0 } }, undefined, deps(NOON + 1000));
-  getDailyCostUsd({ session_id: 'b', cost: { total_cost_usd: 0.5 } }, undefined, deps(NOON + 2000));
-  const total = getDailyCostUsd({ session_id: 'b', cost: { total_cost_usd: 1.5 } }, undefined, deps(NOON + 3000));
+  todayUsd({ session_id: 'a', cost: { total_cost_usd: 1.0 } }, undefined, deps(NOON));
+  todayUsd({ session_id: 'a', cost: { total_cost_usd: 3.0 } }, undefined, deps(NOON + 1000));
+  todayUsd({ session_id: 'b', cost: { total_cost_usd: 0.5 } }, undefined, deps(NOON + 2000));
+  const total = todayUsd({ session_id: 'b', cost: { total_cost_usd: 1.5 } }, undefined, deps(NOON + 3000));
   assert.equal(total, 3.0);
 });
 
 test('day rollover carries active sessions with baseline reset to last total', () => {
   const yesterday = NOON - DAY_MS;
-  getDailyCostUsd({ session_id: 'a', cost: { total_cost_usd: 1.0 } }, undefined, deps(yesterday));
-  getDailyCostUsd({ session_id: 'a', cost: { total_cost_usd: 6.0 } }, undefined, deps(yesterday + 1000));
+  todayUsd({ session_id: 'a', cost: { total_cost_usd: 1.0 } }, undefined, deps(yesterday));
+  todayUsd({ session_id: 'a', cost: { total_cost_usd: 6.0 } }, undefined, deps(yesterday + 1000));
 
   // First render today: yesterday's $5 increment no longer counts.
-  assert.equal(getDailyCostUsd({ session_id: 'a', cost: { total_cost_usd: 6.0 } }, undefined, deps(NOON)), 0);
+  assert.equal(todayUsd({ session_id: 'a', cost: { total_cost_usd: 6.0 } }, undefined, deps(NOON)), 0);
   assert.equal(readLedger().date, localDateKey(NOON));
 
   // The session keeps accruing today from its carried-over baseline.
-  assert.equal(getDailyCostUsd({ session_id: 'a', cost: { total_cost_usd: 7.25 } }, undefined, deps(NOON + 1000)), 1.25);
+  assert.equal(todayUsd({ session_id: 'a', cost: { total_cost_usd: 7.25 } }, undefined, deps(NOON + 1000)), 1.25);
 });
 
 test('drops sessions unseen for more than 24 hours', () => {
   const twoDaysAgo = NOON - 2 * DAY_MS;
-  getDailyCostUsd({ session_id: 'stale', cost: { total_cost_usd: 9.0 } }, undefined, deps(twoDaysAgo));
+  todayUsd({ session_id: 'stale', cost: { total_cost_usd: 9.0 } }, undefined, deps(twoDaysAgo));
 
-  assert.equal(getDailyCostUsd({ session_id: 'fresh', cost: { total_cost_usd: 0.5 } }, undefined, deps(NOON)), 0);
+  assert.equal(todayUsd({ session_id: 'fresh', cost: { total_cost_usd: 0.5 } }, undefined, deps(NOON)), 0);
   assert.deepEqual(Object.keys(readLedger().sessions), ['fresh']);
 });
 
@@ -104,7 +105,7 @@ test('recovers from a corrupt ledger file', () => {
   fs.mkdirSync(path.dirname(ledgerPath), { recursive: true });
   fs.writeFileSync(ledgerPath, 'not json{');
 
-  assert.equal(getDailyCostUsd({ session_id: 'a', cost: { total_cost_usd: 1.0 } }, undefined, deps(NOON)), 0);
+  assert.equal(todayUsd({ session_id: 'a', cost: { total_cost_usd: 1.0 } }, undefined, deps(NOON)), 0);
   assert.equal(readLedger().date, localDateKey(NOON));
 });
 
@@ -119,7 +120,7 @@ test('ignores malformed session entries in the ledger', () => {
     },
   }));
 
-  assert.equal(getDailyCostUsd({}, undefined, deps(NOON)), 1.5);
+  assert.equal(todayUsd({}, undefined, deps(NOON)), 1.5);
 });
 
 test('skips routed providers unless allowRoutedCost is set', () => {
@@ -128,35 +129,35 @@ test('skips routed providers unless allowRoutedCost is set', () => {
     model: { id: 'us.anthropic.claude-sonnet-4-20250514-v1:0' },
     cost: { total_cost_usd: 2.0 },
   };
-  assert.equal(getDailyCostUsd(stdin, undefined, deps(NOON)), null);
+  assert.equal(todayUsd(stdin, undefined, deps(NOON)), null);
 
-  assert.equal(getDailyCostUsd(stdin, { allowRoutedCost: true }, deps(NOON)), 0);
+  assert.equal(todayUsd(stdin, { allowRoutedCost: true }, deps(NOON)), 0);
   stdin.cost.total_cost_usd = 3.5;
-  assert.equal(getDailyCostUsd(stdin, { allowRoutedCost: true }, deps(NOON + 1000)), 1.5);
+  assert.equal(todayUsd(stdin, { allowRoutedCost: true }, deps(NOON + 1000)), 1.5);
 });
 
 test('still reports the ledger total when the current payload has no cost', () => {
-  getDailyCostUsd({ session_id: 'a', cost: { total_cost_usd: 1.0 } }, undefined, deps(NOON));
-  getDailyCostUsd({ session_id: 'a', cost: { total_cost_usd: 2.0 } }, undefined, deps(NOON + 1000));
+  todayUsd({ session_id: 'a', cost: { total_cost_usd: 1.0 } }, undefined, deps(NOON));
+  todayUsd({ session_id: 'a', cost: { total_cost_usd: 2.0 } }, undefined, deps(NOON + 1000));
 
-  assert.equal(getDailyCostUsd({ session_id: 'b' }, undefined, deps(NOON + 2000)), 1.0);
+  assert.equal(todayUsd({ session_id: 'b' }, undefined, deps(NOON + 2000)), 1.0);
 });
 
 test('persists content changes immediately and throttles ts-only refreshes', () => {
-  getDailyCostUsd({ session_id: 'a', cost: { total_cost_usd: 1.0 } }, undefined, deps(NOON));
+  todayUsd({ session_id: 'a', cost: { total_cost_usd: 1.0 } }, undefined, deps(NOON));
   const ledgerPath = getDailyCostLedgerPath(homeDir);
   const firstMtime = fs.statSync(ledgerPath).mtimeMs;
 
   // Unchanged total within the throttle window: no rewrite.
-  getDailyCostUsd({ session_id: 'a', cost: { total_cost_usd: 1.0 } }, undefined, deps(NOON + 1000));
+  todayUsd({ session_id: 'a', cost: { total_cost_usd: 1.0 } }, undefined, deps(NOON + 1000));
   assert.equal(fs.statSync(ledgerPath).mtimeMs, firstMtime);
 
   // A higher total is a content change: written despite the throttle.
-  getDailyCostUsd({ session_id: 'a', cost: { total_cost_usd: 2.0 } }, undefined, deps(NOON + 2000));
+  todayUsd({ session_id: 'a', cost: { total_cost_usd: 2.0 } }, undefined, deps(NOON + 2000));
   assert.equal(readLedger().sessions.a.total, 2.0);
 
   // Past the throttle window even a ts-only refresh lands.
-  getDailyCostUsd({ session_id: 'a', cost: { total_cost_usd: 2.0 } }, undefined, deps(NOON + DAILY_COST_WRITE_THROTTLE_MS + 3000));
+  todayUsd({ session_id: 'a', cost: { total_cost_usd: 2.0 } }, undefined, deps(NOON + DAILY_COST_WRITE_THROTTLE_MS + 3000));
   assert.equal(readLedger().sessions.a.ts, NOON + DAILY_COST_WRITE_THROTTLE_MS + 3000);
 });
 

@@ -1,679 +1,61 @@
 import * as fs from 'node:fs';
-import * as os from 'node:os';
-import * as path from 'node:path';
 import * as readline from 'node:readline';
-import { createHash } from 'node:crypto';
-import { getHudPluginDir } from './claude-config-dir.js';
 import { createDebug } from './debug.js';
 import { sanitizeDisplayText } from './utils/sanitize.js';
 import { sanitizeTranscriptModel } from './model-source.js';
 const debug = createDebug('transcript');
-const TRANSCRIPT_CACHE_VERSION = 22;
-const MCP_TOOL_NAME_PATTERN = /^mcp__(.+?)__(.+)$/;
-const ACTIVITY_NAME_MAX_LEN = 64;
-const MESSAGE_ID_MAX_LEN = 128;
-const MESSAGE_USAGE_MAX = 4096;
-const MCP_ERROR_SERVERS_MAX = 64;
-// Hard cap on the advisor model ID captured from the transcript. Real Claude
-// model IDs (e.g. "claude-haiku-4-5-20251001") fit comfortably under this; the
-// cap exists to prevent a malformed transcript from persisting an oversized
-// string through the JSON cache and onto every statusline refresh.
+const TOOLS_KEPT = 20;
+const AGENTS_KEPT = 10;
+const NAME_MAX_LEN = 64;
 const ADVISOR_MODEL_MAX_LEN = 64;
-let createReadStreamImpl = fs.createReadStream;
-function normalizeTokenCount(value) {
-    if (typeof value !== 'number' || !Number.isFinite(value)) {
-        return 0;
-    }
-    return Math.max(0, Math.trunc(value));
+const MESSAGE_ID_MAX_LEN = 128;
+const MESSAGE_IDS_MAX = 4096;
+const MCP_ERRORS_MAX = 64;
+const MCP_TOOL = /^mcp__(.+?)__(.+)$/;
+// Claude Code's /effort output; anchored so prose quoting it can't flip ultracode.
+const EFFORT_COMMAND = /^<local-command-stdout>Set effort level to (\w+)/;
+const emptyTranscript = () => ({ tools: [], skills: [], mcpServers: [], mcpErrors: [], agents: [], todos: [] });
+const ZERO_USAGE = { inputTokens: 0, outputTokens: 0, cacheCreationTokens: 0, cacheReadTokens: 0 };
+const USAGE_FIELDS = Object.keys(ZERO_USAGE);
+const count = (value) => typeof value === 'number' && Number.isFinite(value) ? Math.max(0, Math.trunc(value)) : 0;
+function addUsage(total, usage) {
+    for (const field of USAGE_FIELDS)
+        total[field] += usage[field];
 }
-function normalizeMessageId(value) {
-    return typeof value === 'string' && value.length > 0 && value.length <= MESSAGE_ID_MAX_LEN
-        ? value
-        : null;
-}
-function accumulateMessageUsage(usageByMessageId, messageId, current, total) {
-    const previous = usageByMessageId.get(messageId);
-    if (!previous && usageByMessageId.size >= MESSAGE_USAGE_MAX) {
-        const oldest = usageByMessageId.keys().next().value;
-        if (oldest !== undefined) {
-            usageByMessageId.delete(oldest);
-        }
-    }
-    const prior = previous ?? {
-        inputTokens: 0,
-        outputTokens: 0,
-        cacheCreationTokens: 0,
-        cacheReadTokens: 0,
-    };
-    total.inputTokens += Math.max(0, current.inputTokens - prior.inputTokens);
-    total.outputTokens += Math.max(0, current.outputTokens - prior.outputTokens);
-    total.cacheCreationTokens += Math.max(0, current.cacheCreationTokens - prior.cacheCreationTokens);
-    total.cacheReadTokens += Math.max(0, current.cacheReadTokens - prior.cacheReadTokens);
-    usageByMessageId.set(messageId, {
-        inputTokens: Math.max(prior.inputTokens, current.inputTokens),
-        outputTokens: Math.max(prior.outputTokens, current.outputTokens),
-        cacheCreationTokens: Math.max(prior.cacheCreationTokens, current.cacheCreationTokens),
-        cacheReadTokens: Math.max(prior.cacheReadTokens, current.cacheReadTokens),
-    });
-}
-function normalizeSessionTokens(tokens) {
-    if (!tokens || typeof tokens !== 'object') {
+function name(value) {
+    if (typeof value !== 'string')
         return undefined;
-    }
-    const raw = tokens;
-    return {
-        inputTokens: normalizeTokenCount(raw.inputTokens),
-        outputTokens: normalizeTokenCount(raw.outputTokens),
-        cacheCreationTokens: normalizeTokenCount(raw.cacheCreationTokens),
-        cacheReadTokens: normalizeTokenCount(raw.cacheReadTokens),
-    };
-}
-function normalizeNameList(value) {
-    if (!Array.isArray(value)) {
-        return [];
-    }
-    const seen = new Set();
-    const names = [];
-    for (const item of value) {
-        const name = normalizeActivityName(item);
-        if (!name || seen.has(name)) {
-            continue;
-        }
-        seen.add(name);
-        names.push(name);
-    }
-    return names;
-}
-function normalizeActivityName(value) {
-    if (typeof value !== 'string') {
+    const text = sanitizeDisplayText(value).trim();
+    if (!text)
         return undefined;
-    }
-    const sanitized = sanitizeDisplayText(value).trim();
-    if (!sanitized) {
-        return undefined;
-    }
-    if (sanitized.length <= ACTIVITY_NAME_MAX_LEN) {
-        return sanitized;
-    }
-    return `${sanitized.slice(0, ACTIVITY_NAME_MAX_LEN - 1)}…`;
+    return text.length <= NAME_MAX_LEN ? text : `${text.slice(0, NAME_MAX_LEN - 1)}…`;
 }
-function getTranscriptCachePath(transcriptPath, homeDir) {
-    const hash = createHash('sha256').update(path.resolve(transcriptPath)).digest('hex');
-    return path.join(getHudPluginDir(homeDir), 'transcript-cache', `${hash}.json`);
-}
-function canonicalizeTranscriptPath(transcriptPath) {
-    try {
-        return fs.realpathSync(transcriptPath);
-    }
-    catch (err) {
-        debug('Failed to resolve transcript path %s:', transcriptPath, err instanceof Error ? err.message : err);
-        return null;
-    }
-}
-function readTranscriptFileState(transcriptPath) {
-    try {
-        const stat = fs.statSync(transcriptPath);
-        if (!stat.isFile()) {
-            debug('Transcript path is not a file: %s', transcriptPath);
-            return null;
-        }
-        return {
-            mtimeMs: stat.mtimeMs,
-            size: stat.size,
-        };
-    }
-    catch (err) {
-        debug('Failed to stat transcript file %s:', transcriptPath, err instanceof Error ? err.message : err);
-        return null;
-    }
-}
-function serializeTranscriptData(data) {
-    return {
-        tools: data.tools.map((tool) => ({
-            ...tool,
-            startTime: tool.startTime.toISOString(),
-            endTime: tool.endTime?.toISOString(),
-        })),
-        skills: [...data.skills],
-        mcpServers: [...data.mcpServers],
-        mcpErrors: [...data.mcpErrors],
-        agents: data.agents.map((agent) => ({
-            ...agent,
-            startTime: agent.startTime.toISOString(),
-            endTime: agent.endTime?.toISOString(),
-        })),
-        todos: data.todos.map((todo) => ({ ...todo })),
-        sessionStart: data.sessionStart?.toISOString(),
-        lastAssistantResponseAt: data.lastAssistantResponseAt?.toISOString(),
-        sessionTokens: data.sessionTokens,
-        lastCompactBoundaryAt: data.lastCompactBoundaryAt?.toISOString(),
-        lastCompactPostTokens: data.lastCompactPostTokens,
-        contextTokens: data.contextTokens,
-        compactionCount: data.compactionCount,
-        advisorModel: data.advisorModel,
-        ultracodeActive: data.ultracodeActive,
-        lastAssistantModel: sanitizeTranscriptModel(data.lastAssistantModel),
-    };
-}
-function deserializeTranscriptData(data) {
-    return {
-        tools: data.tools.map((tool) => ({
-            ...tool,
-            startTime: new Date(tool.startTime),
-            endTime: tool.endTime ? new Date(tool.endTime) : undefined,
-        })),
-        skills: normalizeNameList(data.skills),
-        mcpServers: normalizeNameList(data.mcpServers),
-        mcpErrors: normalizeNameList(data.mcpErrors).slice(0, MCP_ERROR_SERVERS_MAX),
-        agents: data.agents.map((agent) => ({
-            ...agent,
-            model: sanitizeTranscriptModel(agent.model),
-            startTime: new Date(agent.startTime),
-            endTime: agent.endTime ? new Date(agent.endTime) : undefined,
-        })),
-        todos: data.todos.map((todo) => ({ ...todo })),
-        sessionStart: data.sessionStart ? new Date(data.sessionStart) : undefined,
-        lastAssistantResponseAt: data.lastAssistantResponseAt ? new Date(data.lastAssistantResponseAt) : undefined,
-        sessionTokens: normalizeSessionTokens(data.sessionTokens),
-        lastCompactBoundaryAt: data.lastCompactBoundaryAt ? new Date(data.lastCompactBoundaryAt) : undefined,
-        lastCompactPostTokens: typeof data.lastCompactPostTokens === 'number' ? data.lastCompactPostTokens : undefined,
-        contextTokens: typeof data.contextTokens === 'number' ? normalizeTokenCount(data.contextTokens) : undefined,
-        compactionCount: typeof data.compactionCount === 'number' && Number.isFinite(data.compactionCount) && data.compactionCount >= 0
-            ? Math.trunc(data.compactionCount)
-            : undefined,
-        advisorModel: typeof data.advisorModel === 'string' && data.advisorModel.length > 0
-            ? data.advisorModel.slice(0, ADVISOR_MODEL_MAX_LEN)
-            : undefined,
-        ultracodeActive: typeof data.ultracodeActive === 'boolean' ? data.ultracodeActive : undefined,
-        lastAssistantModel: sanitizeTranscriptModel(data.lastAssistantModel),
-    };
-}
-function readTranscriptCache(transcriptPath, state) {
-    try {
-        const cachePath = getTranscriptCachePath(transcriptPath, os.homedir());
-        const raw = fs.readFileSync(cachePath, 'utf8');
-        const parsed = JSON.parse(raw);
-        if (parsed.version !== TRANSCRIPT_CACHE_VERSION
-            || !parsed.data
-            || !parsed.transcriptPath
-            || parsed.transcriptPath !== path.resolve(transcriptPath)
-            || parsed.transcriptState?.mtimeMs !== state.mtimeMs
-            || parsed.transcriptState?.size !== state.size) {
-            return null;
-        }
-        return deserializeTranscriptData(parsed.data);
-    }
-    catch (err) {
-        debug('Failed to read transcript cache:', err instanceof Error ? err.message : err);
-        return null;
-    }
-}
-function writeTranscriptCache(transcriptPath, state, data) {
-    try {
-        const cachePath = getTranscriptCachePath(transcriptPath, os.homedir());
-        const cacheDir = path.dirname(cachePath);
-        fs.mkdirSync(cacheDir, { recursive: true, mode: 0o700 });
-        try {
-            fs.chmodSync(cacheDir, 0o700);
-        }
-        catch {
-            // Best-effort: some filesystems do not support POSIX modes.
-        }
-        const payload = {
-            version: TRANSCRIPT_CACHE_VERSION,
-            transcriptPath: path.resolve(transcriptPath),
-            transcriptState: state,
-            data: serializeTranscriptData(data),
-        };
-        fs.writeFileSync(cachePath, JSON.stringify(payload), { encoding: 'utf8', mode: 0o600 });
-        try {
-            fs.chmodSync(cachePath, 0o600);
-        }
-        catch {
-            // Best-effort: cache permissions should not break rendering.
-        }
-    }
-    catch (err) {
-        debug('Failed to write transcript cache:', err instanceof Error ? err.message : err);
-    }
-}
-export async function parseTranscript(transcriptPath) {
-    const result = {
-        tools: [],
-        skills: [],
-        mcpServers: [],
-        mcpErrors: [],
-        agents: [],
-        todos: [],
-    };
-    if (!transcriptPath || !fs.existsSync(transcriptPath)) {
-        return result;
-    }
-    const canonicalTranscriptPath = canonicalizeTranscriptPath(transcriptPath);
-    if (!canonicalTranscriptPath) {
-        return result;
-    }
-    const transcriptState = readTranscriptFileState(canonicalTranscriptPath);
-    if (!transcriptState) {
-        return result;
-    }
-    const cached = readTranscriptCache(canonicalTranscriptPath, transcriptState);
-    if (cached) {
-        return cached;
-    }
-    const toolMap = new Map();
-    const skillSet = new Set();
-    const mcpServerSet = new Set();
-    const mcpErrorSet = new Set();
-    const agentMap = new Map();
-    let latestTodos = [];
-    const taskIdToIndex = new Map();
-    const queueCompletionMap = new Map();
-    let latestAdvisorModel;
-    let latestUltracodeActive;
-    let lastCompactBoundaryAt;
-    let lastCompactPostTokens;
-    let contextTokens;
-    let compactionCount = 0;
-    const sessionTokens = {
-        inputTokens: 0,
-        outputTokens: 0,
-        cacheCreationTokens: 0,
-        cacheReadTokens: 0,
-    };
-    const usageByMessageId = new Map();
-    let lastUsageKey;
-    let parsedCleanly = false;
-    try {
-        const fileStream = createReadStreamImpl(canonicalTranscriptPath);
-        const rl = readline.createInterface({
-            input: fileStream,
-            crlfDelay: Infinity,
-        });
-        for await (const line of rl) {
-            if (!line.trim()) {
-                lastUsageKey = undefined;
-                continue;
-            }
-            try {
-                const entry = JSON.parse(line);
-                // Capture the advisor model from the top-level `advisorModel` field.
-                // Claude Code stamps this onto every *assistant* record after `/advisor`
-                // is set, so we restrict to that record type (matching the documented
-                // source) and the most recent occurrence reflects the current choice.
-                // Length is hard-capped so a malformed transcript cannot persist an
-                // unbounded value through the cache layer.
-                if (entry.type === 'assistant'
-                    && typeof entry.advisorModel === 'string'
-                    && entry.advisorModel.length > 0) {
-                    latestAdvisorModel = entry.advisorModel.slice(0, ADVISOR_MODEL_MAX_LEN);
-                }
-                // Current ultracode state, distinguishable only from the transcript
-                // (stdin reports it as plain `xhigh`). Two signals update this in file
-                // order, last wins: the self-correcting ultra_effort_enter/exit
-                // attachment (can lag a turn) and the immediate `/effort` command output.
-                if (entry.type === 'attachment') {
-                    const attachmentType = entry.attachment?.type;
-                    if (attachmentType === 'ultra_effort_enter') {
-                        latestUltracodeActive = true;
-                    }
-                    else if (attachmentType === 'ultra_effort_exit') {
-                        latestUltracodeActive = false;
-                    }
-                }
-                // The `/effort` command-output signal. Anchored at the start of a *user*
-                // record's string content, so prose quoting the phrase can't flip state.
-                // Brittle by necessity — couples to Claude Code's /effort wording; if that
-                // changes, the label falls back to the (laggier) attachments.
-                if (entry.type === 'user' && typeof entry.message?.content === 'string') {
-                    const effortCommandMatch = entry.message.content.match(/^<local-command-stdout>Set effort level to (\w+)/);
-                    if (effortCommandMatch) {
-                        latestUltracodeActive = effortCommandMatch[1].toLowerCase() === 'ultracode';
-                    }
-                }
-                // Capture the actual model from the assistant message's `model` field.
-                // This reflects what the API actually served, which may differ from the
-                // model Claude Code thinks it's using (e.g. proxy redirect via cc-switch).
-                if (entry.type === 'assistant') {
-                    const transcriptModel = sanitizeTranscriptModel(entry.message?.model);
-                    // Claude Code writes '<synthetic>' on locally generated assistant records.
-                    if (transcriptModel && transcriptModel !== '<synthetic>') {
-                        result.lastAssistantModel = transcriptModel;
-                    }
-                }
-                // Accumulate token usage from assistant messages.
-                // Claude Code can write the same API response to the transcript 2-3 times
-                // (dual-logging). Prefer the API-response-level message.id so duplicates
-                // can be removed even when another record appears between them. Only
-                // bounded string IDs are retained, and the set is capped to keep a
-                // malformed transcript from growing memory without limit. Records with
-                // missing or invalid IDs keep the previous consecutive usage-fingerprint
-                // fallback.
-                if (entry.type === 'assistant' && entry.message?.usage) {
-                    const usage = entry.message.usage;
-                    const msgId = normalizeMessageId(entry.message.id);
-                    const normalizedUsage = {
-                        inputTokens: normalizeTokenCount(usage.input_tokens),
-                        outputTokens: normalizeTokenCount(usage.output_tokens),
-                        cacheCreationTokens: normalizeTokenCount(usage.cache_creation_input_tokens),
-                        cacheReadTokens: normalizeTokenCount(usage.cache_read_input_tokens),
-                    };
-                    if (entry.isSidechain !== true) {
-                        contextTokens = normalizedUsage.inputTokens + normalizedUsage.cacheCreationTokens + normalizedUsage.cacheReadTokens;
-                    }
-                    if (msgId !== null) {
-                        lastUsageKey = undefined;
-                        accumulateMessageUsage(usageByMessageId, msgId, normalizedUsage, sessionTokens);
-                    }
-                    else {
-                        const usageKey = `${usage.input_tokens}|${usage.output_tokens}|${usage.cache_creation_input_tokens}|${usage.cache_read_input_tokens}`;
-                        const shouldCount = usageKey !== lastUsageKey;
-                        lastUsageKey = usageKey;
-                        if (shouldCount) {
-                            sessionTokens.inputTokens += normalizedUsage.inputTokens;
-                            sessionTokens.outputTokens += normalizedUsage.outputTokens;
-                            sessionTokens.cacheCreationTokens += normalizedUsage.cacheCreationTokens;
-                            sessionTokens.cacheReadTokens += normalizedUsage.cacheReadTokens;
-                        }
-                    }
-                }
-                else {
-                    lastUsageKey = undefined;
-                }
-                // Track Claude Code's compact_boundary marker. Both manual (/compact)
-                // and auto compaction emit this system entry with compactMetadata; we
-                // take the most recent one's timestamp so callers can distinguish a
-                // legitimate post-compact zero frame from a transient stdin glitch.
-                if (entry.type === 'system' && entry.subtype === 'compact_boundary') {
-                    const ts = entry.timestamp ? new Date(entry.timestamp) : null;
-                    if (ts && !Number.isNaN(ts.getTime())) {
-                        compactionCount += 1;
-                        if (!lastCompactBoundaryAt || ts.getTime() > lastCompactBoundaryAt.getTime()) {
-                            lastCompactBoundaryAt = ts;
-                            const post = entry.compactMetadata?.postTokens;
-                            lastCompactPostTokens = typeof post === 'number' && Number.isFinite(post) && post >= 0
-                                ? Math.trunc(post)
-                                : undefined;
-                            contextTokens = lastCompactPostTokens;
-                        }
-                    }
-                }
-                // Capture accurate background-agent completion timestamps from queue-operation entries.
-                // The tool_result timestamp in the parent transcript is written at launch time, not
-                // when the agent actually finishes, so we override with the enqueue timestamp.
-                if (entry.type === 'queue-operation' && entry.operation === 'enqueue' && entry.content) {
-                    const taskIdMatch = entry.content.match(/<task-id>([^<]+)<\/task-id>/);
-                    const toolUseIdMatch = entry.content.match(/<tool-use-id>([^<]+)<\/tool-use-id>/);
-                    if (taskIdMatch && toolUseIdMatch && entry.timestamp) {
-                        const ts = new Date(entry.timestamp);
-                        if (!Number.isNaN(ts.getTime())) {
-                            queueCompletionMap.set(toolUseIdMatch[1], ts);
-                        }
-                    }
-                }
-                processEntry(entry, toolMap, skillSet, mcpServerSet, mcpErrorSet, agentMap, taskIdToIndex, latestTodos, result);
-            }
-            catch (err) {
-                lastUsageKey = undefined;
-                debug('Skipping malformed transcript line:', err instanceof Error ? err.message : err);
-            }
-        }
-        parsedCleanly = true;
-    }
-    catch (err) {
-        debug('Transcript stream read error, returning partial results:', err instanceof Error ? err.message : err);
-    }
-    // Resolve agent completion: prefer queue-operation timestamps (accurate for
-    // background agents), fall back to tool_result timestamps (inline agents).
-    // Status is deferred so background agents show ◐ until they truly finish.
-    for (const [toolUseId, endTime] of queueCompletionMap) {
-        const agent = agentMap.get(toolUseId);
-        if (agent?.background) {
-            agent.endTime = endTime;
-            agent.status = 'completed';
-        }
-    }
-    for (const agent of agentMap.values()) {
-        if (agent.status === 'running' && agent.endTime) {
-            agent.status = 'completed';
-        }
-    }
-    result.tools = Array.from(toolMap.values()).slice(-20);
-    result.skills = Array.from(skillSet.values());
-    result.mcpServers = Array.from(mcpServerSet.values());
-    result.mcpErrors = Array.from(mcpErrorSet.values());
-    result.agents = Array.from(agentMap.values()).slice(-10);
-    result.todos = latestTodos;
-    result.sessionTokens = sessionTokens;
-    result.lastCompactBoundaryAt = lastCompactBoundaryAt;
-    result.lastCompactPostTokens = lastCompactPostTokens;
-    result.contextTokens = contextTokens;
-    result.compactionCount = compactionCount;
-    result.advisorModel = latestAdvisorModel;
-    result.ultracodeActive = latestUltracodeActive;
-    if (parsedCleanly) {
-        writeTranscriptCache(canonicalTranscriptPath, transcriptState, result);
-    }
-    return result;
-}
-export function _setCreateReadStreamForTests(impl) {
-    createReadStreamImpl = impl ?? fs.createReadStream;
-}
-function processEntry(entry, toolMap, skillSet, mcpServerSet, mcpErrorSet, agentMap, taskIdToIndex, latestTodos, result) {
-    const timestamp = entry.timestamp ? new Date(entry.timestamp) : new Date();
-    const hasValidTimestamp = !Number.isNaN(timestamp.getTime());
-    if (!result.sessionStart && entry.timestamp && hasValidTimestamp) {
-        result.sessionStart = timestamp;
-    }
-    if (entry.type === 'assistant' && entry.timestamp && hasValidTimestamp) {
-        result.lastAssistantResponseAt = timestamp;
-    }
-    const content = entry.message?.content;
-    if (!content || !Array.isArray(content))
-        return;
-    for (const block of content) {
-        if (block.type === 'tool_use' && block.id && block.name) {
-            const skillName = block.name === 'Skill'
-                ? normalizeSkillName(block.input?.skill)
-                : undefined;
-            if (skillName) {
-                skillSet.add(skillName);
-            }
-            const mcpServerName = extractMcpServerName(block.name);
-            if (mcpServerName) {
-                mcpServerSet.add(mcpServerName);
-            }
-            const toolEntry = {
-                id: block.id,
-                name: block.name,
-                target: extractTarget(block.name, block.input),
-                status: 'running',
-                startTime: timestamp,
-            };
-            if (block.name === 'Task' || block.name === 'Agent') {
-                const input = block.input;
-                const agentEntry = {
-                    id: block.id,
-                    type: input?.subagent_type ?? 'agent',
-                    model: sanitizeTranscriptModel(input?.model),
-                    description: input?.description ?? undefined,
-                    status: 'running',
-                    startTime: timestamp,
-                    background: input?.run_in_background === true,
-                };
-                agentMap.set(block.id, agentEntry);
-            }
-            else if (block.name === 'TodoWrite') {
-                const input = block.input;
-                if (input?.todos && Array.isArray(input.todos)) {
-                    // Build a FIFO queue of taskIds per content string, ordered by the
-                    // old array position. Two todos that share the same content must
-                    // each get their own taskId back after the rebuild, so we cannot
-                    // collapse duplicates to one index.
-                    const contentToTaskIds = new Map();
-                    const taskIdsByOldIndex = [];
-                    for (const [taskId, idx] of taskIdToIndex) {
-                        if (idx < latestTodos.length) {
-                            taskIdsByOldIndex.push([idx, taskId]);
-                        }
-                    }
-                    taskIdsByOldIndex.sort((a, b) => a[0] - b[0]);
-                    for (const [idx, taskId] of taskIdsByOldIndex) {
-                        const content = latestTodos[idx].content;
-                        const ids = contentToTaskIds.get(content) ?? [];
-                        ids.push(taskId);
-                        contentToTaskIds.set(content, ids);
-                    }
-                    latestTodos.length = 0;
-                    taskIdToIndex.clear();
-                    latestTodos.push(...input.todos);
-                    // Consume one queued taskId per new todo that matches by content,
-                    // so duplicate-content items still each get their own taskId.
-                    for (let i = 0; i < latestTodos.length; i++) {
-                        const ids = contentToTaskIds.get(latestTodos[i].content);
-                        if (ids && ids.length > 0) {
-                            const taskId = ids.shift();
-                            taskIdToIndex.set(taskId, i);
-                            if (ids.length === 0) {
-                                contentToTaskIds.delete(latestTodos[i].content);
-                            }
-                        }
-                    }
-                }
-            }
-            else if (block.name === 'TaskCreate') {
-                const input = block.input;
-                const subject = typeof input?.subject === 'string' ? input.subject : '';
-                const description = typeof input?.description === 'string' ? input.description : '';
-                const content = subject || description || 'Untitled task';
-                const status = normalizeTaskStatus(input?.status) ?? 'pending';
-                latestTodos.push({ content, status });
-                const rawTaskId = input?.taskId;
-                const taskId = typeof rawTaskId === 'string' || typeof rawTaskId === 'number'
-                    ? String(rawTaskId)
-                    : block.id;
-                if (taskId) {
-                    taskIdToIndex.set(taskId, latestTodos.length - 1);
-                }
-            }
-            else if (block.name === 'TaskUpdate') {
-                const input = block.input;
-                const index = resolveTaskIndex(input?.taskId, taskIdToIndex, latestTodos);
-                if (index !== null) {
-                    const status = normalizeTaskStatus(input?.status);
-                    if (status) {
-                        latestTodos[index].status = status;
-                    }
-                    const subject = typeof input?.subject === 'string' ? input.subject : '';
-                    const description = typeof input?.description === 'string' ? input.description : '';
-                    const content = subject || description;
-                    if (content) {
-                        latestTodos[index].content = content;
-                    }
-                }
-            }
-            else {
-                toolMap.set(block.id, toolEntry);
-            }
-        }
-        if (block.type === 'tool_result' && block.tool_use_id) {
-            const tool = toolMap.get(block.tool_use_id);
-            if (tool) {
-                tool.status = block.is_error ? 'error' : 'completed';
-                tool.endTime = timestamp;
-                // Track each server's latest observed result. Tool names are untrusted
-                // transcript data, so reuse the bounded terminal-safe extractor.
-                const mcpServerName = extractMcpServerName(tool.name);
-                if (mcpServerName) {
-                    if (block.is_error) {
-                        if (!mcpErrorSet.has(mcpServerName) && mcpErrorSet.size >= MCP_ERROR_SERVERS_MAX) {
-                            const oldest = mcpErrorSet.values().next().value;
-                            if (oldest !== undefined)
-                                mcpErrorSet.delete(oldest);
-                        }
-                        mcpErrorSet.add(mcpServerName);
-                    }
-                    else {
-                        mcpErrorSet.delete(mcpServerName);
-                    }
-                }
-            }
-            const agent = agentMap.get(block.tool_use_id);
-            if (agent) {
-                // `resolvedModel` is the model the subagent actually ran on, so it wins
-                // over the caller's `model` input (an alias like "opus", and absent
-                // entirely whenever the subagent inherits the session model).
-                const resolvedModel = sanitizeTranscriptModel(entry.toolUseResult?.resolvedModel);
-                if (resolvedModel) {
-                    agent.model = resolvedModel;
-                }
-                if (entry.toolUseResult?.isAsync === true
-                    || entry.toolUseResult?.status === 'async_launched') {
-                    agent.background = true;
-                }
-                if (!agent.background) {
-                    agent.endTime = timestamp;
-                }
-            }
-        }
-    }
-}
-function extractTarget(toolName, input) {
+const mcpServer = (toolName) => name(MCP_TOOL.exec(toolName)?.[1]);
+// Tool inputs are written by the model, so their text is untrusted terminal input.
+const text = (value) => typeof value === 'string' ? sanitizeDisplayText(value) || undefined : undefined;
+function toolTarget(toolName, input) {
     if (!input)
         return undefined;
     switch (toolName) {
         case 'Read':
         case 'Write':
         case 'Edit':
-            return input.file_path ?? input.path;
+            return text(input.file_path ?? input.path);
         case 'Glob':
-            return input.pattern;
         case 'Grep':
-            return input.pattern;
+            return text(input.pattern);
         case 'Skill':
-            return normalizeSkillName(input.skill);
-        case 'Bash':
-            if (typeof input.command !== 'string') {
+            return name(input.skill);
+        case 'Bash': {
+            const command = text(input.command)?.replace(/\s+/g, ' ').trim();
+            if (!command)
                 return undefined;
-            }
-            const cmd = input.command.replace(/\s+/g, ' ').trim();
-            return cmd
-                ? cmd.length > 30
-                    ? `${cmd.slice(0, 30).trimEnd()}...`
-                    : cmd
-                : undefined;
+            return command.length > 30 ? `${command.slice(0, 30).trimEnd()}...` : command;
+        }
     }
     return undefined;
 }
-function normalizeSkillName(value) {
-    return normalizeActivityName(value);
-}
-function extractMcpServerName(toolName) {
-    const match = MCP_TOOL_NAME_PATTERN.exec(toolName);
-    if (!match) {
-        return undefined;
-    }
-    return normalizeActivityName(match[1]);
-}
-function resolveTaskIndex(taskId, taskIdToIndex, latestTodos) {
-    if (typeof taskId === 'string' || typeof taskId === 'number') {
-        const key = String(taskId);
-        const mapped = taskIdToIndex.get(key);
-        if (typeof mapped === 'number') {
-            return mapped;
-        }
-        if (/^\d+$/.test(key)) {
-            const numericIndex = Number.parseInt(key, 10) - 1;
-            if (numericIndex >= 0 && numericIndex < latestTodos.length) {
-                return numericIndex;
-            }
-        }
-    }
-    return null;
-}
-function normalizeTaskStatus(status) {
-    if (typeof status !== 'string')
-        return null;
+function taskStatus(status) {
     switch (status) {
         case 'pending':
         case 'not_started':
@@ -688,5 +70,283 @@ function normalizeTaskStatus(status) {
         default:
             return null;
     }
+}
+function toTodo(value) {
+    const todo = value;
+    const content = text(todo?.content);
+    const status = taskStatus(todo?.status);
+    return content && status ? [{ content, status }] : [];
+}
+class Parser {
+    tools = new Map();
+    agents = new Map();
+    skills = new Set();
+    mcpServers = new Set();
+    mcpErrors = new Set();
+    todos = [];
+    taskIndex = new Map();
+    agentCompletions = new Map();
+    // Claude Code logs one API response several times, sometimes non-adjacently, so usage
+    // is the per-field max per message id. Ids evicted to bound memory settle into `settled`.
+    usageById = new Map();
+    settled = { ...ZERO_USAGE };
+    lastIdlessUsage;
+    data = { ...emptyTranscript(), compactionCount: 0 };
+    line(raw) {
+        let entry = null;
+        try {
+            entry = raw.trim() ? JSON.parse(raw) : null;
+        }
+        catch {
+            // Malformed lines are skipped.
+        }
+        if (!entry || typeof entry !== 'object') {
+            this.lastIdlessUsage = undefined;
+            return;
+        }
+        const time = entry.timestamp ? new Date(entry.timestamp) : null;
+        const at = time && !Number.isNaN(time.getTime()) ? time : null;
+        if (at && !this.data.sessionStart)
+            this.data.sessionStart = at;
+        if (entry.type === 'assistant') {
+            this.assistant(entry, at);
+        }
+        else {
+            this.lastIdlessUsage = undefined;
+        }
+        if (entry.type === 'user' && typeof entry.message?.content === 'string') {
+            const effort = EFFORT_COMMAND.exec(entry.message.content);
+            if (effort)
+                this.data.ultracodeActive = effort[1].toLowerCase() === 'ultracode';
+        }
+        if (entry.type === 'attachment') {
+            if (entry.attachment?.type === 'ultra_effort_enter')
+                this.data.ultracodeActive = true;
+            if (entry.attachment?.type === 'ultra_effort_exit')
+                this.data.ultracodeActive = false;
+        }
+        if (entry.type === 'system' && entry.subtype === 'compact_boundary' && at) {
+            this.data.compactionCount = (this.data.compactionCount ?? 0) + 1;
+            const post = entry.compactMetadata?.postTokens;
+            this.data.contextTokens = typeof post === 'number' && Number.isFinite(post) && post >= 0 ? Math.trunc(post) : undefined;
+        }
+        // A background agent's tool_result lands at launch; its completion is this enqueue.
+        if (entry.type === 'queue-operation' && entry.operation === 'enqueue' && typeof entry.content === 'string' && at) {
+            const toolUseId = /<tool-use-id>([^<]+)<\/tool-use-id>/.exec(entry.content)?.[1];
+            if (toolUseId && /<task-id>[^<]+<\/task-id>/.test(entry.content))
+                this.agentCompletions.set(toolUseId, at);
+        }
+        if (Array.isArray(entry.message?.content)) {
+            for (const block of entry.message.content) {
+                if (block?.type === 'tool_use' && block.id && block.name)
+                    this.toolUse(block, at ?? new Date());
+                if (block?.type === 'tool_result' && block.tool_use_id)
+                    this.toolResult(block, entry, at ?? new Date());
+            }
+        }
+    }
+    assistant(entry, at) {
+        if (at)
+            this.data.lastAssistantResponseAt = at;
+        if (typeof entry.advisorModel === 'string' && entry.advisorModel) {
+            this.data.advisorModel = entry.advisorModel.slice(0, ADVISOR_MODEL_MAX_LEN);
+        }
+        const model = sanitizeTranscriptModel(entry.message?.model);
+        // Claude Code writes '<synthetic>' on assistant records it generates locally.
+        if (model && model !== '<synthetic>')
+            this.data.lastAssistantModel = model;
+        const raw = entry.message?.usage;
+        if (!raw) {
+            this.lastIdlessUsage = undefined;
+            return;
+        }
+        const usage = {
+            inputTokens: count(raw.input_tokens),
+            outputTokens: count(raw.output_tokens),
+            cacheCreationTokens: count(raw.cache_creation_input_tokens),
+            cacheReadTokens: count(raw.cache_read_input_tokens),
+        };
+        if (entry.isSidechain !== true) {
+            this.data.contextTokens = usage.inputTokens + usage.cacheCreationTokens + usage.cacheReadTokens;
+        }
+        const id = entry.message?.id;
+        if (typeof id === 'string' && id && id.length <= MESSAGE_ID_MAX_LEN) {
+            this.lastIdlessUsage = undefined;
+            const previous = this.usageById.get(id);
+            this.usageById.set(id, previous ? maxUsage(previous, usage) : usage);
+            if (this.usageById.size > MESSAGE_IDS_MAX) {
+                const [oldestId, oldest] = this.usageById.entries().next().value;
+                this.usageById.delete(oldestId);
+                addUsage(this.settled, oldest);
+            }
+            return;
+        }
+        // Without an id, only an identical record right after the previous one is a duplicate.
+        const fingerprint = JSON.stringify(usage);
+        if (fingerprint !== this.lastIdlessUsage)
+            addUsage(this.settled, usage);
+        this.lastIdlessUsage = fingerprint;
+    }
+    toolUse(block, at) {
+        const toolName = block.name;
+        const input = block.input;
+        const skill = toolName === 'Skill' ? name(input?.skill) : undefined;
+        if (skill)
+            this.skills.add(skill);
+        const server = mcpServer(toolName);
+        if (server)
+            this.mcpServers.add(server);
+        if (toolName === 'Task' || toolName === 'Agent') {
+            this.agents.set(block.id, {
+                id: block.id,
+                type: input?.subagent_type ?? 'agent',
+                model: sanitizeTranscriptModel(input?.model),
+                description: input?.description ?? undefined,
+                status: 'running',
+                startTime: at,
+                background: input?.run_in_background === true,
+            });
+        }
+        else if (toolName === 'TodoWrite') {
+            if (Array.isArray(input?.todos))
+                this.replaceTodos(input.todos.flatMap(toTodo));
+        }
+        else if (toolName === 'TaskCreate') {
+            const content = text(input?.subject) ?? text(input?.description);
+            this.todos.push({ content: content ?? 'Untitled task', status: taskStatus(input?.status) ?? 'pending' });
+            const taskId = typeof input?.taskId === 'string' || typeof input?.taskId === 'number' ? String(input.taskId) : block.id;
+            if (taskId)
+                this.taskIndex.set(taskId, this.todos.length - 1);
+        }
+        else if (toolName === 'TaskUpdate') {
+            const todo = this.todos[this.findTask(input?.taskId) ?? -1];
+            if (!todo)
+                return;
+            const status = taskStatus(input?.status);
+            if (status)
+                todo.status = status;
+            const content = text(input?.subject) ?? text(input?.description);
+            if (content)
+                todo.content = content;
+        }
+        else {
+            this.tools.set(block.id, {
+                id: block.id,
+                name: toolName,
+                target: toolTarget(toolName, input),
+                status: 'running',
+                startTime: at,
+            });
+        }
+    }
+    toolResult(block, entry, at) {
+        const id = block.tool_use_id;
+        const tool = this.tools.get(id);
+        if (tool) {
+            tool.status = block.is_error ? 'error' : 'completed';
+            tool.endTime = at;
+            const server = mcpServer(tool.name);
+            if (server && block.is_error) {
+                this.mcpErrors.add(server);
+                if (this.mcpErrors.size > MCP_ERRORS_MAX)
+                    this.mcpErrors.delete(this.mcpErrors.values().next().value);
+            }
+            else if (server) {
+                this.mcpErrors.delete(server);
+            }
+        }
+        const agent = this.agents.get(id);
+        if (agent) {
+            // resolvedModel is what the subagent actually ran on, so it beats the caller's alias.
+            agent.model = sanitizeTranscriptModel(entry.toolUseResult?.resolvedModel) ?? agent.model;
+            if (entry.toolUseResult?.isAsync === true || entry.toolUseResult?.status === 'async_launched') {
+                agent.background = true;
+            }
+            if (!agent.background)
+                agent.endTime = at;
+        }
+    }
+    // TodoWrite replaces the list; TaskCreate ids follow their todo by content, in order,
+    // so duplicate-content todos each keep their own id.
+    replaceTodos(next) {
+        const idsByContent = new Map();
+        for (const [taskId, index] of [...this.taskIndex].sort((a, b) => a[1] - b[1])) {
+            const content = this.todos[index]?.content;
+            if (content === undefined)
+                continue;
+            idsByContent.set(content, [...(idsByContent.get(content) ?? []), taskId]);
+        }
+        this.todos = [...next];
+        this.taskIndex.clear();
+        this.todos.forEach((todo, index) => {
+            const taskId = idsByContent.get(todo.content)?.shift();
+            if (taskId)
+                this.taskIndex.set(taskId, index);
+        });
+    }
+    // TaskUpdate names a task by the id TaskCreate returned, or by its 1-based position.
+    findTask(taskId) {
+        if (typeof taskId !== 'string' && typeof taskId !== 'number')
+            return null;
+        const key = String(taskId);
+        const mapped = this.taskIndex.get(key);
+        if (mapped !== undefined)
+            return mapped;
+        const position = /^\d+$/.test(key) ? Number(key) - 1 : -1;
+        return position >= 0 && position < this.todos.length ? position : null;
+    }
+    finish() {
+        for (const [id, endTime] of this.agentCompletions) {
+            const agent = this.agents.get(id);
+            if (agent?.background)
+                agent.endTime = endTime;
+        }
+        for (const agent of this.agents.values()) {
+            if (agent.endTime)
+                agent.status = 'completed';
+        }
+        const sessionTokens = { ...this.settled };
+        for (const usage of this.usageById.values())
+            addUsage(sessionTokens, usage);
+        return {
+            ...this.data,
+            tools: [...this.tools.values()].slice(-TOOLS_KEPT),
+            agents: [...this.agents.values()].slice(-AGENTS_KEPT),
+            skills: [...this.skills],
+            mcpServers: [...this.mcpServers],
+            mcpErrors: [...this.mcpErrors],
+            todos: this.todos,
+            sessionTokens,
+        };
+    }
+}
+function maxUsage(a, b) {
+    return {
+        inputTokens: Math.max(a.inputTokens, b.inputTokens),
+        outputTokens: Math.max(a.outputTokens, b.outputTokens),
+        cacheCreationTokens: Math.max(a.cacheCreationTokens, b.cacheCreationTokens),
+        cacheReadTokens: Math.max(a.cacheReadTokens, b.cacheReadTokens),
+    };
+}
+export async function parseTranscript(transcriptPath) {
+    try {
+        if (!transcriptPath || !fs.statSync(transcriptPath).isFile())
+            return emptyTranscript();
+    }
+    catch {
+        return emptyTranscript();
+    }
+    const parser = new Parser();
+    try {
+        const input = fs.createReadStream(transcriptPath);
+        for await (const raw of readline.createInterface({ input, crlfDelay: Infinity })) {
+            parser.line(raw);
+        }
+    }
+    catch (err) {
+        // A read cut short still renders what was parsed.
+        debug('Transcript read failed:', err instanceof Error ? err.message : err);
+    }
+    return parser.finish();
 }
 //# sourceMappingURL=transcript.js.map
