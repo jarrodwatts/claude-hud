@@ -14,7 +14,7 @@ import { applyContextWindowFallback } from "./context-cache.js";
 import { getUsageFromExternalSnapshot, writeExternalUsageSnapshot } from "./external-usage.js";
 import { setLanguage, t } from "./i18n/index.js";
 import type { RenderContext } from "./types.js";
-import type { GitStatus } from "./git.js";
+import type { GitRepoIdentity, GitStatus } from "./git.js";
 import type { HudConfig } from "./config.js";
 
 export { getUsageFromExternalSnapshot, writeExternalUsageSnapshot } from "./external-usage.js";
@@ -66,6 +66,7 @@ export async function resolveVcsStatus(
   deps: Pick<MainDeps, "getGitStatus" | "getJjStatus" | "isJjRepo">,
   config: HudConfig,
   cwd?: string,
+  repo?: GitRepoIdentity | null,
 ): Promise<GitStatus | null> {
   if (!cwd) return null;
   if (config.jjStatus.enabled && deps.isJjRepo(cwd)) {
@@ -73,7 +74,7 @@ export async function resolveVcsStatus(
     if (jjStatus) return jjStatus;
   }
   if (config.gitStatus.enabled) {
-    return deps.getGitStatus(cwd);
+    return deps.getGitStatus(cwd, { lineDiffs: config.gitStatus.showFileStats, repo });
   }
   return null;
 }
@@ -136,7 +137,7 @@ export async function main(overrides: Partial<MainDeps> = {}): Promise<void> {
 
     const config = await deps.loadConfig();
     setLanguage(config.language);
-    const gitStatus = await resolveVcsStatus(deps, config, stdin.cwd);
+    const gitStatus = await resolveVcsStatus(deps, config, stdin.cwd, stdin.workspace?.repo);
 
     let usageData: RenderContext["usageData"] = null;
     const shouldReadUsage = config.display.showUsage !== false;

@@ -1,60 +1,36 @@
 import type { Language } from './i18n/types.js';
-export type LineLayoutType = 'compact' | 'expanded';
-export type AutocompactBufferMode = 'enabled' | 'disabled';
-export type ContextValueMode = 'percent' | 'tokens' | 'remaining' | 'both';
-export type UsageValueMode = 'percent' | 'remaining';
-export type GitBranchOverflowMode = 'truncate' | 'wrap';
-/**
- * Controls how the model name is displayed in the HUD badge.
- *
- *   full:    Show the raw display name as-is (e.g. "Opus 4.6 (1M context)")
- *   compact: Strip redundant context-window suffix (e.g. "Opus 4.6")
- *   short:   Strip context suffix AND "Claude " prefix (e.g. "Opus 4.6")
- */
-export type ModelFormatMode = 'full' | 'compact' | 'short';
-/**
- * Controls how the reasoning effort renders in the model badge when
- * `display.showEffortLevel` is enabled.
- *
- *   full:   Symbol + level text (e.g. "◑ high"); default, matches the
- *           pre-option output byte-for-byte
- *   symbol: Symbol only (e.g. "◑"). Ultracode keeps the full form because its
- *           marker lives in the level text, and levels without a known symbol
- *           fall back to the level text
- *   text:   Level text only (e.g. "high")
- */
-export type EffortFormatMode = 'full' | 'symbol' | 'text';
-export type TimeFormatMode = 'relative' | 'absolute' | 'both' | 'elapsed' | 'elapsedAndAbsolute';
-export type CustomLinePosition = 'first' | 'last';
-export type HourCycleMode = 'auto' | 'h11' | 'h12' | 'h23' | 'h24';
-/**
- * Controls how many directory segments of cwd are shown in the project badge.
- *
- *   1 | 2 | 3: Show the last N segments (e.g. 2 -> "ai_workspace/knowledge-forge")
- *   'full':    Show the entire absolute path from root (e.g. "/Users/name/…")
- */
-export type PathLevels = 1 | 2 | 3 | 'full';
-export type HudElement = 'project' | 'addedDirs' | 'context' | 'usage' | 'promptCache' | 'cacheHitRate' | 'memory' | 'environment' | 'tools' | 'skills' | 'mcp' | 'agents' | 'todos' | 'sessionTime';
-/**
- * Coarse, orderable segments of the first HUD line (the identity/project
- * line). Shared by the expanded project line and the compact session line:
- *
- *   model:       provider + model badge + effort (compact mode also keeps the
- *                context bar attached to this segment)
- *   project:     project path + added dirs + git status (kept as one segment)
- *   advisor:     advisor model label
- *   sessionName: session title from /rename
- *   version:     Claude Code version
- *   extra:       extra-cmd custom label
- *   duration:    session duration
- *   cost:        session cost estimate
- *   speed:       output speed
- *   auth:        auth method / account
- */
-export type FirstLineSegment = 'model' | 'project' | 'advisor' | 'sessionName' | 'version' | 'extra' | 'duration' | 'cost' | 'speed' | 'auth';
-export type AddedDirsLayout = 'inline' | 'line';
-export type HudColorName = 'dim' | 'red' | 'green' | 'yellow' | 'magenta' | 'cyan' | 'brightBlue' | 'brightMagenta';
-/** A color value: named preset, 256-color index (0-255), or hex string (#rrggbb). */
+declare const LINE_LAYOUTS: readonly ['compact', 'expanded'];
+declare const PATH_LEVELS: readonly [1, 2, 3, 'full'];
+declare const AUTOCOMPACT_BUFFER_MODES: readonly ['enabled', 'disabled'];
+declare const CONTEXT_VALUE_MODES: readonly ['percent', 'tokens', 'remaining', 'both'];
+declare const USAGE_VALUE_MODES: readonly ['percent', 'remaining'];
+declare const GIT_BRANCH_OVERFLOW_MODES: readonly ['truncate', 'wrap'];
+declare const MODEL_FORMATS: readonly ['full', 'compact', 'short'];
+declare const MODEL_SOURCES: readonly ['auto', 'stdin', 'transcript'];
+declare const EFFORT_FORMATS: readonly ['full', 'symbol', 'text'];
+declare const TIME_FORMATS: readonly ['relative', 'absolute', 'both', 'elapsed', 'elapsedAndAbsolute'];
+declare const HOUR_CYCLES: readonly ['auto', 'h11', 'h12', 'h23', 'h24'];
+declare const CUSTOM_LINE_POSITIONS: readonly ['first', 'last'];
+declare const ADDED_DIRS_LAYOUTS: readonly ['inline', 'line'];
+declare const COLOR_NAMES: readonly ['dim', 'red', 'green', 'yellow', 'magenta', 'cyan', 'brightBlue', 'brightMagenta'];
+declare const ELEMENTS: readonly ['project', 'addedDirs', 'context', 'usage', 'promptCache', 'cacheHitRate', 'memory', 'environment', 'tools', 'skills', 'mcp', 'agents', 'todos', 'sessionTime'];
+declare const FIRST_LINE_SEGMENTS: readonly ['model', 'project', 'advisor', 'sessionName', 'version', 'extra', 'duration', 'cost', 'speed', 'auth'];
+export type LineLayoutType = typeof LINE_LAYOUTS[number];
+export type PathLevels = typeof PATH_LEVELS[number];
+export type AutocompactBufferMode = typeof AUTOCOMPACT_BUFFER_MODES[number];
+export type ContextValueMode = typeof CONTEXT_VALUE_MODES[number];
+export type UsageValueMode = typeof USAGE_VALUE_MODES[number];
+export type GitBranchOverflowMode = typeof GIT_BRANCH_OVERFLOW_MODES[number];
+export type ModelFormatMode = typeof MODEL_FORMATS[number];
+export type EffortFormatMode = typeof EFFORT_FORMATS[number];
+export type TimeFormatMode = typeof TIME_FORMATS[number];
+export type HourCycleMode = typeof HOUR_CYCLES[number];
+export type CustomLinePosition = typeof CUSTOM_LINE_POSITIONS[number];
+export type AddedDirsLayout = typeof ADDED_DIRS_LAYOUTS[number];
+export type HudColorName = typeof COLOR_NAMES[number];
+export type HudElement = typeof ELEMENTS[number];
+export type FirstLineSegment = typeof FIRST_LINE_SEGMENTS[number];
+/** A named preset, a 256-color index (0-255), or a #rrggbb hex string. */
 export type HudColorValue = HudColorName | number | string;
 export interface HudColorOverrides {
     context: HudColorValue;
@@ -157,7 +133,7 @@ export interface HudConfig {
         externalUsageFreshnessMs: number;
         modelFormat: ModelFormatMode;
         modelOverride: string;
-        modelSource: 'auto' | 'stdin' | 'transcript';
+        modelSource: typeof MODEL_SOURCES[number];
         showProvider: boolean;
         providerName: string;
         customLine: string;
@@ -173,16 +149,8 @@ export interface HudConfig {
 }
 export declare const DEFAULT_CONFIG: HudConfig;
 export declare function getConfigPath(): string;
-/**
- * Optional per-config-directory overrides, layered on top of the main config.
- *
- * Users who run several Claude config directories side by side (via
- * CLAUDE_CONFIG_DIR) commonly symlink `plugins/` to one shared location, which
- * makes `plugins/claude-hud/config.json` the very same physical file for every
- * directory. This file lives outside `plugins/`, so it stays per-directory and
- * can override any part of the shared config.
- */
 export declare function getConfigOverridePath(): string;
 export declare function mergeConfig(userConfig: Partial<HudConfig>): HudConfig;
 export declare function loadConfig(): Promise<HudConfig>;
+export {};
 //# sourceMappingURL=config.d.ts.map

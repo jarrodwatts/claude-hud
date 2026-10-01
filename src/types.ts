@@ -1,5 +1,5 @@
 import type { HudConfig } from './config.js';
-import type { GitStatus } from './git.js';
+import type { GitRepoIdentity, GitStatus } from './git.js';
 import type { AuthInfo } from './auth.js';
 
 export interface StdinData {
@@ -12,6 +12,7 @@ export interface StdinData {
     project_dir?: string;
     added_dirs?: string[];
     git_worktree?: string;
+    repo?: GitRepoIdentity;
   } | null;
   model?: {
     id?: string;
