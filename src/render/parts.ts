@@ -30,7 +30,7 @@ function effortSuffix(f: Frame): string {
 /** `[Opus 5.5 ◑ high | Bedrock]`, or with the provider first when showProvider is on. */
 export function modelBadge(f: Frame): string {
   const display = f.config?.display;
-  const name = formatModelName(resolveModelName(f.stdin, f.transcript, display?.modelSource), display?.modelFormat, display?.modelOverride);
+  const name = sanitizeDisplayText(formatModelName(resolveModelName(f.stdin, f.transcript, display?.modelSource), display?.modelFormat, display?.modelOverride));
   const core = `${name}${effortSuffix(f)}`;
   const provider = getProviderLabel(f.stdin);
   let text = provider ? `${core} | ${provider}` : core;

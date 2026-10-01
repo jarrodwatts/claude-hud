@@ -7,14 +7,15 @@ import { cyan, green, label, magenta, yellow } from './colors.js';
 
 export type ActivityElement = 'tools' | 'skills' | 'mcp' | 'agents' | 'todos';
 
-function shortenToolName(name: string, maxLength: number): string {
+function shortenToolName(rawName: string, maxLength: number): string {
+  const name = sanitizeDisplayText(rawName);
   if (maxLength === 0) return name;
   const shown = /^mcp__.+__.+$/.test(name) ? name.split('__').pop() ?? name : name;
   return shown.length <= maxLength ? shown : `${shown.slice(0, Math.max(0, maxLength - 1))}…`;
 }
 
 function shortenPath(target: string, maxLength = 20): string {
-  const normalized = target.replace(/\\/g, '/');
+  const normalized = sanitizeDisplayText(target).replace(/\\/g, '/');
   if (normalized.length <= maxLength) return normalized;
   const filename = normalized.split('/').pop() || normalized;
   return filename.length >= maxLength ? `${filename.slice(0, maxLength - 3)}...` : `.../${filename}`;
@@ -126,7 +127,7 @@ function todosLine(f: Frame): string | null {
   const completed = todos.filter((todo) => todo.status === 'completed').length;
   const progress = label(`(${completed}/${todos.length})`, colors);
   const current = todos.find((todo) => todo.status === 'in_progress');
-  if (current) return `${yellow('▸')} ${truncateString(current.content, 50)} ${progress}`;
+  if (current) return `${yellow('▸')} ${truncateString(sanitizeDisplayText(current.content), 50)} ${progress}`;
   return completed === todos.length ? `${green('✓')} ${t('status.allTodosComplete')} ${progress}` : null;
 }
 
