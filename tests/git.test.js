@@ -230,6 +230,46 @@ test('getGitStatus returns UTF-8 filenames when core.quotePath is true', async (
   }
 });
 
+test('getGitStatus decodes C-quoted tracked paths', {
+  skip: process.platform === 'win32' ? 'Windows filenames cannot contain control characters, " or \\' : false,
+}, async () => {
+  const dir = await mkdtemp(path.join(tmpdir(), 'claude-hud-git-'));
+  try {
+    execFileSync('git', ['init'], { cwd: dir, stdio: 'ignore' });
+    execFileSync('git', ['config', 'user.email', 'test@test.com'], { cwd: dir, stdio: 'ignore' });
+    execFileSync('git', ['config', 'user.name', 'Test'], { cwd: dir, stdio: 'ignore' });
+    execFileSync('git', ['config', 'commit.gpgsign', 'false'], { cwd: dir, stdio: 'ignore' });
+
+    const fileNames = [
+      'esc\x1b-del\x7f-日本.txt',
+      'bell\x07-vtab\x0b.txt',
+      'quote".and-backslash\\.txt',
+    ];
+    for (const fileName of fileNames) {
+      await writeFile(path.join(dir, fileName), 'one\n');
+    }
+    execFileSync('git', ['add', '--', ...fileNames], { cwd: dir, stdio: 'ignore' });
+    execFileSync('git', ['commit', '-m', 'add quoted paths'], { cwd: dir, stdio: 'ignore' });
+    for (const fileName of fileNames) {
+      await writeFile(path.join(dir, fileName), 'one\ntwo\n');
+    }
+
+    const porcelain = execFileSync(
+      'git', ['-c', 'core.quotePath=false', 'status', '--porcelain'],
+      { cwd: dir, encoding: 'utf8' }
+    );
+    for (const escape of ['\\033', '\\177', '\\a', '\\v', '\\"', '\\\\']) {
+      assert.ok(porcelain.includes(escape), `expected git to emit ${escape}, got ${JSON.stringify(porcelain)}`);
+    }
+
+    const result = await getGitStatus(dir);
+    const tracked = result?.fileStats?.trackedFiles ?? [];
+    assert.deepEqual(tracked.map((file) => file.fullPath).sort(), [...fileNames].sort());
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
+});
+
 test('getGitStatus counts staged added files', async () => {
   const dir = await mkdtemp(path.join(tmpdir(), 'claude-hud-git-'));
   try {

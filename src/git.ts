@@ -238,13 +238,20 @@ function parseFileStats(porcelainOutput: string): FileStats {
   return stats;
 }
 
+const C_ESCAPES: Record<string, string> = { a: '\x07', b: '\b', f: '\f', n: '\n', r: '\r', t: '\t', v: '\v' };
+
+// Undo git's quote_c_style. Octal escapes are bytes, so decode runs of them as UTF-8.
+function unquoteCStyle(body: string): string {
+  return body.replace(/(?:\\[0-7]{3})+|\\(.)/g, (match, escaped?: string) => {
+    if (escaped !== undefined) return C_ESCAPES[escaped] ?? escaped;
+    const bytes = match.slice(1).split('\\').map((octal) => parseInt(octal, 8));
+    return Buffer.from(bytes).toString('utf8');
+  });
+}
+
 function parsePorcelainPath(pathField: string): string {
-  if (pathField.startsWith('"') && pathField.endsWith('"')) {
-    try {
-      return JSON.parse(pathField);
-    } catch {
-      return pathField.slice(1, -1);
-    }
+  if (pathField.length >= 2 && pathField.startsWith('"') && pathField.endsWith('"')) {
+    return unquoteCStyle(pathField.slice(1, -1));
   }
 
   return pathField;

@@ -2,7 +2,7 @@ import { isLimitReached } from "../../types.js";
 import { shouldHideUsage } from "../../stdin.js";
 import { critical, label, getQuotaColor, quotaBar, RESET } from "../colors.js";
 import { getAdaptiveBarWidth } from "../../utils/terminal.js";
-import { t } from "../../i18n/index.js";
+import { t, interpolate } from "../../i18n/index.js";
 import { progressLabel, } from "./label-align.js";
 import { formatResetTime } from "../format-reset-time.js";
 const FIVE_HOUR_WINDOW_MS = 5 * 60 * 60 * 1000;
@@ -243,6 +243,6 @@ function formatElapsedWindow(resetAt, windowMs) {
     const windowStart = resetAt.getTime() - windowMs;
     const rawElapsed = ((Date.now() - windowStart) / windowMs) * 100;
     const elapsed = Math.max(0, Math.min(100, Math.round(rawElapsed)));
-    return `${elapsed}% elapsed`;
+    return interpolate(t("format.elapsed"), { value: elapsed });
 }
 //# sourceMappingURL=usage.js.map

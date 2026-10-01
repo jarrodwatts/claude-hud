@@ -92,6 +92,7 @@ export const DEFAULT_CONFIG = {
         showMcp: false,
         toolNameMaxLength: 0,
         toolsMaxVisible: 4,
+        skillsMaxVisible: 4,
         showAgents: false,
         showTodos: false,
         showSessionName: false,
@@ -537,6 +538,7 @@ export function mergeConfig(userConfig) {
             : DEFAULT_CONFIG.display.showMcp,
         toolNameMaxLength: validateNonNegativeInteger(migrated.display?.toolNameMaxLength, DEFAULT_CONFIG.display.toolNameMaxLength),
         toolsMaxVisible: validateNonNegativeInteger(migrated.display?.toolsMaxVisible, DEFAULT_CONFIG.display.toolsMaxVisible),
+        skillsMaxVisible: validateNonNegativeInteger(migrated.display?.skillsMaxVisible, DEFAULT_CONFIG.display.skillsMaxVisible),
         showAgents: typeof migrated.display?.showAgents === 'boolean'
             ? migrated.display.showAgents
             : DEFAULT_CONFIG.display.showAgents,

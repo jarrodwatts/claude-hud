@@ -122,6 +122,7 @@ export interface HudConfig {
         showMcp: boolean;
         toolNameMaxLength: number;
         toolsMaxVisible: number;
+        skillsMaxVisible: number;
         showAgents: boolean;
         showTodos: boolean;
         showSessionName: boolean;
