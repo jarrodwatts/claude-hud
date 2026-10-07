@@ -184,6 +184,16 @@ test('agents report the resolved model, and background agents finish at their qu
   assert.deepEqual([async.type, async.background, async.status], ['agent', true, 'running'], 'needs a task-id to complete');
 });
 
+test('a notification missing <tool-use-id> still completes its agent via the launch agentId', async () => {
+  const r = await parse([
+    toolUse('fork1', 'Agent', { subagent_type: 'fork' }, '2026-10-01T00:00:01.000Z'),
+    toolResult('fork1', { timestamp: '2026-10-01T00:00:02.000Z', toolUseResult: { status: 'async_launched', agentId: 'a1b2c3' } }),
+    { type: 'queue-operation', operation: 'enqueue', timestamp: '2026-10-01T00:01:00.000Z', content: '<task-notification>\n<task-id>a1b2c3</task-id>\n<output-file>...</output-file>\n<status>completed</status>\n</task-notification>' },
+  ]);
+  const [fork1] = r.agents;
+  assert.deepEqual([fork1.background, fork1.status, fork1.endTime?.toISOString()], [true, 'completed', '2026-10-01T00:01:00.000Z']);
+});
+
 test('TaskCreate ids survive TodoWrite rewrites, including duplicate content', async () => {
   const r = await parse([
     toolUse('c1', 'TaskCreate', { subject: 'Ship', taskId: 'task-a' }),
