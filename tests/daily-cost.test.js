@@ -3,7 +3,9 @@ import assert from 'node:assert/strict';
 import * as fs from 'node:fs';
 import { mkdtemp, rm } from 'node:fs/promises';
 import path from 'node:path';
+import { spawn } from 'node:child_process';
 import { tmpdir } from 'node:os';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 import {
   getCostTotals,
   getDailyCostLedgerPath,
@@ -201,4 +203,95 @@ test('weekly total stays null until the 7-day reset time is known', () => {
     deps(NOON + 2000),
   );
   assert.equal(withWindow.weekUsd, 2.0);
+});
+
+// Runs getCostTotals in its own process. With `stallMs`, the process pauses right after it
+// reads the ledger, which is how another process gets to commit in the middle of its update.
+const CHILD_SOURCE = `
+import fs from 'node:fs';
+import { syncBuiltinESMExports } from 'node:module';
+const { getCostTotals, getDailyCostLedgerPath } = await import(process.env.HUD_MODULE);
+const home = process.env.HUD_HOME;
+const stallMs = Number(process.env.HUD_STALL_MS);
+if (stallMs > 0) {
+  const ledgerPath = getDailyCostLedgerPath(home);
+  const read = fs.readFileSync;
+  fs.readFileSync = function (name, ...args) {
+    const snapshot = read.call(this, name, ...args);
+    if (name === ledgerPath) {
+      console.log('read');
+      Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, stallMs);
+    }
+    return snapshot;
+  };
+  syncBuiltinESMExports();
+}
+getCostTotals(
+  { session_id: process.env.HUD_SESSION, cost: { total_cost_usd: Number(process.env.HUD_COST) } },
+  undefined,
+  { homeDir: () => home, now: () => Number(process.env.HUD_NOW) },
+);
+`;
+
+function childProcess(session, cost, nowMs, stallMs = 0) {
+  const modulePath = fileURLToPath(new URL('../dist/daily-cost.js', import.meta.url));
+  return spawn(process.execPath, ['--input-type=module', '-e', CHILD_SOURCE], {
+    env: {
+      ...process.env,
+      HUD_MODULE: pathToFileURL(modulePath).href,
+      HUD_HOME: homeDir,
+      HUD_SESSION: session,
+      HUD_COST: String(cost),
+      HUD_NOW: String(nowMs),
+      HUD_STALL_MS: String(stallMs),
+    },
+    stdio: ['ignore', 'pipe', 'inherit'],
+  });
+}
+
+const exited = (child) =>
+  new Promise((resolve, reject) => {
+    child.on('error', reject);
+    child.on('exit', (code) => (code === 0 ? resolve() : reject(new Error(`child exited with ${code}`))));
+  });
+
+test('a session recorded while another process is mid-update keeps its baseline', async () => {
+  getCostTotals({ session_id: 'seed', cost: { total_cost_usd: 0 } }, undefined, deps(NOON));
+
+  // B reads the ledger, then stalls. A updates the ledger while B is stalled.
+  const b = childProcess('b', 2, NOON + 2000, 400);
+  await new Promise((resolve) => b.stdout.once('data', resolve));
+  const a = childProcess('a', 1, NOON + 1000);
+  await Promise.all([exited(a), exited(b)]);
+
+  const sessions = readLedger().sessions;
+  assert.equal(sessions.a?.baseline, 1);
+  assert.equal(sessions.b?.baseline, 2);
+
+  // A's next render counts only what it spent after the baseline.
+  assert.equal(todayUsd({ session_id: 'a', cost: { total_cost_usd: 3 } }, undefined, deps(NOON + 3000)), 2);
+});
+
+test('many processes updating at once all end up in the ledger', async () => {
+  getCostTotals({ session_id: 'seed', cost: { total_cost_usd: 0 } }, undefined, deps(NOON));
+
+  const ids = Array.from({ length: 8 }, (_, i) => `s${i}`);
+  await Promise.all(ids.map((id, i) => exited(childProcess(id, i + 1, NOON + 1000 + i))));
+
+  const sessions = readLedger().sessions;
+  for (const [i, id] of ids.entries()) assert.equal(sessions[id]?.baseline, i + 1, id);
+  assert.deepEqual(fs.readdirSync(path.dirname(getDailyCostLedgerPath(homeDir))).sort(), ['daily-cost.json']);
+});
+
+test('a lock left behind by a crashed process does not block updates', () => {
+  const ledgerPath = getDailyCostLedgerPath(homeDir);
+  fs.mkdirSync(path.dirname(ledgerPath), { recursive: true });
+  const lockPath = `${ledgerPath}.lock`;
+  fs.writeFileSync(lockPath, '');
+  const old = new Date(Date.now() - 60_000);
+  fs.utimesSync(lockPath, old, old);
+
+  assert.equal(todayUsd({ session_id: 'a', cost: { total_cost_usd: 1 } }, undefined, deps(NOON)), 0);
+  assert.equal(readLedger().sessions.a.baseline, 1);
+  assert.equal(fs.existsSync(lockPath), false);
 });
