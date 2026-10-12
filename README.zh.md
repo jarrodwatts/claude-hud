@@ -191,7 +191,7 @@ Claude HUD 是一个[状态栏](https://code.claude.com/docs/en/statusline)命�
 
 ### 使用率限制
 
-只要 Claude Code 发送了订阅用户的 `rate_limits`（会话中首个响应之后），就会显示使用率。API key、Bedrock 和 Vertex 会话没有订阅用户限额，因此不显示。7 天窗口在超过 `display.sevenDayThreshold` 后出现：
+只要 Claude Code 发送了订阅用户的 `rate_limits`（会话中首个响应之后），就会显示使用率。API key、Bedrock 和 Vertex 会话没有订阅用户限额，因此不显示。7 天窗口在超过 `display.sevenDayThreshold` 后出现。若某次刷新只带了两个窗口中的一个，另一个会沿用 Claude Code 上次发来的值直到该窗口重置，这样这一行不会在 `5h` 和 `Weekly` 之间来回切换：
 
 ```
 Context █████░░░░░ 45% │ Usage ██░░░░░░░░ 25% (resets in 1h 30m) | Weekly █████████░ 85% (resets in 1d)

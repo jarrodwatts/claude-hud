@@ -191,7 +191,7 @@ Colors accept a name (`dim`, `red`, `green`, `yellow`, `magenta`, `cyan`, `brigh
 
 ### Usage Limits
 
-Usage shows whenever Claude Code sends subscriber `rate_limits`, which is after the first response of a session. API-key, Bedrock, and Vertex sessions have no subscriber limits, so it stays hidden. The 7-day window appears once it passes `display.sevenDayThreshold`:
+Usage shows whenever Claude Code sends subscriber `rate_limits`, which is after the first response of a session. API-key, Bedrock, and Vertex sessions have no subscriber limits, so it stays hidden. The 7-day window appears once it passes `display.sevenDayThreshold`. A refresh that carries only one of the two windows keeps the other at the last value Claude Code sent, until that window resets, so the line doesn't flip between `5h` and `Weekly`:
 
 ```
 Context █████░░░░░ 45% │ Usage ██░░░░░░░░ 25% (resets in 1h 30m) | Weekly █████████░ 85% (resets in 1d)
