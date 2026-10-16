@@ -22,15 +22,6 @@ Inside Claude Code, run:
 
 `/claude-hud:setup` points your status line at the HUD. Claude Code reloads settings on its own, so the HUD appears right away. To customize it, ask Claude or run `/claude-hud:configure`.
 
-**Updates:** Claude Code doesn't auto-update third-party plugins by default. To turn it on, run `/plugin`, open **Marketplaces**, select **claude-hud**, and choose **Enable auto-update**. Or update by hand from the terminal:
-
-```bash
-claude plugin marketplace update claude-hud
-claude plugin update claude-hud@claude-hud
-```
-
-Then run `/reload-plugins` in any open session. You don't need to run setup again.
-
 <details>
 <summary><strong>Prefer the terminal?</strong></summary>
 
@@ -49,6 +40,15 @@ Then run `/reload-plugins` and `/claude-hud:setup` inside a session.
 Install Node.js LTS (`winget install OpenJS.NodeJS.LTS`), restart your shell, and run `/claude-hud:setup` again.
 
 </details>
+
+**Updates:** Claude Code doesn't auto-update third-party plugins by default. To turn it on, run `/plugin`, open **Marketplaces**, select **claude-hud**, and choose **Enable auto-update**. If that option isn't there, or updates don't arrive, update by hand from the terminal:
+
+```bash
+claude plugin marketplace update claude-hud
+claude plugin update claude-hud@claude-hud
+```
+
+Then run `/reload-plugins` in any open session. You don't need to run setup again.
 
 ## What You See
 

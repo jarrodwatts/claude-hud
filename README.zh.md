@@ -22,15 +22,6 @@
 
 `/claude-hud:setup` 会把状态栏指向 HUD。Claude Code 会自动重新加载设置，HUD 会立即出现。想要自定义，直接告诉 Claude，或运行 `/claude-hud:configure`。
 
-**更新：** 默认情况下，Claude Code 不会自动更新第三方插件。要开启自动更新，运行 `/plugin`，打开 **Marketplaces**，选择 **claude-hud**，然后选择 **Enable auto-update**。也可以在终端中手动更新：
-
-```bash
-claude plugin marketplace update claude-hud
-claude plugin update claude-hud@claude-hud
-```
-
-然后在已打开的会话中运行 `/reload-plugins`。无需再次运行 setup。
-
 <details>
 <summary><strong>更喜欢用终端？</strong></summary>
 
@@ -49,6 +40,15 @@ claude plugin install claude-hud@claude-hud
 安装 Node.js LTS（`winget install OpenJS.NodeJS.LTS`），重启 shell，然后再次运行 `/claude-hud:setup`。
 
 </details>
+
+**更新：** 默认情况下，Claude Code 不会自动更新第三方插件。要开启自动更新，运行 `/plugin`，打开 **Marketplaces**，选择 **claude-hud**，然后选择 **Enable auto-update**。如果没有这个选项，或者收不到更新，可以在终端中手动更新：
+
+```bash
+claude plugin marketplace update claude-hud
+claude plugin update claude-hud@claude-hud
+```
+
+然后在已打开的会话中运行 `/reload-plugins`。无需再次运行 setup。
 
 ## 显示效果
 
