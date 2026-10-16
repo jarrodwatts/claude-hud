@@ -29,7 +29,7 @@ claude plugin marketplace update claude-hud
 claude plugin update claude-hud@claude-hud
 ```
 
-You never need to run setup again after an update.
+Then run `/reload-plugins` in any open session. You don't need to run setup again.
 
 <details>
 <summary><strong>Prefer the terminal?</strong></summary>

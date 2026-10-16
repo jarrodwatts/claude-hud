@@ -29,7 +29,7 @@ claude plugin marketplace update claude-hud
 claude plugin update claude-hud@claude-hud
 ```
 
-更新后无需再次运行 setup。
+然后在已打开的会话中运行 `/reload-plugins`。无需再次运行 setup。
 
 <details>
 <summary><strong>更喜欢用终端？</strong></summary>
