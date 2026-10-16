@@ -22,7 +22,7 @@
 
 `/claude-hud:setup` 会把状态栏指向 HUD。Claude Code 会自动重新加载设置，HUD 会立即出现。想要自定义，直接告诉 Claude，或运行 `/claude-hud:configure`。
 
-**保持更新：** 默认情况下，Claude Code 只会自动更新 Anthropic 官方市场中的插件。想要自动获取 claude-hud 的修复，运行 `/plugin`，打开 **Marketplaces**，选择 **claude-hud**，然后选择 **Enable auto-update**。也可以随时手动运行 `/plugin marketplace update claude-hud` 进行更新。更新后无需再次运行 setup。
+**更新：** 默认情况下，Claude Code 不会自动更新 claude-hud 这类第三方插件。要开启自动更新，运行 `/plugin`，打开 **Marketplaces**，选择 **claude-hud**，然后选择 **Enable auto-update**。也可以手动更新：先运行 `/plugin marketplace update claude-hud`，再运行 `/plugin update claude-hud@claude-hud`。更新后无需再次运行 setup。
 
 <details>
 <summary><strong>更喜欢用终端？</strong></summary>

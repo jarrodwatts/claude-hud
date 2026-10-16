@@ -22,7 +22,7 @@ Inside Claude Code, run:
 
 `/claude-hud:setup` points your status line at the HUD. Claude Code reloads settings on its own, so the HUD appears right away. To customize it, ask Claude or run `/claude-hud:configure`.
 
-**Stay up to date:** Claude Code only auto-updates plugins from Anthropic's official marketplaces by default. To get claude-hud fixes automatically, run `/plugin`, open **Marketplaces**, select **claude-hud**, and choose **Enable auto-update**. Or update by hand any time with `/plugin marketplace update claude-hud`. You never need to run setup again after an update.
+**Updates:** Claude Code doesn't auto-update third-party plugins like claude-hud by default. To turn it on, run `/plugin`, open **Marketplaces**, select **claude-hud**, and choose **Enable auto-update**. Or update by hand with `/plugin marketplace update claude-hud`, then `/plugin update claude-hud@claude-hud`. You never need to run setup again after an update.
 
 <details>
 <summary><strong>Prefer the terminal?</strong></summary>
