@@ -4,6 +4,7 @@ import { fileURLToPath } from "node:url";
 import { getUsageFromStdin, isContextUnreported, readStdin } from "./stdin.js";
 import { addSubagentEfforts, parseTranscript } from "./transcript.js";
 import { render } from "./render/index.js";
+import { shownAgents } from "./render/activity.js";
 import { countConfigs, type ConfigCounts } from "./config-reader.js";
 import { getGitStatus, type GitRepoIdentity, type GitStatus } from "./git.js";
 import { getJjStatus, isJjRepo } from "./jj.js";
@@ -72,7 +73,9 @@ export async function main(): Promise<void> {
     const transcriptPath = stdin.transcript_path ?? "";
     const readTranscript = async (): Promise<TranscriptData> => {
       const data = await parseTranscript(transcriptPath, os.homedir());
-      return display.showAgents && display.showAgentEffort ? addSubagentEfforts(transcriptPath, data) : data;
+      // Only the agents the line will show, since each lookup opens a file.
+      if (display.showAgents && display.showAgentEffort) await addSubagentEfforts(transcriptPath, shownAgents(data.agents, now));
+      return data;
     };
     const [transcript, gitStatus, extraLabel, memoryUsage] = await Promise.all([
       needsTranscript(config, stdin) ? readTranscript() : EMPTY_TRANSCRIPT,

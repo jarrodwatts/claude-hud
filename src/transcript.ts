@@ -623,6 +623,13 @@ const AGENT_ID = /^[\w-]{1,64}$/;
 async function subagentEffort(transcriptPath: string, agentId: string): Promise<string | undefined> {
   if (!AGENT_ID.test(agentId)) return undefined;
   const file = path.join(path.dirname(transcriptPath), path.basename(transcriptPath, '.jsonl'), 'subagents', `agent-${agentId}.jsonl`);
+  try {
+    // Checked before opening, which would block on a pipe.
+    if (!(await fs.promises.stat(file)).isFile()) return undefined;
+  } catch {
+    return undefined;
+  }
+  // A stream rather than readLines, so the scan stops at the first reply.
   const input = fs.createReadStream(file);
   try {
     for await (const raw of readline.createInterface({ input, crlfDelay: Infinity })) {
@@ -635,17 +642,16 @@ async function subagentEffort(transcriptPath: string, agentId: string): Promise<
       if (entry?.type === 'assistant') return typeof entry.effort === 'string' ? entry.effort : undefined;
     }
   } catch {
-    // No transcript yet.
+    // Gone mid-read.
   } finally {
     input.destroy();
   }
   return undefined;
 }
 
-/** Fills in each agent's effort; agents without a known id or first reply stay without one. */
-export async function addSubagentEfforts(transcriptPath: string, data: TranscriptData): Promise<TranscriptData> {
-  await Promise.all(data.agents.map(async (agent) => {
+/** Sets each agent's effort in place; agents without a known id or first reply stay without one. */
+export async function addSubagentEfforts(transcriptPath: string, agents: AgentEntry[]): Promise<void> {
+  await Promise.all(agents.map(async (agent) => {
     if (agent.agentId) agent.effort = await subagentEffort(transcriptPath, agent.agentId);
   }));
-  return data;
 }

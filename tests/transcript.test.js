@@ -309,7 +309,8 @@ test('subagent effort comes from the first assistant record of the subagent tran
     await writeFile(path.join(subagents, 'agent-a4.jsonl'), lines({ type: 'user', prompt: 'x'.repeat(3 << 20) }, { type: 'assistant', effort: 'high' }));
     await writeFile(path.join(dir, 'agent-a1.jsonl'), lines({ type: 'assistant', effort: 'max' }));
 
-    const r = await addSubagentEfforts(file, await parseTranscript(file, dir));
+    const r = await parseTranscript(file, dir);
+    await addSubagentEfforts(file, r.agents);
     assert.deepEqual(r.agents.map((a) => [a.type, a.agentId, a.effort]), [
       ['known', 'a1', 'medium'],
       ['unreplied', 'a2', undefined],
