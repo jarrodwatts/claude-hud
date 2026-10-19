@@ -125,6 +125,7 @@ function toTodo(value: unknown): TodoItem[] {
 }
 
 class Parser {
+  // Every field must round-trip through save() and load(), or a resumed read loses it.
   private tools = new Map<string, ToolEntry>();
   private agents = new Map<string, AgentEntry>();
   private skills = new Set<string>();
@@ -132,7 +133,7 @@ class Parser {
   private mcpErrors = new Set<string>();
   private todos: TodoItem[] = [];
   private taskIndex = new Map<string, number>();
-  private agentCompletions = new Map<string, number>();
+  private agentCompletions = new Map<string, Date>();
   // Some task-notifications omit <tool-use-id>, carrying only <task-id> (= the
   // launch toolUseResult's agentId). Map agentId -> toolUseId from the launch
   // result so those notifications can still resolve completion.
@@ -190,11 +191,9 @@ class Parser {
         /<tool-use-id>([^<]+)<\/tool-use-id>/.exec(notice)?.[1] ??
         (taskId ? this.agentIdToToolUseId.get(taskId) : undefined);
       // Both carriers can log the same notice; the earliest is when the agent finished.
+      // Background Bash and Monitor tasks send the same notice; only agents' are kept.
       const prev = toolUseId && this.agentCompletions.get(toolUseId);
-      if (toolUseId && taskId && !(prev && prev <= at.getTime())) {
-        this.agentCompletions.set(toolUseId, at.getTime());
-        cap(this.agentCompletions, AGENTS_TRACKED);
-      }
+      if (toolUseId && taskId && this.agents.has(toolUseId) && !(prev && prev <= at)) this.agentCompletions.set(toolUseId, at);
     }
 
     if (Array.isArray(entry.message?.content)) {
@@ -268,7 +267,11 @@ class Parser {
         startTime: at,
         background: input?.run_in_background === true,
       });
-      cap(this.agents, AGENTS_TRACKED);
+      if (cap(this.agents, AGENTS_TRACKED)) {
+        // Completions and launch ids only matter for agents still tracked.
+        for (const id of this.agentCompletions.keys()) if (!this.agents.has(id)) this.agentCompletions.delete(id);
+        for (const [agentId, id] of this.agentIdToToolUseId) if (!this.agents.has(id)) this.agentIdToToolUseId.delete(agentId);
+      }
     } else if (toolName === 'TodoWrite') {
       if (Array.isArray(input?.todos)) this.replaceTodos(input.todos.flatMap(toTodo));
     } else if (toolName === 'TaskCreate') {
@@ -304,7 +307,7 @@ class Parser {
       const server = mcpServer(tool.name);
       if (server && block.is_error) {
         this.mcpErrors.add(server);
-        if (this.mcpErrors.size > MCP_ERRORS_MAX) this.mcpErrors.delete(this.mcpErrors.values().next().value as string);
+        cap(this.mcpErrors, MCP_ERRORS_MAX);
       } else if (server) {
         this.mcpErrors.delete(server);
       }
@@ -313,10 +316,7 @@ class Parser {
     const agent = this.agents.get(id);
     if (agent) {
       const agentId = (entry.toolUseResult as { agentId?: unknown } | undefined)?.agentId;
-      if (typeof agentId === 'string' && agentId) {
-        this.agentIdToToolUseId.set(agentId, id);
-        cap(this.agentIdToToolUseId, AGENTS_TRACKED);
-      }
+      if (typeof agentId === 'string' && agentId) this.agentIdToToolUseId.set(agentId, id);
       // resolvedModel is what the subagent actually ran on, so it beats the caller's alias.
       agent.model = sanitizeTranscriptModel(entry.toolUseResult?.resolvedModel) ?? agent.model;
       if (entry.toolUseResult?.isAsync === true || entry.toolUseResult?.status === 'async_launched') {
@@ -382,7 +382,7 @@ class Parser {
     parser.mcpErrors = new Set(s.mcpErrors);
     parser.todos = s.todos;
     parser.taskIndex = new Map(s.taskIndex);
-    parser.agentCompletions = new Map(s.agentCompletions);
+    parser.agentCompletions = new Map(s.agentCompletions.map(([id, at]) => [id, new Date(at)]));
     parser.agentIdToToolUseId = new Map(s.agentIdToToolUseId);
     parser.usageById = new Map(s.usageById);
     parser.settled = s.settled;
@@ -394,7 +394,7 @@ class Parser {
   finish(): TranscriptData {
     for (const [id, endTime] of this.agentCompletions) {
       const agent = this.agents.get(id);
-      if (agent?.background) agent.endTime = new Date(endTime);
+      if (agent?.background) agent.endTime = endTime;
     }
     for (const agent of this.agents.values()) {
       if (agent.endTime) agent.status = 'completed';
@@ -420,12 +420,14 @@ type SavedState = ReturnType<Parser['save']>;
 const reviveDates = (key: string, value: unknown): unknown =>
   DATE_KEYS.has(key) && typeof value === 'string' ? new Date(value) : value;
 
-// Drops the oldest entries past `max`.
-function cap<K, V>(map: Map<K, V>, max: number): void {
-  for (const key of map.keys()) {
-    if (map.size <= max) return;
-    map.delete(key);
+/** Drops the oldest entries past `max`, returning whether any went. */
+function cap<K>(collection: Map<K, unknown> | Set<K>, max: number): boolean {
+  const over = collection.size > max;
+  for (const key of collection.keys()) {
+    if (collection.size <= max) break;
+    collection.delete(key);
   }
+  return over;
 }
 
 function maxUsage(a: SessionTokenUsage, b: SessionTokenUsage): SessionTokenUsage {
@@ -473,15 +475,15 @@ function cursorPath(homeDir: string, transcriptPath: string): string {
 }
 
 function readCursor(file: string): Cursor | null {
+  let cursor: Partial<Cursor>;
   try {
-    const cursor = JSON.parse(fs.readFileSync(file, 'utf8'), reviveDates) as Partial<Cursor>;
-    return cursor.version === getHudVersion() && typeof cursor.ino === 'number'
-      && Number.isSafeInteger(cursor.offset) && (cursor.offset as number) >= 0 && typeof cursor.state === 'object' && cursor.state !== null
-      ? (cursor as Cursor)
-      : null;
+    cursor = JSON.parse(fs.readFileSync(file, 'utf8'), reviveDates);
   } catch {
     return null;
   }
+  if (cursor.version !== getHudVersion() || typeof cursor.ino !== 'number') return null;
+  if (!Number.isSafeInteger(cursor.offset) || (cursor.offset as number) < 0) return null;
+  return cursor as Cursor;
 }
 
 function writeCursor(file: string, cursor: Cursor): void {
@@ -499,13 +501,11 @@ function writeCursor(file: string, cursor: Cursor): void {
   }
 }
 
-// Keeps the most recently used sessions' cursors.
+// Keeps the most recently used sessions' cursors, and sweeps temp files a killed run left.
 function pruneCursors(dir: string): void {
-  const files = fs.readdirSync(dir).filter((name) => name.endsWith('.json'));
+  const files = fs.readdirSync(dir).map((name) => path.join(dir, name));
   if (files.length <= CURSORS_KEPT) return;
-  const byAge = files
-    .map((name) => ({ file: path.join(dir, name), mtime: fs.statSync(path.join(dir, name)).mtimeMs }))
-    .sort((a, b) => a.mtime - b.mtime);
+  const byAge = files.map((file) => ({ file, mtime: fs.statSync(file).mtimeMs })).sort((a, b) => a.mtime - b.mtime);
   for (const { file } of byAge.slice(0, files.length - CURSORS_KEPT)) fs.rmSync(file, { force: true });
 }
 
@@ -530,67 +530,75 @@ async function readLines(
   const buffer = Buffer.alloc(CHUNK_BYTES);
   let pending: Buffer[] = [];
   let end = start;
-  for (let position = start, read; (read = (await file.read(buffer, 0, CHUNK_BYTES, position)).bytesRead) > 0; position += read) {
-    const chunk = buffer.subarray(0, read);
+  let position = start;
+  while (true) {
+    const { bytesRead } = await file.read(buffer, 0, CHUNK_BYTES, position);
+    if (bytesRead === 0) break;
+    const chunk = buffer.subarray(0, bytesRead);
     let from = 0;
-    for (let newline; (newline = chunk.indexOf(NEWLINE, from)) !== -1; from = newline + 1) {
+    let newline: number;
+    while ((newline = chunk.indexOf(NEWLINE, from)) !== -1) {
       const piece = chunk.subarray(from, newline);
       end = position + newline + 1;
       onLine((pending.length > 0 ? Buffer.concat([...pending, piece]) : piece).toString('utf8'), end);
       pending = [];
+      from = newline + 1;
     }
     // Copied, since the buffer is reused for the next chunk.
-    if (from < read) pending.push(Buffer.from(chunk.subarray(from)));
+    if (from < bytesRead) pending.push(Buffer.from(chunk.subarray(from)));
+    position += bytesRead;
   }
   return { end, rest: Buffer.concat(pending).toString('utf8') };
+}
+
+/** Parses from `offset` to the end, saving the state as it goes. */
+async function parseFrom(
+  file: fs.promises.FileHandle,
+  save: (parser: Parser, offset: number) => void,
+  parser: Parser,
+  offset: number,
+): Promise<TranscriptData> {
+  let saved = offset;
+  const { end, rest } = await readLines(file, offset, (line, lineEnd) => {
+    parser.line(line);
+    if (lineEnd - saved >= CHECKPOINT_BYTES) {
+      save(parser, lineEnd);
+      saved = lineEnd;
+    }
+  });
+  if (end > saved) save(parser, end);
+  // An unterminated last line may still be being written: it counts for this
+  // render but isn't saved, and the next run reads it again once it ends.
+  if (rest) parser.line(rest);
+  return parser.finish();
 }
 
 export async function parseTranscript(transcriptPath: string, homeDir: string): Promise<TranscriptData> {
   let file: fs.promises.FileHandle;
   try {
+    // Checked before opening, which would block on a pipe.
+    if (!transcriptPath || !(await fs.promises.stat(transcriptPath)).isFile()) return emptyTranscript();
     file = await fs.promises.open(transcriptPath, 'r');
   } catch {
     return emptyTranscript();
   }
   try {
     const stat = await file.stat();
-    if (!stat.isFile()) return emptyTranscript();
-
     const cursorFile = cursorPath(homeDir, transcriptPath);
+    const save = (parser: Parser, offset: number): void =>
+      writeCursor(cursorFile, { version: getHudVersion(), ino: stat.ino, offset, state: parser.save() });
     const cursor = readCursor(cursorFile);
-    let parser = new Parser();
-    let offset = 0;
     if (cursor && (await resumes(file, stat, cursor))) {
       try {
-        parser = Parser.load(cursor.state);
-        offset = cursor.offset;
-      } catch {
-        parser = new Parser();
+        return await parseFrom(file, save, Parser.load(cursor.state), cursor.offset);
+      } catch (err) {
+        debug('Saved transcript state unusable, rereading:', err instanceof Error ? err.message : err);
       }
     }
-
-    let saved = offset;
-    const save = (end: number): void => {
-      writeCursor(cursorFile, { version: getHudVersion(), ino: stat.ino, offset: end, state: parser.save() });
-      saved = end;
-    };
-    let rest = '';
-    try {
-      const read = await readLines(file, offset, (line, end) => {
-        parser.line(line);
-        if (end - saved >= CHECKPOINT_BYTES) save(end);
-      });
-      // A cursor that didn't fit is replaced even when there is nothing to read.
-      if (read.end > saved || offset === 0) save(read.end);
-      rest = read.rest;
-    } catch (err) {
-      // A read cut short still renders what was parsed.
-      debug('Transcript read failed:', err instanceof Error ? err.message : err);
-    }
-    // An unterminated last line may still be being written: it counts for this
-    // render but isn't saved, and the next run reads it again once it ends.
-    if (rest) parser.line(rest);
-    return parser.finish();
+    return await parseFrom(file, save, new Parser(), 0);
+  } catch (err) {
+    debug('Transcript read failed:', err instanceof Error ? err.message : err);
+    return emptyTranscript();
   } finally {
     await file.close();
   }

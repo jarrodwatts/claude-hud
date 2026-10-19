@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { appendFile, mkdtemp, readdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
+import { createHash } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 import { parseTranscript } from '../dist/transcript.js';
 import { TRANSCRIPT_MODEL_MAX_LEN } from '../dist/model-source.js';
@@ -347,6 +348,45 @@ test('saved parser state is kept for the 32 most recent transcripts', async () =
       await parseTranscript(file, dir);
     }
     assert.equal((await readdir(path.join(dir, '.claude', 'plugins', 'claude-hud', 'transcript-cursors'))).length, 32);
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
+});
+
+test('a background agent completes however many other tasks and agents send notices', async () => {
+  const notice = (id, timestamp) => ({ type: 'queue-operation', operation: 'enqueue', timestamp, content: `<task-notification><task-id>x</task-id><tool-use-id>${id}</tool-use-id></task-notification>` });
+  const launch = (id) => [toolUse(id, 'Agent', { run_in_background: true }), toolResult(id, { toolUseResult: { status: 'async_launched' } })];
+  const others = Array.from({ length: 70 }, (_, i) => i);
+  const r = await parse([
+    ...launch('bg'),
+    notice('bg', '2026-10-01T00:00:01.000Z'),
+    ...others.map((i) => notice(`bash${i}`, '2026-10-01T00:00:02.000Z')),
+  ]);
+  assert.equal(r.agents.find((a) => a.id === 'bg')?.status, 'completed');
+
+  // Past the tracked limit, the oldest agents go with their completions; the newest still complete.
+  const many = await parse([
+    ...others.flatMap((i) => launch(`a${i}`)),
+    ...others.map((i) => notice(`a${i}`, '2026-10-01T00:00:03.000Z')),
+  ]);
+  assert.equal(many.agents.length, 10);
+  assert.ok(many.agents.every((a) => a.status === 'completed'));
+});
+
+test('saved state that no longer parses is dropped and the transcript reread', async () => {
+  const dir = await mkdtemp(path.join(tmpdir(), 'hud-transcript-'));
+  try {
+    const file = path.join(dir, 'transcript.jsonl');
+    await writeFile(file, JSON.stringify(toolUse('t1', 'Read', { file_path: '/a' })) + '\n');
+    const { version } = JSON.parse(await readFile(fixture('../package.json'), 'utf8'));
+    const cursors = path.join(dir, '.claude', 'plugins', 'claude-hud', 'transcript-cursors');
+    await parseTranscript(file, dir);
+    const cursorFile = path.join(cursors, `${createHash('sha256').update(path.resolve(file)).digest('hex')}.json`);
+    const cursor = JSON.parse(await readFile(cursorFile, 'utf8'));
+    assert.equal(cursor.version, version);
+    await writeFile(cursorFile, JSON.stringify({ ...cursor, state: { ...cursor.state, data: null } }));
+    await appendFile(file, JSON.stringify(toolUse('t2', 'Read', { file_path: '/b' })) + '\n');
+    assert.deepEqual((await parseTranscript(file, dir)).tools.map((t) => t.id), ['t1', 't2']);
   } finally {
     await rm(dir, { recursive: true, force: true });
   }
