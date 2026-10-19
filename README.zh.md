@@ -176,6 +176,7 @@ Claude HUD 是一个[状态栏](https://code.claude.com/docs/en/statusline)命�
 | `display.showCompactions` | boolean | false | 显示本会话已发生的上下文压缩次数（手动 `/compact` 或自动压缩），从 transcript 的 `compact_boundary` 记录计数，例如 `压缩次数: 2`。第一次压缩前不显示 |
 | `display.showEffortLevel` | boolean | false | 在模型徽章中显示当前推理力度。Ultracode 渲染为 `ultracode(xhigh)`，从会话 transcript 检测，因此能跟踪运行时的 `/effort` 变更 |
 | `display.effortFormat` | `full` \| `symbol` \| `text` | `full` | `showEffortLevel` 开启时的渲染方式：符号加级别文本（`◑ high`）、仅符号（`◑`）、或仅级别文本（`high`）。`symbol` 下 Ultracode 仍保持完整的 `◕ ultracode(xhigh)`，以免丢失标记；没有已知符号的级别回退到级别文本 |
+| `display.showAgentEffort` | boolean | false | 配合 `display.showAgents`，在每个子 Agent 的模型旁显示其推理力度，例如 `◐ code-reviewer [haiku-4.5 ◔ medium]`，格式遵循 `display.effortFormat`。从子 Agent 自己的 transcript 读取，因此要等 Claude Code 记录下该 Agent 的 id（后台 Agent 在启动时，其他 Agent 在结束时）且它已有第一条回复后才会出现 |
 | `display.showClaudeCodeVersion` | boolean | false | 显示当前运行的 Claude Code 版本，如 `CC v2.1.81` |
 | `display.showMemoryUsage` | boolean | false | 在展开布局中显示近似系统 RAM 使用行 |
 | `display.showPromptCache` | boolean | false | 显示主会话 prompt cache 的过期时刻 |

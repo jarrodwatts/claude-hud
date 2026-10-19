@@ -2,7 +2,7 @@ import * as os from "node:os";
 import { realpathSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { getUsageFromStdin, isContextUnreported, readStdin } from "./stdin.js";
-import { parseTranscript } from "./transcript.js";
+import { addSubagentEfforts, parseTranscript } from "./transcript.js";
 import { render } from "./render/index.js";
 import { countConfigs, type ConfigCounts } from "./config-reader.js";
 import { getGitStatus, type GitRepoIdentity, type GitStatus } from "./git.js";
@@ -69,8 +69,13 @@ export async function main(): Promise<void> {
     const display = config.display;
     const now = Date.now();
     const extraCmd = parseExtraCmdArg();
+    const transcriptPath = stdin.transcript_path ?? "";
+    const readTranscript = async (): Promise<TranscriptData> => {
+      const data = await parseTranscript(transcriptPath);
+      return display.showAgents && display.showAgentEffort ? addSubagentEfforts(transcriptPath, data) : data;
+    };
     const [transcript, gitStatus, extraLabel, memoryUsage] = await Promise.all([
-      needsTranscript(config, stdin) ? parseTranscript(stdin.transcript_path ?? "") : EMPTY_TRANSCRIPT,
+      needsTranscript(config, stdin) ? readTranscript() : EMPTY_TRANSCRIPT,
       resolveVcsStatus(config, stdin.cwd, stdin.workspace?.repo),
       extraCmd ? runExtraCmd(extraCmd) : null,
       display.showMemoryUsage && config.lineLayout === "expanded" ? getMemoryUsage() : null,

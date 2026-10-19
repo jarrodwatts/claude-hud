@@ -306,6 +306,17 @@ test('agent model IDs shorten to family and version; others pass through', () =>
   assert.equal(model('claude-'), '◐ t (1s)');
 });
 
+test('agent effort shows next to the model only with showAgentEffort, in effortFormat', () => {
+  const agent = (fields) => ({ id: 'a', type: 'review', status: 'running', startTime: ago(SECOND), effort: 'medium', ...fields });
+  const line = (fields, display) => lines(ctx({ transcript: { agents: [agent(fields)] }, config: { display: { showAgents: true, ...display } } }))[2];
+  assert.equal(line({ model: 'claude-haiku-4-5' }, {}), '◐ review [haiku-4.5] (1s)');
+  assert.equal(line({ model: 'claude-haiku-4-5' }, { showAgentEffort: true }), '◐ review [haiku-4.5 ◔ medium] (1s)');
+  assert.equal(line({}, { showAgentEffort: true, effortFormat: 'symbol' }), '◐ review [◔] (1s)');
+  assert.equal(line({}, { showAgentEffort: true, effortFormat: 'text' }), '◐ review [medium] (1s)');
+  assert.equal(line({ effort: '\x1b[31mHIGH' }, { showAgentEffort: true }), '◐ review [◑ high] (1s)');
+  assert.equal(line({ effort: undefined }, { showAgentEffort: true }), '◐ review (1s)');
+});
+
 test('todos show the task in progress, or completion once every item is done', () => {
   const config = { display: { showTodos: true } };
   const todos = [{ content: 'Fix the bug', status: 'in_progress' }, { content: 'b', status: 'completed' }, { content: 'c', status: 'pending' }];

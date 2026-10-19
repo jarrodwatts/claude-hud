@@ -81,6 +81,10 @@ export interface AgentEntry {
   startTime: Date;
   endTime?: Date;
   background?: boolean;
+  // Claude Code's id for the subagent, from its tool_result; names its own transcript.
+  agentId?: string;
+  // Read from that transcript when display.showAgentEffort is on.
+  effort?: string;
 }
 
 export interface TodoItem {

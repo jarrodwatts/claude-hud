@@ -1,4 +1,5 @@
 import * as fs from 'node:fs';
+import * as path from 'node:path';
 import * as readline from 'node:readline';
 import { createDebug } from './debug.js';
 import type { AgentEntry, SessionTokenUsage, TodoItem, ToolEntry, TranscriptData } from './types.js';
@@ -17,6 +18,8 @@ const MCP_ERRORS_MAX = 64;
 const MCP_TOOL = /^mcp__(.+?)__(.+)$/;
 // Claude Code's /effort output; anchored so prose quoting it can't flip ultracode.
 const EFFORT_COMMAND = /^<local-command-stdout>Set effort level to (\w+)/;
+// A subagent id names its transcript file, so only a plain token is kept.
+const AGENT_ID = /^[\w-]{1,64}$/;
 
 interface Usage {
   input_tokens?: unknown;
@@ -302,7 +305,10 @@ class Parser {
     const agent = this.agents.get(id);
     if (agent) {
       const agentId = (entry.toolUseResult as { agentId?: unknown } | undefined)?.agentId;
-      if (typeof agentId === 'string' && agentId) this.agentIdToToolUseId.set(agentId, id);
+      if (typeof agentId === 'string' && agentId) {
+        this.agentIdToToolUseId.set(agentId, id);
+        if (AGENT_ID.test(agentId)) agent.agentId = agentId;
+      }
       // resolvedModel is what the subagent actually ran on, so it beats the caller's alias.
       agent.model = sanitizeTranscriptModel(entry.toolUseResult?.resolvedModel) ?? agent.model;
       if (entry.toolUseResult?.isAsync === true || entry.toolUseResult?.status === 'async_launched') {
@@ -388,4 +394,42 @@ export async function parseTranscript(transcriptPath: string): Promise<Transcrip
     debug('Transcript read failed:', err instanceof Error ? err.message : err);
   }
   return parser.finish();
+}
+
+// Long enough for the subagent's prompt and its first reply.
+const SUBAGENT_HEAD_BYTES = 1 << 20;
+
+/** A subagent's effort, from the first assistant record of `<session>/subagents/agent-<id>.jsonl`. */
+async function subagentEffort(transcriptPath: string, agentId: string): Promise<string | undefined> {
+  const file = path.join(path.dirname(transcriptPath), path.basename(transcriptPath, '.jsonl'), 'subagents', `agent-${agentId}.jsonl`);
+  let head: string;
+  try {
+    const handle = await fs.promises.open(file, 'r');
+    try {
+      const { bytesRead, buffer } = await handle.read(Buffer.alloc(SUBAGENT_HEAD_BYTES), 0, SUBAGENT_HEAD_BYTES, 0);
+      head = buffer.toString('utf8', 0, bytesRead);
+    } finally {
+      await handle.close();
+    }
+  } catch {
+    return undefined;
+  }
+  for (const line of head.split('\n')) {
+    let entry: { type?: unknown; effort?: unknown } | null = null;
+    try {
+      entry = JSON.parse(line);
+    } catch {
+      continue;
+    }
+    if (entry?.type === 'assistant') return typeof entry.effort === 'string' ? entry.effort : undefined;
+  }
+  return undefined;
+}
+
+/** Fills in each agent's effort; agents without a known id or first reply stay without one. */
+export async function addSubagentEfforts(transcriptPath: string, data: TranscriptData): Promise<TranscriptData> {
+  await Promise.all(data.agents.map(async (agent) => {
+    if (agent.agentId) agent.effort = await subagentEffort(transcriptPath, agent.agentId);
+  }));
+  return data;
 }

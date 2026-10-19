@@ -1,4 +1,5 @@
 import type { AgentEntry } from '../types.js';
+import { effortInfo, formatEffort } from '../effort.js';
 import { t } from '../i18n/index.js';
 import { sanitizeDisplayText } from '../utils/sanitize.js';
 import { truncateString } from '../utils/truncate.js';
@@ -110,11 +111,13 @@ function agentsLine(f: Frame): string | null {
   if (shown.length === 0) return null;
 
   const clean = (value: unknown, max: number): string => (typeof value === 'string' ? truncateString(sanitizeDisplayText(value).trim(), max) : '');
+  const display = f.config?.display;
   return shown.map((agent) => {
     const icon = agent.status === 'running' ? yellow('◐') : green('✓');
-    const model = shortModel(agent.model);
+    const effort = display?.showAgentEffort ? effortInfo(agent.effort) : null;
+    const badge = [shortModel(agent.model), effort && formatEffort(effort, display?.effortFormat)].filter(Boolean).join(' ');
     const description = clean(agent.description, 40);
-    return `${icon} ${magenta(clean(agent.type, 24) || 'agent')}${model ? ` ${label(`[${model}]`, colors)}` : ''}`
+    return `${icon} ${magenta(clean(agent.type, 24) || 'agent')}${badge ? ` ${label(`[${badge}]`, colors)}` : ''}`
       + `${description ? label(`: ${description}`, colors) : ''} ${label(`(${formatElapsed(agent, f.now)})`, colors)}`;
   }).join('\n');
 }

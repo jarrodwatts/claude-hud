@@ -4,6 +4,9 @@ All notable changes to Claude HUD will be documented in this file.
 
 ## [Unreleased]
 
+### Added
+- `display.showAgentEffort` option to show each subagent's reasoning effort next to its model in the agents line, e.g. `◐ code-reviewer [haiku-4.5 ◔ medium]`, read from the subagent's own transcript (#815).
+
 ## [0.11.3] - 2026-10-16
 
 ### Fixed

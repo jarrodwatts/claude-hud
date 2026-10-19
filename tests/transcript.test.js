@@ -1,10 +1,10 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { parseTranscript } from '../dist/transcript.js';
+import { addSubagentEfforts, parseTranscript } from '../dist/transcript.js';
 import { TRANSCRIPT_MODEL_MAX_LEN } from '../dist/model-source.js';
 
 const fixture = (name) => fileURLToPath(new URL(name, import.meta.url));
@@ -286,4 +286,31 @@ test('model-written tool inputs are sanitized before display', async () => {
   ]);
   assert.equal(r.tools[0].target, '/repo/fix it.ts');
   assert.deepEqual(r.todos, [{ content: 'fix it', status: 'in_progress' }, { content: 'fix it', status: 'pending' }]);
+});
+
+test('subagent effort comes from the first assistant record of the subagent transcript', async () => {
+  const dir = await mkdtemp(path.join(tmpdir(), 'hud-transcript-'));
+  try {
+    const file = path.join(dir, 'session.jsonl');
+    const launch = (id, agentId) => [toolUse(id, 'Agent', { subagent_type: id }), toolResult(id, { toolUseResult: { agentId } })];
+    await writeFile(file, [...launch('known', 'a1'), ...launch('unreplied', 'a2'), ...launch('missing', 'a3'), ...launch('escape', '../a1'), toolUse('noid', 'Agent', {})]
+      .map((e) => JSON.stringify(e)).join('\n'));
+    const subagents = path.join(dir, 'session', 'subagents');
+    await mkdir(subagents, { recursive: true });
+    const lines = (...entries) => entries.map((e) => (typeof e === 'string' ? e : JSON.stringify(e))).join('\n');
+    await writeFile(path.join(subagents, 'agent-a1.jsonl'), lines({ type: 'user', effort: 'low' }, '{oops', { type: 'assistant', effort: 'medium' }, { type: 'assistant', effort: 'max' }));
+    await writeFile(path.join(subagents, 'agent-a2.jsonl'), lines({ type: 'user' }));
+    await writeFile(path.join(dir, 'agent-a1.jsonl'), lines({ type: 'assistant', effort: 'max' }));
+
+    const r = await addSubagentEfforts(file, await parseTranscript(file));
+    assert.deepEqual(r.agents.map((a) => [a.type, a.agentId, a.effort]), [
+      ['known', 'a1', 'medium'],
+      ['unreplied', 'a2', undefined],
+      ['missing', 'a3', undefined],
+      ['escape', undefined, undefined],
+      ['agent', undefined, undefined],
+    ]);
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
 });

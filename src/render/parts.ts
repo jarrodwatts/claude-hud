@@ -1,6 +1,7 @@
 import type { FirstLineSegment, PathLevels } from '../config.js';
 import { DEFAULT_CONFIG } from '../config.js';
 import { formatAuthSegment } from '../auth.js';
+import { formatEffort } from '../effort.js';
 import { formatUsd } from '../cost.js';
 import { formatModelName, getProviderLabel, resolveModelName } from '../stdin.js';
 import { t } from '../i18n/index.js';
@@ -21,10 +22,7 @@ export interface Part {
 function effortSuffix(f: Frame): string {
   const display = f.config?.display;
   const info = display?.showEffortLevel ? effort(f) : null;
-  if (!info) return '';
-  // The symbol alone can't carry the ultracode marker, so symbol mode keeps the full form.
-  if (display?.effortFormat === 'symbol' && info.symbol && !info.level.startsWith('ultracode(')) return ` ${info.symbol}`;
-  return display?.effortFormat === 'text' || !info.symbol ? ` ${info.level}` : ` ${info.symbol} ${info.level}`;
+  return info ? ` ${formatEffort(info, display?.effortFormat)}` : '';
 }
 
 /** `[Opus 5.5 ◑ high | Bedrock]`, or with the provider first when showProvider is on. */

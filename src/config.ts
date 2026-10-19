@@ -163,6 +163,7 @@ export interface HudConfig {
     showClaudeCodeVersion: boolean;
     showEffortLevel: boolean;
     effortFormat: EffortFormatMode;
+    showAgentEffort: boolean;
     showMemoryUsage: boolean;
     showPromptCache: boolean;
     showCacheHitRate: boolean;
@@ -261,6 +262,7 @@ export const DEFAULT_CONFIG: HudConfig = {
     showClaudeCodeVersion: false,
     showEffortLevel: false,
     effortFormat: 'full',
+    showAgentEffort: false,
     showMemoryUsage: false,
     showPromptCache: false,
     showCacheHitRate: false,
