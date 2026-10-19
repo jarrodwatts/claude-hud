@@ -7,6 +7,9 @@ All notable changes to Claude HUD will be documented in this file.
 ### Added
 - `display.showAgentEffort` option to show each subagent's reasoning effort next to its model in the agents line, e.g. `◐ code-reviewer [haiku-4.5 ◔ medium]`, read from the subagent's own transcript (#815).
 
+### Fixed
+- Options that read the transcript (tools, agents, todos, config counts, session tokens, and others) no longer reread the whole file on every render. Each run picks up where the last left off, so a long session's HUD no longer slows down and then disappears once the transcript reaches hundreds of MB (#816).
+
 ## [0.11.3] - 2026-10-16
 
 ### Fixed

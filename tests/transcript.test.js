@@ -1,20 +1,26 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { appendFile, mkdir, mkdtemp, open, readdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
+import { createHash } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 import { addSubagentEfforts, parseTranscript } from '../dist/transcript.js';
 import { TRANSCRIPT_MODEL_MAX_LEN } from '../dist/model-source.js';
 
 const fixture = (name) => fileURLToPath(new URL(name, import.meta.url));
 
+// Saved parser state lands under the home's .claude, so every test gets its own.
+process.env.CLAUDE_CONFIG_DIR = '';
+const home = await mkdtemp(path.join(tmpdir(), 'hud-transcript-home-'));
+test.after(() => rm(home, { recursive: true, force: true }));
+
 async function parse(entries) {
   const dir = await mkdtemp(path.join(tmpdir(), 'hud-transcript-'));
   try {
     const file = path.join(dir, 'transcript.jsonl');
     await writeFile(file, entries.map((e) => (typeof e === 'string' ? e : JSON.stringify(e))).join('\n'));
-    return await parseTranscript(file);
+    return await parseTranscript(file, dir);
   } finally {
     await rm(dir, { recursive: true, force: true });
   }
@@ -42,7 +48,7 @@ const tokens = (input, output, cacheCreation, cacheRead) => ({
 });
 
 test('parseTranscript reads a realistic session', async () => {
-  const r = await parseTranscript(fixture('./golden/transcript.jsonl'));
+  const r = await parseTranscript(fixture('./golden/transcript.jsonl'), home);
 
   assert.deepEqual(r.tools.map((t) => [t.name, t.target, t.status]), [
     ['Read', '/repo/src/auth.ts', 'completed'],
@@ -72,7 +78,7 @@ test('parseTranscript reads a realistic session', async () => {
 
 test('parseTranscript returns an empty result for a missing file and skips malformed lines', async () => {
   for (const missing of ['', '/no/such/transcript.jsonl', tmpdir()]) {
-    assert.deepEqual(await parseTranscript(missing), { tools: [], skills: [], mcpServers: [], mcpErrors: [], agents: [], todos: [] });
+    assert.deepEqual(await parseTranscript(missing, home), { tools: [], skills: [], mcpServers: [], mcpErrors: [], agents: [], todos: [] });
   }
   const r = await parse(['{not json', '42', toolUse('t1', 'Read', { file_path: '/a' }), '', '{"type":']);
   assert.equal(r.tools.length, 1);
@@ -165,7 +171,7 @@ test('ultracode follows the latest enter/exit attachment or /effort output', asy
   const exit = { type: 'attachment', attachment: { type: 'ultra_effort_exit' } };
   const effort = (level) => ({ type: 'user', message: { content: `<local-command-stdout>Set effort level to ${level} (this session only): x</local-command-stdout>` } });
 
-  assert.equal((await parseTranscript(fixture('./fixtures/transcript-ultracode.jsonl'))).ultracodeActive, true);
+  assert.equal((await parseTranscript(fixture('./fixtures/transcript-ultracode.jsonl'), home)).ultracodeActive, true);
   assert.equal((await parse([assistant()])).ultracodeActive, undefined);
   assert.equal((await parse([enter, exit])).ultracodeActive, false);
   assert.equal((await parse([enter, effort('xhigh')])).ultracodeActive, false);
@@ -303,7 +309,7 @@ test('subagent effort comes from the first assistant record of the subagent tran
     await writeFile(path.join(subagents, 'agent-a4.jsonl'), lines({ type: 'user', prompt: 'x'.repeat(3 << 20) }, { type: 'assistant', effort: 'high' }));
     await writeFile(path.join(dir, 'agent-a1.jsonl'), lines({ type: 'assistant', effort: 'max' }));
 
-    const r = await addSubagentEfforts(file, await parseTranscript(file));
+    const r = await addSubagentEfforts(file, await parseTranscript(file, dir));
     assert.deepEqual(r.agents.map((a) => [a.type, a.agentId, a.effort]), [
       ['known', 'a1', 'medium'],
       ['unreplied', 'a2', undefined],
@@ -312,6 +318,113 @@ test('subagent effort comes from the first assistant record of the subagent tran
       ['escape', '../a1', undefined],
       ['agent', undefined, undefined],
     ]);
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
+});
+
+test('each run reads only what was appended since the last, and gets the same result as a full read', async () => {
+  const dir = await mkdtemp(path.join(tmpdir(), 'hud-transcript-'));
+  try {
+    const source = await readFile(fixture('./golden/transcript.jsonl'), 'utf8');
+    const expected = await parseTranscript(fixture('./golden/transcript.jsonl'), dir);
+    const file = path.join(dir, 'transcript.jsonl');
+    await writeFile(file, '');
+    // Uneven steps, so some runs end mid-line.
+    for (let at = 0; at < source.length; at += 997) {
+      await appendFile(file, source.slice(at, at + 997));
+      await parseTranscript(file, dir);
+    }
+    // Saved state drops undefined-valued keys, which nothing distinguishes from absent ones.
+    const plain = (value) => JSON.parse(JSON.stringify(value));
+    assert.deepEqual(plain(await parseTranscript(file, dir)), plain(expected));
+
+    // Same size and file, but earlier bytes changed: the saved state wins, so nothing was reread.
+    const sessionStart = /"timestamp":"[^"]+"/;
+    await writeFile(file, source.replace(sessionStart, `"timestamp":"${expected.sessionStart.toISOString().replace(/^\d{4}/, '1999')}"`), { flag: 'r+' });
+    assert.deepEqual((await parseTranscript(file, dir)).sessionStart, expected.sessionStart);
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
+});
+
+test('a replaced or shorter transcript is read from the start', async () => {
+  const dir = await mkdtemp(path.join(tmpdir(), 'hud-transcript-'));
+  try {
+    const file = path.join(dir, 'transcript.jsonl');
+    const reads = (prefix, n) => Array.from({ length: n }, (_, i) => JSON.stringify(toolUse(`${prefix}${i}`, 'Read', {})) + '\n').join('');
+    const ids = async () => (await parseTranscript(file, dir)).tools.map((t) => t.id);
+    await writeFile(file, reads('a', 3));
+    assert.deepEqual(await ids(), ['a0', 'a1', 'a2']);
+
+    await writeFile(file, reads('b', 2));
+    assert.deepEqual(await ids(), ['b0', 'b1'], 'shorter');
+
+    // Kept open so the replacement can't reuse its inode.
+    const held = await open(file, 'r');
+    try {
+      await rm(file);
+      await writeFile(file, reads('c', 4));
+      assert.deepEqual(await ids(), ['c0', 'c1', 'c2', 'c3'], 'replaced');
+    } finally {
+      await held.close();
+    }
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
+});
+
+test('saved parser state is kept for the 32 most recent transcripts', async () => {
+  const dir = await mkdtemp(path.join(tmpdir(), 'hud-transcript-'));
+  try {
+    for (let i = 0; i < 34; i++) {
+      const file = path.join(dir, `${i}.jsonl`);
+      await writeFile(file, JSON.stringify(toolUse('t', 'Read', {})) + '\n');
+      await parseTranscript(file, dir);
+    }
+    assert.equal((await readdir(path.join(dir, '.claude', 'plugins', 'claude-hud', 'transcript-cursors'))).length, 32);
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
+});
+
+test('a background agent completes however many other tasks and agents send notices', async () => {
+  const notice = (id, timestamp) => ({ type: 'queue-operation', operation: 'enqueue', timestamp, content: `<task-notification><task-id>x</task-id><tool-use-id>${id}</tool-use-id></task-notification>` });
+  const launch = (id) => [toolUse(id, 'Agent', { run_in_background: true }), toolResult(id, { toolUseResult: { status: 'async_launched' } })];
+  const others = Array.from({ length: 70 }, (_, i) => i);
+  const r = await parse([
+    ...launch('bg'),
+    notice('bg', '2026-10-01T00:00:01.000Z'),
+    ...others.map((i) => notice(`bash${i}`, '2026-10-01T00:00:02.000Z')),
+  ]);
+  assert.equal(r.agents.find((a) => a.id === 'bg')?.status, 'completed');
+
+  // Past the tracked limit, the oldest agents go with their completions; the newest still complete.
+  const many = await parse([
+    ...others.flatMap((i) => launch(`a${i}`)),
+    ...others.map((i) => notice(`a${i}`, '2026-10-01T00:00:03.000Z')),
+  ]);
+  assert.equal(many.agents.length, 10);
+  assert.ok(many.agents.every((a) => a.status === 'completed'));
+});
+
+test('saved state that no longer parses is dropped and the transcript reread', async () => {
+  const dir = await mkdtemp(path.join(tmpdir(), 'hud-transcript-'));
+  try {
+    const file = path.join(dir, 'transcript.jsonl');
+    await writeFile(file, JSON.stringify(toolUse('t1', 'Read', { file_path: '/a' })) + '\n');
+    const { version } = JSON.parse(await readFile(fixture('../package.json'), 'utf8'));
+    const cursors = path.join(dir, '.claude', 'plugins', 'claude-hud', 'transcript-cursors');
+    await parseTranscript(file, dir);
+    const cursorFile = path.join(cursors, `${createHash('sha256').update(path.resolve(file)).digest('hex')}.json`);
+    const cursor = JSON.parse(await readFile(cursorFile, 'utf8'));
+    assert.equal(cursor.version, version);
+    await appendFile(file, JSON.stringify(toolUse('t2', 'Read', { file_path: '/b' })) + '\n');
+    for (const bad of [{ ...cursor, state: { ...cursor.state, tools: 5 } }, null]) {
+      await writeFile(cursorFile, JSON.stringify(bad));
+      assert.deepEqual((await parseTranscript(file, dir)).tools.map((t) => t.id), ['t1', 't2']);
+      assert.equal(JSON.parse(await readFile(cursorFile, 'utf8')).state.tools.length, 2, 'the bad cursor is replaced');
+    }
   } finally {
     await rm(dir, { recursive: true, force: true });
   }

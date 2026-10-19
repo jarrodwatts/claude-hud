@@ -71,7 +71,7 @@ export async function main(): Promise<void> {
     const extraCmd = parseExtraCmdArg();
     const transcriptPath = stdin.transcript_path ?? "";
     const readTranscript = async (): Promise<TranscriptData> => {
-      const data = await parseTranscript(transcriptPath);
+      const data = await parseTranscript(transcriptPath, os.homedir());
       return display.showAgents && display.showAgentEffort ? addSubagentEfforts(transcriptPath, data) : data;
     };
     const [transcript, gitStatus, extraLabel, memoryUsage] = await Promise.all([
