@@ -293,13 +293,14 @@ test('subagent effort comes from the first assistant record of the subagent tran
   try {
     const file = path.join(dir, 'session.jsonl');
     const launch = (id, agentId) => [toolUse(id, 'Agent', { subagent_type: id }), toolResult(id, { toolUseResult: { agentId } })];
-    await writeFile(file, [...launch('known', 'a1'), ...launch('unreplied', 'a2'), ...launch('missing', 'a3'), ...launch('escape', '../a1'), toolUse('noid', 'Agent', {})]
+    await writeFile(file, [...launch('known', 'a1'), ...launch('unreplied', 'a2'), ...launch('missing', 'a3'), ...launch('long', 'a4'), ...launch('escape', '../a1'), toolUse('noid', 'Agent', {})]
       .map((e) => JSON.stringify(e)).join('\n'));
     const subagents = path.join(dir, 'session', 'subagents');
     await mkdir(subagents, { recursive: true });
     const lines = (...entries) => entries.map((e) => (typeof e === 'string' ? e : JSON.stringify(e))).join('\n');
     await writeFile(path.join(subagents, 'agent-a1.jsonl'), lines({ type: 'user', effort: 'low' }, '{oops', { type: 'assistant', effort: 'medium' }, { type: 'assistant', effort: 'max' }));
     await writeFile(path.join(subagents, 'agent-a2.jsonl'), lines({ type: 'user' }));
+    await writeFile(path.join(subagents, 'agent-a4.jsonl'), lines({ type: 'user', prompt: 'x'.repeat(3 << 20) }, { type: 'assistant', effort: 'high' }));
     await writeFile(path.join(dir, 'agent-a1.jsonl'), lines({ type: 'assistant', effort: 'max' }));
 
     const r = await addSubagentEfforts(file, await parseTranscript(file));
@@ -307,6 +308,7 @@ test('subagent effort comes from the first assistant record of the subagent tran
       ['known', 'a1', 'medium'],
       ['unreplied', 'a2', undefined],
       ['missing', 'a3', undefined],
+      ['long', 'a4', 'high'],
       ['escape', undefined, undefined],
       ['agent', undefined, undefined],
     ]);

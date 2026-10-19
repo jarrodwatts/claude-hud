@@ -396,32 +396,24 @@ export async function parseTranscript(transcriptPath: string): Promise<Transcrip
   return parser.finish();
 }
 
-// Long enough for the subagent's prompt and its first reply.
-const SUBAGENT_HEAD_BYTES = 1 << 20;
-
 /** A subagent's effort, from the first assistant record of `<session>/subagents/agent-<id>.jsonl`. */
 async function subagentEffort(transcriptPath: string, agentId: string): Promise<string | undefined> {
   const file = path.join(path.dirname(transcriptPath), path.basename(transcriptPath, '.jsonl'), 'subagents', `agent-${agentId}.jsonl`);
-  let head: string;
+  const input = fs.createReadStream(file);
   try {
-    const handle = await fs.promises.open(file, 'r');
-    try {
-      const { bytesRead, buffer } = await handle.read(Buffer.alloc(SUBAGENT_HEAD_BYTES), 0, SUBAGENT_HEAD_BYTES, 0);
-      head = buffer.toString('utf8', 0, bytesRead);
-    } finally {
-      await handle.close();
+    for await (const raw of readline.createInterface({ input, crlfDelay: Infinity })) {
+      let entry: { type?: unknown; effort?: unknown } | null = null;
+      try {
+        entry = JSON.parse(raw);
+      } catch {
+        continue;
+      }
+      if (entry?.type === 'assistant') return typeof entry.effort === 'string' ? entry.effort : undefined;
     }
   } catch {
-    return undefined;
-  }
-  for (const line of head.split('\n')) {
-    let entry: { type?: unknown; effort?: unknown } | null = null;
-    try {
-      entry = JSON.parse(line);
-    } catch {
-      continue;
-    }
-    if (entry?.type === 'assistant') return typeof entry.effort === 'string' ? entry.effort : undefined;
+    // No transcript yet.
+  } finally {
+    input.destroy();
   }
   return undefined;
 }
