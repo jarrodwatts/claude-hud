@@ -18,8 +18,6 @@ const MCP_ERRORS_MAX = 64;
 const MCP_TOOL = /^mcp__(.+?)__(.+)$/;
 // Claude Code's /effort output; anchored so prose quoting it can't flip ultracode.
 const EFFORT_COMMAND = /^<local-command-stdout>Set effort level to (\w+)/;
-// A subagent id names its transcript file, so only a plain token is kept.
-const AGENT_ID = /^[\w-]{1,64}$/;
 
 interface Usage {
   input_tokens?: unknown;
@@ -307,7 +305,7 @@ class Parser {
       const agentId = (entry.toolUseResult as { agentId?: unknown } | undefined)?.agentId;
       if (typeof agentId === 'string' && agentId) {
         this.agentIdToToolUseId.set(agentId, id);
-        if (AGENT_ID.test(agentId)) agent.agentId = agentId;
+        agent.agentId = agentId;
       }
       // resolvedModel is what the subagent actually ran on, so it beats the caller's alias.
       agent.model = sanitizeTranscriptModel(entry.toolUseResult?.resolvedModel) ?? agent.model;
@@ -396,8 +394,12 @@ export async function parseTranscript(transcriptPath: string): Promise<Transcrip
   return parser.finish();
 }
 
+// The id comes from the transcript and names a file, so only a plain token is used.
+const AGENT_ID = /^[\w-]{1,64}$/;
+
 /** A subagent's effort, from the first assistant record of `<session>/subagents/agent-<id>.jsonl`. */
 async function subagentEffort(transcriptPath: string, agentId: string): Promise<string | undefined> {
+  if (!AGENT_ID.test(agentId)) return undefined;
   const file = path.join(path.dirname(transcriptPath), path.basename(transcriptPath, '.jsonl'), 'subagents', `agent-${agentId}.jsonl`);
   const input = fs.createReadStream(file);
   try {

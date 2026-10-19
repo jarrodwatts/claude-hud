@@ -309,7 +309,7 @@ test('subagent effort comes from the first assistant record of the subagent tran
       ['unreplied', 'a2', undefined],
       ['missing', 'a3', undefined],
       ['long', 'a4', 'high'],
-      ['escape', undefined, undefined],
+      ['escape', '../a1', undefined],
       ['agent', undefined, undefined],
     ]);
   } finally {
