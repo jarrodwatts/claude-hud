@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { appendFile, mkdtemp, readdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -9,12 +9,17 @@ import { TRANSCRIPT_MODEL_MAX_LEN } from '../dist/model-source.js';
 
 const fixture = (name) => fileURLToPath(new URL(name, import.meta.url));
 
+// Saved parser state lands under the home's .claude, so every test gets its own.
+process.env.CLAUDE_CONFIG_DIR = '';
+const home = await mkdtemp(path.join(tmpdir(), 'hud-transcript-home-'));
+test.after(() => rm(home, { recursive: true, force: true }));
+
 async function parse(entries) {
   const dir = await mkdtemp(path.join(tmpdir(), 'hud-transcript-'));
   try {
     const file = path.join(dir, 'transcript.jsonl');
     await writeFile(file, entries.map((e) => (typeof e === 'string' ? e : JSON.stringify(e))).join('\n'));
-    return await parseTranscript(file);
+    return await parseTranscript(file, dir);
   } finally {
     await rm(dir, { recursive: true, force: true });
   }
@@ -42,7 +47,7 @@ const tokens = (input, output, cacheCreation, cacheRead) => ({
 });
 
 test('parseTranscript reads a realistic session', async () => {
-  const r = await parseTranscript(fixture('./golden/transcript.jsonl'));
+  const r = await parseTranscript(fixture('./golden/transcript.jsonl'), home);
 
   assert.deepEqual(r.tools.map((t) => [t.name, t.target, t.status]), [
     ['Read', '/repo/src/auth.ts', 'completed'],
@@ -72,7 +77,7 @@ test('parseTranscript reads a realistic session', async () => {
 
 test('parseTranscript returns an empty result for a missing file and skips malformed lines', async () => {
   for (const missing of ['', '/no/such/transcript.jsonl', tmpdir()]) {
-    assert.deepEqual(await parseTranscript(missing), { tools: [], skills: [], mcpServers: [], mcpErrors: [], agents: [], todos: [] });
+    assert.deepEqual(await parseTranscript(missing, home), { tools: [], skills: [], mcpServers: [], mcpErrors: [], agents: [], todos: [] });
   }
   const r = await parse(['{not json', '42', toolUse('t1', 'Read', { file_path: '/a' }), '', '{"type":']);
   assert.equal(r.tools.length, 1);
@@ -165,7 +170,7 @@ test('ultracode follows the latest enter/exit attachment or /effort output', asy
   const exit = { type: 'attachment', attachment: { type: 'ultra_effort_exit' } };
   const effort = (level) => ({ type: 'user', message: { content: `<local-command-stdout>Set effort level to ${level} (this session only): x</local-command-stdout>` } });
 
-  assert.equal((await parseTranscript(fixture('./fixtures/transcript-ultracode.jsonl'))).ultracodeActive, true);
+  assert.equal((await parseTranscript(fixture('./fixtures/transcript-ultracode.jsonl'), home)).ultracodeActive, true);
   assert.equal((await parse([assistant()])).ultracodeActive, undefined);
   assert.equal((await parse([enter, exit])).ultracodeActive, false);
   assert.equal((await parse([enter, effort('xhigh')])).ultracodeActive, false);
@@ -286,4 +291,63 @@ test('model-written tool inputs are sanitized before display', async () => {
   ]);
   assert.equal(r.tools[0].target, '/repo/fix it.ts');
   assert.deepEqual(r.todos, [{ content: 'fix it', status: 'in_progress' }, { content: 'fix it', status: 'pending' }]);
+});
+
+test('each run reads only what was appended since the last, and gets the same result as a full read', async () => {
+  const dir = await mkdtemp(path.join(tmpdir(), 'hud-transcript-'));
+  try {
+    const source = await readFile(fixture('./golden/transcript.jsonl'), 'utf8');
+    const expected = await parseTranscript(fixture('./golden/transcript.jsonl'), dir);
+    const file = path.join(dir, 'transcript.jsonl');
+    await writeFile(file, '');
+    // Uneven steps, so some runs end mid-line.
+    for (let at = 0; at < source.length; at += 997) {
+      await appendFile(file, source.slice(at, at + 997));
+      await parseTranscript(file, dir);
+    }
+    // Saved state drops undefined-valued keys, which nothing distinguishes from absent ones.
+    const plain = (value) => JSON.parse(JSON.stringify(value));
+    assert.deepEqual(plain(await parseTranscript(file, dir)), plain(expected));
+
+    // Same size and file, but earlier bytes changed: the saved state wins, so nothing was reread.
+    const sessionStart = /"timestamp":"[^"]+"/;
+    await writeFile(file, source.replace(sessionStart, `"timestamp":"${expected.sessionStart.toISOString().replace(/^\d{4}/, '1999')}"`), { flag: 'r+' });
+    assert.deepEqual((await parseTranscript(file, dir)).sessionStart, expected.sessionStart);
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
+});
+
+test('a replaced or shorter transcript is read from the start', async () => {
+  const dir = await mkdtemp(path.join(tmpdir(), 'hud-transcript-'));
+  try {
+    const file = path.join(dir, 'transcript.jsonl');
+    const reads = (n) => Array.from({ length: n }, (_, i) => JSON.stringify(toolUse(`t${i}`, 'Read', { file_path: `/${i}` })) + '\n').join('');
+    await writeFile(file, reads(3));
+    assert.equal((await parseTranscript(file, dir)).tools.length, 3);
+
+    await writeFile(file, reads(2));
+    assert.equal((await parseTranscript(file, dir)).tools.length, 2, 'shorter');
+
+    await rm(file);
+    await writeFile(file, reads(4));
+    await writeFile(path.join(dir, 'other.jsonl'), '');
+    assert.equal((await parseTranscript(file, dir)).tools.length, 4, 'replaced');
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
+});
+
+test('saved parser state is kept for the 32 most recent transcripts', async () => {
+  const dir = await mkdtemp(path.join(tmpdir(), 'hud-transcript-'));
+  try {
+    for (let i = 0; i < 34; i++) {
+      const file = path.join(dir, `${i}.jsonl`);
+      await writeFile(file, JSON.stringify(toolUse('t', 'Read', {})) + '\n');
+      await parseTranscript(file, dir);
+    }
+    assert.equal((await readdir(path.join(dir, '.claude', 'plugins', 'claude-hud', 'transcript-cursors'))).length, 32);
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
 });

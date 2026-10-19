@@ -70,7 +70,7 @@ export async function main(): Promise<void> {
     const now = Date.now();
     const extraCmd = parseExtraCmdArg();
     const [transcript, gitStatus, extraLabel, memoryUsage] = await Promise.all([
-      needsTranscript(config, stdin) ? parseTranscript(stdin.transcript_path ?? "") : EMPTY_TRANSCRIPT,
+      needsTranscript(config, stdin) ? parseTranscript(stdin.transcript_path ?? "", os.homedir()) : EMPTY_TRANSCRIPT,
       resolveVcsStatus(config, stdin.cwd, stdin.workspace?.repo),
       extraCmd ? runExtraCmd(extraCmd) : null,
       display.showMemoryUsage && config.lineLayout === "expanded" ? getMemoryUsage() : null,
