@@ -84,6 +84,8 @@ export interface AgentEntry {
     startTime: Date;
     endTime?: Date;
     background?: boolean;
+    agentId?: string;
+    effort?: string;
 }
 export interface TodoItem {
     content: string;

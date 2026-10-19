@@ -1,3 +1,4 @@
+import { effortInfo, formatEffort } from '../effort.js';
 import { t } from '../i18n/index.js';
 import { sanitizeDisplayText } from '../utils/sanitize.js';
 import { truncateString } from '../utils/truncate.js';
@@ -90,28 +91,33 @@ function formatElapsed(agent, now) {
     return `${Math.floor(mins / 60)}h ${mins % 60}m`;
 }
 /** Up to three agents: running ones first, then those that finished in the last minute. */
-function agentsLine(f) {
-    const colors = f.config?.colors;
+export function shownAgents(agents, now) {
     const seen = new Set();
     const firstSighting = (agent) => !seen.has(agent.id) && !!seen.add(agent.id);
-    const running = f.transcript.agents.filter((agent) => agent.status === 'running').filter(firstSighting).slice(-MAX_AGENTS);
+    const running = agents.filter((agent) => agent.status === 'running').filter(firstSighting).slice(-MAX_AGENTS);
     const slots = Math.min(MAX_RECENT_COMPLETED, MAX_AGENTS - running.length);
-    const recent = f.transcript.agents
+    const recent = agents
         .filter((agent) => {
         const endedAt = agent.endTime?.getTime();
         return agent.status === 'completed' && endedAt !== undefined && Number.isFinite(endedAt)
-            && endedAt <= f.now && f.now - endedAt <= COMPLETED_RETENTION_MS;
+            && endedAt <= now && now - endedAt <= COMPLETED_RETENTION_MS;
     })
         .filter(firstSighting);
-    const shown = [...running, ...(slots > 0 ? recent.slice(-slots) : [])];
+    return [...running, ...(slots > 0 ? recent.slice(-slots) : [])];
+}
+function agentsLine(f) {
+    const colors = f.config?.colors;
+    const shown = shownAgents(f.transcript.agents, f.now);
     if (shown.length === 0)
         return null;
     const clean = (value, max) => (typeof value === 'string' ? truncateString(sanitizeDisplayText(value).trim(), max) : '');
+    const display = f.config?.display;
     return shown.map((agent) => {
         const icon = agent.status === 'running' ? yellow('◐') : green('✓');
-        const model = shortModel(agent.model);
+        const effort = display?.showAgentEffort ? effortInfo(agent.effort) : null;
+        const badge = [shortModel(agent.model), effort && formatEffort(effort, display?.effortFormat)].filter(Boolean).join(' ');
         const description = clean(agent.description, 40);
-        return `${icon} ${magenta(clean(agent.type, 24) || 'agent')}${model ? ` ${label(`[${model}]`, colors)}` : ''}`
+        return `${icon} ${magenta(clean(agent.type, 24) || 'agent')}${badge ? ` ${label(`[${badge}]`, colors)}` : ''}`
             + `${description ? label(`: ${description}`, colors) : ''} ${label(`(${formatElapsed(agent, f.now)})`, colors)}`;
     }).join('\n');
 }

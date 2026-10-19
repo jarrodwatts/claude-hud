@@ -109,6 +109,7 @@ export interface HudConfig {
         showClaudeCodeVersion: boolean;
         showEffortLevel: boolean;
         effortFormat: EffortFormatMode;
+        showAgentEffort: boolean;
         showMemoryUsage: boolean;
         showPromptCache: boolean;
         showCacheHitRate: boolean;

@@ -1,5 +1,6 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
+import * as readline from 'node:readline';
 import { createHash } from 'node:crypto';
 import { getHudPluginDir } from './claude-config-dir.js';
 import { createDebug } from './debug.js';
@@ -289,8 +290,10 @@ class Parser {
         const agent = this.agents.get(id);
         if (agent) {
             const agentId = entry.toolUseResult?.agentId;
-            if (typeof agentId === 'string' && agentId)
+            if (typeof agentId === 'string' && agentId) {
                 this.agentIdToToolUseId.set(agentId, id);
+                agent.agentId = agentId;
+            }
             // resolvedModel is what the subagent actually ran on, so it beats the caller's alias.
             agent.model = sanitizeTranscriptModel(entry.toolUseResult?.resolvedModel) ?? agent.model;
             if (entry.toolUseResult?.isAsync === true || entry.toolUseResult?.status === 'async_launched') {
@@ -347,7 +350,8 @@ class Parser {
             data: this.data,
         };
     }
-    // `s` comes from JSON read with reviveDates.
+    // `s` comes from JSON read with reviveDates; Map entries are [key, value] pairs the
+    // reviver can't see, so their Dates are rebuilt here.
     static load(s) {
         const parser = new Parser();
         parser.tools = new Map(s.tools);
@@ -466,7 +470,7 @@ function writeCursor(file, cursor) {
         debug('Transcript cursor write failed:', err instanceof Error ? err.message : err);
     }
 }
-// Keeps the most recently used sessions' cursors, and sweeps temp files a killed run left.
+// Keeps the 32 most recently written files, stray temp files from a killed run included.
 function pruneCursors(dir) {
     const files = fs.readdirSync(dir).map((name) => path.join(dir, name));
     if (files.length <= CURSORS_KEPT)
@@ -574,5 +578,50 @@ export async function parseTranscript(transcriptPath, homeDir) {
     finally {
         await file.close();
     }
+}
+// The id comes from the transcript and names a file, so only a plain token is used.
+const AGENT_ID = /^[\w-]{1,64}$/;
+/** A subagent's effort, from the first assistant record of `<session>/subagents/agent-<id>.jsonl`. */
+async function subagentEffort(transcriptPath, agentId) {
+    if (!AGENT_ID.test(agentId))
+        return undefined;
+    const file = path.join(path.dirname(transcriptPath), path.basename(transcriptPath, '.jsonl'), 'subagents', `agent-${agentId}.jsonl`);
+    try {
+        // Checked before opening, which would block on a pipe.
+        if (!(await fs.promises.stat(file)).isFile())
+            return undefined;
+    }
+    catch {
+        return undefined;
+    }
+    // A stream rather than readLines, so the scan stops at the first reply.
+    const input = fs.createReadStream(file);
+    try {
+        for await (const raw of readline.createInterface({ input, crlfDelay: Infinity })) {
+            let entry = null;
+            try {
+                entry = JSON.parse(raw);
+            }
+            catch {
+                continue;
+            }
+            if (entry?.type === 'assistant')
+                return typeof entry.effort === 'string' ? entry.effort : undefined;
+        }
+    }
+    catch {
+        // Gone mid-read.
+    }
+    finally {
+        input.destroy();
+    }
+    return undefined;
+}
+/** Sets each agent's effort in place; agents without a known id or first reply stay without one. */
+export async function addSubagentEfforts(transcriptPath, agents) {
+    await Promise.all(agents.map(async (agent) => {
+        if (agent.agentId)
+            agent.effort = await subagentEffort(transcriptPath, agent.agentId);
+    }));
 }
 //# sourceMappingURL=transcript.js.map

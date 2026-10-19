@@ -2,8 +2,9 @@ import * as os from "node:os";
 import { realpathSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { getUsageFromStdin, isContextUnreported, readStdin } from "./stdin.js";
-import { parseTranscript } from "./transcript.js";
+import { addSubagentEfforts, parseTranscript } from "./transcript.js";
 import { render } from "./render/index.js";
+import { shownAgents } from "./render/activity.js";
 import { countConfigs } from "./config-reader.js";
 import { getGitStatus } from "./git.js";
 import { getJjStatus, isJjRepo } from "./jj.js";
@@ -60,8 +61,16 @@ export async function main() {
         const display = config.display;
         const now = Date.now();
         const extraCmd = parseExtraCmdArg();
+        const transcriptPath = stdin.transcript_path ?? "";
+        const readTranscript = async () => {
+            const data = await parseTranscript(transcriptPath, os.homedir());
+            // Only the agents the line will show, since each lookup opens a file.
+            if (display.showAgents && display.showAgentEffort)
+                await addSubagentEfforts(transcriptPath, shownAgents(data.agents, now));
+            return data;
+        };
         const [transcript, gitStatus, extraLabel, memoryUsage] = await Promise.all([
-            needsTranscript(config, stdin) ? parseTranscript(stdin.transcript_path ?? "", os.homedir()) : EMPTY_TRANSCRIPT,
+            needsTranscript(config, stdin) ? readTranscript() : EMPTY_TRANSCRIPT,
             resolveVcsStatus(config, stdin.cwd, stdin.workspace?.repo),
             extraCmd ? runExtraCmd(extraCmd) : null,
             display.showMemoryUsage && config.lineLayout === "expanded" ? getMemoryUsage() : null,

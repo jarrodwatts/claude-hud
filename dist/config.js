@@ -120,6 +120,7 @@ export const DEFAULT_CONFIG = {
         showClaudeCodeVersion: false,
         showEffortLevel: false,
         effortFormat: 'full',
+        showAgentEffort: false,
         showMemoryUsage: false,
         showPromptCache: false,
         showCacheHitRate: false,
