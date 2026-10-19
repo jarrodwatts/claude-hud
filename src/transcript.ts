@@ -11,10 +11,9 @@ const debug = createDebug('transcript');
 
 const TOOLS_KEPT = 20;
 const AGENTS_KEPT = 10;
-// Tracked beyond what's shown so a late result still finds its tool or agent, but
+// Tools are tracked beyond those shown so an MCP call's late error still counts, but
 // bounded so the saved parser state stays small however long the session runs.
 const TOOLS_TRACKED = 256;
-const AGENTS_TRACKED = 64;
 const NAME_MAX_LEN = 64;
 const ADVISOR_MODEL_MAX_LEN = 64;
 const MESSAGE_ID_MAX_LEN = 128;
@@ -267,7 +266,7 @@ class Parser {
         startTime: at,
         background: input?.run_in_background === true,
       });
-      if (cap(this.agents, AGENTS_TRACKED)) {
+      if (cap(this.agents, AGENTS_KEPT)) {
         // Completions and launch ids only matter for agents still tracked.
         for (const id of this.agentCompletions.keys()) if (!this.agents.has(id)) this.agentCompletions.delete(id);
         for (const [agentId, id] of this.agentIdToToolUseId) if (!this.agents.has(id)) this.agentIdToToolUseId.delete(agentId);
@@ -404,7 +403,7 @@ class Parser {
     return {
       ...this.data,
       tools: [...this.tools.values()].slice(-TOOLS_KEPT),
-      agents: [...this.agents.values()].slice(-AGENTS_KEPT),
+      agents: [...this.agents.values()],
       skills: [...this.skills],
       mcpServers: [...this.mcpServers],
       mcpErrors: [...this.mcpErrors],
@@ -475,14 +474,15 @@ function cursorPath(homeDir: string, transcriptPath: string): string {
 }
 
 function readCursor(file: string): Cursor | null {
-  let cursor: Partial<Cursor>;
+  let cursor: Partial<Cursor> | null;
   try {
     cursor = JSON.parse(fs.readFileSync(file, 'utf8'), reviveDates);
   } catch {
     return null;
   }
+  if (typeof cursor !== 'object' || cursor === null) return null;
   if (cursor.version !== getHudVersion() || typeof cursor.ino !== 'number') return null;
-  if (!Number.isSafeInteger(cursor.offset) || (cursor.offset as number) < 0) return null;
+  if (typeof cursor.offset !== 'number' || !Number.isSafeInteger(cursor.offset) || cursor.offset < 0) return null;
   return cursor as Cursor;
 }
 
@@ -532,7 +532,14 @@ async function readLines(
   let end = start;
   let position = start;
   while (true) {
-    const { bytesRead } = await file.read(buffer, 0, CHUNK_BYTES, position);
+    let bytesRead: number;
+    try {
+      ({ bytesRead } = await file.read(buffer, 0, CHUNK_BYTES, position));
+    } catch (err) {
+      // A read cut short still renders, and saves, what was parsed.
+      debug('Transcript read failed:', err instanceof Error ? err.message : err);
+      break;
+    }
     if (bytesRead === 0) break;
     const chunk = buffer.subarray(0, bytesRead);
     let from = 0;
@@ -554,9 +561,9 @@ async function readLines(
 /** Parses from `offset` to the end, saving the state as it goes. */
 async function parseFrom(
   file: fs.promises.FileHandle,
-  save: (parser: Parser, offset: number) => void,
   parser: Parser,
   offset: number,
+  save: (parser: Parser, offset: number) => void,
 ): Promise<TranscriptData> {
   let saved = offset;
   const { end, rest } = await readLines(file, offset, (line, lineEnd) => {
@@ -590,12 +597,12 @@ export async function parseTranscript(transcriptPath: string, homeDir: string): 
     const cursor = readCursor(cursorFile);
     if (cursor && (await resumes(file, stat, cursor))) {
       try {
-        return await parseFrom(file, save, Parser.load(cursor.state), cursor.offset);
+        return await parseFrom(file, Parser.load(cursor.state), cursor.offset, save);
       } catch (err) {
         debug('Saved transcript state unusable, rereading:', err instanceof Error ? err.message : err);
       }
     }
-    return await parseFrom(file, save, new Parser(), 0);
+    return await parseFrom(file, new Parser(), 0, save);
   } catch (err) {
     debug('Transcript read failed:', err instanceof Error ? err.message : err);
     return emptyTranscript();

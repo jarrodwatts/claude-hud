@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { appendFile, mkdtemp, readdir, readFile, rm, writeFile } from 'node:fs/promises';
+import { appendFile, mkdtemp, open, readdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { createHash } from 'node:crypto';
@@ -323,17 +323,23 @@ test('a replaced or shorter transcript is read from the start', async () => {
   const dir = await mkdtemp(path.join(tmpdir(), 'hud-transcript-'));
   try {
     const file = path.join(dir, 'transcript.jsonl');
-    const reads = (n) => Array.from({ length: n }, (_, i) => JSON.stringify(toolUse(`t${i}`, 'Read', { file_path: `/${i}` })) + '\n').join('');
-    await writeFile(file, reads(3));
-    assert.equal((await parseTranscript(file, dir)).tools.length, 3);
+    const reads = (prefix, n) => Array.from({ length: n }, (_, i) => JSON.stringify(toolUse(`${prefix}${i}`, 'Read', {})) + '\n').join('');
+    const ids = async () => (await parseTranscript(file, dir)).tools.map((t) => t.id);
+    await writeFile(file, reads('a', 3));
+    assert.deepEqual(await ids(), ['a0', 'a1', 'a2']);
 
-    await writeFile(file, reads(2));
-    assert.equal((await parseTranscript(file, dir)).tools.length, 2, 'shorter');
+    await writeFile(file, reads('b', 2));
+    assert.deepEqual(await ids(), ['b0', 'b1'], 'shorter');
 
-    await rm(file);
-    await writeFile(file, reads(4));
-    await writeFile(path.join(dir, 'other.jsonl'), '');
-    assert.equal((await parseTranscript(file, dir)).tools.length, 4, 'replaced');
+    // Kept open so the replacement can't reuse its inode.
+    const held = await open(file, 'r');
+    try {
+      await rm(file);
+      await writeFile(file, reads('c', 4));
+      assert.deepEqual(await ids(), ['c0', 'c1', 'c2', 'c3'], 'replaced');
+    } finally {
+      await held.close();
+    }
   } finally {
     await rm(dir, { recursive: true, force: true });
   }
@@ -384,9 +390,12 @@ test('saved state that no longer parses is dropped and the transcript reread', a
     const cursorFile = path.join(cursors, `${createHash('sha256').update(path.resolve(file)).digest('hex')}.json`);
     const cursor = JSON.parse(await readFile(cursorFile, 'utf8'));
     assert.equal(cursor.version, version);
-    await writeFile(cursorFile, JSON.stringify({ ...cursor, state: { ...cursor.state, data: null } }));
     await appendFile(file, JSON.stringify(toolUse('t2', 'Read', { file_path: '/b' })) + '\n');
-    assert.deepEqual((await parseTranscript(file, dir)).tools.map((t) => t.id), ['t1', 't2']);
+    for (const bad of [{ ...cursor, state: { ...cursor.state, tools: 5 } }, null]) {
+      await writeFile(cursorFile, JSON.stringify(bad));
+      assert.deepEqual((await parseTranscript(file, dir)).tools.map((t) => t.id), ['t1', 't2']);
+      assert.equal(JSON.parse(await readFile(cursorFile, 'utf8')).state.tools.length, 2, 'the bad cursor is replaced');
+    }
   } finally {
     await rm(dir, { recursive: true, force: true });
   }
