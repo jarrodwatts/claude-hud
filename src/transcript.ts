@@ -196,6 +196,7 @@ class Parser {
       if (toolUseId && taskId && this.agents.has(toolUseId) && !(prev && prev <= at)) this.agentCompletions.set(toolUseId, at);
     }
 
+    // Only real turns carry activity; api-request-blob lines replay earlier messages' blocks.
     if ((entry.type === 'assistant' || entry.type === 'user') && Array.isArray(entry.message?.content)) {
       for (const block of entry.message.content) {
         if (block?.type === 'tool_use' && block.id && block.name) this.toolUse(block, at ?? new Date());

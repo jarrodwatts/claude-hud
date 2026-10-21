@@ -1,11 +1,11 @@
-{"message":{"content":[{"type":"tool_use","id":"tool-1","name":"Read","input":{"file_path":"/tmp/example.txt"}}]}}
-{"message":{"content":[{"type":"tool_result","tool_use_id":"tool-1","is_error":false}]}}
-{"message":{"content":[{"type":"tool_use","id":"tool-2","name":"Edit","input":{"file_path":"/tmp/very/long/path/to/authentication.ts"}}]}}
-{"message":{"content":[{"type":"tool_use","id":"skill-1","name":"Skill","input":{"skill":"frontend-design"}}]}}
-{"message":{"content":[{"type":"tool_use","id":"skill-2","name":"Skill","input":{"skill":"frontend-design"}}]}}
-{"message":{"content":[{"type":"tool_use","id":"mcp-1","name":"mcp__linear__list_issues","input":{}}]}}
-{"message":{"content":[{"type":"tool_use","id":"mcp-2","name":"mcp__linear__get_issue","input":{}}]}}
-{"message":{"content":[{"type":"tool_use","id":"mcp-3","name":"mcp__slack__search_messages","input":{}}]}}
-{"message":{"content":[{"type":"tool_use","id":"agent-1","name":"Task","input":{"subagent_type":"explore","model":"haiku","description":"Finding auth code"}}]}}
-{"message":{"content":[{"type":"tool_result","tool_use_id":"agent-1","is_error":false}]}}
-{"message":{"content":[{"type":"tool_use","id":"todo-1","name":"TodoWrite","input":{"todos":[{"content":"Fix auth bug","status":"completed"},{"content":"Add tests","status":"in_progress"}]}}]}}
+{"type":"assistant","message":{"content":[{"type":"tool_use","id":"tool-1","name":"Read","input":{"file_path":"/tmp/example.txt"}}]}}
+{"type":"user","message":{"content":[{"type":"tool_result","tool_use_id":"tool-1","is_error":false}]}}
+{"type":"assistant","message":{"content":[{"type":"tool_use","id":"tool-2","name":"Edit","input":{"file_path":"/tmp/very/long/path/to/authentication.ts"}}]}}
+{"type":"assistant","message":{"content":[{"type":"tool_use","id":"skill-1","name":"Skill","input":{"skill":"frontend-design"}}]}}
+{"type":"assistant","message":{"content":[{"type":"tool_use","id":"skill-2","name":"Skill","input":{"skill":"frontend-design"}}]}}
+{"type":"assistant","message":{"content":[{"type":"tool_use","id":"mcp-1","name":"mcp__linear__list_issues","input":{}}]}}
+{"type":"assistant","message":{"content":[{"type":"tool_use","id":"mcp-2","name":"mcp__linear__get_issue","input":{}}]}}
+{"type":"assistant","message":{"content":[{"type":"tool_use","id":"mcp-3","name":"mcp__slack__search_messages","input":{}}]}}
+{"type":"assistant","message":{"content":[{"type":"tool_use","id":"agent-1","name":"Task","input":{"subagent_type":"explore","model":"haiku","description":"Finding auth code"}}]}}
+{"type":"user","message":{"content":[{"type":"tool_result","tool_use_id":"agent-1","is_error":false}]}}
+{"type":"assistant","message":{"content":[{"type":"tool_use","id":"todo-1","name":"TodoWrite","input":{"todos":[{"content":"Fix auth bug","status":"completed"},{"content":"Add tests","status":"in_progress"}]}}]}}
