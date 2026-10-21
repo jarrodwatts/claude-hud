@@ -325,6 +325,20 @@ test('todos show the task in progress, or completion once every item is done', (
   assert.equal(lines(ctx({ transcript: { todos: [todos[1]] }, config }))[2], '✓ All todos complete (1/1)');
 });
 
+test('todo truncation does not leave half an emoji in the rendered line', () => {
+  const prefix = 'a'.repeat(46);
+  const transcript = { todos: [{ content: `${prefix}😀tail`, status: 'in_progress' }] };
+  const config = { display: { showTodos: true } };
+  assert.equal(lines(ctx({ transcript, config }))[2], `▸ ${prefix}... (0/1)`);
+});
+
+test('agent description truncation keeps joined emoji whole', () => {
+  const prefix = 'a'.repeat(34);
+  const transcript = { agents: [{ id: 'a', type: 'review', description: `${prefix}👩‍💻tail`, status: 'running', startTime: ago(SECOND) }] };
+  const config = { display: { showAgents: true } };
+  assert.equal(lines(ctx({ transcript, config }))[2], `◐ review: ${prefix}... (1s)`);
+});
+
 test('the environment line names failing MCP servers and respects environmentThreshold', () => {
   const counts = { claudeMdCount: 2, rulesCount: 3, mcpCount: 4, hooksCount: 1 };
   const transcript = { mcpErrors: ['github', 'linear', 'slack', 'notion'] };
