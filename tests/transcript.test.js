@@ -47,6 +47,53 @@ const tokens = (input, output, cacheCreation, cacheRead) => ({
   cacheReadTokens: cacheRead,
 });
 
+test('API request blobs do not replay tool, task, or agent activity, including after a saved cursor', async () => {
+  const started = '2026-10-01T00:00:00.000Z';
+  const ended = '2026-10-01T00:01:00.000Z';
+  const launch = toolUse('agent', 'Agent', { subagent_type: 'Explore', model: 'haiku' }, started);
+  const launched = toolResult('agent', {
+    timestamp: started,
+    toolUseResult: { isAsync: true, agentId: 'a1', resolvedModel: 'claude-haiku-4-5' },
+  });
+  const bash = toolUse('bash', 'Bash', { command: 'ls' }, started);
+  const failed = toolUse('failed', 'mcp__github__run', {}, started);
+  const task = toolUse('create', 'TaskCreate', { subject: 'Write the fix' }, started);
+  const entries = [
+    launch, launched, bash, toolResult('bash', { timestamp: ended }),
+    failed, toolResult('failed', { timestamp: ended, isError: true }), task,
+    toolUse('update', 'TaskUpdate', { taskId: '1', status: 'in_progress' }, ended),
+  ];
+  const blobs = [launch, launched, bash, failed, task, toolResult('failed')].map((entry) => ({
+    type: 'api-request-blob', hash: 'replay', sessionId: 'session', message: entry.message,
+  }));
+  for (const completed of [false, true]) {
+    const real = completed ? [...entries, {
+      type: 'queue-operation', operation: 'enqueue', timestamp: ended,
+      content: '<task-notification><task-id>a1</task-id><status>completed</status></task-notification>',
+    }] : entries;
+    const expected = await parse(real);
+    assert.deepEqual(expected.tools.map((tool) => tool.status), ['completed', 'error']);
+    assert.deepEqual(expected.todos, [{ content: 'Write the fix', status: 'in_progress' }]);
+    assert.equal(expected.agents[0].status, completed ? 'completed' : 'running');
+    assert.deepEqual(await parse([...real, ...blobs]), expected, 'full read');
+
+    const dir = await mkdtemp(path.join(tmpdir(), 'hud-blob-replay-'));
+    try {
+      const file = path.join(dir, 'transcript.jsonl');
+      const jsonl = (records) => records.map((entry) => JSON.stringify(entry) + '\n').join('');
+      await writeFile(file, jsonl(real));
+      await parseTranscript(file, dir);
+      await appendFile(file, jsonl(blobs));
+      // Saved state omits undefined-valued keys, as in the other cursor tests.
+      const plain = (value) => JSON.parse(JSON.stringify(value));
+      assert.deepEqual(plain(await parseTranscript(file, dir)), plain(expected), 'resumed read');
+      assert.deepEqual(plain(await parseTranscript(file, dir)), plain(expected), 'saved replay state');
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
+  }
+});
+
 test('parseTranscript reads a realistic session', async () => {
   const r = await parseTranscript(fixture('./golden/transcript.jsonl'), home);
 
