@@ -6,6 +6,7 @@ import { getHudPluginDir } from './claude-config-dir.js';
 import { createDebug } from './debug.js';
 import type { AgentEntry, SessionTokenUsage, TodoItem, ToolEntry, TranscriptData } from './types.js';
 import { sanitizeDisplayText } from './utils/sanitize.js';
+import { truncateString } from './utils/truncate.js';
 import { sanitizeTranscriptModel } from './model-source.js';
 
 const debug = createDebug('transcript');
@@ -70,7 +71,7 @@ function name(value: unknown): string | undefined {
   if (typeof value !== 'string') return undefined;
   const text = sanitizeDisplayText(value).trim();
   if (!text) return undefined;
-  return text.length <= NAME_MAX_LEN ? text : `${text.slice(0, NAME_MAX_LEN - 1)}…`;
+  return truncateString(text, NAME_MAX_LEN, '…');
 }
 
 const mcpServer = (toolName: string): string | undefined => name(MCP_TOOL.exec(toolName)?.[1]);
@@ -94,7 +95,7 @@ function toolTarget(toolName: string, input: Record<string, unknown> | undefined
     case 'Bash': {
       const command = text(input.command)?.replace(/\s+/g, ' ').trim();
       if (!command) return undefined;
-      return command.length > 30 ? `${command.slice(0, 30).trimEnd()}...` : command;
+      return command.length > 30 ? `${truncateString(command, 30, '').trimEnd()}...` : command;
     }
   }
   return undefined;

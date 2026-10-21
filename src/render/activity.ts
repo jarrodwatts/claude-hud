@@ -12,14 +12,14 @@ function shortenToolName(rawName: string, maxLength: number): string {
   const name = sanitizeDisplayText(rawName);
   if (maxLength === 0) return name;
   const shown = /^mcp__.+__.+$/.test(name) ? name.split('__').pop() ?? name : name;
-  return shown.length <= maxLength ? shown : `${shown.slice(0, Math.max(0, maxLength - 1))}…`;
+  return truncateString(shown, maxLength, '…');
 }
 
 function shortenPath(target: string, maxLength = 20): string {
   const normalized = sanitizeDisplayText(target).replace(/\\/g, '/');
   if (normalized.length <= maxLength) return normalized;
   const filename = normalized.split('/').pop() || normalized;
-  return filename.length >= maxLength ? `${filename.slice(0, maxLength - 3)}...` : `.../${filename}`;
+  return filename.length >= maxLength ? truncateString(filename, maxLength) : `.../${filename}`;
 }
 
 /** `◐ Edit: auth.ts | ✓ Read ×3 | +2 more`: the two newest running tools, then completed counts. */
@@ -60,7 +60,7 @@ function namesLine(f: Frame, title: string, names: string[], maxVisible: number)
   const safe = names
     .map((name) => sanitizeDisplayText(name).trim())
     .filter(Boolean)
-    .map((name) => (name.length <= ACTIVITY_NAME_MAX ? name : `${name.slice(0, ACTIVITY_NAME_MAX - 1)}…`));
+    .map((name) => truncateString(name, ACTIVITY_NAME_MAX, '…'));
   if (safe.length === 0) return null;
   const shown = (maxVisible === 0 ? safe : safe.slice(0, maxVisible)).map((name) => cyan(name));
   if (safe.length > shown.length) shown.push(label(`+${safe.length - shown.length} more`, colors));

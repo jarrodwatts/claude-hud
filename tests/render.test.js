@@ -339,6 +339,15 @@ test('agent description truncation keeps joined emoji whole', () => {
   assert.equal(lines(ctx({ transcript, config }))[2], `◐ review: ${prefix}... (1s)`);
 });
 
+test('tool target and name truncation keep emoji whole', () => {
+  const tools = [
+    { id: '1', name: 'Edit', status: 'running', target: `${'a'.repeat(16)}😀.ts`, startTime: ago(SECOND) },
+    { id: '2', name: 'mcp__x__abc😀def', status: 'running', startTime: ago(SECOND) },
+  ];
+  const config = { display: { showTools: true, toolNameMaxLength: 5 } };
+  assert.equal(lines(ctx({ transcript: { tools }, config }))[2], `◐ Edit: ${'a'.repeat(16)}... | ◐ abc…`);
+});
+
 test('the environment line names failing MCP servers and respects environmentThreshold', () => {
   const counts = { claudeMdCount: 2, rulesCount: 3, mcpCount: 4, hooksCount: 1 };
   const transcript = { mcpErrors: ['github', 'linear', 'slack', 'notion'] };

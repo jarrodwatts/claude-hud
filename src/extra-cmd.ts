@@ -1,6 +1,7 @@
 import { exec } from 'node:child_process';
 import { createDebug } from './debug.js';
 import { sanitizeDisplayText } from './utils/sanitize.js';
+import { truncateString } from './utils/truncate.js';
 
 const debug = createDebug('extra-cmd');
 
@@ -37,7 +38,7 @@ function toLabel(output: string): string | null {
   if (typeof label !== 'string') return null;
   const clean = sanitizeDisplayText(label);
   if (!clean) return null;
-  return clean.length > MAX_LABEL_LENGTH ? `${clean.slice(0, MAX_LABEL_LENGTH - 1)}…` : clean;
+  return truncateString(clean, MAX_LABEL_LENGTH, '…');
 }
 
 export function runExtraCmd(cmd: string, timeout: number = TIMEOUT_MS): Promise<string | null> {

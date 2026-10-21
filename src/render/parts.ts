@@ -8,6 +8,7 @@ import { t } from '../i18n/index.js';
 import { formatTokens } from '../utils/format.js';
 import { getFileHref, safeHyperlink } from '../utils/hyperlinks.js';
 import { sanitizeDisplayText } from '../utils/sanitize.js';
+import { truncateString } from '../utils/truncate.js';
 import type { Frame, Layout } from './frame.js';
 import { custom, dim, label, model as modelColor, project as projectColor } from './colors.js';
 import { claudeCodeVersion, effort, sessionCostUsd, sessionDuration, sessionName } from './derive.js';
@@ -63,7 +64,7 @@ function addedDirNames(f: Frame): Array<{ dir: string; name: string }> {
     .map((dir) => {
       const segments = dir.split(/[/\\]/).filter(Boolean);
       const name = sanitizeDisplayText(segments[segments.length - 1] ?? dir);
-      return { dir, name: name.length > ADDED_DIR_NAME_MAX ? `${name.slice(0, ADDED_DIR_NAME_MAX - 1)}…` : name };
+      return { dir, name: truncateString(name, ADDED_DIR_NAME_MAX, '…') };
     })
     .filter(({ name }) => name.length > 0);
 }
