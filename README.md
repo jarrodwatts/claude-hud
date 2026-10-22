@@ -222,6 +222,7 @@ With `display.usagePace`, a window you're using faster than it refills turns amb
 ```
 
 `display.externalUsageWritePath` does the reverse: it writes stdin's rate limits to a private `.json` file in an existing directory for other tools to read.
+For example, [ccx](https://github.com/aaronwong1999/ccx) reads that file to warn before Claude's 5-hour or weekly limit runs out, and hands the task to Codex with its full context.
 
 ### Cost
 

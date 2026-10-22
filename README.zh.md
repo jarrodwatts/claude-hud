@@ -222,6 +222,7 @@ Context █████░░░░░ 45% │ Usage ██░░░░░░░
 ```
 
 `display.externalUsageWritePath` 则反过来：把 stdin 的使用率限制写入一个已存在目录中的私有 `.json` 文件，供其他工具读取。
+例如 [ccx](https://github.com/aaronwong1999/ccx) 会读取这个文件，在 Claude 的 5 小时或每周额度用完前提醒，并把任务连同完整上下文交给 Codex 接着做。
 
 ### 费用
 
