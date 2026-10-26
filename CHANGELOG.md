@@ -4,6 +4,11 @@ All notable changes to Claude HUD will be documented in this file.
 
 ## [Unreleased]
 
+## [0.13.1] - 2026-10-26
+
+### Fixed
+- Session names, the Claude Code version, output style, effort, model and advisor names, the advisor override, scoped usage labels, failing MCP server names, the auth user, and jj labels no longer cut an emoji or flag in half when they hit their length cap (#830).
+
 ## [0.13.0] - 2026-10-24
 
 ### Added
