@@ -40,10 +40,12 @@ export function modelBadge(f: Frame): string {
   return modelColor(`[${text}]`, f.config?.colors);
 }
 
+const pathSegments = (path: string): string[] => path.split(/[/\\]/).filter(Boolean);
+
 /** An untrusted cwd shown with the configured number of trailing segments, on POSIX and Windows. */
 function formatProjectPath(cwd: string, pathLevels: PathLevels): string {
   const safe = sanitizeDisplayText(cwd);
-  const segments = safe.split(/[/\\]/).filter(Boolean);
+  const segments = pathSegments(safe);
   if (pathLevels !== 'full') {
     return segments.slice(-pathLevels).join('/') || (/^[/\\]/.test(safe) ? '/' : safe);
   }
@@ -51,6 +53,20 @@ function formatProjectPath(cwd: string, pathLevels: PathLevels): string {
   if (/^[A-Za-z]:[\\/]/.test(safe)) return segments.length === 1 ? `${segments[0]}/` : segments.join('/');
   if (/^[\\/]/.test(safe)) return segments.length > 0 ? `/${segments.join('/')}` : '/';
   return segments.join('/') || safe;
+}
+
+/**
+ * With showLaunchDir, the name of the directory Claude Code was launched in,
+ * when the shown path no longer includes it: cwd left it or is pathLevels or more below it.
+ */
+function launchDirName(f: Frame, cwd: string, pathLevels: PathLevels): string | null {
+  const launchDir = f.stdin.workspace?.project_dir;
+  if (!f.config?.display?.showLaunchDir || pathLevels === 'full' || typeof launchDir !== 'string') return null;
+  const launch = pathSegments(launchDir);
+  const current = pathSegments(cwd);
+  const inside = launch.every((segment, i) => current[i] === segment);
+  if (inside && current.length - launch.length < pathLevels) return null;
+  return sanitizeDisplayText(launch.at(-1) ?? '') || null;
 }
 
 const MAX_ADDED_DIRS = 5;
@@ -87,7 +103,10 @@ export function projectParts(f: Frame, layout: Layout): string[] {
   const colors = f.config?.colors;
   let project: string | null = null;
   if (display?.showProject !== false && f.stdin.cwd) {
-    const text = projectColor(formatProjectPath(f.stdin.cwd, f.config?.pathLevels ?? 1), colors);
+    const pathLevels = f.config?.pathLevels ?? 1;
+    const path = formatProjectPath(f.stdin.cwd, pathLevels);
+    const launch = launchDirName(f, f.stdin.cwd, pathLevels);
+    const text = projectColor(launch ? `${launch} › ${path}` : path, colors);
     project = layout === 'expanded' ? safeHyperlink(getFileHref(f.stdin.cwd), text) : text;
   }
   if (layout === 'expanded' && display?.showAddedDirs !== false && (display?.addedDirsLayout ?? 'inline') === 'inline') {
