@@ -119,6 +119,7 @@ Labels are available in English (the default), Simplified Chinese (`zh-Hans`, al
 | `jjStatus.showConflicts` | boolean | true | Show a `!conflict` marker when the working-copy commit has an unresolved conflict |
 | `display.showModel` | boolean | true | Show model name `[Opus]` |
 | `display.showProject` | boolean | true | Show the project path |
+| `display.showLaunchDir` | boolean | false | Prefix the project path with the name of the directory Claude Code was launched in, when the shown path doesn't already include it (e.g. `my-repo › src`). No effect with `pathLevels: "full"` |
 | `display.modelSource` | `stdin` \| `auto` \| `transcript` | `stdin` | Controls which source the model name comes from. `stdin` preserves the default behavior and always uses what Claude Code reports. `auto` opts into proxy redirect detection by using transcript models only for non-Claude models. `transcript` always uses the model from the API response. Transcript model values are terminal-sanitized and capped at 80 characters |
 | `display.modelFormat` | `full` \| `compact` \| `short` | `full` | `compact` drops a context-window suffix such as `(1M context)`; `short` also drops a leading `Claude ` |
 | `display.modelOverride` | string | `""` | Show this text instead of the model name (80 characters max) |

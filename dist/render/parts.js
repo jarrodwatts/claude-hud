@@ -29,10 +29,11 @@ export function modelBadge(f) {
     }
     return modelColor(`[${text}]`, f.config?.colors);
 }
+const pathSegments = (path) => path.split(/[/\\]/).filter(Boolean);
 /** An untrusted cwd shown with the configured number of trailing segments, on POSIX and Windows. */
 function formatProjectPath(cwd, pathLevels) {
     const safe = sanitizeDisplayText(cwd);
-    const segments = safe.split(/[/\\]/).filter(Boolean);
+    const segments = pathSegments(safe);
     if (pathLevels !== 'full') {
         return segments.slice(-pathLevels).join('/') || (/^[/\\]/.test(safe) ? '/' : safe);
     }
@@ -44,6 +45,20 @@ function formatProjectPath(cwd, pathLevels) {
         return segments.length > 0 ? `/${segments.join('/')}` : '/';
     return segments.join('/') || safe;
 }
+/**
+ * The name of the directory Claude Code was launched in, when the shown path no
+ * longer includes it: cwd left it or is pathLevels or more below it.
+ */
+function launchDirName(cwd, launchDir, pathLevels) {
+    if (pathLevels === 'full' || typeof launchDir !== 'string')
+        return null;
+    const launch = pathSegments(sanitizeDisplayText(launchDir));
+    const current = pathSegments(sanitizeDisplayText(cwd));
+    const inside = launch.every((segment, i) => current[i] === segment);
+    if (inside && current.length - launch.length < pathLevels)
+        return null;
+    return launch.at(-1) ?? null;
+}
 const MAX_ADDED_DIRS = 5;
 const ADDED_DIR_NAME_MAX = 24;
 function addedDirNames(f) {
@@ -53,7 +68,7 @@ function addedDirNames(f) {
     return dirs
         .filter((dir) => typeof dir === 'string' && dir.length > 0)
         .map((dir) => {
-        const segments = dir.split(/[/\\]/).filter(Boolean);
+        const segments = pathSegments(dir);
         const name = sanitizeDisplayText(segments[segments.length - 1] ?? dir);
         return { dir, name: truncateString(name, ADDED_DIR_NAME_MAX, '…') };
     })
@@ -78,7 +93,10 @@ export function projectParts(f, layout) {
     const colors = f.config?.colors;
     let project = null;
     if (display?.showProject !== false && f.stdin.cwd) {
-        const text = projectColor(formatProjectPath(f.stdin.cwd, f.config?.pathLevels ?? 1), colors);
+        const pathLevels = f.config?.pathLevels ?? 1;
+        const path = formatProjectPath(f.stdin.cwd, pathLevels);
+        const launch = display?.showLaunchDir ? launchDirName(f.stdin.cwd, f.stdin.workspace?.project_dir, pathLevels) : null;
+        const text = projectColor(launch ? `${launch} › ${path}` : path, colors);
         project = layout === 'expanded' ? safeHyperlink(getFileHref(f.stdin.cwd), text) : text;
     }
     if (layout === 'expanded' && display?.showAddedDirs !== false && (display?.addedDirsLayout ?? 'inline') === 'inline') {

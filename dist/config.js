@@ -89,6 +89,7 @@ export const DEFAULT_CONFIG = {
     display: {
         showModel: true,
         showProject: true,
+        showLaunchDir: false,
         showAddedDirs: true,
         addedDirsLayout: 'inline',
         showContextBar: true,

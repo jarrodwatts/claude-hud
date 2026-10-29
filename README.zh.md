@@ -119,6 +119,7 @@ Claude HUD 是一个[状态栏](https://code.claude.com/docs/en/statusline)命�
 | `jjStatus.showConflicts` | boolean | true | 当 jj 工作副本提交包含未解决冲突时显示 `!conflict` |
 | `display.showModel` | boolean | true | 显示模型名称 `[Opus]` |
 | `display.showProject` | boolean | true | 显示项目路径 |
+| `display.showLaunchDir` | boolean | false | 当显示的路径不再包含启动 Claude Code 时所在的目录时，在项目路径前加上该目录名（如 `my-repo › src`）。`pathLevels: "full"` 时无效 |
 | `display.modelSource` | `stdin` \| `auto` \| `transcript` | `stdin` | 控制模型名称来源。`stdin` 保持默认行为；`auto` 仅在 transcript 返回非 Claude 模型时切换，用于检测代理路由；`transcript` 始终使用 API 响应中的模型。Transcript 模型值会清理终端转义字符并截断为 80 个字符 |
 | `display.modelFormat` | `full` \| `compact` \| `short` | `full` | `compact` 去掉 `(1M context)` 这类上下文窗口后缀；`short` 还会去掉开头的 `Claude ` |
 | `display.modelOverride` | string | `""` | 用这段文字代替模型名称（最多 80 个字符） |

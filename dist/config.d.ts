@@ -75,6 +75,7 @@ export interface HudConfig {
     display: {
         showModel: boolean;
         showProject: boolean;
+        showLaunchDir: boolean;
         showAddedDirs: boolean;
         addedDirsLayout: AddedDirsLayout;
         showContextBar: boolean;

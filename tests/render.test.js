@@ -177,6 +177,24 @@ test('project paths keep the configured trailing segments on POSIX and Windows',
   assert.equal(project('\\\\server\\share\\app', 'full'), '//server/share/app');
 });
 
+test('showLaunchDir prefixes the launch directory once the shown path no longer includes it', () => {
+  const project = (cwd, project_dir, pathLevels = 1, showLaunchDir = true) => (
+    lines(ctx({ stdin: { cwd, workspace: { project_dir } }, config: { pathLevels, display: { showLaunchDir } } }))[0].replace('[Opus] │ ', '')
+  );
+  assert.equal(project('/w/repo', '/w/repo'), 'repo');
+  assert.equal(project('/w/repo/src', '/w/repo'), 'repo › src');
+  assert.equal(project('/w/repo/src', '/w/repo', 2), 'repo/src');
+  assert.equal(project('/w/repo/src/lib', '/w/repo', 2), 'repo › src/lib');
+  assert.equal(project('/w/repo/src', '/w/repo', 'full'), '/w/repo/src');
+  assert.equal(project('/w/repox/src', '/w/repo', 2), 'repo › repox/src', 'compares whole segments');
+  assert.equal(project('/tmp', '/w/repo'), 'repo › tmp');
+  assert.equal(project('C:\\w\\repo\\src', 'C:\\w\\repo'), 'repo › src');
+  assert.equal(project('/w/repo/src', '/w/re\x1b[31mpo'), 'repo › src', 'sanitized');
+  assert.equal(project('/w/repo/src', ''), 'src');
+  assert.equal(project('/w/repo/src', '/'), 'src');
+  assert.equal(project('/w/repo/src', '/w/repo', 1, false), 'src');
+});
+
 test('the model badge keeps effort on the model and places the provider by showProvider', () => {
   const badge = (stdin, display = {}, transcript = {}) => lines(ctx({ stdin: { model: { display_name: 'Opus', id: 'opusplan' }, ...stdin }, transcript, config: { display } }))[0].split(' │ ')[0];
   const xhigh = { effort: { level: 'xhigh' } };
