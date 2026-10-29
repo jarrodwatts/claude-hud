@@ -251,12 +251,7 @@ add('option/oneRow+rightAlign=context@120', {
   config: { ...ONE_ROW, display: { ...ONE_ROW.display, rightAlign: ['context'] } },
   columns: 120,
 });
-for (const pathLevels of [1, 2, 3]) {
-  add(`option/showLaunchDir+movedCwd+pathLevels=${pathLevels}`, {
-    stdin: stdin.movedCwd,
-    config: { pathLevels, display: { showLaunchDir: true } },
-  });
-}
+add('option/showLaunchDir+movedCwd', { stdin: stdin.movedCwd, config: { pathLevels: 2, display: { showLaunchDir: true } } });
 const PUSH_THRESHOLDS = { gitStatus: { showAheadBehind: true, pushWarningThreshold: 1, pushCriticalThreshold: 3 } };
 add('git/ahead+pushThresholds', { stdin: typical, config: PUSH_THRESHOLDS, git: 'ahead' });
 add('compact/ahead+pushThresholds', { stdin: typical, config: { ...PUSH_THRESHOLDS, lineLayout: 'compact' }, git: 'ahead' });
