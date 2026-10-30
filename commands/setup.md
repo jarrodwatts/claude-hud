@@ -96,7 +96,7 @@ Claude Code runs the new command as soon as settings.json changes, so the HUD sh
 **If no**, check these in order:
 
 1. Run the Step 4 test again and show its output.
-2. If there's no output, check that the plugin is installed: `ls "<config dir>/plugins/cache/"*/claude-hud/`. The launcher prints nothing when it finds no install. If the directory is missing, reinstall with `/plugin install claude-hud`.
+2. If there's no output, check that the plugin is installed: `ls "<config dir>/plugins/cache/"*/claude-hud/`, or under `$CLAUDE_CODE_PLUGIN_CACHE_DIR/cache/` if that is set. The launcher prints nothing when it finds no install. If the directory is missing, reinstall with `/plugin install claude-hud`.
 3. If the runtime moved (nvm, mise, and asdf upgrades change the path), run setup again.
 4. On Windows, dozens of idle `node.exe` processes come from a setup that predates the cmd.exe shim. Kill them and run setup again.
 5. To go back to the previous status line, copy `backupPath` over `settingsPath`.

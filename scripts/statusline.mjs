@@ -9,11 +9,17 @@ import { pathToFileURL } from 'node:url';
 const columns = Number.parseInt(process.env.COLUMNS ?? '', 10);
 if (columns > 0) process.env.COLUMNS = String(Math.max(1, columns - 4));
 
-const envDir = process.env.CLAUDE_CONFIG_DIR?.trim();
-const configDir = !envDir
-  ? path.join(os.homedir(), '.claude')
-  : envDir === '~' || envDir.startsWith('~/') ? path.join(os.homedir(), envDir.slice(1)) : envDir;
-const cacheDir = path.join(configDir, 'plugins', 'cache');
+const envDir = (name) => {
+  const dir = process.env[name]?.trim();
+  if (!dir) return undefined;
+  return dir === '~' || dir.startsWith('~/') ? path.join(os.homedir(), dir.slice(1)) : dir;
+};
+const configDir = envDir('CLAUDE_CONFIG_DIR') ?? path.join(os.homedir(), '.claude');
+
+// Despite its name, CLAUDE_CODE_PLUGIN_CACHE_DIR moves the whole plugins root,
+// with the cache in its cache/ subdirectory.
+const pluginsDir = envDir('CLAUDE_CODE_PLUGIN_CACHE_DIR') ?? path.join(configDir, 'plugins');
+const cacheDir = path.join(pluginsDir, 'cache');
 const entry = process.versions.bun ? path.join('src', 'index.ts') : path.join('dist', 'index.js');
 
 const list = (dir) => {
