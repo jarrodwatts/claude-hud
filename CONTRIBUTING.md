@@ -23,7 +23,7 @@ npm ci
 npm test
 ```
 
-`npm test` builds and runs Node's test runner. `tests/golden.test.js` runs the CLI end to end for every case in `tests/golden/cases.mjs` and compares stdout with `tests/golden/expected.txt`. When a change is meant to alter output, run `npm run test:update-snapshots` and check the diff to `expected.txt` before committing it. Keep tests deterministic: pin the clock and use temp directories.
+`npm test` builds and runs Node's test runner. `tests/golden.test.js` runs the CLI end to end for every case in `tests/golden/cases.mjs` and compares stdout with `tests/golden/expected.txt`. When a change is meant to alter output, run `npm run test:update-snapshots` and check the diff to `expected.txt` before committing it. Keep tests deterministic: pin the clock and use temp directories. `tests/clean-env.js` clears the environment variables the HUD reads before each test file runs, so add any new one there.
 
 ## Pull Requests
 
