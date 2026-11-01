@@ -18,14 +18,19 @@ async function withConfigDir(fn) {
   }
 }
 
-const run = (file, args, { configDir, cwd, columns } = {}) => spawnSync(process.execPath, [file, ...args], {
+const run = (file, args, { configDir, pluginsDir, cwd, columns } = {}) => spawnSync(process.execPath, [file, ...args], {
   cwd,
   encoding: 'utf8',
-  env: { ...process.env, CLAUDE_CONFIG_DIR: configDir, COLUMNS: columns ?? '' },
+  env: {
+    ...process.env,
+    CLAUDE_CONFIG_DIR: configDir,
+    CLAUDE_CODE_PLUGIN_CACHE_DIR: pluginsDir ?? '',
+    COLUMNS: columns ?? '',
+  },
 });
 
-async function fakeInstall(configDir, version) {
-  const dist = path.join(configDir, 'plugins', 'cache', 'market', 'claude-hud', version, 'dist');
+async function fakeInstall(configDir, version, pluginsDir = path.join(configDir, 'plugins')) {
+  const dist = path.join(pluginsDir, 'cache', 'market', 'claude-hud', version, 'dist');
   await mkdir(dist, { recursive: true });
   await writeFile(path.join(dist, '..', 'package.json'), '{"type":"module"}');
   await writeFile(
@@ -43,6 +48,18 @@ test('launcher runs the newest installed version and pads COLUMNS', async () => 
     const result = run(launcher, [], { configDir, columns: '120' });
     assert.equal(result.status, 0, result.stderr);
     assert.equal(result.stdout.trim(), '0.10.0 116');
+  });
+});
+
+test('launcher looks only in the plugins root CLAUDE_CODE_PLUGIN_CACHE_DIR names', async () => {
+  await withConfigDir(async (configDir) => {
+    const pluginsDir = path.join(configDir, 'relocated');
+    await fakeInstall(configDir, '0.9.0', pluginsDir);
+    await fakeInstall(configDir, '0.10.0');
+
+    const result = run(launcher, [], { configDir, pluginsDir, columns: '120' });
+    assert.equal(result.status, 0, result.stderr);
+    assert.equal(result.stdout.trim(), '0.9.0 116');
   });
 });
 
