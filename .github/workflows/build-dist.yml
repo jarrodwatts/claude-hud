@@ -9,7 +9,7 @@ concurrency:
   cancel-in-progress: false
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
   build:
@@ -19,7 +19,7 @@ jobs:
     steps:
       - uses: actions/checkout@v6
         with:
-          token: ${{ secrets.GITHUB_TOKEN }}
+          persist-credentials: false
 
       - uses: actions/setup-node@v6
         with:
@@ -33,10 +33,18 @@ jobs:
       - name: Verify build output
         run: test -f dist/index.js || exit 1
 
-      - name: Commit dist/
+      - name: Commit and push dist/
+        env:
+          DIST_DEPLOY_KEY: ${{ secrets.DIST_DEPLOY_KEY }}
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add dist/ --force
-          git diff --staged --quiet || git commit -m "build: compile dist/ [auto]"
-          git push
+          git diff --staged --quiet && exit 0
+          git commit -m "build: compile dist/ [auto]"
+          # main takes changes only through PRs (the "Protect main" ruleset); this deploy key is its one
+          # exception, so it only appears in this step, after npm has run.
+          key="$RUNNER_TEMP/dist_key"
+          printf '%s\n' "$DIST_DEPLOY_KEY" > "$key"
+          chmod 600 "$key"
+          GIT_SSH_COMMAND="ssh -i $key -o IdentitiesOnly=yes" git push "git@github.com:${{ github.repository }}.git" HEAD:main
