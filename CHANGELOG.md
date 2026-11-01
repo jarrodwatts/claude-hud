@@ -4,6 +4,11 @@ All notable changes to Claude HUD will be documented in this file.
 
 ## [Unreleased]
 
+## [0.14.2] - 2026-11-02
+
+### Fixed
+- The HUD now finds the plugin when `CLAUDE_CODE_PLUGIN_CACHE_DIR` moves Claude Code's plugin folder. Before, the status line was empty or ran an old install left in the default location. If you set this variable, run `/claude-hud:setup` again once to refresh the launcher it copied (#838).
+
 ## [0.14.1] - 2026-10-31
 
 ### Fixed
