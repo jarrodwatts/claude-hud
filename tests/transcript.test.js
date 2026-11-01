@@ -13,7 +13,6 @@ import { TRANSCRIPT_MODEL_MAX_LEN } from '../dist/model-source.js';
 const fixture = (name) => fileURLToPath(new URL(name, import.meta.url));
 
 // Saved parser state lands under the home's .claude, so every test gets its own.
-process.env.CLAUDE_CONFIG_DIR = '';
 const home = await mkdtemp(path.join(tmpdir(), 'hud-transcript-home-'));
 test.after(() => rm(home, { recursive: true, force: true }));
 
