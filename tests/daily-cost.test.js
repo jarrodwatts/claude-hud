@@ -12,7 +12,6 @@ import {
   DAILY_COST_WRITE_THROTTLE_MS,
 } from '../dist/daily-cost.js';
 
-const originalConfigDir = process.env.CLAUDE_CONFIG_DIR;
 let homeDir;
 
 function deps(now) {
@@ -36,16 +35,10 @@ const NOON = new Date(2026, 6, 15, 12, 0, 0).getTime();
 const DAY_MS = 24 * 60 * 60 * 1000;
 
 beforeEach(async () => {
-  delete process.env.CLAUDE_CONFIG_DIR;
   homeDir = await mkdtemp(path.join(tmpdir(), 'claude-hud-daily-'));
 });
 
 afterEach(async () => {
-  if (originalConfigDir === undefined) {
-    delete process.env.CLAUDE_CONFIG_DIR;
-  } else {
-    process.env.CLAUDE_CONFIG_DIR = originalConfigDir;
-  }
   await rm(homeDir, { recursive: true, force: true });
 });
 

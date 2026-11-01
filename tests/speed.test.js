@@ -13,7 +13,6 @@ const frame = (output, apiMs, input = 1000) => ({
 
 test('speed is the finished response over the API time it added, held until the next', async () => {
   const home = await mkdtemp(path.join(tmpdir(), 'hud-speed-'));
-  const previous = process.env.CLAUDE_CONFIG_DIR;
   process.env.CLAUDE_CONFIG_DIR = path.join(home, '.claude');
   try {
     assert.equal(getOutputSpeed(frame(0, 1000), home), null);
@@ -25,8 +24,7 @@ test('speed is the finished response over the API time it added, held until the 
     assert.equal(getOutputSpeed(frame(300, 100, 4000), home), null, 'a reset counter starts over');
     assert.equal(getOutputSpeed({ ...frame(300, 100), transcript_path: undefined }, home), null);
   } finally {
-    if (previous === undefined) delete process.env.CLAUDE_CONFIG_DIR;
-    else process.env.CLAUDE_CONFIG_DIR = previous;
+    delete process.env.CLAUDE_CONFIG_DIR;
     await rm(home, { recursive: true, force: true });
   }
 });

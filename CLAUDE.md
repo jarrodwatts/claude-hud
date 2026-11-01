@@ -7,6 +7,7 @@ Claude HUD is a Claude Code plugin: a [status line](https://code.claude.com/docs
 ```bash
 npm ci
 npm test                           # builds dist/, then runs node --test
+npm test -- tests/auth.test.js     # one file; plain `node --test` skips tests/clean-env.js
 npm run test:update-snapshots      # regenerate tests/golden/expected.txt after an intended output change
 echo '{"model":{"display_name":"Opus"},"context_window":{"used_percentage":45,"context_window_size":200000}}' | node dist/index.js
 ```

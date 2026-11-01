@@ -14,14 +14,6 @@ const MAX_ACCOUNT = {
   },
 };
 
-function restoreEnvVar(name, value) {
-  if (value === undefined) {
-    delete process.env[name];
-  } else {
-    process.env[name] = value;
-  }
-}
-
 test('deriveAuthInfo formats claude_max with rate-limit tier', () => {
   const info = deriveAuthInfo(MAX_ACCOUNT, {});
   assert.equal(info.method, 'Claude Max 20x');
@@ -81,11 +73,8 @@ test('deriveAuthInfo strips ANSI sequences and control characters from values', 
 test('readAuthInfo honors CLAUDE_CONFIG_DIR and handles unreadable profiles', async () => {
   const tempDir = await mkdtemp(path.join(tmpdir(), 'claude-hud-auth-test-'));
   const configDir = path.join(tempDir, 'profile');
-  const originalConfigDir = process.env.CLAUDE_CONFIG_DIR;
-  const originalApiKey = process.env.ANTHROPIC_API_KEY;
 
   try {
-    delete process.env.ANTHROPIC_API_KEY;
     process.env.CLAUDE_CONFIG_DIR = configDir;
     await mkdir(configDir, { recursive: true });
 
@@ -99,24 +88,22 @@ test('readAuthInfo honors CLAUDE_CONFIG_DIR and handles unreadable profiles', as
     await writeFile(jsonPath, '{invalid', 'utf8');
     assert.deepEqual(readAuthInfo(), { method: null, user: null });
   } finally {
-    restoreEnvVar('CLAUDE_CONFIG_DIR', originalConfigDir);
-    restoreEnvVar('ANTHROPIC_API_KEY', originalApiKey);
+    delete process.env.CLAUDE_CONFIG_DIR;
+    delete process.env.ANTHROPIC_API_KEY;
     await rm(tempDir, { recursive: true, force: true });
   }
 });
 
 test('readAuthInfo reports an API key without requiring an oauth profile', async () => {
   const tempDir = await mkdtemp(path.join(tmpdir(), 'claude-hud-auth-key-test-'));
-  const originalConfigDir = process.env.CLAUDE_CONFIG_DIR;
-  const originalApiKey = process.env.ANTHROPIC_API_KEY;
 
   try {
     process.env.CLAUDE_CONFIG_DIR = path.join(tempDir, 'missing');
     process.env.ANTHROPIC_API_KEY = 'sk-test';
     assert.deepEqual(readAuthInfo(), { method: 'API Key', user: null });
   } finally {
-    restoreEnvVar('CLAUDE_CONFIG_DIR', originalConfigDir);
-    restoreEnvVar('ANTHROPIC_API_KEY', originalApiKey);
+    delete process.env.CLAUDE_CONFIG_DIR;
+    delete process.env.ANTHROPIC_API_KEY;
     await rm(tempDir, { recursive: true, force: true });
   }
 });
@@ -155,12 +142,9 @@ test('formatAuthSegment joins method and truncated user', () => {
 test('readAuthInfo re-parses when claude.json actually changes', async () => {
   const dir = await mkdtemp(path.join(tmpdir(), 'hud-auth-bust-'));
   const configDir = path.join(dir, '.claude');
-  const original = process.env.CLAUDE_CONFIG_DIR;
-  const originalKey = process.env.ANTHROPIC_API_KEY;
   const fsSync = await import('node:fs');
 
   try {
-    delete process.env.ANTHROPIC_API_KEY;
     process.env.CLAUDE_CONFIG_DIR = configDir;
     fsSync.mkdirSync(configDir, { recursive: true });
     const jsonPath = path.join(configDir, '.claude.json');
@@ -175,8 +159,8 @@ test('readAuthInfo re-parses when claude.json actually changes', async () => {
 
     assert.equal(readAuthInfo().user, 'other', 'a changed file must bust the cache');
   } finally {
-    restoreEnvVar('CLAUDE_CONFIG_DIR', original);
-    restoreEnvVar('ANTHROPIC_API_KEY', originalKey);
+    delete process.env.CLAUDE_CONFIG_DIR;
+    delete process.env.ANTHROPIC_API_KEY;
     await rm(dir, { recursive: true, force: true });
   }
 });
@@ -186,12 +170,9 @@ test('readAuthInfo re-parses when claude.json actually changes', async () => {
 test('readAuthInfo detects same-size rewrites with a restored mtime', async () => {
   const dir = await mkdtemp(path.join(tmpdir(), 'hud-auth-ctime-'));
   const configDir = path.join(dir, '.claude');
-  const original = process.env.CLAUDE_CONFIG_DIR;
-  const originalKey = process.env.ANTHROPIC_API_KEY;
   const fsSync = await import('node:fs');
 
   try {
-    delete process.env.ANTHROPIC_API_KEY;
     process.env.CLAUDE_CONFIG_DIR = configDir;
     fsSync.mkdirSync(configDir, { recursive: true });
     const jsonPath = path.join(configDir, '.claude.json');
@@ -207,8 +188,8 @@ test('readAuthInfo detects same-size rewrites with a restored mtime', async () =
 
     assert.equal(readAuthInfo().user, 'another.long');
   } finally {
-    restoreEnvVar('CLAUDE_CONFIG_DIR', original);
-    restoreEnvVar('ANTHROPIC_API_KEY', originalKey);
+    delete process.env.CLAUDE_CONFIG_DIR;
+    delete process.env.ANTHROPIC_API_KEY;
     await rm(dir, { recursive: true, force: true });
   }
 });

@@ -35,14 +35,12 @@ function booleanPaths(node, prefix = '') {
 }
 
 async function withConfigDir(fn) {
-  const original = process.env.CLAUDE_CONFIG_DIR;
   const dir = await mkdtemp(path.join(os.tmpdir(), 'claude-hud-config-'));
   process.env.CLAUDE_CONFIG_DIR = dir;
   try {
     return await fn(dir);
   } finally {
-    if (original === undefined) delete process.env.CLAUDE_CONFIG_DIR;
-    else process.env.CLAUDE_CONFIG_DIR = original;
+    delete process.env.CLAUDE_CONFIG_DIR;
     await rm(dir, { recursive: true, force: true });
   }
 }
@@ -261,14 +259,8 @@ test('config paths follow CLAUDE_CONFIG_DIR, with the override outside plugins/'
     assert.equal(getConfigPath(), path.join(dir, 'plugins', 'claude-hud', 'config.json'));
     assert.equal(getConfigOverridePath(), path.join(dir, 'claude-hud.json'));
   });
-  const original = process.env.CLAUDE_CONFIG_DIR;
-  delete process.env.CLAUDE_CONFIG_DIR;
-  try {
-    assert.equal(getConfigPath(), path.join(os.homedir(), '.claude', 'plugins', 'claude-hud', 'config.json'));
-    assert.equal(getConfigOverridePath(), path.join(os.homedir(), '.claude', 'claude-hud.json'));
-  } finally {
-    if (original !== undefined) process.env.CLAUDE_CONFIG_DIR = original;
-  }
+  assert.equal(getConfigPath(), path.join(os.homedir(), '.claude', 'plugins', 'claude-hud', 'config.json'));
+  assert.equal(getConfigOverridePath(), path.join(os.homedir(), '.claude', 'claude-hud.json'));
 });
 
 test('loadConfig layers claude-hud.json over the shared config', async () => {
@@ -324,7 +316,6 @@ test('loadConfig ignores malformed, unsafe, oversized, and symlinked files', asy
 });
 
 test('loadConfig keeps overrides isolated when config directories share plugins/', async (t) => {
-  const original = process.env.CLAUDE_CONFIG_DIR;
   const root = await mkdtemp(path.join(os.tmpdir(), 'claude-hud-shared-plugins-'));
   try {
     const sharedPlugins = path.join(root, 'shared', 'plugins');
@@ -343,8 +334,7 @@ test('loadConfig keeps overrides isolated when config directories share plugins/
     assert.equal(configs.personal.display.customLine, 'personal');
     assert.equal(configs.personal.lineLayout, 'compact');
   } finally {
-    if (original === undefined) delete process.env.CLAUDE_CONFIG_DIR;
-    else process.env.CLAUDE_CONFIG_DIR = original;
+    delete process.env.CLAUDE_CONFIG_DIR;
     await rm(root, { recursive: true, force: true });
   }
 });
