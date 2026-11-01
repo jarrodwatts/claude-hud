@@ -62,7 +62,6 @@ test('countConfigs uses CLAUDE_CONFIG_DIR and its in-dir .claude.json for user s
   const homeDir = await mkdtemp(path.join(tmpdir(), 'claude-hud-home-'));
   const customConfigDir = path.join(homeDir, '.claude-2');
   const originalHome = process.env.HOME;
-  const originalConfigDir = process.env.CLAUDE_CONFIG_DIR;
   process.env.HOME = homeDir;
   process.env.CLAUDE_CONFIG_DIR = customConfigDir;
 
@@ -102,7 +101,7 @@ test('countConfigs uses CLAUDE_CONFIG_DIR and its in-dir .claude.json for user s
     assert.equal(counts.hooksCount, 2);
   } finally {
     restoreEnvVar('HOME', originalHome);
-    restoreEnvVar('CLAUDE_CONFIG_DIR', originalConfigDir);
+    delete process.env.CLAUDE_CONFIG_DIR;
     await rm(homeDir, { recursive: true, force: true });
   }
 });
@@ -111,7 +110,6 @@ test('countConfigs still counts project .claude when cwd is home and CLAUDE_CONF
   const homeDir = await mkdtemp(path.join(tmpdir(), 'claude-hud-home-'));
   const customConfigDir = path.join(homeDir, '.claude-2');
   const originalHome = process.env.HOME;
-  const originalConfigDir = process.env.CLAUDE_CONFIG_DIR;
   process.env.HOME = homeDir;
   process.env.CLAUDE_CONFIG_DIR = customConfigDir;
 
@@ -143,7 +141,7 @@ test('countConfigs still counts project .claude when cwd is home and CLAUDE_CONF
     assert.equal(counts.hooksCount, 2);
   } finally {
     restoreEnvVar('HOME', originalHome);
-    restoreEnvVar('CLAUDE_CONFIG_DIR', originalConfigDir);
+    delete process.env.CLAUDE_CONFIG_DIR;
     await rm(homeDir, { recursive: true, force: true });
   }
 });
