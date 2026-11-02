@@ -269,6 +269,20 @@ function relayToNode(argv) {
 
 // The /hud skill's subcommands. All but install run as logic in the cage, like a render.
 const COMMANDS = ['doctor', 'schema', 'preview', 'set', 'report', 'install'];
+// The skill reads doctor's and report's answers as facts without asking (doctor before the model reads a
+// word), so hud.mjs writes those answers as JSON itself. Whatever logic says stays inside JSON strings,
+// one line each, and can't pass for the skill's own text. Prose comes out as an array of its lines.
+const FACTS = ['doctor', 'report'];
+
+export function asJson(lines) {
+  let value;
+  try {
+    value = JSON.parse(lines.join('\n'));
+  } catch {
+    value = lines;
+  }
+  return JSON.stringify(value, null, 2).split('\n');
+}
 
 async function runCommand(name, args, { paths, env }) {
   const facts = collector.commandFacts({ root: ROOT, paths, env });
@@ -299,7 +313,7 @@ async function runCommand(name, args, { paths, env }) {
     // Only `set`, which Claude Code asks the user about, may change config; the rest are pre-approved.
     if (name === 'set' && output.config) collector.writeConfig(paths, output.config);
     if (output.failed) process.exitCode = 1;
-    print(output.lines, stdin);
+    print(FACTS.includes(name) ? asJson(output.lines) : output.lines, stdin);
   } catch (error) {
     process.exitCode = 1;
     print([`claude-hud ${name}: ${error instanceof Error ? error.message : 'Unknown error'}`]);
