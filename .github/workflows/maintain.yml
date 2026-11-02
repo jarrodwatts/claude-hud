@@ -48,7 +48,7 @@ jobs:
           RELAY_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           GITHUB_TOKEN: ${{ github.token }}
       # The artifact's name records the run's spend for the scorecard.
-      - if: steps.harness.outputs.tokens
+      - if: steps.harness.outputs.tokens != ''
         uses: actions/upload-artifact@v7
         with: { name: 'relay-tokens-${{ steps.harness.outputs.tokens }}', path: '${{ runner.temp }}/outbox' }
 

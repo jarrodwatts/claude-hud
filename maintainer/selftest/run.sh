@@ -15,6 +15,11 @@ pass() { echo "PASS $*"; echo "- PASS $*" >> "${GITHUB_STEP_SUMMARY:-/dev/null}"
 fail() { echo "FAIL $*"; echo "- **FAIL** $*" >> "${GITHUB_STEP_SUMMARY:-/dev/null}"; exit 1; }
 check() { local what=$1; shift; if "$@" > /dev/null; then pass "$what"; else fail "$what"; fi; }
 
+echo "== 0. With no secrets, everything exits cleanly and does nothing"
+check "the harness is inactive without RELAY_TOKEN" bash -c "env -u RELAY_TOKEN node '$m/harness.mjs' '$st/none' | grep -q inactive"
+check "ACT is inactive without an App token" bash -c "env -u GH_TOKEN node '$m/act.mjs' gate | grep -q inactive"
+check "  ...and the harness wrote nothing" test ! -e "$st/none"
+
 echo "== 1. A full agent run, with a scripted model behind the relay"
 node "$here/fake-model.mjs" 18787 "$here/steps-run.json" "$st/model-run.log" & sleep 0.5
 RELAY_TOKEN=$token RELAY_UPSTREAM=http://127.0.0.2:18787 node "$m/harness.mjs" "$st/run" | tee "$st/harness-run.txt"
@@ -86,9 +91,15 @@ gate() { # gate <verify run id> <head sha> <expected conclusion, or "" for no ch
   sed 's/^/    /' "$st/gate.txt"
   check "gate ${3:-not posted}: $4" test "$got" = "$3"
 }
+# Real GitHub data too: this run's own jobs, where agent, act and the gate poster were skipped.
+curl -fsS -H "authorization: Bearer $GITHUB_TOKEN" "https://api.github.com/repos/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID/jobs?per_page=100" > "$st/real-jobs.json"
+jq --slurpfile j "$st/real-jobs.json" --arg k "GET /repos/$GITHUB_REPOSITORY/actions/runs/4/jobs?per_page=100" '.[$k] = $j[0]' "$st/routes.json" > "$st/r.json"
+mv "$st/r.json" "$st/routes.json"
 gate 1 "$s7" success "a src change with every verify job green"
 gate 2 "$s7" failure "the same change with one verify job skipped"
 gate 3 "$s7" failure "the same change with one verify job neutral"
+gate 4 "$s7" failure "the same change judged on GitHub's real jobs record for this run (three skipped jobs)"
+check "  ...naming the skipped jobs" grep -q 'job "agent" concluded skipped' "$st/gate.txt"
 gate 1 "$s8" failure "a workflow change whose owner approval is for an older head"
 gate 1 "$s11" success "a workflow change the owner approved at this exact head"
 gate 1 "$s9" failure "a change that edits an existing fixture"
