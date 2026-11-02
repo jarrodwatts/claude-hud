@@ -1,0 +1,25 @@
+{
+  "note": "The output style no longer cuts an emoji in half when it hits its length cap (#830).",
+  "columns": 200,
+  "config": {
+    "display": {
+      "showOutputStyle": true
+    }
+  },
+  "stdin": {
+    "model": {
+      "display_name": "Opus 5.5"
+    },
+    "context_window": {
+      "used_percentage": 45,
+      "context_window_size": 200000
+    },
+    "output_style": {
+      "name": "sssssssssssssssssssssssssssssssssssssss👍🏽👍🏽"
+    }
+  },
+  "expect": [
+    "exit 0",
+    "no lone surrogate"
+  ]
+}

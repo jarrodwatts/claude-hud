@@ -1,0 +1,31 @@
+{
+  "note": "Align context and usage bars by terminal cell width in CJK locales, including narrow layouts (#673).",
+  "columns": 36,
+  "now": "2026-10-01T12:00:00Z",
+  "config": {
+    "language": "zh"
+  },
+  "stdin": {
+    "model": {
+      "display_name": "Opus 5.5"
+    },
+    "context_window": {
+      "used_percentage": 45,
+      "context_window_size": 200000
+    },
+    "rate_limits": {
+      "five_hour": {
+        "used_percentage": 25,
+        "resets_at": 1790861400
+      },
+      "seven_day": {
+        "used_percentage": 85,
+        "resets_at": 1791118800
+      }
+    }
+  },
+  "expect": [
+    "exit 0",
+    "no line wider than columns"
+  ]
+}

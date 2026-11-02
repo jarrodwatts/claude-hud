@@ -1,0 +1,10 @@
+{
+  "note": "Bounded stdin reads: a pipe that stays open with no data must not hang the status line (#378, CHANGELOG 0.1.0).",
+  "columns": 100,
+  "stdin": "",
+  "stdinOpen": true,
+  "expect": [
+    "exit 0",
+    "finishes within 1500ms"
+  ]
+}

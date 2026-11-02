@@ -1,0 +1,23 @@
+{
+  "note": "Session names no longer cut an emoji in half when they hit their length cap (#830).",
+  "columns": 200,
+  "config": {
+    "display": {
+      "showSessionName": true
+    }
+  },
+  "stdin": {
+    "model": {
+      "display_name": "Opus 5.5"
+    },
+    "context_window": {
+      "used_percentage": 45,
+      "context_window_size": 200000
+    },
+    "session_name": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx😀😀 tail"
+  },
+  "expect": [
+    "exit 0",
+    "no lone surrogate"
+  ]
+}
