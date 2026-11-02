@@ -20,7 +20,7 @@ const AGENT = [
 // Fixtures may gain files but never change, lose or rename one.
 const APPEND_ONLY = /^tests\/corpus\//i;
 // A release moves the version and nothing else, in the files that carry it. That is the agent's call:
-// a release ships main, and everything on main already passed the gate.
+// a release publishes main, and everything on main already passed the gate.
 const VERSIONED = ['.claude-plugin/plugin.json', '.claude-plugin/marketplace.json', 'package.json', 'package-lock.json'];
 const CAPS = { reply: 20, label: 20, close: 20, propose: 5 };
 const SCHEMA = JSON.parse(fs.readFileSync(new URL('outbox.schema.json', import.meta.url), 'utf8'));

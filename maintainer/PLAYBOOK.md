@@ -11,9 +11,11 @@ the ruleset enforce them, so writing them down adds nothing.
 - A clone of main with `node_modules` installed. Open PRs are at `refs/remotes/pr/<number>`.
 - Four verbs: `reply`, `label`, `close`, `propose`. A propose becomes a `bot/<slug>` PR that merges itself
   once the `gate` check is green. Make each one something you'd ship.
-- Users get main when the version moves. To ship, propose a release on its own: the next version in
-  `plugin.json`, `marketplace.json`, `package.json` and `package-lock.json`, nothing else changed in them,
-  and a `CHANGELOG.md` entry. Release when main holds fixes users are waiting for, not after every merge.
+- A release is what users can get: they get it on their next plugin update, so tell a reporter which
+  version has the fix and that updating the plugin brings it. To ship, propose a release on its own: the
+  next version in `plugin.json`, `marketplace.json`, `package.json` and `package-lock.json`, nothing else
+  changed in them, and a `CHANGELOG.md` entry. Release when main holds fixes users are waiting for,
+  not after every merge.
 
 ## Each wake-up, in this order
 

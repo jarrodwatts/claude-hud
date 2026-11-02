@@ -16,7 +16,7 @@ folder, the network, a key, posting, merging. Everything else is logic.
            │ act.mjs: reply | label | close | propose,   │    │   (git, jj, vm_stat, the extra command)    │
            │   and the `gate` check                      │    │ fence.mjs + node --permission: the cage    │
            └─ ruleset: one required check, `gate` ───────┘    └─ verify/: the checks, run on every PR ─────┘
-                 a merge that moves the version = shipped to every user
+      a merge that moves the version = a release; users get it on their next plugin update
 ```
 
 In the repo, the line is a list in `maintainer/act.mjs`. The agent owns `src/` (except
