@@ -10,7 +10,8 @@ node tests/escape/run.mjs > "$report" || status=$?
 
 rm -rf "$base" && mkdir -p "$base"
 git fetch --quiet --depth=1 origin main
-git archive FETCH_HEAD -- dist package.json | tar -x -C "$base"
+# tar -x from inside $base: GNU tar reads a Windows path like D:\a as host:path.
+git archive FETCH_HEAD -- dist package.json | (cd "$base" && tar -x)
 {
   echo "### Render latency (full render: stdin, git, transcript, output)"
   echo

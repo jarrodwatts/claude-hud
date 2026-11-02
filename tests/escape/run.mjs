@@ -19,15 +19,17 @@ const FAKE_TOKEN = 'sk-ant-fake-token-0000';
 function runWithoutFence({ stdin, dataDir, grants, env }) {
   return new Promise((resolve, reject) => {
     const args = cageArgs({ grants, dataDir, entry: ENTRY }).filter((arg) => !arg.startsWith('--import='));
-    const child = spawn(process.execPath, args, { env: cageEnv(env), stdio: ['pipe', 'pipe', 'ignore'] });
+    const child = spawn(process.execPath, args, { env: cageEnv(env), stdio: ['pipe', 'pipe', 'pipe'] });
     let out = '';
+    let err = '';
     child.stdout.on('data', (chunk) => { out += chunk; });
+    child.stderr.on('data', (chunk) => { err += chunk; });
     child.on('error', reject);
-    child.on('close', () => {
+    child.on('close', (code) => {
       try {
         resolve(JSON.parse(out.trim().split('\n').at(-1)));
       } catch {
-        reject(new Error(`no result: ${out.slice(0, 200)}`));
+        reject(new Error(`exit ${code}, stdout ${JSON.stringify(out.slice(-300))}, stderr ${JSON.stringify(err.slice(-600))}`));
       }
     });
     child.stdin.end(`${JSON.stringify({ stdin, dataDir, now: Date.now() })}\n`);
@@ -91,6 +93,11 @@ function report(title, { lines, connections }) {
 
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   const escapes = report('Escape matrix (the cage hud.mjs runs)', await runMatrix());
-  report('Control: --permission without fence.mjs (expected to leak; shows what the fence closes)', await runMatrix({ fence: false }));
+  const control = 'Control: --permission without fence.mjs (expected to leak; shows what the fence closes)';
+  try {
+    report(control, await runMatrix({ fence: false }));
+  } catch (error) {
+    console.log(`### ${control}, Node ${process.version} on ${process.platform}: did not finish\n\n${error.message}\n`);
+  }
   process.exitCode = escapes === 0 ? 0 : 1;
 }
