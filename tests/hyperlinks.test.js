@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { safeHyperlink } from '../dist/utils/hyperlinks.js';
+import { safeHyperlink } from '../src/utils/hyperlinks.ts';
 
 const link = (url, text) => `\x1b]8;;${url}\x1b\\${text}\x1b]8;;\x1b\\`;
 

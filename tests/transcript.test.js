@@ -7,8 +7,8 @@ import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { createHash } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
-import { addSubagentEfforts, parseTranscript } from '../dist/transcript.js';
-import { TRANSCRIPT_MODEL_MAX_LEN } from '../dist/model-source.js';
+import { addSubagentEfforts, parseTranscript } from '../src/transcript.ts';
+import { TRANSCRIPT_MODEL_MAX_LEN } from '../src/model-source.ts';
 
 const fixture = (name) => fileURLToPath(new URL(name, import.meta.url));
 
@@ -449,7 +449,7 @@ test('the CLI drops deleted tasks from progress and hides an empty task list', a
       toolUse('u2', 'TaskUpdate', { taskId: '1', status: 'deleted' }),
     ]));
     const render = () => {
-      const result = spawnSync(process.execPath, [fixture('../dist/index.js')], {
+      const result = spawnSync(process.execPath, [fixture('../hud.mjs')], {
         cwd: dir,
         env: { ...process.env, CLAUDE_CONFIG_DIR: dir },
         input: JSON.stringify({ transcript_path: file, cwd: dir }),
@@ -533,7 +533,7 @@ test('subagent effort comes from the first assistant record of the subagent tran
     await writeFile(path.join(dir, 'agent-a1.jsonl'), lines({ type: 'assistant', effort: 'max' }));
 
     const r = await parseTranscript(file, dir);
-    await addSubagentEfforts(file, r.agents);
+    await addSubagentEfforts(subagents, r.agents);
     assert.deepEqual(r.agents.map((a) => [a.type, a.agentId, a.effort]), [
       ['known', 'a1', 'medium'],
       ['unreplied', 'a2', undefined],
@@ -606,7 +606,7 @@ test('saved parser state is kept for the 32 most recent transcripts', async () =
       await writeFile(file, JSON.stringify(toolUse('t', 'Read', {})) + '\n');
       await parseTranscript(file, dir);
     }
-    assert.equal((await readdir(path.join(dir, '.claude', 'plugins', 'claude-hud', 'transcript-cursors'))).length, 32);
+    assert.equal((await readdir(path.join(dir, 'transcript-cursors'))).length, 32);
   } finally {
     await rm(dir, { recursive: true, force: true });
   }
@@ -638,7 +638,7 @@ test('saved state that no longer parses is dropped and the transcript reread', a
     const file = path.join(dir, 'transcript.jsonl');
     await writeFile(file, JSON.stringify(toolUse('t1', 'Read', { file_path: '/a' })) + '\n');
     const { version } = JSON.parse(await readFile(fixture('../package.json'), 'utf8'));
-    const cursors = path.join(dir, '.claude', 'plugins', 'claude-hud', 'transcript-cursors');
+    const cursors = path.join(dir, 'transcript-cursors');
     await parseTranscript(file, dir);
     const cursorFile = path.join(cursors, `${createHash('sha256').update(path.resolve(file)).digest('hex')}.json`);
     const cursor = JSON.parse(await readFile(cursorFile, 'utf8'));

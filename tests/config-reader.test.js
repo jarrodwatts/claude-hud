@@ -4,7 +4,11 @@ import { mkdtemp, rm, writeFile, mkdir, symlink, chmod } from 'node:fs/promises'
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import * as fs from 'node:fs';
-import { countConfigs } from '../dist/config-reader.js';
+import { countConfigs as count } from '../src/config-reader.ts';
+import { claudePaths, logicPaths } from '../collector.mjs';
+
+// collector.mjs names every file logic reads; these tests set HOME and CLAUDE_CONFIG_DIR, then count.
+const countConfigs = (cwd) => count(logicPaths(claudePaths(process.env), { cwd }));
 
 function restoreEnvVar(name, value) {
   if (value === undefined) {

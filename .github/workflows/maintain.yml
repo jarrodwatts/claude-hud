@@ -1,0 +1,84 @@
+# The maintainer (owner-owned). Agents own the logic; this file and maintainer/*.mjs own the capabilities.
+#   agent: Claude jailed as unix user `agent`, no keys, network = the relay  -> artifact: outbox + patches
+#   act:   holds the App token; act.mjs carries out the outbox as data       <- reply | label | close | propose
+#   gate:  after every verify run, main's act.mjs posts the required "gate" check
+# Inactive until the owner sets vars.ACT_APP_ID. verify/maintainer.check.mjs runs this same code against fakes
+# on every pull request, so a change here is gated like any other.
+name: maintain
+
+on:
+  issues:
+    types: [opened, edited, reopened]
+  issue_comment:
+    types: [created]
+  schedule:
+    - cron: '17 * * * *'
+  workflow_dispatch:
+  workflow_run:
+    workflows: [verify]
+    types: [completed]
+
+permissions: {}
+
+# One agent run at a time plus one waiting, so a flood of events costs two runs. The gate and events made
+# by bots never queue here, so they can't displace a waiting run. The agent's events are listed here, in
+# the agent job's `if`, and in harness.mjs AGENT_EVENTS (which counts runs for the daily cap); the maintainer check holds them equal.
+concurrency:
+  group: ${{ github.event.sender.type != 'Bot' && contains('issues issue_comment schedule workflow_dispatch', github.event_name) && 'maintainer' || github.run_id }}
+
+jobs:
+  agent:
+    if: vars.ACT_APP_ID && github.event.sender.type != 'Bot' && contains('issues issue_comment schedule workflow_dispatch', github.event_name)
+    runs-on: ubuntu-24.04
+    environment: agent
+    timeout-minutes: 60
+    permissions: { contents: read, issues: read, pull-requests: read, actions: read }
+    outputs:
+      outbox: ${{ steps.harness.outputs.outbox }}
+      tokens: ${{ steps.harness.outputs.tokens }}
+    steps:
+      - uses: actions/checkout@v6
+        with: { persist-credentials: false, fetch-depth: 0 }
+      - uses: actions/setup-node@v6
+        with: { node-version: 24 }
+      - id: harness
+        run: node maintainer/harness.mjs "$RUNNER_TEMP/outbox"
+        env:
+          RELAY_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          GITHUB_TOKEN: ${{ github.token }}
+      # The artifact's name records the run's spend, for the scorecard and the next run's daily cap.
+      - if: steps.harness.outputs.tokens != ''
+        uses: actions/upload-artifact@v7
+        with: { name: 'relay-tokens-${{ steps.harness.outputs.tokens }}', path: '${{ runner.temp }}/outbox' }
+
+  act:
+    needs: agent
+    if: needs.agent.outputs.outbox == 'yes'
+    runs-on: ubuntu-24.04
+    environment: act
+    permissions: { contents: read }
+    steps:
+      - uses: actions/checkout@v6
+        with: { persist-credentials: false }
+      - uses: actions/download-artifact@v8
+        with: { name: 'relay-tokens-${{ needs.agent.outputs.tokens }}', path: '${{ runner.temp }}/outbox' }
+      - id: app
+        uses: actions/create-github-app-token@v3
+        with: { app-id: '${{ vars.ACT_APP_ID }}', private-key: '${{ secrets.ACT_APP_KEY }}' }
+      - run: node maintainer/act.mjs apply "$RUNNER_TEMP/outbox"
+        env: { GH_TOKEN: '${{ steps.app.outputs.token }}', ACT_BOT: '${{ steps.app.outputs.app-slug }}[bot]', ACT_APP_ID: '${{ vars.ACT_APP_ID }}' }
+
+  gate:
+    name: post gate check # never just "gate": a skipped job of that name would count as the required check
+    if: vars.ACT_APP_ID && github.event_name == 'workflow_run'
+    runs-on: ubuntu-24.04
+    environment: act
+    permissions: { contents: read }
+    steps:
+      - uses: actions/checkout@v6
+        with: { persist-credentials: false, fetch-depth: 0 } # the ratchet diffs from the merge base
+      - id: app
+        uses: actions/create-github-app-token@v3
+        with: { app-id: '${{ vars.ACT_APP_ID }}', private-key: '${{ secrets.ACT_APP_KEY }}' }
+      - run: node maintainer/act.mjs gate
+        env: { GH_TOKEN: '${{ steps.app.outputs.token }}' }

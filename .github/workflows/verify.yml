@@ -1,0 +1,74 @@
+# Frozen. Every check lives in verify/*.check.mjs and runs through verify/run.mjs, so adding a check
+# never edits this file. No secrets, no caches, no npm install, no `if:` (a skipped job would count
+# as passed). main's maintainer/act.mjs reads every job here: all must succeed for `gate` to pass.
+name: verify
+
+on: pull_request
+
+permissions:
+  contents: read
+
+jobs:
+  # Every check, on the runner the e2e and the maintainer need.
+  verify:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24
+      - uses: oven-sh/setup-bun@v2
+      - name: Terminal, fonts, and user namespaces for the e2e
+        run: |
+          sudo apt-get update -q
+          sudo apt-get install -yq --no-install-recommends tmux fonts-dejavu-core fonts-noto-core
+          sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
+      - id: run
+        run: VERIFY_OUT="$RUNNER_TEMP/verify" node verify/run.mjs || echo "failed=true" >> "$GITHUB_OUTPUT"
+      - uses: actions/upload-artifact@v7
+        with:
+          path: ${{ runner.temp }}/verify/screen.png
+          archive: false
+      - uses: actions/upload-artifact@v7
+        with:
+          path: ${{ runner.temp }}/verify/screen.html
+          archive: false
+      - name: Verdict
+        run: test "${{ steps.run.outputs.failed }}" != true
+
+  # Every OS and supported Node: the escape matrix, the corpus (audited on Node 24+), and the launcher.
+  cage:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, macos-latest, windows-latest]
+        node: ['22.18', '24', '26']
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v6
+        with:
+          node-version: ${{ matrix.node }}
+      - uses: oven-sh/setup-bun@v2
+      - run: node verify/run.mjs escape corpus launcher
+
+  # The launcher, today's and the copies already on users' machines, on the old Node they may still have, and under Bun.
+  launcher:
+    strategy:
+      fail-fast: false
+      matrix:
+        node: ['18', '20']
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v6
+        with:
+          node-version: ${{ matrix.node }}
+      - uses: oven-sh/setup-bun@v2
+      - run: node verify/run.mjs launcher

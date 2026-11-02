@@ -3,23 +3,23 @@
   "version": "0.14.2",
   "description": "Real-time statusline HUD for Claude Code",
   "type": "module",
-  "main": "dist/index.js",
+  "main": "hud.mjs",
   "files": [
-    "dist/",
+    "hud.mjs",
+    "collector.mjs",
+    "fence.mjs",
+    "install.mjs",
+    "dist/index.js",
     "src/",
-    "commands/",
-    "scripts/clean-dist.mjs",
-    "scripts/setup.mjs",
+    "skills/",
     "scripts/statusline.mjs",
     ".claude-plugin/"
   ],
   "scripts": {
-    "build": "node scripts/clean-dist.mjs && tsc",
-    "dev": "tsc --watch",
-    "test": "npm run build && node --import ./tests/clean-env.js --test",
-    "test:coverage": "npm run build && c8 --reporter=text --reporter=lcov node --import ./tests/clean-env.js --test",
+    "typecheck": "tsc -p .",
+    "test": "node --import ./tests/clean-env.js --test",
     "test:update-snapshots": "UPDATE_SNAPSHOTS=1 npm test",
-    "test:stdin": "npm run build && echo '{\"model\":{\"display_name\":\"Opus\"},\"context_window\":{\"current_usage\":{\"input_tokens\":45000},\"context_window_size\":200000},\"transcript_path\":\"/tmp/test.jsonl\"}' | node dist/index.js"
+    "test:stdin": "echo '{\"model\":{\"display_name\":\"Opus\"},\"context_window\":{\"current_usage\":{\"input_tokens\":45000},\"context_window_size\":200000},\"transcript_path\":\"/tmp/test.jsonl\"}' | node hud.mjs"
   },
   "keywords": [
     "claude-code",
@@ -29,11 +29,10 @@
   "author": "Jarrod Watts",
   "license": "MIT",
   "engines": {
-    "node": ">=18.0.0"
+    "node": ">=22.18.0"
   },
   "devDependencies": {
     "@types/node": "^26.6.6",
-    "c8": "^11.0.0",
     "typescript": "^7.0.2"
   }
 }

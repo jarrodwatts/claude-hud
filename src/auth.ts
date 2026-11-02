@@ -1,8 +1,6 @@
 import * as fs from 'node:fs';
-import * as os from 'node:os';
-import { getClaudeConfigJsonPath } from './claude-config-dir.js';
-import { displayLabel } from './utils/sanitize.js';
-import { truncateString } from './utils/truncate.js';
+import { displayLabel } from './utils/sanitize.ts';
+import { truncateString } from './utils/truncate.ts';
 
 /**
  * Authentication info for the current Claude Code login, derived from the
@@ -96,13 +94,13 @@ export function deriveAuthInfo(claudeJson: unknown, env: NodeJS.ProcessEnv = pro
  * The identity combines mtime, ctime, size, device, and inode so a replacement
  * or rapid rewrite cannot reuse a stale entry based on one timestamp alone.
  */
-export function readAuthInfo(): AuthInfo {
+export function readAuthInfo(claudeJson: string): AuthInfo {
   // An API key wins over whatever OAuth profile claude.json still holds.
   if (hasApiKey(process.env)) {
     return API_KEY_AUTH_INFO;
   }
   try {
-    return deriveAuthInfo(JSON.parse(fs.readFileSync(getClaudeConfigJsonPath(os.homedir()), 'utf8')));
+    return deriveAuthInfo(JSON.parse(fs.readFileSync(claudeJson, 'utf8')));
   } catch {
     return EMPTY_AUTH_INFO;
   }

@@ -1,7 +1,7 @@
-import type { Language, MessageKey, Messages } from "./types.js";
-import { en } from "./en.js";
-import { zhHans } from "./zh-Hans.js";
-import { zhHant } from "./zh-Hant.js";
+import type { Language, MessageKey, Messages } from "./types.ts";
+import { en } from "./en.ts";
+import { zhHans } from "./zh-Hans.ts";
+import { zhHant } from "./zh-Hant.ts";
 
 export type { Language, MessageKey, Messages };
 

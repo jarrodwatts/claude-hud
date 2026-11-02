@@ -1,19 +1,19 @@
-import type { HudElement } from '../config.js';
-import { DEFAULT_ELEMENT_ORDER, DEFAULT_MERGE_GROUPS, DEFAULT_PROJECT_LINE_ORDER } from '../config.js';
-import type { Frame } from './frame.js';
-import { activityLine } from './activity.js';
-import { separatorLine, visibleWidth } from './ansi.js';
-import { contextLine } from './context.js';
-import type { LabelAlign } from './labels.js';
-import { addedDirsLine, cacheHitRateLine, environmentLine, memoryLine, promptCacheLine, sessionTimeLine } from './lines.js';
-import { orderParts } from './order.js';
+import type { HudElement } from '../config.ts';
+import { DEFAULT_ELEMENT_ORDER, DEFAULT_MERGE_GROUPS, DEFAULT_PROJECT_LINE_ORDER } from '../config.ts';
+import type { Frame } from './frame.ts';
+import { activityLine } from './activity.ts';
+import { separatorLine, visibleWidth } from './ansi.ts';
+import { contextLine } from './context.ts';
+import type { LabelAlign } from './labels.ts';
+import { addedDirsLine, cacheHitRateLine, environmentLine, memoryLine, promptCacheLine, sessionTimeLine } from './lines.ts';
+import { orderParts } from './order.ts';
 import {
   advisorPart, authPart, compactionsPart, costPart, customLinePart, durationPart, extraPart, modelBadge,
   projectParts, sessionNamePart, sessionTokensSummary, speedPart, versionPart, type Part,
-} from './parts.js';
-import { usageParts } from './usage.js';
-import { gitFilesLine } from './vcs.js';
-import { t } from '../i18n/index.js';
+} from './parts.ts';
+import { usageParts } from './usage.ts';
+import { gitFilesLine } from './vcs.ts';
+import { t } from '../i18n/index.ts';
 
 const ACTIVITY = new Set<HudElement>(['tools', 'skills', 'mcp', 'agents', 'todos']);
 

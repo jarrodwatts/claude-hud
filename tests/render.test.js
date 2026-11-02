@@ -5,10 +5,10 @@ import assert from 'node:assert/strict';
 import { mkdtempSync, rmSync, utimesSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
-import { renderLines } from '../dist/render/index.js';
-import { mergeConfig } from '../dist/config.js';
-import { setLanguage } from '../dist/i18n/index.js';
-import { textWidth } from '../dist/render/ansi.js';
+import { renderLines } from '../src/render/index.ts';
+import { mergeConfig } from '../src/config.ts';
+import { setLanguage } from '../src/i18n/index.ts';
+import { textWidth } from '../src/render/ansi.ts';
 
 const NOW = new Date(2026, 9, 1, 12, 0).getTime();
 const SECOND = 1000;

@@ -1,5 +1,5 @@
-import { isCjkLanguage } from '../i18n/index.js';
-import { dim, RESET } from './colors.js';
+import { isCjkLanguage } from '../i18n/index.ts';
+import { dim, RESET } from './colors.ts';
 
 // CSI sequences, and OSC sequences ended by BEL or ESC \.
 const ESCAPE_AT = /\x1b(?:\[[0-?]*[ -/]*[@-~]|\][^\x07\x1b]*(?:\x07|\x1b\\))/y;
@@ -93,7 +93,7 @@ export function visibleWidth(str: string): number {
   return width;
 }
 
-function stripAnsi(str: string): string {
+export function stripAnsi(str: string): string {
   return tokenize(str).filter((token) => !token.escape).map((token) => token.text).join('');
 }
 
@@ -124,7 +124,7 @@ function closeOpenHyperlink(str: string): string {
   return lastUrl ? OSC8_CLOSE : '';
 }
 
-function truncateToWidth(str: string, width: number): string {
+export function truncateToWidth(str: string, width: number): string {
   if (width <= 0 || visibleWidth(str) <= width) return str;
   const suffix = width >= 3 ? '...' : '.'.repeat(width);
   const kept = sliceToWidth(str, width - suffix.length);

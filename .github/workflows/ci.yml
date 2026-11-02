@@ -1,49 +1,25 @@
-name: CI
+# Advisory, and never required: the agent's own tests (unit tests, golden output, the type check) on
+# its pull requests. They are agent-owned code, so they run with no network. A red run reaches the
+# agent's inbox as a log tail; the gate reads only the verify workflow.
+name: ci
 
-on:
-  pull_request:
-  push:
-    branches: [main]
-    paths-ignore:
-      - 'dist/**'
+on: pull_request
+
+permissions:
+  contents: read
 
 jobs:
-  test:
-    runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        node-version: [18.x, 20.x]
+  tests:
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
       - uses: actions/setup-node@v6
         with:
-          node-version: ${{ matrix.node-version }}
-          cache: npm
-      - run: npm ci
-      - run: npm run test:coverage
-
-  windows-git:
-    runs-on: windows-latest
-    steps:
-      - uses: actions/checkout@v6
-      - uses: actions/setup-node@v6
-        with:
-          node-version: 20.x
-          cache: npm
-      - run: npm ci
-      - run: npm run build
-      - name: Run Windows Git tests
-        shell: pwsh
+          node-version: 24
+      - run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: Tests and type check, with no network
         run: |
-          $output = & node --test tests/git.test.js tests/git-runner.test.js 2>&1
-          $exitCode = $LASTEXITCODE
-          $output | ForEach-Object { Write-Output $_ }
-          if ($exitCode -ne 0) {
-            $details = $output -join "`n"
-            if ($details.Length -gt 3500) {
-              $details = $details.Substring($details.Length - 3500)
-            }
-            $annotation = $details.Replace('%', '%25').Replace("`r", '%0D').Replace("`n", '%0A')
-            Write-Output "::error title=Windows Git tests failed::$annotation"
-            exit $exitCode
-          }
+          sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
+          unshare --map-current-user --net sh -c 'npx --offline tsc -p . && node --import ./tests/clean-env.js --test'

@@ -1,8 +1,8 @@
-import type { RenderContext } from '../types.js';
-import { getContextUsage, stdinText, type ContextUsage } from '../stdin.js';
-import { resolveEffortLevel, type EffortInfo } from '../effort.js';
-import { getNativeCostUsd } from '../cost.js';
-import { formatSessionDuration } from '../utils/format.js';
+import type { RenderContext } from '../types.ts';
+import { getContextUsage, stdinText, type ContextUsage } from '../stdin.ts';
+import { resolveEffortLevel, type EffortInfo } from '../effort.ts';
+import { getNativeCostUsd } from '../cost.ts';
+import { formatSessionDuration } from '../utils/format.ts';
 
 // Values computed from the render context alone, without I/O.
 

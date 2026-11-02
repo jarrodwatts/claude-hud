@@ -1,11 +1,11 @@
-import type { MessageKey } from '../i18n/types.js';
-import { t } from '../i18n/index.js';
-import { isLimitReached } from '../types.js';
-import { FIVE_HOUR_WINDOW_MS, SEVEN_DAY_WINDOW_MS, resolveUsagePaces, type UsagePace } from '../usage-pace.js';
-import type { Frame, Layout } from './frame.js';
-import { critical, formatQuotaPercent, label, quotaBar } from './colors.js';
-import { barLabel, type LabelAlign } from './labels.js';
-import { formatResetTime, formatWindowTime, limitTimeFormat, wallClock } from './time.js';
+import type { MessageKey } from '../i18n/types.ts';
+import { t } from '../i18n/index.ts';
+import { isLimitReached } from '../types.ts';
+import { FIVE_HOUR_WINDOW_MS, SEVEN_DAY_WINDOW_MS, resolveUsagePaces, type UsagePace } from '../usage-pace.ts';
+import type { Frame, Layout } from './frame.ts';
+import { critical, formatQuotaPercent, label, quotaBar } from './colors.ts';
+import { barLabel, type LabelAlign } from './labels.ts';
+import { formatResetTime, formatWindowTime, limitTimeFormat, wallClock } from './time.ts';
 
 interface UsageWindow {
   label: string;

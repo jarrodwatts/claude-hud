@@ -1,0 +1,18 @@
+{
+  "note": "The model name is sanitized before display; it reached the terminal raw (CHANGELOG 0.10.0 Security).",
+  "columns": 120,
+  "stdin": {
+    "model": {
+      "display_name": "Opus\u001b[2J\u001b]8;;https://evil.example/\u0007click\u001b]8;;\u000731m"
+    },
+    "context_window": {
+      "used_percentage": 45,
+      "context_window_size": 200000
+    }
+  },
+  "expect": [
+    "exit 0",
+    "only safe escapes",
+    "contains Opus"
+  ]
+}

@@ -2,12 +2,11 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import * as readline from 'node:readline';
 import { createHash } from 'node:crypto';
-import { getHudPluginDir } from './claude-config-dir.js';
-import { createDebug } from './debug.js';
-import type { AgentEntry, SessionTokenUsage, TodoItem, ToolEntry, TranscriptData } from './types.js';
-import { displayLabel, sanitizeDisplayText } from './utils/sanitize.js';
-import { truncateString } from './utils/truncate.js';
-import { sanitizeTranscriptModel } from './model-source.js';
+import { createDebug } from './debug.ts';
+import type { AgentEntry, SessionTokenUsage, TodoItem, ToolEntry, TranscriptData } from './types.ts';
+import { displayLabel, sanitizeDisplayText } from './utils/sanitize.ts';
+import { truncateString } from './utils/truncate.ts';
+import { sanitizeTranscriptModel } from './model-source.ts';
 
 const debug = createDebug('transcript');
 
@@ -487,9 +486,9 @@ function getHudVersion(): string {
   return hudVersion;
 }
 
-function cursorPath(homeDir: string, transcriptPath: string): string {
+function cursorPath(dataDir: string, transcriptPath: string): string {
   const key = createHash('sha256').update(path.resolve(transcriptPath)).digest('hex');
-  return path.join(getHudPluginDir(homeDir), 'transcript-cursors', `${key}.json`);
+  return path.join(dataDir, 'transcript-cursors', `${key}.json`);
 }
 
 function readCursor(file: string): Cursor | null {
@@ -599,7 +598,7 @@ async function parseFrom(
   return parser.finish();
 }
 
-export async function parseTranscript(transcriptPath: string, homeDir: string): Promise<TranscriptData> {
+export async function parseTranscript(transcriptPath: string, dataDir: string): Promise<TranscriptData> {
   let file: fs.promises.FileHandle;
   try {
     // Checked before opening, which would block on a pipe.
@@ -610,7 +609,7 @@ export async function parseTranscript(transcriptPath: string, homeDir: string): 
   }
   try {
     const stat = await file.stat();
-    const cursorFile = cursorPath(homeDir, transcriptPath);
+    const cursorFile = cursorPath(dataDir, transcriptPath);
     const save = (parser: Parser, offset: number): void =>
       writeCursor(cursorFile, { version: getHudVersion(), ino: stat.ino, offset, state: parser.save() });
     const cursor = readCursor(cursorFile);
@@ -634,9 +633,9 @@ export async function parseTranscript(transcriptPath: string, homeDir: string): 
 const AGENT_ID = /^[\w-]{1,64}$/;
 
 /** A subagent's effort, from the first assistant record of `<session>/subagents/agent-<id>.jsonl`. */
-async function subagentEffort(transcriptPath: string, agentId: string): Promise<string | undefined> {
+async function subagentEffort(subagentsDir: string, agentId: string): Promise<string | undefined> {
   if (!AGENT_ID.test(agentId)) return undefined;
-  const file = path.join(path.dirname(transcriptPath), path.basename(transcriptPath, '.jsonl'), 'subagents', `agent-${agentId}.jsonl`);
+  const file = path.join(subagentsDir, `agent-${agentId}.jsonl`);
   try {
     // Checked before opening, which would block on a pipe.
     if (!(await fs.promises.stat(file)).isFile()) return undefined;
@@ -664,8 +663,8 @@ async function subagentEffort(transcriptPath: string, agentId: string): Promise<
 }
 
 /** Sets each agent's effort in place; agents without a known id or first reply stay without one. */
-export async function addSubagentEfforts(transcriptPath: string, agents: AgentEntry[]): Promise<void> {
+export async function addSubagentEfforts(subagentsDir: string, agents: AgentEntry[]): Promise<void> {
   await Promise.all(agents.map(async (agent) => {
-    if (agent.agentId) agent.effort = await subagentEffort(transcriptPath, agent.agentId);
+    if (agent.agentId) agent.effort = await subagentEffort(subagentsDir, agent.agentId);
   }));
 }

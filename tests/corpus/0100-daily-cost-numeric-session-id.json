@@ -1,0 +1,26 @@
+{
+  "note": "The daily cost ledger no longer throws on a non-string session_id (CHANGELOG 0.10.0).",
+  "columns": 120,
+  "config": {
+    "display": {
+      "showDailyCost": true
+    }
+  },
+  "stdin": {
+    "model": {
+      "display_name": "Opus 5.5"
+    },
+    "context_window": {
+      "used_percentage": 45,
+      "context_window_size": 200000
+    },
+    "session_id": 12345,
+    "cost": {
+      "total_cost_usd": 1.5
+    }
+  },
+  "expect": [
+    "exit 0",
+    "lacks Error"
+  ]
+}

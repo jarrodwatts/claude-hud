@@ -1,0 +1,23 @@
+{
+  "note": "Show the running session's Claude Code version from stdin, so CC v... no longer sticks when claude is a wrapper script (#753).",
+  "columns": 120,
+  "config": {
+    "display": {
+      "showClaudeCodeVersion": true
+    }
+  },
+  "stdin": {
+    "model": {
+      "display_name": "Opus 5.5"
+    },
+    "context_window": {
+      "used_percentage": 45,
+      "context_window_size": 200000
+    },
+    "version": "2.1.305"
+  },
+  "expect": [
+    "exit 0",
+    "contains 2.1.305"
+  ]
+}

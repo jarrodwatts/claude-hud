@@ -1,4 +1,4 @@
-// Runs the newest installed claude-hud. /claude-hud:setup copies this file to
+// Runs the newest installed claude-hud. `hud install` (the /hud skill) copies this file to
 // <config dir>/plugins/claude-hud/ so the statusLine command survives updates.
 import fs from 'node:fs';
 import os from 'node:os';

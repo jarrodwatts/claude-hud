@@ -4,14 +4,18 @@ import * as path from 'node:path';
 import * as os from 'node:os';
 import { mkdtemp, mkdir, rm, symlink, writeFile } from 'node:fs/promises';
 import {
-  loadConfig,
-  getConfigPath,
-  getConfigOverridePath,
+  loadConfig as load,
   mergeConfig,
   DEFAULT_CONFIG,
   DEFAULT_ELEMENT_ORDER,
   DEFAULT_MERGE_GROUPS,
-} from '../dist/config.js';
+} from '../src/config.ts';
+import { claudePaths, logicPaths } from '../collector.mjs';
+
+// collector.mjs names the config files; these tests set CLAUDE_CONFIG_DIR, then load.
+const getConfigPath = () => claudePaths(process.env).configPath;
+const getConfigOverridePath = () => claudePaths(process.env).overridePath;
+const loadConfig = () => load(logicPaths(claudePaths(process.env), null));
 
 function withPath(keyPath, value) {
   const keys = keyPath.split('.');
@@ -160,20 +164,15 @@ test('display text options are sanitized and capped', () => {
   assert.equal(mergeConfig({ display: { modelOverride: 123 } }).display.modelOverride, '');
 });
 
-test('external usage paths trim, expand ~ and ${VAR} once, and leave unset variables', () => {
+test('external usage paths stay as written, trimmed; collector.mjs expands and resolves them', () => {
   process.env.CLAUDE_HUD_TEST_A = '/opt/claude-hud';
   process.env.CLAUDE_HUD_TEST_B = '${CLAUDE_HUD_TEST_A}';
-  delete process.env.CLAUDE_HUD_TEST_MISSING;
   try {
     const { display } = mergeConfig({
       display: { externalUsagePath: ' ~/usage.json ', externalUsageWritePath: '${CLAUDE_HUD_TEST_A}/${CLAUDE_HUD_TEST_B}' },
     });
-    assert.equal(display.externalUsagePath, path.join(os.homedir(), 'usage.json'));
-    assert.equal(display.externalUsageWritePath, '/opt/claude-hud/${CLAUDE_HUD_TEST_A}');
-    assert.equal(
-      mergeConfig({ display: { externalUsagePath: '${CLAUDE_HUD_TEST_MISSING}/u.json' } }).display.externalUsagePath,
-      '${CLAUDE_HUD_TEST_MISSING}/u.json',
-    );
+    assert.equal(display.externalUsagePath, '~/usage.json');
+    assert.equal(display.externalUsageWritePath, '${CLAUDE_HUD_TEST_A}/${CLAUDE_HUD_TEST_B}');
     assert.equal(mergeConfig({ display: { externalUsagePath: 123 } }).display.externalUsagePath, '');
   } finally {
     delete process.env.CLAUDE_HUD_TEST_A;

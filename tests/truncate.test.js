@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { truncateString } from '../dist/utils/truncate.js';
+import { truncateString } from '../src/utils/truncate.ts';
 
 for (const [name, text, maxLen, suffix, expected] of [
   ['null', null, 5, undefined, ''],

@@ -1,8 +1,8 @@
-import type { HudColorOverrides } from '../config.js';
-import type { MessageKey } from '../i18n/types.js';
-import { t } from '../i18n/index.js';
-import { label } from './colors.js';
-import { textWidth } from './ansi.js';
+import type { HudColorOverrides } from '../config.ts';
+import type { MessageKey } from '../i18n/types.ts';
+import { t } from '../i18n/index.ts';
+import { label } from './colors.ts';
+import { textWidth } from './ansi.ts';
 
 const BAR_LABELS: MessageKey[] = ['label.context', 'label.usage', 'label.weekly'];
 

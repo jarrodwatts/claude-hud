@@ -1,5 +1,5 @@
-import { createDebug } from './debug.js';
-import { GitTimeoutError, runGit } from './git-runner.js';
+import { createDebug } from './debug.ts';
+import type { Ask, Probe } from './channel.ts';
 
 const debug = createDebug('git');
 
@@ -49,52 +49,23 @@ export interface GitStatusOptions {
   repo?: GitRepoIdentity | null;
 }
 
-const QUIET = ['-c', 'core.quotePath=false', '--no-optional-locks'];
+type GitAnswer = { stdout: string } | { error: 'timeout' | 'failed' } | null | undefined;
 
-/**
- * A repository's own config is as untrusted as its files, and git runs commands it names:
- * core.fsmonitor on every status, and filter drivers whenever it hashes a changed file. Both
- * are turned off for drivers that don't come from the user's global or system config, so
- * git-lfs keeps working. A driver name git can't take back in `-c` makes git refuse to run.
- * Callers also pass --ignore-submodules=dirty, since git inside a submodule reads its config.
- */
-async function untrustedConfigOverrides(cwd: string): Promise<string[]> {
-  const overrides = ['-c', 'core.fsmonitor=false'];
-  let listed: string;
-  try {
-    listed = await runGit(cwd, ['config', '--show-scope', '-z', '--get-regexp', '^filter\\.'], 1000);
-  } catch {
-    return overrides; // exits 1 when no filter is configured
-  }
-  const drivers = new Set<string>();
-  const fields = listed.split('\0');
-  for (let i = 0; i + 1 < fields.length; i += 2) {
-    const [scope, entry] = [fields[i], fields[i + 1]];
-    if (scope === 'global' || scope === 'system') continue;
-    const key = entry.split('\n', 1)[0];
-    const name = key.slice('filter.'.length, key.lastIndexOf('.'));
-    if (name) drivers.add(name);
-  }
-  for (const name of drivers) {
-    overrides.push('-c', `filter.${name}.clean=`, '-c', `filter.${name}.process=`, '-c', `filter.${name}.required=false`);
-  }
-  return overrides;
-}
+const run = async (ask: Ask, probe: Probe): Promise<GitAnswer> => (await ask([probe]))[probe] as GitAnswer;
+const stdoutOf = (answer: GitAnswer): string | null => (answer && 'stdout' in answer ? answer.stdout : null);
 
-export async function getGitStatus(cwd?: string, options: GitStatusOptions = {}): Promise<GitStatus | null> {
-  if (!cwd) return null;
-
-  const safe = [...QUIET, ...await untrustedConfigOverrides(cwd)];
-  let output: string;
-  try {
-    output = await runGit(cwd, [...safe, 'status', '--porcelain=v2', '--branch', '-z', '--ignore-submodules=dirty'], 1000);
-  } catch (err) {
-    debug('git status failed:', err instanceof Error ? err.message : err);
-    return err instanceof GitTimeoutError ? getBranchOnly(cwd, options.repo) : null;
+/** The repo's status, from the git runs collector.mjs makes with the repo's own config defused. */
+export async function getGitStatus(ask: Ask, options: GitStatusOptions = {}): Promise<GitStatus | null> {
+  const answer = await run(ask, 'git.status');
+  const output = stdoutOf(answer);
+  if (output === null) {
+    const error = answer && 'error' in answer ? answer.error : null;
+    debug('git status failed:', error ?? 'no cwd');
+    return error === 'timeout' ? getBranchOnly(ask, options.repo) : null;
   }
 
   const parsed = parseStatus(output);
-  const branch = parsed.head ?? await describeDetachedHead(cwd, parsed.oid);
+  const branch = parsed.head ?? await describeDetachedHead(ask, parsed.oid);
   if (!branch) return null;
 
   const status: GitStatus = {
@@ -108,45 +79,35 @@ export async function getGitStatus(cwd?: string, options: GitStatusOptions = {})
 
   status.fileStats = parsed.fileStats;
   if (options.lineDiffs) {
-    try {
-      // diff-index, not diff: porcelain diff refreshes stale stat data into .git/index whatever
-      // --no-optional-locks says, and a timeout mid-write leaves .git/index.lock behind.
-      // -M keeps the rename detection diff turns on by default.
-      const diffs = parseNumstat(await runGit(cwd, [...safe, 'diff-index', '-M', '--numstat', '-z', '--ignore-submodules=dirty', 'HEAD'], 2000));
-      status.lineDiff = { added: 0, deleted: 0 };
-      for (const diff of diffs.values()) {
-        status.lineDiff.added += diff.added;
-        status.lineDiff.deleted += diff.deleted;
-      }
-      for (const file of parsed.fileStats.trackedFiles) {
-        const diff = diffs.get(file.fullPath);
-        if (diff) file.lineDiff = diff;
-      }
-    } catch (err) {
-      debug('git diff-index --numstat failed:', err instanceof Error ? err.message : err);
+    const numstat = stdoutOf(await run(ask, 'git.numstat'));
+    if (numstat === null) {
+      debug('git diff-index --numstat failed');
+      return status;
+    }
+    const diffs = parseNumstat(numstat);
+    status.lineDiff = { added: 0, deleted: 0 };
+    for (const diff of diffs.values()) {
+      status.lineDiff.added += diff.added;
+      status.lineDiff.deleted += diff.deleted;
+    }
+    for (const file of parsed.fileStats.trackedFiles) {
+      const diff = diffs.get(file.fullPath);
+      if (diff) file.lineDiff = diff;
     }
   }
   return status;
 }
 
 // A status that timed out in a large repo still leaves the branch worth showing.
-async function getBranchOnly(cwd: string, repo: GitRepoIdentity | null | undefined): Promise<GitStatus | null> {
-  try {
-    const branch = (await runGit(cwd, ['rev-parse', '--abbrev-ref', 'HEAD'], 1000)).trim();
-    if (!branch || branch === 'HEAD') return null;
-    return { branch, isDirty: false, ahead: 0, behind: 0, branchUrl: githubRefUrl(repo, branch) };
-  } catch {
-    return null;
-  }
+async function getBranchOnly(ask: Ask, repo: GitRepoIdentity | null | undefined): Promise<GitStatus | null> {
+  const branch = stdoutOf(await run(ask, 'git.branch'))?.trim();
+  if (!branch || branch === 'HEAD') return null;
+  return { branch, isDirty: false, ahead: 0, behind: 0, branchUrl: githubRefUrl(repo, branch) };
 }
 
-async function describeDetachedHead(cwd: string, oid: string | null): Promise<string | null> {
-  try {
-    const tag = (await runGit(cwd, ['describe', '--tags', '--exact-match', 'HEAD'], 1000)).trim();
-    if (tag) return tag;
-  } catch {
-    // Untagged commit.
-  }
+async function describeDetachedHead(ask: Ask, oid: string | null): Promise<string | null> {
+  const tag = stdoutOf(await run(ask, 'git.describe'))?.trim();
+  if (tag) return tag;
   return oid && /^[0-9a-f]{7,}$/.test(oid) ? `detached:${oid.slice(0, 7)}` : null;
 }
 

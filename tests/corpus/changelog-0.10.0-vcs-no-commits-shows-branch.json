@@ -1,0 +1,24 @@
+{
+  "note": "A repository with no commits now shows its branch (CHANGELOG 0.10.0). Replays the recorded git status of a fresh `git init`.",
+  "columns": 100,
+  "stdin": {
+    "model": {
+      "display_name": "Opus 5.5"
+    },
+    "context_window": {
+      "used_percentage": 12,
+      "context_window_size": 200000
+    },
+    "cwd": "/home/user/proj"
+  },
+  "facts": {
+    "git.status": {
+      "stdout": "# branch.oid (initial)\u0000# branch.head main\u0000"
+    }
+  },
+  "expect": [
+    "exit 0",
+    "contains git:(main)",
+    "no line wider than columns"
+  ]
+}

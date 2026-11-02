@@ -8,11 +8,11 @@ import {
   getProviderLabel,
   getUsageFromStdin,
   isContextUnreported,
-  readStdin,
   resolveModelName,
   stdinText,
-} from '../dist/stdin.js';
-import { formatUsd, getNativeCostUsd } from '../dist/cost.js';
+} from '../src/stdin.ts';
+import { readStdin } from '../hud.mjs';
+import { formatUsd, getNativeCostUsd } from '../src/cost.ts';
 
 const usage = (input, cacheWrite = 0, cacheRead = 0) => ({
   input_tokens: input,

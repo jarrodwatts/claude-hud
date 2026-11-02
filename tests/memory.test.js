@@ -1,14 +1,13 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { _setMemoryReaderForTests, formatBytes, getMemoryUsage, parseLinuxMeminfo, parseVmStat } from '../dist/memory.js';
+import os from 'node:os';
+import { formatBytes, getMemoryUsage, parseLinuxMeminfo, parseVmStat, readMemory } from '../src/memory.ts';
 
 test('getMemoryUsage returns coarse system RAM usage with clamped values', async () => {
-  _setMemoryReaderForTests(() => ({
+  const memoryUsage = getMemoryUsage({
     totalBytes: 16 * 1024 ** 3,
     freeBytes: 20 * 1024 ** 3,
-  }));
-
-  const memoryUsage = await getMemoryUsage();
+  });
 
   assert.deepEqual(memoryUsage, {
     totalBytes: 16 * 1024 ** 3,
@@ -18,14 +17,12 @@ test('getMemoryUsage returns coarse system RAM usage with clamped values', async
   });
 });
 
-test('getMemoryUsage returns null when memory lookup fails', async () => {
-  _setMemoryReaderForTests(() => {
-    throw new Error('boom');
-  });
-
-  const memoryUsage = await getMemoryUsage();
-
-  assert.equal(memoryUsage, null);
+test('readMemory uses the OS accounting it was given, else os.freemem()', () => {
+  assert.deepEqual(readMemory({ meminfo: 'MemTotal: 100 kB\nMemAvailable: 40 kB\n' }), { totalBytes: 102400, freeBytes: 40960 });
+  const totalBytes = os.totalmem();
+  const vmStat = 'Mach Virtual Memory Statistics: (page size of 4096 bytes)\nPages active: 10.\nPages wired down: 5.\n';
+  assert.deepEqual(readMemory({ vmStat }), { totalBytes, freeBytes: totalBytes - 15 * 4096 });
+  for (const facts of [null, {}, { meminfo: 'garbage' }]) assert.equal(readMemory(facts).totalBytes, totalBytes);
 });
 
 test('parseVmStat parses vm_stat output correctly', () => {
@@ -86,12 +83,10 @@ MemFree:         7105992 kB`;
 test('macOS memory calculation: 16GB total, active+wired via vm_stat → 43%', async () => {
   const totalBytes = 16 * 1024 ** 3;
   const usedBytes = (253775 + 195488) * 16384;
-  _setMemoryReaderForTests(() => ({
+  const memoryUsage = getMemoryUsage({
     totalBytes,
     freeBytes: totalBytes - usedBytes,
-  }));
-
-  const memoryUsage = await getMemoryUsage();
+  });
   assert.equal(memoryUsage.usedPercent, 43);
   assert.equal(memoryUsage.usedBytes, usedBytes);
 });
@@ -101,8 +96,4 @@ test('formatBytes formats human-readable units for memory line display', () => {
   assert.equal(formatBytes(512), '512 B');
   assert.equal(formatBytes(1536), '1.5 KB');
   assert.equal(formatBytes(10 * 1024 ** 3), '10 GB');
-});
-
-test.after(() => {
-  _setMemoryReaderForTests(null);
 });

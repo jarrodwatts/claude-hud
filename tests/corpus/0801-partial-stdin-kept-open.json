@@ -1,0 +1,10 @@
+{
+  "note": "Input that stalls partway through stdin no longer keeps the HUD waiting until Claude Code closes the pipe (#801, #805, CHANGELOG 0.11.0).",
+  "columns": 100,
+  "stdin": "{\"model\":{\"display_name\":\"Opus\"},\"context_window\":{\"used_perc",
+  "stdinOpen": true,
+  "expect": [
+    "exit 0",
+    "finishes within 1500ms"
+  ]
+}
