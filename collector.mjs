@@ -2,7 +2,9 @@
 // caged and asks for probes by name (see createProbes); it never chooses a command line or a path.
 // Imports nothing from src/: this file's behaviour must not change when logic does.
 import { exec, execFile, spawn } from 'node:child_process';
+import crypto from 'node:crypto';
 import fs from 'node:fs';
+import { stripTypeScriptTypes } from 'node:module';
 import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -26,6 +28,7 @@ export function claudePaths(env = process.env, home = os.homedir()) {
     hudDir,
     claudeJson: custom ? path.join(configDir, '.claude.json') : path.join(home, '.claude.json'),
     dataDir: path.join(hudDir, 'data'),
+    strippedDir: path.join(hudDir, 'stripped'),
   };
 }
 
@@ -52,6 +55,40 @@ export function prepareDataDir({ hudDir, dataDir }) {
   };
   sweep(dataDir);
   return fs.realpathSync(dataDir);
+}
+
+// ---- stripped/: logic's code without its types. Logic reads it and never writes it.
+
+/** The file name fence.mjs looks up for a .ts source; fence.mjs has the same formula. */
+export const strippedName = (source) => `${crypto.hash('sha256', `${process.version}\0${source}`)}.js`;
+
+/**
+ * Node strips types every time it loads a .ts file, and on Node 22 it can't cache the result. That
+ * was most of a render. So each src/ file is stripped once, by Node's own stripper, into `dir`,
+ * named by its source's hash; fence.mjs loads that in place of the .ts. `dir` is outside data/, so
+ * logic can never change code it will run later. Returns `dir`, or null if it can't be written,
+ * in which case Node strips as before.
+ */
+export function stripLogic(dir, root) {
+  try {
+    if (fs.lstatSync(dir, { throwIfNoEntry: false })?.isSymbolicLink()) fs.rmSync(dir);
+    fs.mkdirSync(dir, { recursive: true, mode: 0o700 });
+    const current = new Set();
+    for (const file of fs.readdirSync(path.join(root, 'src'), { recursive: true })) {
+      if (!file.endsWith('.ts')) continue;
+      const source = fs.readFileSync(path.join(root, 'src', file), 'utf8');
+      const target = path.join(dir, strippedName(source));
+      current.add(path.basename(target));
+      if (fs.existsSync(target)) continue;
+      fs.writeFileSync(`${target}.${process.pid}.tmp`, stripTypeScriptTypes(source), { mode: 0o600 });
+      fs.renameSync(`${target}.${process.pid}.tmp`, target);
+    }
+    // Files an older version left. A render that loses one in a race gets Node's own strip.
+    for (const name of fs.readdirSync(dir)) if (!current.has(name)) fs.rmSync(path.join(dir, name), { force: true });
+    return dir;
+  } catch {
+    return null;
+  }
 }
 
 /** What logic may read: its own code, data/, the transcript, and the settings files it counts. Never .credentials.json. */

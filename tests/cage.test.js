@@ -1,10 +1,10 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { existsSync, lstatSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
+import { existsSync, lstatSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, realpathSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { cageArgs, cageEnv, filterLine } from '../hud.mjs';
-import { claudePaths, prepareDataDir, readGrants } from '../collector.mjs';
+import { claudePaths, prepareDataDir, readGrants, stripLogic, strippedName } from '../collector.mjs';
 
 function withHome(fn) {
   const home = realpathSync(mkdtempSync(path.join(tmpdir(), 'hud-cage-')));
@@ -28,6 +28,25 @@ test('data/ is created private, and state from older releases moves into it', ()
   assert.ok(existsSync(path.join(dataDir, 'speed-cache')));
   assert.ok(!existsSync(path.join(paths.hudDir, 'daily-cost.json')));
   assert.ok(existsSync(path.join(paths.hudDir, 'config.json')), 'config.json stays where users edit it');
+}));
+
+test('logic is stripped once into stripped/, named by source hash, and old versions are dropped', () => withHome((home, paths) => {
+  const root = path.join(home, 'plugin');
+  mkdirSync(path.join(root, 'src', 'render'), { recursive: true });
+  writeFileSync(path.join(root, 'src', 'a.ts'), 'export const a: number = 1;\n');
+  writeFileSync(path.join(root, 'src', 'render', 'b.ts'), 'export const b = (x: string): string => x;\n');
+  writeFileSync(path.join(root, 'src', 'notes.md'), 'not code');
+  const dir = paths.strippedDir;
+  assert.equal(stripLogic(dir, root), dir);
+  const a = path.join(dir, strippedName('export const a: number = 1;\n'));
+  assert.equal(readFileSync(a, 'utf8'), 'export const a         = 1;\n');
+  assert.equal(readdirSync(dir).length, 2);
+  assert.ok(!dir.startsWith(paths.dataDir), 'logic can write data/, so its code lives elsewhere');
+
+  writeFileSync(path.join(root, 'src', 'a.ts'), 'export const a: number = 2;\n');
+  stripLogic(dir, root);
+  assert.ok(!existsSync(a), "the old version's file is gone");
+  assert.equal(readdirSync(dir).length, 2);
 }));
 
 test('symlinks in data/, and a symlinked data/ itself, are removed before logic runs', {

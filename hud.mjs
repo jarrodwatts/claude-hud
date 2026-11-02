@@ -110,12 +110,11 @@ export function cageArgs({ grants, dataDir, entry = LOGIC }) {
 }
 
 /** Runs caged logic: sends the payload, answers its probes, and resolves with its {lines, snapshot?}. */
-export function runCage({ stdin, dataDir, writable = true, grants, env = process.env, probes, entry }) {
+export function runCage({ stdin, dataDir, writable = true, stripped = null, grants, env = process.env, probes, entry }) {
   return new Promise((resolve, reject) => {
-    // Node 24 also caches type-stripped source there, which halves logic's startup.
-    const compileCache = writable ? { NODE_COMPILE_CACHE: path.join(dataDir, 'cache') } : {};
-    const child = spawn(process.execPath, cageArgs({ grants, dataDir: writable ? dataDir : null, entry }), {
-      env: { ...cageEnv(env), ...compileCache }, stdio: ['pipe', 'pipe', 'pipe'], windowsHide: true,
+    const args = cageArgs({ grants: stripped ? [...grants, stripped] : grants, dataDir: writable ? dataDir : null, entry });
+    const child = spawn(process.execPath, args, {
+      env: { ...cageEnv(env), ...(stripped ? { CLAUDE_HUD_STRIPPED: stripped } : {}) }, stdio: ['pipe', 'pipe', 'pipe'], windowsHide: true,
     });
     let settled = false;
     const settle = (error, output) => {
@@ -199,6 +198,7 @@ export async function main({ argv = process.argv, env = process.env } = {}) {
       stdin,
       dataDir,
       writable,
+      stripped: collector.stripLogic(paths.strippedDir, ROOT),
       grants: collector.readGrants({ root: ROOT, dataDir, paths, stdin }),
       env,
       probes: collector.createProbes({ cwd: stdin?.cwd, argv, env, usage }),
