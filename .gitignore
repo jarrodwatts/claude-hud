@@ -1,10 +1,10 @@
 # Dependencies
 node_modules/
 
-# Build artifacts
-# dist/ is gitignored but exists on main - CI builds and commits it after each merge.
-# See .github/workflows/build-dist.yml
-dist/
+# There is no build. dist/index.js is a committed stub that old launchers import; nothing else
+# belongs in dist/.
+dist/*
+!dist/index.js
 *.tsbuildinfo
 
 # Logs

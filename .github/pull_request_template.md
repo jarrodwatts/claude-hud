@@ -3,7 +3,7 @@
 ## Testing
 
 - [ ] `npm test`
-- [ ] `npm run test:coverage`
+- [ ] `npm run typecheck`
 
 ## Checklist
 
