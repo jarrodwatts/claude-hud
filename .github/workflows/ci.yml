@@ -65,23 +65,6 @@ jobs:
         run: bash scripts/ci-report.sh
         shell: bash
 
-  # TEMPORARY evidence for the PR: main's own suite on Windows, before this change. Removed before review.
-  windows-main-baseline:
-    runs-on: windows-latest
-    continue-on-error: true
-    steps:
-      - uses: actions/checkout@v6
-        with:
-          ref: main
-          persist-credentials: false
-      - uses: actions/setup-node@v6
-        with:
-          node-version: '24'
-      - run: npm ci
-      - run: npm run build
-      - run: node --import ./tests/clean-env.js --test 2>&1 | grep -E '^(✖|ℹ (pass|fail))' | sort -u
-        shell: bash
-
   # Users on old Node still run today's launcher: it must print the upgrade line, not crash.
   # Named for the checks main's ruleset requires.
   test:
