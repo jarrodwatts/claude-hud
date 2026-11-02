@@ -126,7 +126,9 @@ function doctor(facts: Facts, loaded: LoadedConfig, now: number): Output {
   const statusLine = statusSource?.value?.statusLine as Raw | undefined;
   const command = typeof statusLine?.command === "string" ? statusLine.command : "";
   const kind = !command ? "none" : command.includes("claude-hud") ? "claude-hud" : "other";
-  const hooksOff = settings.find(entry => entry.value?.disableAllHooks === true);
+  // The highest-precedence file that sets it decides, as in Claude Code.
+  const hooksSetting = settings.find(entry => typeof entry.value?.disableAllHooks === "boolean");
+  const hooksOff = hooksSetting?.value?.disableAllHooks === true ? hooksSetting : undefined;
   const beat = facts.heartbeat;
 
   const findings: string[] = [];

@@ -55,7 +55,7 @@ test('doctor reports the runtime, the last render and what to fix', () => withHo
   assert.equal(after.lastRender.runtime, process.version);
 }));
 
-test('doctor redacts a statusLine command and reports disableAllHooks', () => withHome(({ run, configDir }) => {
+test('doctor redacts a statusLine command and reports disableAllHooks', () => withHome(({ run, configDir, project }) => {
   mkdirSync(configDir, { recursive: true });
   writeFileSync(path.join(configDir, 'settings.json'), JSON.stringify({
     statusLine: { type: 'command', command: 'bash ~/line.sh --token=hunter2' }, disableAllHooks: true,
@@ -66,6 +66,11 @@ test('doctor redacts a statusLine command and reports disableAllHooks', () => wi
   assert.equal(report.statusLine.command, 'bash ~/line.sh --token=[REDACTED]');
   assert.ok(report.findings.some((finding) => finding.includes('disableAllHooks')));
   assert.doesNotMatch(JSON.stringify(report), /hunter2/);
+
+  // Project settings win over user settings.
+  mkdirSync(path.join(project, '.claude'));
+  writeFileSync(path.join(project, '.claude', 'settings.json'), JSON.stringify({ disableAllHooks: false }));
+  assert.ok(!JSON.parse(run(['doctor']).stdout).findings.some((finding) => finding.includes('disableAllHooks')));
 }));
 
 test('every config key is described for `hud schema`, and nothing else is', () => {
