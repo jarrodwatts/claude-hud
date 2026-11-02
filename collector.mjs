@@ -464,7 +464,7 @@ export const isNodeSupported = (version) => {
  * Node installs already on disk, from the version managers' own folders, so `/hud` can point the
  * status line at one that is new enough. Lists folders only and runs nothing.
  */
-export function findRuntimes(env = process.env, home = os.homedir(), platform = process.platform) {
+function findRuntimes(env = process.env, home = os.homedir(), platform = process.platform) {
   const exe = platform === 'win32' ? 'node.exe' : path.join('bin', 'node');
   const managers = [
     ['nvm', path.join(env.NVM_DIR || path.join(home, '.nvm'), 'versions', 'node'), ''],

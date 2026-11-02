@@ -4,6 +4,7 @@
 //   - logic's environment and Node flags hold no secret and no capability
 //   - on Windows, git, jj, node (Bun's relay) and taskkill never run from the repo's folder
 //   - a repo's own git config never runs a command, through status, line diffs or a submodule
+//   - --extra-cmd runs nothing unless the user's environment opts in
 //   - `hud set` can't change which files the collector reads or writes
 //   - the /hud skill runs only the read-only subcommands without asking, and reads their facts as JSON
 import assert from 'node:assert/strict';
@@ -12,7 +13,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { asJson, cageArgs, cageEnv, terminalFilter } from '../hud.mjs';
-import { claudePaths, createProbes, resolveTaskkillPath, resolveWindowsExecutable, writeConfig } from '../collector.mjs';
+import { claudePaths, createProbes, parseExtraCmdArg, resolveTaskkillPath, resolveWindowsExecutable, writeConfig } from '../collector.mjs';
 
 const results = [];
 const check = async (name, fn) => {
@@ -135,6 +136,12 @@ try {
     // The control: the same repo's filter does run when git is run plainly, so the check above can fail.
     main.git('add', 'a.txt');
     assert.ok(fs.existsSync(ran('filter')), 'the planted filter never runs at all, so this check proves nothing');
+  });
+
+  await check('--extra-cmd, the one arbitrary shell command, is ignored unless CLAUDE_HUD_ALLOW_EXTRA_CMD turns it on', () => {
+    const argv = ['node', 'statusline.mjs', '--extra-cmd', 'x'];
+    for (const env of [{}, { CLAUDE_HUD_ALLOW_EXTRA_CMD: '0' }, { CLAUDE_HUD_ALLOW_EXTRA_CMD: 'enabled' }]) assert.equal(parseExtraCmdArg(argv, env), null, JSON.stringify(env));
+    assert.equal(parseExtraCmdArg(argv, { CLAUDE_HUD_ALLOW_EXTRA_CMD: '1' }), 'x');
   });
 
   await check('`hud set` keeps the keys that name files from disk, whatever logic hands back', () => {

@@ -17,7 +17,7 @@ export function detectShell(env = process.env, platform = process.platform) {
 
 const quote = (value) => `'${value.replaceAll("'", `'\\''`)}'`;
 
-export function buildCommand(shell, launcher, env = process.env) {
+function buildCommand(shell, launcher, env = process.env) {
   if (shell === 'gitbash') {
     // Launch through cmd.exe: Git Bash creates native children suspended, so a
     // killed statusLine shell would otherwise strand a node.exe (#747).
