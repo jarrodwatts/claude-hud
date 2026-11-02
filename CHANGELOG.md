@@ -4,6 +4,17 @@ All notable changes to Claude HUD will be documented in this file.
 
 ## [Unreleased]
 
+## [0.15.0] - 2026-11-02
+
+### Security
+- A repository's own git config can no longer run a command when you open Claude Code in it. In 0.14.2 and earlier, a booby-trapped repo could do this through a partial clone's automatic fetch, or through a filter driver whose name git couldn't be told to skip. Git now never reaches the network for the HUD, and the HUD skips git for a repo whose filters it can't switch off. Thanks to @yx64 (GHSA-f7gq-pcm8-rxr4) and @mrthankyou (GHSA-25hg-g83m-4w35) for reporting these privately.
+
+### Changed
+- `/hud` replaces `/claude-hud:setup` and `/claude-hud:configure`. Ask Claude to set the HUD up, show or change a setting (with a preview first), check what's wrong, or prepare a bug report with private details removed.
+- The HUD now runs straight from its TypeScript source and needs Node.js 22.18 or newer. On older Node, the status line shows one line asking you to type `/hud`, which helps you upgrade. Bun can still launch it.
+- The HUD's code runs in a locked-down Node process that can't start other programs or write outside its own folder. One small, separately reviewed file runs git and the other programs the HUD needs.
+- A config value the HUD can't use now shows one line ending in `/hud`, instead of being silently ignored.
+
 ## [0.14.2] - 2026-11-02
 
 ### Fixed
