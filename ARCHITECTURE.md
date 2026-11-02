@@ -56,8 +56,8 @@ file is in no box or in two, if an import crosses boxes with no arrow for it, if
 that no import uses, or if the rounded nodes are not exactly the builtins `fence.mjs` lets logic
 load. Square boxes own the files they list. A rounded node is a set of Node builtins, so an arrow
 into one is permission to touch the world that way. `hud.mjs` is the owner's code, drawn because the stub
-that launchers already on users' machines import forwards to it; inside the cage it can't load at
-all, since it needs `node:child_process`.
+every launcher imports under Bun forwards to it; inside the cage it can't load at all, since it needs
+`node:child_process`.
 
 ```mermaid
 flowchart TD

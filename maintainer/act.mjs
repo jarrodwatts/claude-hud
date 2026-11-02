@@ -10,7 +10,7 @@ import { execFileSync } from 'node:child_process';
 // Code runs from a plugin: hooks, monitors, language servers, skills…), so it needs the owner. Naming
 // the agent's side means a kind of plugin file Claude Code learns to run later is the owner's from day one.
 // Plain ASCII names matched without case, so no disk that folds case or Unicode turns one into
-// src/index.ts, the stub that launchers already on users' machines import.
+// src/index.ts, the stub every launcher imports under Bun.
 const AGENT = [
   /^src\/(?!index\.ts$)[\w./-]+\.ts$/i,
   /^tests\/[\w./-]+$/i,

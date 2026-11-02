@@ -56,7 +56,7 @@ jobs:
       - uses: oven-sh/setup-bun@v2
       - run: node verify/run.mjs escape corpus launcher
 
-  # Launchers already on users' machines, on the Node they may still have, and under Bun.
+  # The launcher, today's and the copies already on users' machines, on the old Node they may still have, and under Bun.
   launcher:
     strategy:
       fail-fast: false

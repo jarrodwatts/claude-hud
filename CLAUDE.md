@@ -48,7 +48,7 @@ Claude Code runs the command after each message, `/compact`, a mode change, a ra
 - `tests/corpus/*.json` are fixtures for `verify/corpus.check.mjs`. Add new ones; never edit, rename or delete one. A case's `facts` are the probes' recorded answers, so git and jj states replay without running either.
 - Imports end in `.ts`, and only erasable TypeScript is allowed (`erasableSyntaxOnly`), because users run the source.
 - Every key in `DEFAULT_CONFIG` has a description in `schema.ts`; `tests/commands.test.js` enforces it.
-- `dist/index.js` and `src/index.ts` are stubs that launchers already on users' machines import. Keep them, and keep the `version` fields: those launchers find installs by version folder.
+- `dist/index.js` and `src/index.ts` are the stubs every launcher imports, the one `hud install` copies today included. Keep them, and keep the `version` fields: launchers find installs by version folder.
 
 ## Setup
 

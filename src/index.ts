@@ -1,3 +1,3 @@
-// Launchers already on users' machines import this file under Bun and call main(), or run it directly.
-// The HUD itself is hud.mjs; this stub stays so those launchers keep working.
+// Every launcher, the one `hud install` copies today included, imports this file on Bun (dist/index.js
+// on Node) and calls main(), or runs it directly. The HUD itself is hud.mjs; this is how launchers enter it.
 export { main } from '../hud.mjs';

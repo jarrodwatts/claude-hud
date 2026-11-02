@@ -1,6 +1,6 @@
-// Launchers already on users' machines: scripts/statusline.mjs, copied into their config dir long
-// ago, imports dist/index.js (src/index.ts under Bun) from the newest installed version. Those two
-// files are now stubs that forward to hud.mjs. This runs that launcher against a fake install of
+// Every launcher, from ones copied into users' config dirs long ago to the scripts/statusline.mjs
+// `hud install` copies today, imports dist/index.js (src/index.ts under Bun) from the newest installed
+// version. Those two files are stubs that forward to hud.mjs. This runs that launcher against a fake install of
 // this tree on the Node running the check (verify.yml runs it on every Node in its matrix), then on Bun:
 //   - a supported Node renders the HUD; an older one prints the one line that ends in /hud;
 //   - `hud doctor` answers on any Node, and says when this one is too old;

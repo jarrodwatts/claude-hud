@@ -2,7 +2,8 @@
 // ARCHITECTURE.md draws one such render. `node hud.mjs <command>` runs one of the /hud skill's
 // subcommands instead (see COMMANDS). Every check under verify/ runs logic through the same runCage.
 //
-// Launchers already on users' machines reach main() through dist/index.js and src/index.ts.
+// Every launcher, the one `hud install` copies today included, reaches main() through the stubs
+// dist/index.js (Node) and src/index.ts (Bun).
 // Keep this file's syntax loadable by old Node and Bun, so they can print the upgrade line.
 import { spawn } from 'node:child_process';
 import fs from 'node:fs';
