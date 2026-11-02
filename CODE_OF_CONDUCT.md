@@ -23,7 +23,7 @@ Examples of unacceptable behavior include:
 
 Community leaders are responsible for clarifying standards of acceptable behavior and may take appropriate action in response to unacceptable behavior.
 
-Instances of abusive, harassing, or otherwise unacceptable behavior may be reported by contacting the maintainer at: jarrodwttsyt@gmail.com.
+Instances of abusive, harassing, or otherwise unacceptable behavior may be reported privately with GitHub's "Report content" option on the comment, issue or pull request, or to GitHub at https://github.com/contact/report-abuse.
 
 ## Attribution
 
