@@ -1,0 +1,18 @@
+name: Case
+description: Something wrong with the HUD, as the case JSON that `/hud report` prints.
+title: "case: "
+body:
+  - type: markdown
+    attributes:
+      value: |
+        In Claude Code, type `/hud` and describe the problem. Your Claude checks it, prints a scrubbed case
+        (masked fields keep their width, no transcript), shows you the whole thing, and files it here with your OK.
+        The maintainer turns each case into a test, so please don't edit the JSON by hand.
+  - type: textarea
+    id: case
+    attributes:
+      label: Case JSON
+      description: "The output of `/hud report`: versions, platform, columns, config, stdin, facts, note, expect."
+      render: json
+    validations:
+      required: true
