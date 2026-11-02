@@ -77,7 +77,7 @@ jobs:
     permissions: { contents: read }
     steps:
       - uses: actions/checkout@v6
-        with: { persist-credentials: false }
+        with: { persist-credentials: false, fetch-depth: 0 } # the ratchet diffs from the merge base
       - id: app
         uses: actions/create-github-app-token@v3
         with: { app-id: '${{ vars.ACT_APP_ID }}', private-key: '${{ secrets.ACT_APP_KEY }}' }
