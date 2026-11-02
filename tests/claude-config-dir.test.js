@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import path from 'node:path';
-import { getClaudeConfigDir, getClaudeConfigJsonPath } from '../dist/claude-config-dir.js';
+import { getClaudeConfigDir, getClaudeConfigJsonPath } from '../src/claude-config-dir.ts';
 
 test('getClaudeConfigJsonPath returns ~/.claude.json without CLAUDE_CONFIG_DIR', () => {
   // The file sits BESIDE the default ~/.claude directory, not inside it.

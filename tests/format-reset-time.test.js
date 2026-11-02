@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { formatAgo, formatResetTime, formatWindowTime, limitTimeFormat } from '../dist/render/time.js';
+import { formatAgo, formatResetTime, formatWindowTime, limitTimeFormat } from '../src/render/time.ts';
 
 const MINUTE = 60_000;
 const HOUR = 60 * MINUTE;

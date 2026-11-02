@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { resolveEffortLevel } from '../dist/effort.js';
+import { resolveEffortLevel } from '../src/effort.ts';
 
 test('resolveEffortLevel maps stdin levels to symbols', () => {
   assert.deepEqual(resolveEffortLevel({ level: 'HIGH ' }), { level: 'high', symbol: '◑' });

@@ -4,7 +4,7 @@ import { mkdtemp, rm, writeFile, mkdir, symlink, chmod } from 'node:fs/promises'
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import * as fs from 'node:fs';
-import { countConfigs } from '../dist/config-reader.js';
+import { countConfigs } from '../src/config-reader.ts';
 
 function restoreEnvVar(name, value) {
   if (value === undefined) {

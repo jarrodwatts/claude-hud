@@ -1,6 +1,6 @@
-import type { EffortFormatMode } from './config.js';
-import type { StdinData } from './types.js';
-import { stdinText } from './stdin.js';
+import type { EffortFormatMode } from './config.ts';
+import type { StdinData } from './types.ts';
+import { stdinText } from './stdin.ts';
 
 export interface EffortInfo {
   level: string;

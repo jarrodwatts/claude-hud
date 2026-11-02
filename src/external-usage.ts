@@ -1,9 +1,10 @@
-import * as fs from 'node:fs';
-import * as path from 'node:path';
-import type { HudConfig } from './config.js';
-import { createDebug } from './debug.js';
-import type { ExternalUsageSnapshot, ScopedUsageWindow, UsageData } from './types.js';
-import { displayLabel } from './utils/sanitize.js';
+import type { HudConfig } from './config.ts';
+import { createDebug } from './debug.ts';
+import type { ExternalUsageSnapshot, ScopedUsageWindow, UsageData } from './types.ts';
+import { displayLabel } from './utils/sanitize.ts';
+
+// collector.mjs reads and writes the files at display.externalUsagePath and externalUsageWritePath;
+// this side only parses what it read and decides what to write.
 
 const debug = createDebug('external-usage');
 
@@ -13,11 +14,9 @@ const SCOPED_WINDOWS_MAX = 8;
 const SCOPED_LABEL_MAX_LENGTH = 64;
 
 type WrittenWindow = { used_percentage: number | null; resets_at: string | null };
-type WrittenSnapshot = { updated_at: string; five_hour: WrittenWindow; seven_day: WrittenWindow };
-
-type FileSystemDeps = Pick<typeof fs, 'chmodSync' | 'readFileSync' | 'renameSync' | 'rmSync' | 'statSync' | 'writeFileSync'>;
-
-const fsDeps: FileSystemDeps = fs;
+export type WrittenSnapshot = { updated_at: string; five_hour: WrittenWindow; seven_day: WrittenWindow };
+/** The `usage.target` probe's answer: the file now at the write path, or null when that path can't be written. */
+export type UsageTarget = { text: string | null; mtimeMs: number | null } | null | undefined;
 
 function parseUsagePercent(value: unknown): number | null {
   return typeof value === 'number' && Number.isFinite(value) ? Math.round(Math.min(100, Math.max(0, value))) : null;
@@ -58,69 +57,44 @@ function parseScopedWindows(value: unknown): ScopedUsageWindow[] {
   return windows;
 }
 
+
 // Rewrite when the values change or the snapshot is older than the throttle, so readers
 // can trust updated_at without the file being rewritten on every render.
-function shouldWrite(snapshotPath: string, next: WrittenSnapshot, now: number, deps: FileSystemDeps): boolean {
+function shouldWrite(current: NonNullable<UsageTarget>, next: WrittenSnapshot, now: number): boolean {
+  if (current.text === null || current.mtimeMs === null || now - current.mtimeMs > EXTERNAL_USAGE_WRITE_THROTTLE_MS) {
+    return true;
+  }
   try {
-    if (now - deps.statSync(snapshotPath).mtimeMs > EXTERNAL_USAGE_WRITE_THROTTLE_MS) {
-      return true;
-    }
-    const { updated_at: _, ...current } = JSON.parse(deps.readFileSync(snapshotPath, 'utf8') as string);
+    const { updated_at: _, ...stored } = JSON.parse(current.text);
     const { updated_at: __, ...values } = next;
-    return JSON.stringify(current) !== JSON.stringify(values);
+    return JSON.stringify(stored) !== JSON.stringify(values);
   } catch {
     return true;
   }
 }
 
-// Writes stdin's rate limits for other local tools: an absolute .json path in an existing
-// directory, replaced atomically with a private file.
-export function writeExternalUsageSnapshot(
-  config: HudConfig,
+// Stdin's rate limits for other local tools, or null when there is nothing new to write.
+export function externalUsageSnapshot(
+  target: UsageTarget,
   usage: UsageData | null,
   now = Date.now(),
-  deps: FileSystemDeps = fsDeps,
-): boolean {
-  const target = config.display.externalUsageWritePath;
-  if (!target || !path.isAbsolute(target) || path.extname(target).toLowerCase() !== '.json') return false;
-  if (!usage || (usage.fiveHour === null && usage.sevenDay === null)) return false;
-
-  const snapshotPath = path.normalize(target);
-  const dir = path.dirname(snapshotPath);
+): WrittenSnapshot | null {
+  if (!target || !usage || (usage.fiveHour === null && usage.sevenDay === null)) return null;
   const snapshot: WrittenSnapshot = {
     updated_at: new Date(now).toISOString(),
     five_hour: { used_percentage: usage.fiveHour, resets_at: usage.fiveHourResetAt?.toISOString() ?? null },
     seven_day: { used_percentage: usage.sevenDay, resets_at: usage.sevenDayResetAt?.toISOString() ?? null },
   };
-  const tmpPath = path.join(dir, `.${path.basename(snapshotPath)}.${process.pid}.${now}.tmp`);
-
-  try {
-    if (!deps.statSync(dir).isDirectory() || !shouldWrite(snapshotPath, snapshot, now, deps)) {
-      return false;
-    }
-    deps.writeFileSync(tmpPath, `${JSON.stringify(snapshot, null, 2)}\n`, { encoding: 'utf8', mode: 0o600, flag: 'wx' });
-    deps.renameSync(tmpPath, snapshotPath);
-    deps.chmodSync(snapshotPath, 0o600);
-    return true;
-  } catch (err) {
-    debug('Failed to write usage snapshot:', err instanceof Error ? err.message : err);
-    try {
-      deps.rmSync(tmpPath, { force: true });
-    } catch {
-      // Nothing left to clean up.
-    }
-    return false;
-  }
+  return shouldWrite(target, snapshot, now) ? snapshot : null;
 }
 
-export function getUsageFromExternalSnapshot(config: HudConfig, now = Date.now()): UsageData | null {
-  const snapshotPath = config.display.externalUsagePath;
-  if (!snapshotPath || !path.isAbsolute(snapshotPath)) {
+export function getUsageFromExternalSnapshot(text: unknown, config: HudConfig, now = Date.now()): UsageData | null {
+  if (typeof text !== 'string') {
     return null;
   }
 
   try {
-    const parsed = JSON.parse(fs.readFileSync(snapshotPath, 'utf8')) as ExternalUsageSnapshot;
+    const parsed = JSON.parse(text) as ExternalUsageSnapshot;
     const updatedAt = parseDate(parsed.updated_at)?.getTime();
     if (updatedAt === undefined || now - updatedAt > config.display.externalUsageFreshnessMs) {
       return null;
@@ -157,11 +131,11 @@ export function getUsageFromExternalSnapshot(config: HudConfig, now = Date.now()
 
 // Stdin wins. The snapshot fills in what it lacks (the 7-day window for clients that only
 // send five_hour, model-scoped windows, a balance label), or stands in when stdin has none.
-export function resolveUsage(config: HudConfig, stdinUsage: UsageData | null, now = Date.now()): UsageData | null {
+export function resolveUsage(config: HudConfig, stdinUsage: UsageData | null, snapshotText: unknown, now = Date.now()): UsageData | null {
   if (!config.display.externalUsagePath) {
     return stdinUsage;
   }
-  const external = getUsageFromExternalSnapshot(config, now);
+  const external = getUsageFromExternalSnapshot(snapshotText, config, now);
   if (!stdinUsage || !external) {
     return stdinUsage ?? external;
   }

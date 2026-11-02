@@ -1,6 +1,10 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { parseExtraCmdArg, runExtraCmd, isExtraCmdAllowed } from '../dist/extra-cmd.js';
+import { extraCmdLabel } from '../src/extra-cmd.ts';
+import { parseExtraCmdArg, runExtraCmd as runInCollector, isExtraCmdAllowed } from '../collector.mjs';
+
+// Both halves: collector.mjs runs the command, logic turns its output into a label.
+const runExtraCmd = async (cmd, timeout) => extraCmdLabel(await runInCollector(cmd, timeout));
 
 const ALLOWED = { CLAUDE_HUD_ALLOW_EXTRA_CMD: '1' };
 const argv = (...args) => ['node', 'index.js', ...args];

@@ -1,6 +1,6 @@
 import { test, beforeEach, afterEach } from 'node:test';
 import assert from 'node:assert/strict';
-import { getTerminalWidth } from '../dist/utils/terminal.js';
+import { getTerminalWidth } from '../src/utils/terminal.ts';
 
 let saved;
 

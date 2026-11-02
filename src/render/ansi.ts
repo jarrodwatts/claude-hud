@@ -1,5 +1,5 @@
-import { isCjkLanguage } from '../i18n/index.js';
-import { dim, RESET } from './colors.js';
+import { isCjkLanguage } from '../i18n/index.ts';
+import { dim, RESET } from './colors.ts';
 
 // CSI sequences, and OSC sequences ended by BEL or ESC \.
 const ESCAPE_AT = /\x1b(?:\[[0-?]*[ -/]*[@-~]|\][^\x07\x1b]*(?:\x07|\x1b\\))/y;

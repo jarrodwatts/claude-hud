@@ -1,7 +1,7 @@
-import type { HudConfig } from './config.js';
-import type { GitRepoIdentity, GitStatus } from './git.js';
-import type { AuthInfo } from './auth.js';
-import type { CostTotals } from './daily-cost.js';
+import type { HudConfig } from './config.ts';
+import type { GitRepoIdentity, GitStatus } from './git.ts';
+import type { AuthInfo } from './auth.ts';
+import type { CostTotals } from './daily-cost.ts';
 
 // The statusline payload Claude Code writes to stdin (code.claude.com/docs/en/statusline).
 export interface StdinData {

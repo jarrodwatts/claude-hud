@@ -4,7 +4,11 @@ import { mkdtemp, readFile, rm, stat, utimes, writeFile } from 'node:fs/promises
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { execFileSync } from 'node:child_process';
-import { getGitStatus, parseNumstat, parseStatus } from '../dist/git.js';
+import { getGitStatus as statusFromProbes, parseNumstat, parseStatus } from '../src/git.ts';
+import { createProbes } from '../collector.mjs';
+
+// Both halves: the git runs collector.mjs makes, and logic's parsing of their output.
+const getGitStatus = (cwd, options) => statusFromProbes(createProbes({ cwd, argv: [] }), options);
 
 const IDENTITY = ['-c', 'user.name=Test', '-c', 'user.email=test@test.com', '-c', 'commit.gpgsign=false', '-c', 'tag.gpgsign=false'];
 

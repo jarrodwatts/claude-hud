@@ -1,5 +1,5 @@
-import type { HudConfig } from './config.js';
-import type { ScopedUsageWindow, UsageData } from './types.js';
+import type { HudConfig } from './config.ts';
+import type { ScopedUsageWindow, UsageData } from './types.ts';
 
 export type UsagePace = 'normal' | 'warning' | 'critical';
 

@@ -1,4 +1,4 @@
-// End-to-end golden output: runs dist/index.js for every case in
+// End-to-end golden output: runs hud.mjs for every case in
 // tests/golden/cases.mjs and compares stdout with tests/golden/expected.txt.
 // Regenerate with `npm run test:update-snapshots`.
 import { test } from 'node:test';
@@ -76,7 +76,7 @@ async function runCase(spec) {
       .replaceAll('<TRANSCRIPT>', transcript);
 
     const stdout = await new Promise((resolve, reject) => {
-      const child = spawn(process.execPath, ['--import', freezeTime, path.join(root, 'dist', 'index.js')], {
+      const child = spawn(process.execPath, ['--import', freezeTime, path.join(root, 'hud.mjs')], {
         cwd: project,
         env,
       });

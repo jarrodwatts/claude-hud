@@ -1,10 +1,9 @@
-import type { RenderContext } from '../types.js';
-import { getTerminalWidth } from '../utils/terminal.js';
-import { RESET } from './colors.js';
-import { wrapToWidth } from './ansi.js';
-import { compactLines } from './compact.js';
-import { expandedLines } from './expanded.js';
-import { createFrame } from './frame.js';
+import type { RenderContext } from '../types.ts';
+import { RESET } from './colors.ts';
+import { wrapToWidth } from './ansi.ts';
+import { compactLines } from './compact.ts';
+import { expandedLines } from './expanded.ts';
+import { createFrame } from './frame.ts';
 
 /** The lines the HUD prints, wrapped to the terminal width when it is known. */
 export function renderLines(ctx: RenderContext, columns: number | null, now: number): string[] {
@@ -14,8 +13,4 @@ export function renderLines(ctx: RenderContext, columns: number | null, now: num
     .flatMap((line) => line.split('\n'))
     .flatMap((line) => wrapToWidth(line, frame.width ?? 0))
     .map((line) => `${RESET}${line}`);
-}
-
-export function render(ctx: RenderContext): void {
-  for (const line of renderLines(ctx, getTerminalWidth(), Date.now())) console.log(line);
 }

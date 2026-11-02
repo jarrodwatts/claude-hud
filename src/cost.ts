@@ -1,5 +1,5 @@
-import type { StdinData } from './types.js';
-import { isBedrockModelId, isVertexModelId } from './stdin.js';
+import type { StdinData } from './types.ts';
+import { isBedrockModelId, isVertexModelId } from './stdin.ts';
 
 // Claude Code's own session cost. Bedrock and Vertex bill through the cloud provider,
 // so their list-price figure is shown only with display.showRoutedCost, and only once

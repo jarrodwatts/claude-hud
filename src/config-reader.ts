@@ -1,8 +1,8 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import * as os from 'node:os';
-import { createDebug } from './debug.js';
-import { getClaudeConfigDir, getClaudeConfigJsonPath } from './claude-config-dir.js';
+import { createDebug } from './debug.ts';
+import { getClaudeConfigDir, getClaudeConfigJsonPath } from './claude-config-dir.ts';
 
 const debug = createDebug('config-reader');
 

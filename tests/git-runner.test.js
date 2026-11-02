@@ -14,7 +14,7 @@ import {
   runGit,
   runGitInWorker,
   terminateWindowsProcessTree,
-} from '../dist/git-runner.js';
+} from '../collector.mjs';
 
 const SLOW = ['-c', 'alias.slow=!sleep 5', 'slow'];
 

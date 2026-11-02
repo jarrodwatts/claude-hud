@@ -1,6 +1,6 @@
-import type { HourCycleMode, HudConfig, TimeFormatMode } from '../config.js';
-import type { MessageKey } from '../i18n/types.js';
-import { interpolate, t } from '../i18n/index.js';
+import type { HourCycleMode, HudConfig, TimeFormatMode } from '../config.ts';
+import type { MessageKey } from '../i18n/types.ts';
+import { interpolate, t } from '../i18n/index.ts';
 
 interface WallClockOptions {
   hourCycle: HourCycleMode;
