@@ -327,32 +327,38 @@ export function getConfigOverridePath(): string {
   return path.join(getClaudeConfigDir(os.homedir()), 'claude-hud.json');
 }
 
-// A rule maps a raw user value to a valid one, or to the fallback (the default).
-type Rule = (value: unknown, fallback: any) => unknown;
+// A rule maps a raw user value to a valid one, or to the fallback (the default). `accepts` says
+// in words what it takes, for `hud schema` and for config problems. `freeText` marks the user's
+// own words or paths, which `hud report` masks.
+type Rule = ((value: unknown, fallback: any) => unknown) & { accepts: string; freeText: boolean };
+const rule = (accepts: string, fn: (value: unknown, fallback: any) => unknown, freeText = false): Rule => (
+  Object.assign(fn, { accepts, freeText })
+);
 
 const isNumber = (value: unknown): value is number => typeof value === 'number' && Number.isFinite(value);
+const list = (values: readonly unknown[]) => values.map(value => JSON.stringify(value)).join(' | ');
 
-const oneOf = (allowed: readonly unknown[]): Rule => (value, fallback) => (
+const oneOf = (allowed: readonly unknown[]): Rule => rule(list(allowed), (value, fallback) => (
   allowed.includes(value) ? value : fallback
-);
-const clamp = (min: number, max: number): Rule => (value, fallback) => (
+));
+const clamp = (min: number, max: number): Rule => rule(`a number from ${min} to ${max}`, (value, fallback) => (
   isNumber(value) ? Math.max(min, Math.min(max, value)) : fallback
-);
-const floorAtLeastZero: Rule = (value, fallback) => (isNumber(value) ? Math.max(0, Math.floor(value)) : fallback);
-const count: Rule = (value, fallback) => (Number.isInteger(value) && (value as number) >= 0 ? value : fallback);
-const text = (maxLength: number): Rule => (value, fallback) => (
+));
+const floorAtLeastZero = rule('a whole number, 0 or more', (value, fallback) => (isNumber(value) ? Math.max(0, Math.floor(value)) : fallback));
+const count = rule('a whole number, 0 or more', (value, fallback) => (Number.isInteger(value) && (value as number) >= 0 ? value : fallback));
+const text = (maxLength: number): Rule => rule(`text, up to ${maxLength} characters`, (value, fallback) => (
   typeof value === 'string' ? truncateString(sanitizeDisplayText(value), maxLength, '') : fallback
-);
+), true);
 
 // Keeps known names once each, in order. An empty result falls back only when `nonEmpty`.
-const names = (known: readonly unknown[], nonEmpty: boolean): Rule => (value, fallback) => {
+const names = (known: readonly unknown[], nonEmpty: boolean): Rule => rule(`a list of ${list(known)}`, (value, fallback) => {
   if (!Array.isArray(value)) return fallback;
   const kept = [...new Set(value.filter(item => known.includes(item)))];
   return kept.length > 0 || !nonEmpty ? kept : fallback;
-};
+});
 
 // Groups need two or more known elements, and an element joins at most one group.
-const mergeGroups: Rule = (value, fallback) => {
+const mergeGroups = rule(`a list of groups, each 2 or more of ${list(ELEMENTS)}, each element in one group`, (value, fallback) => {
   if (!Array.isArray(value)) return fallback;
   if (value.length === 0) return [];
   const used = new Set<unknown>();
@@ -365,39 +371,40 @@ const mergeGroups: Rule = (value, fallback) => {
     groups.push(members);
   }
   return groups.length > 0 ? groups : fallback;
-};
+});
 
 const HEX_COLOR = /^#[0-9a-fA-F]{6}$/;
-const color: Rule = (value, fallback) => (
+const color = rule(`${list(COLOR_NAMES)}, a 256-color number 0-255, or "#rrggbb"`, (value, fallback) => (
   COLOR_NAMES.includes(value as HudColorName)
   || (Number.isInteger(value) && (value as number) >= 0 && (value as number) <= 255)
   || (typeof value === 'string' && HEX_COLOR.test(value))
     ? value
     : fallback
-);
+));
 
 // Exactly one visible grapheme: no controls, format, variation, separator, or unassigned code points.
 const INVISIBLE_CODEPOINT = /[\p{Cc}\p{Cf}\p{Variation_Selector}\p{Zl}\p{Zp}\p{Cn}]/u;
-const barChar: Rule = (value, fallback) => {
+const barChar = rule('one visible character', (value, fallback) => {
   if (typeof value !== 'string' || value.length === 0) return fallback;
   const graphemes = [...new Intl.Segmenter(undefined, { granularity: 'grapheme' }).segment(value)];
   return graphemes.length === 1 && !INVISIBLE_CODEPOINT.test(value) ? value : fallback;
-};
+});
 
 // Expands a leading ~ and ${VAR}; unset variables are left as written.
-const usagePath: Rule = (value) => (
+const usagePath = rule('an absolute path (a leading ~ and ${VAR} are expanded)', (value) => (
   typeof value === 'string'
     ? expandHomeDirPrefix(value.trim(), os.homedir())
       .replace(/\$\{([A-Za-z_][A-Za-z0-9_]*)\}/g, (match, name: string) => process.env[name] ?? match)
     : ''
-);
+), true);
+const boolean = rule('true | false', (value, fallback) => (typeof value === 'boolean' ? value : fallback));
 
-// Booleans need no rule: a default of type boolean accepts only booleans.
+// Booleans need no rule here: a default of type boolean gets `boolean`.
 const RULES: Record<string, Rule> = {
   'language': oneOf(LANGUAGES),
   'lineLayout': oneOf(LINE_LAYOUTS),
   'pathLevels': oneOf(PATH_LEVELS),
-  'maxWidth': (value) => (isNumber(value) && value > 0 ? Math.min(Math.floor(value), MAX_TERMINAL_WIDTH) : null),
+  'maxWidth': rule('a positive number, or null', (value) => (isNumber(value) && value > 0 ? Math.min(Math.floor(value), MAX_TERMINAL_WIDTH) : null)),
   'elementOrder': names(ELEMENTS, true),
   'projectLineOrder': names(FIRST_LINE_SEGMENTS, false),
   'gitStatus.branchOverflow': oneOf(GIT_BRANCH_OVERFLOW_MODES),
@@ -430,7 +437,7 @@ const RULES: Record<string, Rule> = {
   'display.timeFormat': oneOf(TIME_FORMATS),
   'display.hourCycle': oneOf(HOUR_CYCLES),
   'display.advisorOverride': text(80),
-  'display.autoCompactWindow': (value) => (Number.isInteger(value) && (value as number) > 0 ? value : null),
+  'display.autoCompactWindow': rule('a positive whole number, or null', (value) => (Number.isInteger(value) && (value as number) > 0 ? value : null)),
   'colors.barFilled': barChar,
   'colors.barEmpty': barChar,
   'colors.*': color,
@@ -440,23 +447,76 @@ function isPlainObject(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
+const ruleFor = (keyPath: string, fallback: unknown): Rule | undefined => (
+  RULES[keyPath] ?? RULES[`${keyPath.slice(0, keyPath.lastIndexOf('.') + 1)}*`] ?? (typeof fallback === 'boolean' ? boolean : undefined)
+);
+
 // Walks the defaults, so unknown user keys are dropped and every key is validated.
 function normalize(defaults: Record<string, unknown>, input: unknown, prefix = ''): Record<string, unknown> {
   const source = isPlainObject(input) ? input : {};
   const result: Record<string, unknown> = {};
   for (const [key, fallback] of Object.entries(defaults)) {
     const keyPath = prefix + key;
-    const rule = RULES[keyPath] ?? RULES[`${prefix}*`];
+    const keyRule = ruleFor(keyPath, fallback);
     const value = source[key];
-    if (rule) {
-      result[key] = rule(value, fallback);
+    if (keyRule) {
+      result[key] = keyRule(value, fallback);
     } else if (isPlainObject(fallback)) {
       result[key] = normalize(fallback, value, `${keyPath}.`);
     } else {
-      result[key] = typeof fallback === 'boolean' && typeof value === 'boolean' ? value : fallback;
+      result[key] = fallback;
     }
   }
   return result;
+}
+
+export interface ConfigKey {
+  key: string;
+  default: unknown;
+  accepts: string;
+  freeText: boolean;
+}
+
+/** Every config key with its default and what it accepts, in DEFAULT_CONFIG order. */
+export function configKeys(defaults: Record<string, unknown> = DEFAULT_CONFIG as unknown as Record<string, unknown>, prefix = ''): ConfigKey[] {
+  return Object.entries(defaults).flatMap(([key, fallback]) => {
+    const keyPath = prefix + key;
+    const keyRule = ruleFor(keyPath, fallback);
+    if (!keyRule && isPlainObject(fallback)) return configKeys(fallback, `${keyPath}.`);
+    return [{ key: keyPath, default: fallback, accepts: keyRule?.accepts ?? 'a value', freeText: keyRule?.freeText ?? false }];
+  });
+}
+
+/** The key's entry, or undefined for a key config.json doesn't have. */
+export const configKey = (key: string): ConfigKey | undefined => keyEntry(key);
+
+const UNSET = Symbol('unset');
+const sameJson = (a: unknown, b: unknown) => JSON.stringify(a) === JSON.stringify(b);
+
+let allKeys: Map<string, ConfigKey> | undefined;
+const keyEntry = (key: string) => (allKeys ??= new Map(configKeys().map(entry => [entry.key, entry]))).get(key);
+
+/** Why `value` is not valid for `key`, or null when it is. A value a rule would change counts as invalid. */
+export function checkValue(key: string, value: unknown): string | null {
+  const entry = keyEntry(key);
+  if (!entry) return `${key} is not a config key`;
+  const keyRule = ruleFor(key, entry.default);
+  const valid = keyRule === usagePath ? typeof value === 'string' : keyRule ? sameJson(keyRule(value, UNSET), value) : false;
+  return valid ? null : `${key} must be ${entry.accepts}`;
+}
+
+/** Each set key whose value would be ignored or changed. Unknown keys are left alone. */
+export function configProblems(raw: Record<string, unknown>, prefix = ''): string[] {
+  return Object.entries(raw).flatMap(([key, value]) => {
+    const keyPath = prefix + key;
+    if (keyEntry(keyPath)) {
+      const problem = checkValue(keyPath, value);
+      return problem ? [problem] : [];
+    }
+    const isSection = isPlainObject((DEFAULT_CONFIG as unknown as Record<string, unknown>)[keyPath]) && prefix === '';
+    if (!isSection) return [];
+    return isPlainObject(value) ? configProblems(value, `${keyPath}.`) : [`${keyPath} must be an object`];
+  });
 }
 
 // v0.0.x wrote `layout: "default" | "separators"`; some third-party tools write an object.
@@ -494,7 +554,7 @@ function hasSafeConfigShape(value: unknown, depth = 0): boolean {
 }
 
 // Sections merge key by key; arrays and scalars replace the base value.
-function mergeOverrides(base: Record<string, unknown>, override: Record<string, unknown>): Record<string, unknown> {
+export function mergeOverrides(base: Record<string, unknown>, override: Record<string, unknown>): Record<string, unknown> {
   const result = Object.assign(Object.create(null), base) as Record<string, unknown>;
   for (const [key, value] of Object.entries(override)) {
     const current = result[key];
@@ -504,14 +564,15 @@ function mergeOverrides(base: Record<string, unknown>, override: Record<string, 
 }
 
 // Checks and reads through one descriptor so a swapped or growing file can't slip past either guard.
-function readConfigFile(configPath: string): Record<string, unknown> | null {
+// Null when the file is missing; a reason string when it can't be used.
+function readConfigFile(configPath: string): Record<string, unknown> | string | null {
   try {
     // O_NOFOLLOW rejects symlinks on POSIX; it is undefined on Windows.
     const fd = fs.openSync(configPath, fs.constants.O_RDONLY | (fs.constants.O_NOFOLLOW ?? 0));
     try {
       if (!fs.fstatSync(fd).isFile()) {
         debug('Ignoring %s: not a regular file', configPath);
-        return null;
+        return 'is not a regular file';
       }
       const buf = Buffer.alloc(MAX_CONFIG_FILE_BYTES + 1);
       let length = 0;
@@ -522,27 +583,46 @@ function readConfigFile(configPath: string): Record<string, unknown> | null {
       } while (bytesRead > 0 && length < buf.length);
       if (length > MAX_CONFIG_FILE_BYTES) {
         debug('Ignoring %s: larger than %d bytes', configPath, MAX_CONFIG_FILE_BYTES);
-        return null;
+        return `is larger than ${MAX_CONFIG_FILE_BYTES / 1024} KB`;
       }
       const parsed: unknown = JSON.parse(buf.subarray(0, length).toString('utf-8'));
       if (!isPlainObject(parsed) || !hasSafeConfigShape(parsed)) {
         debug('Ignoring %s: not a bounded JSON object without unsafe keys', configPath);
-        return null;
+        return 'is not a JSON object (or nests too deep, or uses __proto__)';
       }
       return parsed;
     } finally {
       fs.closeSync(fd);
     }
   } catch (err) {
-    if ((err as NodeJS.ErrnoException).code !== 'ENOENT') {
-      debug('Ignoring %s:', configPath, err instanceof Error ? err.message : err);
-    }
-    return null;
+    if ((err as NodeJS.ErrnoException).code === 'ENOENT') return null;
+    debug('Ignoring %s:', configPath, err instanceof Error ? err.message : err);
+    return err instanceof SyntaxError ? 'is not valid JSON' : 'can\'t be read';
   }
 }
 
+export interface LoadedConfig {
+  config: HudConfig;
+  /** config.json alone, as written: what `hud set` edits. */
+  base: Record<string, unknown>;
+  /** claude-hud.json, whose keys win over config.json. */
+  override: Record<string, unknown>;
+  /** Values that are ignored, each naming its file and key. Empty when the config is fine. */
+  problems: string[];
+}
+
+export function loadConfigFiles(): LoadedConfig {
+  const files = [['config.json', readConfigFile(getConfigPath())], ['claude-hud.json', readConfigFile(getConfigOverridePath())]] as const;
+  const problems: string[] = [];
+  const [base, override] = files.map(([name, file]) => {
+    if (typeof file === 'string') problems.push(`${name} ${file}`);
+    else if (file) problems.push(...configProblems(migrateLegacyLayout(file)).map(problem => `${name}: ${problem}`));
+    return isPlainObject(file) ? file : null;
+  });
+  const merged = override ? mergeOverrides(base ?? {}, override) : base ?? {};
+  return { config: mergeConfig(merged as Partial<HudConfig>), base: base ?? {}, override: override ?? {}, problems };
+}
+
 export async function loadConfig(): Promise<HudConfig> {
-  const base = readConfigFile(getConfigPath()) ?? {};
-  const override = readConfigFile(getConfigOverridePath());
-  return mergeConfig((override ? mergeOverrides(base, override) : base) as Partial<HudConfig>);
+  return loadConfigFiles().config;
 }

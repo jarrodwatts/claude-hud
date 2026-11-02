@@ -93,7 +93,7 @@ export function visibleWidth(str: string): number {
   return width;
 }
 
-function stripAnsi(str: string): string {
+export function stripAnsi(str: string): string {
   return tokenize(str).filter((token) => !token.escape).map((token) => token.text).join('');
 }
 

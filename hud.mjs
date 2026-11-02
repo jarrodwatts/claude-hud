@@ -5,6 +5,8 @@
 //                         asks for probes by name ◀─▶ answers; returns {lines, snapshot?}
 //            ◀── lines, filtered to colour codes and file:/github.com links ─▶ terminal
 //
+// `node hud.mjs <command>` runs one of the /hud skill's subcommands instead (see COMMANDS).
+//
 // Launchers already on users' machines reach main() through dist/index.js and src/index.ts.
 // Keep this file's syntax loadable by old Node and Bun, so they can print the upgrade line.
 import { spawn } from 'node:child_process';
@@ -110,11 +112,13 @@ export function cageArgs({ grants, dataDir, entry = LOGIC }) {
 }
 
 /** Runs caged logic: sends the payload, answers its probes, and resolves with its {lines, snapshot?}. */
-export function runCage({ stdin, dataDir, writable = true, stripped = null, grants, env = process.env, probes, entry }) {
+export function runCage({ stdin, dataDir, writable = true, stripped = null, grants, env = process.env, probes, entry, now = Date.now(), command }) {
   return new Promise((resolve, reject) => {
-    const args = cageArgs({ grants: stripped ? [...grants, stripped] : grants, dataDir: writable ? dataDir : null, entry });
+    const args = cageArgs({ grants: stripped ? [...grants, stripped.dir] : grants, dataDir: writable ? dataDir : null, entry });
     const child = spawn(process.execPath, args, {
-      env: { ...cageEnv(env), ...(stripped ? { CLAUDE_HUD_STRIPPED: stripped } : {}) }, stdio: ['pipe', 'pipe', 'pipe'], windowsHide: true,
+      env: { ...cageEnv(env), ...(stripped ? { CLAUDE_HUD_STRIPPED: JSON.stringify({ dir: path.join(stripped.dir, path.sep), files: stripped.files }) } : {}) },
+      stdio: ['pipe', 'pipe', 'pipe'],
+      windowsHide: true,
     });
     let settled = false;
     const settle = (error, output) => {
@@ -148,7 +152,9 @@ export function runCage({ stdin, dataDir, writable = true, stripped = null, gran
           return settle(new Error('unreadable output'));
         }
         buffered = buffered.slice(newline + 1);
-        if (Array.isArray(message?.lines)) return settle(null, { lines: message.lines.map(String), snapshot: message.snapshot });
+        if (Array.isArray(message?.lines)) {
+          return settle(null, { lines: message.lines.map(String), snapshot: message.snapshot, config: message.config, failed: message.failed === true });
+        }
         if (Number.isSafeInteger(message?.id)) {
           probes(message.ask).catch(() => ({})).then((answers) => send({ id: message.id, answers }));
         }
@@ -159,11 +165,11 @@ export function runCage({ stdin, dataDir, writable = true, stripped = null, gran
     child.stdin.on('error', () => {});
     child.on('error', (error) => settle(error));
     child.on('close', (code) => settle(new Error(`logic exited with code ${code}`)));
-    send({ stdin, dataDir, now: Date.now() });
+    send({ stdin, dataDir, now, ...(command ? { command } : {}) });
   });
 }
 
-// Bun has no permission model, so logic always runs on Node: hand the whole render to `node`.
+// Bun has no permission model, so logic always runs on Node: hand the whole run to `node`.
 function relayToNode(argv) {
   const node = globalThis.Bun?.which('node');
   return new Promise((resolve) => {
@@ -173,40 +179,99 @@ function relayToNode(argv) {
     }
     const child = spawn(node, [path.join(ROOT, 'hud.mjs'), ...argv.slice(2)], { stdio: 'inherit' });
     child.on('error', () => resolve(print([upgradeLine(`Bun ${process.versions.bun}`)])));
-    child.on('close', () => resolve());
+    child.on('close', (code) => {
+      if (code) process.exitCode = code;
+      resolve();
+    });
   });
 }
 
-export async function main({ argv = process.argv, env = process.env } = {}) {
-  if (isHudDisabled(env)) return;
-  if (process.versions.bun) return relayToNode(argv);
-  if (!isNodeSupported()) return print([upgradeLine(process.version)]);
+// The /hud skill's subcommands. All but install run as logic in the cage, like a render.
+const COMMANDS = ['doctor', 'schema', 'preview', 'set', 'report', 'install'];
 
+/** What a cage run needs from the collector: data/, the read grants for each input, and stripped/. */
+function cageInputs(collector, paths, inputs) {
+  let dataDir = paths.dataDir;
+  let writable = true;
   try {
-    const collector = await import('./collector.mjs');
-    const stdin = await readStdin();
-    const paths = collector.claudePaths(env);
-    let dataDir = paths.dataDir;
-    let writable = true;
-    try {
-      dataDir = collector.prepareDataDir(paths);
-    } catch {
-      writable = false; // A read-only home only costs the caches and the cost ledger.
+    dataDir = collector.prepareDataDir(paths);
+  } catch {
+    writable = false; // A read-only home only costs the caches and the cost ledger.
+  }
+  const grants = [...new Set(inputs.flatMap((stdin) => collector.readGrants({ root: ROOT, dataDir, paths, stdin })))];
+  return { dataDir, writable, grants, stripped: collector.stripLogic(paths.strippedDir, ROOT) };
+}
+
+async function runCommand(name, args, { collector, paths, env }) {
+  const facts = collector.commandFacts({ root: ROOT, paths, env });
+  const printJson = (value) => process.stdout.write(`${JSON.stringify(value, null, 2)}\n`);
+  if (!facts.runtime.supported) {
+    // Old Node can't run the cage, but doctor can still say what to upgrade to.
+    if (name === 'doctor') {
+      const { runtime, plugin, runtimes, heartbeat } = facts;
+      return printJson({
+        runtime, plugin, runtimes,
+        lastRender: heartbeat && { at: heartbeat.at, runtime: heartbeat.runtime, path: heartbeat.path, outcome: heartbeat.outcome },
+        findings: [`This is ${runtime.name} ${runtime.version}; the HUD needs Node 22.18+. Fix: rerun with a supported runtime from runtimes, or install one.`],
+      });
     }
-    const usage = collector.usagePaths(paths, env);
+    process.exitCode = 1;
+    return print([upgradeLine(process.version)]);
+  }
+  try {
+    if (name === 'install') return printJson((await import('./install.mjs')).install({ configDir: paths.configDir, argv: args, env }));
+    if (name === 'set' && args[0] === '--undo') {
+      collector.undoConfig(paths);
+      return print(['Restored config.json from before the last `hud set`.']);
+    }
+    // The last render's input, saved by hud.mjs from Claude Code, so preview and report can replay it.
+    const stdin = facts.heartbeat?.stdin ?? null;
     const output = await runCage({
       stdin,
-      dataDir,
-      writable,
-      stripped: collector.stripLogic(paths.strippedDir, ROOT),
-      grants: collector.readGrants({ root: ROOT, dataDir, paths, stdin }),
+      ...cageInputs(collector, paths, [stdin, { cwd: facts.cwd }]),
       env,
-      probes: collector.createProbes({ cwd: stdin?.cwd, argv, env, usage }),
+      probes: collector.createProbes({ cwd: stdin?.cwd, argv: [], env, usage: collector.usagePaths(paths, env) }),
+      command: { name, args, facts },
     });
-    if (output.snapshot) collector.writeUsageSnapshot(usage.write, output.snapshot);
+    if (output.config) collector.writeConfig(paths, output.config);
+    if (output.failed) process.exitCode = 1;
     print(output.lines);
   } catch (error) {
-    print([`[claude-hud] Error: ${error instanceof Error ? error.message : 'Unknown error'}`]);
+    process.exitCode = 1;
+    print([`claude-hud ${name}: ${error instanceof Error ? error.message : 'Unknown error'}`]);
+  }
+}
+
+export async function main({ argv = process.argv, env = process.env } = {}) {
+  const command = COMMANDS.includes(argv[2]) ? argv[2] : null;
+  if (!command && isHudDisabled(env)) return;
+  if (process.versions.bun) return relayToNode(argv);
+  const collector = await import('./collector.mjs');
+  const paths = collector.claudePaths(env);
+  if (command) return runCommand(command, argv.slice(3), { collector, paths, env });
+  if (!isNodeSupported()) {
+    collector.writeHeartbeat(paths, { outcome: 'upgrade', env });
+    return print([upgradeLine(process.version)]);
+  }
+
+  const now = Date.now();
+  let stdin = null;
+  try {
+    stdin = await readStdin();
+    const setting = collector.userSettings(paths);
+    const usage = collector.usagePaths(paths, env, setting);
+    const probes = collector.createProbes({ cwd: stdin?.cwd, argv, env, usage });
+    const rendering = runCage({ stdin, ...cageInputs(collector, paths, [stdin]), env, now, probes });
+    probes.start(collector.probesToStart(setting)); // after the spawn: logic's startup is the long pole
+    const output = await rendering;
+    if (output.snapshot) collector.writeUsageSnapshot(usage.write, output.snapshot);
+    print(output.lines);
+    // Without input this is a person running the command by hand; keep Claude Code's last render.
+    if (stdin) collector.writeHeartbeat(paths, { outcome: 'ok', stdin, now, env });
+  } catch (error) {
+    const message = `[claude-hud] Error: ${error instanceof Error ? error.message : 'Unknown error'}`;
+    print([`${message}. Type /hud to fix it.`]);
+    collector.writeHeartbeat(paths, { outcome: message, stdin, now, env });
   }
 }
 

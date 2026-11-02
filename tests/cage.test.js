@@ -37,8 +37,9 @@ test('logic is stripped once into stripped/, named by source hash, and old versi
   writeFileSync(path.join(root, 'src', 'render', 'b.ts'), 'export const b = (x: string): string => x;\n');
   writeFileSync(path.join(root, 'src', 'notes.md'), 'not code');
   const dir = paths.strippedDir;
-  assert.equal(stripLogic(dir, root), dir);
-  const a = path.join(dir, strippedName('export const a: number = 1;\n'));
+  const name = strippedName('export const a: number = 1;\n');
+  assert.deepEqual(stripLogic(dir, root), { dir, files: { 'src/a.ts': name, 'src/render/b.ts': strippedName('export const b = (x: string): string => x;\n') } });
+  const a = path.join(dir, name);
   assert.equal(readFileSync(a, 'utf8'), 'export const a         = 1;\n');
   assert.equal(readdirSync(dir).length, 2);
   assert.ok(!dir.startsWith(paths.dataDir), 'logic can write data/, so its code lives elsewhere');

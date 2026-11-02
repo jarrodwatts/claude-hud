@@ -57,7 +57,7 @@ jobs:
           node --import ./tests/clean-env.js --test
           tests/git.test.js tests/git-runner.test.js tests/jj.test.js tests/cage.test.js tests/escape-matrix.test.js
           tests/launcher-compat.test.js tests/hud.test.js tests/stdin.test.js tests/transcript.test.js tests/daily-cost.test.js
-          tests/speed.test.js tests/auth.test.js tests/memory.test.js tests/memory-coverage.test.js tests/setup-command.test.js
+          tests/speed.test.js tests/auth.test.js tests/memory.test.js tests/memory-coverage.test.js tests/install.test.js tests/commands.test.js
           tests/ansi.test.js tests/i18n.test.js tests/hyperlinks.test.js tests/terminal.test.js tests/truncate.test.js
           tests/usage-pace.test.js tests/effort.test.js tests/format-reset-time.test.js tests/prompt-cache.test.js
         shell: bash

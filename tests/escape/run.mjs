@@ -67,7 +67,7 @@ export async function runMatrix({ fence = true } = {}) {
     const stdin = {
       cwd: project,
       transcript_path: transcript,
-      matrix: { home, outside, secret, dataDir, stripped, sibling, port: server.address().port, outsideModule: pathToFileURL(outsideModule).href },
+      matrix: { home, outside, secret, dataDir, stripped: stripped.dir, sibling, port: server.address().port, outsideModule: pathToFileURL(outsideModule).href },
     };
     const grants = readGrants({ root, dataDir, paths, stdin });
     const { lines } = fence

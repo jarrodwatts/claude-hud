@@ -1,4 +1,4 @@
-import { ask, finish, open, type Ask, type Probe } from "./channel.ts";
+import { ask, finish, open, type Ask, type Output, type Probe } from "./channel.ts";
 import { getUsageFromStdin, isContextUnreported } from "./stdin.ts";
 import { addSubagentEfforts, parseTranscript } from "./transcript.ts";
 import { renderLines } from "./render/index.ts";
@@ -6,7 +6,7 @@ import { shownAgents } from "./render/activity.ts";
 import { countConfigs, type ConfigCounts } from "./config-reader.ts";
 import { getGitStatus, type GitRepoIdentity, type GitStatus } from "./git.ts";
 import { getJjStatus } from "./jj.ts";
-import { loadConfig, type HudConfig } from "./config.ts";
+import { loadConfigFiles, type HudConfig } from "./config.ts";
 import { extraCmdLabel } from "./extra-cmd.ts";
 import { getMemoryUsage, readMemory, type MemoryFacts } from "./memory.ts";
 import { readAuthInfo } from "./auth.ts";
@@ -18,7 +18,8 @@ import { setLanguage, t } from "./i18n/index.ts";
 import type { StdinData, TranscriptData } from "./types.ts";
 
 // The caged half of a render. hud.mjs starts this under node --permission with fence.mjs loaded,
-// hands it the stdin payload, runs the probes it asks for, and prints the lines it returns.
+// hands it the stdin payload, runs the probes it asks for, and prints the lines it returns. For a
+// `hud <command>` it gets the command instead (see commands.ts).
 
 const EMPTY_TRANSCRIPT: TranscriptData = { tools: [], skills: [], mcpServers: [], mcpErrors: [], agents: [], todos: [] };
 const NO_COUNTS: ConfigCounts = { claudeMdCount: 0, rulesCount: 0, mcpCount: 0, hooksCount: 0 };
@@ -49,7 +50,16 @@ async function resolveVcsStatus(
     : null;
 }
 
-async function renderStdin(stdin: StdinData, config: HudConfig, dataDir: string, now: number): Promise<{ lines: string[]; snapshot?: unknown }> {
+/** Where a render's inputs come from. `files: false` renders from stdin alone, as a report's case does. */
+export interface Sources {
+  ask: Ask;
+  files: boolean;
+  dataDir: string;
+  now: number;
+  columns: number | null;
+}
+
+export async function renderStdin(stdin: StdinData, config: HudConfig, { ask, files, dataDir, now, columns }: Sources): Promise<Output> {
   const display = config.display;
   const stdinUsage = getUsageFromStdin(stdin);
   const facts: Probe[] = ["extra"];
@@ -66,7 +76,7 @@ async function renderStdin(stdin: StdinData, config: HudConfig, dataDir: string,
   };
   const [answers, transcript, gitStatus] = await Promise.all([
     ask(facts),
-    needsTranscript(config, stdin) ? readTranscript() : EMPTY_TRANSCRIPT,
+    files && needsTranscript(config, stdin) ? readTranscript() : EMPTY_TRANSCRIPT,
     resolveVcsStatus(config, ask, stdin.cwd, stdin.workspace?.repo),
   ]);
 
@@ -74,7 +84,7 @@ async function renderStdin(stdin: StdinData, config: HudConfig, dataDir: string,
   const lines = renderLines({
     stdin,
     transcript,
-    ...(display.showConfigCounts ? countConfigs(stdin.cwd) : NO_COUNTS),
+    ...(files && display.showConfigCounts ? countConfigs(stdin.cwd) : NO_COUNTS),
     costTotals: display.showDailyCost || display.showWeeklyCost
       ? getCostTotals(stdin, { allowRoutedCost: display.showRoutedCost, sevenDayResetAt: usageData?.sevenDayResetAt ?? null },
         { dataDir: () => dataDir, now: () => now })
@@ -85,25 +95,40 @@ async function renderStdin(stdin: StdinData, config: HudConfig, dataDir: string,
     memoryUsage: "memory" in answers ? getMemoryUsage(readMemory(answers.memory as MemoryFacts)) : null,
     config,
     extraLabel: extraCmdLabel(answers.extra),
-    authInfo: display.showAuth || display.showAuthUser ? readAuthInfo() : null,
-  }, getTerminalWidth(), now);
+    authInfo: files && (display.showAuth || display.showAuthUser) ? readAuthInfo() : null,
+  }, columns, now);
   const snapshot = externalUsageSnapshot(answers["usage.target"] as UsageTarget, stdinUsage, now);
   return snapshot ? { lines, snapshot } : { lines };
 }
 
+// A config problem is one line ending in /hud, never a silent fallback.
+function problemLine(problems: string[]): string[] {
+  if (problems.length === 0) return [];
+  const more = problems.length > 1 ? ` (and ${problems.length - 1} more)` : "";
+  return [`claude-hud: ${problems[0]}${more}. Type /hud to fix it.`];
+}
+
 export async function main(): Promise<void> {
-  const { stdin, dataDir, now } = await open();
+  const input = await open();
   try {
-    const config = await loadConfig();
-    setLanguage(config.language);
+    const loaded = loadConfigFiles();
+    setLanguage(loaded.config.language);
+    if (input.command) {
+      // Loaded only for a subcommand, so a render doesn't pay for it.
+      const { runCommand } = await import("./commands.ts");
+      finish(await runCommand(input, loaded, renderStdin, ask));
+      return;
+    }
+    const { stdin, dataDir, now } = input;
     if (!stdin) {
       // Setup runs the command without input to check that it starts.
       finish({ lines: [t("init.initializing"), ...(process.platform === "darwin" ? [t("init.macosNote")] : [])] });
       return;
     }
-    finish(await renderStdin(stdin, config, dataDir, now));
+    const output = await renderStdin(stdin, loaded.config, { ask, files: true, dataDir, now, columns: getTerminalWidth() });
+    finish({ ...output, lines: [...output.lines, ...problemLine(loaded.problems)] });
   } catch (error) {
-    finish({ lines: [`[claude-hud] Error: ${error instanceof Error ? error.message : "Unknown error"}`] });
+    finish({ lines: [`[claude-hud] Error: ${error instanceof Error ? error.message : "Unknown error"}. Type /hud to fix it.`], failed: true });
   }
 }
 

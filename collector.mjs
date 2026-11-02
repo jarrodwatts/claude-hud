@@ -4,10 +4,10 @@
 import { exec, execFile, spawn } from 'node:child_process';
 import crypto from 'node:crypto';
 import fs from 'node:fs';
-import { stripTypeScriptTypes } from 'node:module';
+import nodeModule from 'node:module';
 import os from 'node:os';
 import path from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const SELF = fileURLToPath(import.meta.url);
 export const GIT_MAX_OUTPUT_BYTES = 1024 * 1024;
@@ -15,6 +15,7 @@ const TREE_KILL_TIMEOUT_MS = 1000;
 const WORKER_STARTUP_MS = 1500;
 
 // ---- Paths. These match src/claude-config-dir.ts, which logic uses to find the same files.
+// This file must stay loadable on old Node, so `hud doctor` can explain what to upgrade.
 
 const expandHome = (p, home) => (p === '~' ? home : p.startsWith('~/') || p.startsWith('~\\') ? path.join(home, p.slice(2)) : p);
 
@@ -29,6 +30,9 @@ export function claudePaths(env = process.env, home = os.homedir()) {
     claudeJson: custom ? path.join(configDir, '.claude.json') : path.join(home, '.claude.json'),
     dataDir: path.join(hudDir, 'data'),
     strippedDir: path.join(hudDir, 'stripped'),
+    configPath: path.join(hudDir, 'config.json'),
+    undoPath: path.join(hudDir, 'config.undo.json'),
+    heartbeat: path.join(hudDir, 'heartbeat.json'),
   };
 }
 
@@ -59,33 +63,48 @@ export function prepareDataDir({ hudDir, dataDir }) {
 
 // ---- stripped/: logic's code without its types. Logic reads it and never writes it.
 
-/** The file name fence.mjs looks up for a .ts source; fence.mjs has the same formula. */
+/** A stripped file is named by its source and the Node that stripped it, so a change to either makes a new one. */
 export const strippedName = (source) => `${crypto.hash('sha256', `${process.version}\0${source}`)}.js`;
+
+// Node warns on stderr the first time stripTypeScriptTypes runs; that would land in `/hud doctor`.
+function strip(source) {
+  const emitWarning = process.emitWarning;
+  process.emitWarning = () => {};
+  try {
+    return nodeModule.stripTypeScriptTypes(source);
+  } finally {
+    process.emitWarning = emitWarning;
+  }
+}
 
 /**
  * Node strips types every time it loads a .ts file, and on Node 22 it can't cache the result. That
- * was most of a render. So each src/ file is stripped once, by Node's own stripper, into `dir`,
- * named by its source's hash; fence.mjs loads that in place of the .ts. `dir` is outside data/, so
- * logic can never change code it will run later. Returns `dir`, or null if it can't be written,
- * in which case Node strips as before.
+ * was most of a render. So each src/ file is stripped once, by Node's own stripper, into `dir`.
+ * `dir` is outside data/, so logic can never change code it will run later.
+ * Returns { dir, files: { <URL path under root>: <file name in dir> } } for fence.mjs to load
+ * from, or null if `dir` can't be written; then Node strips as before.
  */
 export function stripLogic(dir, root) {
   try {
     if (fs.lstatSync(dir, { throwIfNoEntry: false })?.isSymbolicLink()) fs.rmSync(dir);
     fs.mkdirSync(dir, { recursive: true, mode: 0o700 });
-    const current = new Set();
+    const rootUrl = pathToFileURL(path.join(root, path.sep)).href;
+    const files = {};
     for (const file of fs.readdirSync(path.join(root, 'src'), { recursive: true })) {
       if (!file.endsWith('.ts')) continue;
-      const source = fs.readFileSync(path.join(root, 'src', file), 'utf8');
-      const target = path.join(dir, strippedName(source));
-      current.add(path.basename(target));
+      const sourcePath = path.join(root, 'src', file);
+      const source = fs.readFileSync(sourcePath, 'utf8');
+      const name = strippedName(source);
+      files[pathToFileURL(sourcePath).href.slice(rootUrl.length)] = name;
+      const target = path.join(dir, name);
       if (fs.existsSync(target)) continue;
-      fs.writeFileSync(`${target}.${process.pid}.tmp`, stripTypeScriptTypes(source), { mode: 0o600 });
+      fs.writeFileSync(`${target}.${process.pid}.tmp`, strip(source), { mode: 0o600 });
       fs.renameSync(`${target}.${process.pid}.tmp`, target);
     }
     // Files an older version left. A render that loses one in a race gets Node's own strip.
+    const current = new Set(Object.values(files));
     for (const name of fs.readdirSync(dir)) if (!current.has(name)) fs.rmSync(path.join(dir, name), { force: true });
-    return dir;
+    return { dir, files };
   } catch {
     return null;
   }
@@ -96,7 +115,7 @@ export function readGrants({ root, dataDir, paths, stdin }) {
   const { configDir, hudDir, claudeJson } = paths;
   const dirs = (base) => [path.join(base, 'CLAUDE.md'), path.join(base, 'CLAUDE.local.md'), path.join(base, 'settings.json'),
     path.join(base, 'settings.local.json'), path.join(base, 'rules')];
-  const grants = [root, dataDir, path.join(hudDir, 'config.json'), path.join(configDir, 'claude-hud.json'), claudeJson, ...dirs(configDir)];
+  const grants = [root, dataDir, paths.configPath, paths.heartbeat, path.join(configDir, 'claude-hud.json'), claudeJson, ...dirs(configDir)];
   const cwd = typeof stdin?.cwd === 'string' && path.isAbsolute(stdin.cwd) ? stdin.cwd : null;
   if (cwd) grants.push(path.join(cwd, 'CLAUDE.md'), path.join(cwd, 'CLAUDE.local.md'), path.join(cwd, '.mcp.json'), ...dirs(path.join(cwd, '.claude')));
   const transcript = stdin?.transcript_path;
@@ -112,11 +131,11 @@ export function readGrants({ root, dataDir, paths, stdin }) {
 
 // ---- Config keys that name files outside data/. Read only from the user's own config files.
 
-function readJsonObject(file) {
+function readJsonObject(file, maxBytes = 64 * 1024) {
   try {
     const fd = fs.openSync(file, fs.constants.O_RDONLY | (fs.constants.O_NOFOLLOW ?? 0));
     try {
-      if (!fs.fstatSync(fd).isFile() || fs.fstatSync(fd).size > 64 * 1024) return null;
+      if (!fs.fstatSync(fd).isFile() || fs.fstatSync(fd).size > maxBytes) return null;
       const value = JSON.parse(fs.readFileSync(fd, 'utf8'));
       return value && typeof value === 'object' && !Array.isArray(value) ? value : null;
     } finally {
@@ -127,11 +146,23 @@ function readJsonObject(file) {
   }
 }
 
-/** display.externalUsagePath and externalUsageWritePath; claude-hud.json overrides config.json key by key. */
-export function usagePaths(paths, env = process.env) {
-  const files = [readJsonObject(path.join(paths.configDir, 'claude-hud.json')), readJsonObject(path.join(paths.hudDir, 'config.json'))];
-  const pick = (key) => files.find((f) => f?.display && typeof f.display === 'object' && key in f.display)?.display[key];
-  return resolveUsagePaths({ read: pick('externalUsagePath'), write: pick('externalUsageWritePath') }, paths.home, env);
+/** Reads the user's own config values, claude-hud.json over config.json key by key, for the few keys this file needs. */
+export function userSettings(paths) {
+  const files = [readJsonObject(path.join(paths.configDir, 'claude-hud.json')), readJsonObject(paths.configPath)];
+  return (section, key) => files.find((f) => f?.[section] && typeof f[section] === 'object' && key in f[section])?.[section][key];
+}
+
+/** display.externalUsagePath and externalUsageWritePath. */
+export function usagePaths(paths, env = process.env, setting = userSettings(paths)) {
+  return resolveUsagePaths({ read: setting('display', 'externalUsagePath'), write: setting('display', 'externalUsageWritePath') }, paths.home, env);
+}
+
+/**
+ * The probes worth starting before logic asks, so git runs while logic's Node starts. Only a
+ * guess at what logic will want: a wrong one costs a wasted run or a missed head start, never output.
+ */
+export function probesToStart(setting) {
+  return setting('gitStatus', 'enabled') === false || setting('jjStatus', 'enabled') === true ? [] : ['git.status'];
 }
 
 /** Absolute paths only, with ~ and ${VAR} expanded as src/config.ts does; the write path must end in .json. */
@@ -383,6 +414,109 @@ const run = (file, args, options) => new Promise((resolve) => {
   execFile(file, args, { encoding: 'utf8', windowsHide: true, shell: false, ...options }, (error, stdout) => resolve(error ? null : stdout));
 });
 
+// ---- `hud` subcommands: what logic can't look up from inside the cage, and the one file `set` writes.
+
+const isSupported = (version) => {
+  const [major, minor] = String(version).replace(/^v/, '').split('.').map(Number);
+  return major > 22 || (major === 22 && minor >= 18);
+};
+
+/**
+ * Node installs already on disk, from the version managers' own folders, so `/hud` can point the
+ * status line at one that is new enough. Lists folders only and runs nothing.
+ */
+export function findRuntimes(env = process.env, home = os.homedir(), platform = process.platform) {
+  const exe = platform === 'win32' ? 'node.exe' : path.join('bin', 'node');
+  const managers = [
+    ['nvm', path.join(env.NVM_DIR || path.join(home, '.nvm'), 'versions', 'node'), ''],
+    ['nvm-windows', env.NVM_HOME || path.join(env.APPDATA || path.join(home, 'AppData', 'Roaming'), 'nvm'), 'win'],
+    ['fnm', path.join(env.FNM_DIR || path.join(home, platform === 'darwin' ? 'Library/Application Support' : '.local/share', 'fnm'), 'node-versions'), 'installation'],
+    ['mise', path.join(env.MISE_DATA_DIR || path.join(home, '.local', 'share', 'mise'), 'installs', 'node'), ''],
+    ['asdf', path.join(env.ASDF_DATA_DIR || path.join(home, '.asdf'), 'installs', 'nodejs'), ''],
+    ['volta', path.join(env.VOLTA_HOME || path.join(home, '.volta'), 'tools', 'image', 'node'), ''],
+  ];
+  const found = [];
+  for (const [manager, dir, inner] of managers) {
+    let names = [];
+    try { names = fs.readdirSync(dir); } catch { /* not installed */ }
+    for (const name of names) {
+      if (!/^v?\d+\.\d+\.\d+$/.test(name)) continue;
+      const file = inner === 'win' ? path.join(dir, name, 'node.exe') : path.join(dir, name, inner, exe);
+      if (fs.existsSync(file)) found.push({ manager, version: name.replace(/^v/, ''), path: file, supported: isSupported(name) });
+    }
+  }
+  const system = platform === 'win32'
+    ? [path.join(env.ProgramFiles || 'C:\\Program Files', 'nodejs', 'node.exe')]
+    : ['/opt/homebrew/bin/node', '/usr/local/bin/node', '/usr/bin/node'];
+  for (const file of system) if (fs.existsSync(file)) found.push({ manager: 'system', version: '', path: file, supported: null });
+  return found;
+}
+
+/** Records each render for `hud doctor`: when Claude Code last ran it, on which runtime, how it went, and its input. */
+export function writeHeartbeat(paths, { outcome, stdin = null, now = Date.now(), env = process.env }) {
+  const columns = Number.parseInt(env.COLUMNS ?? '', 10);
+  const record = { at: now, runtime: process.versions.bun ? `bun ${process.versions.bun}` : process.version, path: process.execPath,
+    outcome, columns: columns > 0 ? columns : null, stdin };
+  try {
+    fs.mkdirSync(paths.hudDir, { recursive: true });
+    const tmp = `${paths.heartbeat}.${process.pid}.tmp`;
+    fs.writeFileSync(tmp, JSON.stringify(record), { mode: 0o600 });
+    fs.renameSync(tmp, paths.heartbeat);
+  } catch { /* a read-only home has no heartbeat */ }
+}
+
+/** Everything a subcommand gets from outside the cage. Plain JSON, and safe to gather on old Node. */
+export function commandFacts({ root, paths, env = process.env, cwd = process.cwd() }) {
+  const pkg = readJsonObject(path.join(root, 'package.json'));
+  return {
+    runtime: { name: process.versions.bun ? 'bun' : 'node', version: process.versions.bun ?? process.versions.node, path: process.execPath,
+      supported: !process.versions.bun && isSupported(process.versions.node) },
+    runtimes: findRuntimes(env, paths.home),
+    plugin: { root, version: typeof pkg?.version === 'string' ? pkg.version : null },
+    configPath: paths.configPath,
+    undoPath: paths.undoPath,
+    cwd,
+    heartbeat: readJsonObject(paths.heartbeat, 512 * 1024),
+  };
+}
+
+// Keys that name files the collector reads or writes. Logic can't set them; only the user's own edit can.
+const CAPABILITY_KEYS = ['externalUsagePath', 'externalUsageWritePath'];
+
+/**
+ * Writes the config `hud set` produced, after keeping the old file as the undo copy. The keys that
+ * name files always keep their value from disk, whatever logic returned.
+ */
+export function writeConfig(paths, config) {
+  if (!config || typeof config !== 'object' || Array.isArray(config)) throw new Error('not a config object');
+  const onDisk = readJsonObject(paths.configPath)?.display ?? {};
+  const display = { ...(config.display && typeof config.display === 'object' ? config.display : {}) };
+  for (const key of CAPABILITY_KEYS) {
+    delete display[key];
+    if (Object.hasOwn(onDisk, key)) display[key] = onDisk[key];
+  }
+  const next = Object.keys(display).length > 0 ? { ...config, display } : config;
+  fs.mkdirSync(paths.hudDir, { recursive: true });
+  fs.writeFileSync(paths.undoPath, fs.existsSync(paths.configPath) ? fs.readFileSync(paths.configPath) : '{}\n', { mode: 0o600 });
+  replaceFile(paths.configPath, `${JSON.stringify(next, null, 2)}\n`);
+}
+
+/** `hud set --undo`: swaps config.json with the copy the last `set` kept. */
+export function undoConfig(paths) {
+  const previous = fs.readFileSync(paths.undoPath, 'utf8');
+  const current = fs.existsSync(paths.configPath) ? fs.readFileSync(paths.configPath, 'utf8') : '{}\n';
+  replaceFile(paths.configPath, previous);
+  fs.writeFileSync(paths.undoPath, current, { mode: 0o600 });
+}
+
+// Writes through a symlink (config.json is often in a dotfiles repo) and keeps the file private.
+function replaceFile(file, text) {
+  const target = fs.existsSync(file) ? fs.realpathSync(file) : file;
+  const tmp = `${target}.${process.pid}.tmp`;
+  fs.writeFileSync(tmp, text, { mode: 0o600 });
+  fs.renameSync(tmp, target);
+}
+
 // ---- The menu logic picks from
 
 /** Every probe logic may ask for, bound to this render's inputs. Each resolves to plain JSON. */
@@ -429,13 +563,21 @@ export function createProbes({ cwd, argv = process.argv, env = process.env, usag
       return readText(usage.write) ?? { text: null, mtimeMs: null };
     },
   };
-  return async (names) => {
+  // Each probe runs at most once per render, whether started early or asked for.
+  const started = new Map();
+  const run = (name) => {
+    if (!started.has(name)) started.set(name, probes[name]());
+    return started.get(name);
+  };
+  const ask = async (names) => {
     const answers = {};
     await Promise.all([...new Set(Array.isArray(names) ? names : [])]
       .filter((name) => typeof name === 'string' && Object.hasOwn(probes, name))
-      .map(async (name) => { answers[name] = await probes[name](); }));
+      .map(async (name) => { answers[name] = await run(name); }));
     return answers;
   };
+  ask.start = (names) => names.forEach(run);
+  return ask;
 }
 
 // ---- Windows git worker: node collector.mjs --git-worker <absolute git path> <cwd> <git args...>

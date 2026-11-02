@@ -3,10 +3,10 @@ import type { StdinData } from './types.ts';
 
 // Logic runs caged and talks to hud.mjs over raw descriptors, one JSON message per line:
 //
-//   hud ─▶ logic   {stdin, dataDir, now}             once, first
+//   hud ─▶ logic   {stdin, dataDir, now, command?}   once, first
 //   logic ─▶ hud   {id, ask: ['git.status', …]}      any number; names from createProbes in collector.mjs
 //   hud ─▶ logic   {id, answers: {…}}
-//   logic ─▶ hud   {lines, snapshot?}                last
+//   logic ─▶ hud   {lines, snapshot?, config?, failed?}   last
 //
 // The fence takes away the stdio streams, so fd 0 is read with fs.
 
@@ -15,6 +15,20 @@ export interface Input {
   dataDir: string;
   /** The render's one clock reading, taken by hud.mjs so a replayed input renders the same. */
   now: number;
+  /** A `hud <name> …` subcommand instead of a render, with the facts hud.mjs gathered for it. */
+  command?: { name: string; args: string[]; facts: Facts };
+}
+
+/** What hud.mjs knows that logic can't look up from inside the cage. See commandFacts in collector.mjs. */
+export interface Facts {
+  runtime: { name: string; version: string; path: string; supported: boolean };
+  runtimes: Array<{ manager: string; version: string; path: string; supported: boolean | null }>;
+  plugin: { root: string; version: string | null };
+  configPath: string;
+  undoPath: string;
+  cwd: string;
+  /** The last render Claude Code ran, written by hud.mjs: when, on what, how it went, and its input. */
+  heartbeat: { at: number; runtime: string; path: string; outcome: string; columns: number | null; stdin: StdinData | null } | null;
 }
 
 export type Probe = 'git.status' | 'git.numstat' | 'git.branch' | 'git.describe' | 'jj' | 'memory' | 'extra' | 'usage.read' | 'usage.target';
@@ -24,6 +38,10 @@ export type Ask = (probes: Probe[]) => Promise<Answers>;
 export interface Output {
   lines: string[];
   snapshot?: unknown;
+  /** From `hud set`: the whole new config.json, which collector.mjs writes. */
+  config?: Record<string, unknown>;
+  /** A subcommand that refused or failed; hud.mjs exits 1. */
+  failed?: boolean;
 }
 
 let input: ((value: Input) => void) | undefined;

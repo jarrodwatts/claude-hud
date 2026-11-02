@@ -7,7 +7,8 @@ import test from 'node:test';
 import { fileURLToPath } from 'node:url';
 
 const launcher = fileURLToPath(new URL('../scripts/statusline.mjs', import.meta.url));
-const setupScript = fileURLToPath(new URL('../scripts/setup.mjs', import.meta.url));
+const hud = fileURLToPath(new URL('../hud.mjs', import.meta.url));
+const install = (args, options) => run(hud, ['install', ...args], options);
 
 async function withConfigDir(fn) {
   const dir = await mkdtemp(path.join(tmpdir(), 'hud-setup-'));
@@ -74,19 +75,22 @@ test('launcher exits quietly with no install and never runs a cwd-relative dist'
   });
 });
 
-test('setup install writes the statusLine and keeps other settings', async () => {
+test('install replaces another status line only with --replace, and keeps other settings', async () => {
   await withConfigDir(async (configDir) => {
     const settingsPath = path.join(configDir, 'settings.json');
-    await writeFile(settingsPath, JSON.stringify({
+    const before = JSON.stringify({
       model: 'opus',
       statusLine: { type: 'command', command: 'bash ~/statusline.sh --token=secret123' },
-    }));
+    });
+    await writeFile(settingsPath, before);
 
-    const inspected = JSON.parse(run(setupScript, ['inspect', '--shell', 'posix'], { configDir }).stdout);
-    assert.equal(inspected.existing, 'other');
-    assert.equal(inspected.existingPreview, 'bash ~/statusline.sh --token=[REDACTED]');
+    const refused = install(['--shell', 'posix'], { configDir });
+    assert.equal(refused.status, 1);
+    assert.match(refused.stdout, /statusLine already runs another command/);
+    assert.doesNotMatch(refused.stdout, /secret123/);
+    assert.equal(await readFile(settingsPath, 'utf8'), before);
 
-    const result = run(setupScript, ['install', '--shell', 'posix'], { configDir });
+    const result = install(['--shell', 'posix', '--replace'], { configDir });
     assert.equal(result.status, 0, result.stderr);
     const report = JSON.parse(result.stdout);
     const settings = JSON.parse(await readFile(settingsPath, 'utf8'));
@@ -106,14 +110,14 @@ test('setup install writes the statusLine and keeps other settings', async () =>
   });
 });
 
-test('setup reinstall keeps the existing claude-hud statusLine keys', async () => {
+test('reinstall keeps the existing claude-hud statusLine keys', async () => {
   await withConfigDir(async (configDir) => {
     const settingsPath = path.join(configDir, 'settings.json');
     await writeFile(settingsPath, JSON.stringify({
       statusLine: { type: 'command', command: 'old claude-hud command', refreshInterval: 10 },
     }));
 
-    const result = run(setupScript, ['install', '--shell', 'posix'], { configDir });
+    const result = install(['--shell', 'posix'], { configDir });
     assert.equal(result.status, 0, result.stderr);
     const settings = JSON.parse(await readFile(settingsPath, 'utf8'));
     assert.equal(settings.statusLine.refreshInterval, 10);
@@ -121,14 +125,14 @@ test('setup reinstall keeps the existing claude-hud statusLine keys', async () =
   });
 });
 
-test('setup install writes through a settings.json symlink and keeps its mode', { skip: process.platform === 'win32' }, async () => {
+test('install writes through a settings.json symlink and keeps its mode', { skip: process.platform === 'win32' }, async () => {
   await withConfigDir(async (configDir) => {
     const realSettings = path.join(configDir, 'dotfiles-settings.json');
     const settingsPath = path.join(configDir, 'settings.json');
     await writeFile(realSettings, JSON.stringify({ env: { API_KEY: 'secret' } }), { mode: 0o600 });
     await symlink(realSettings, settingsPath);
 
-    const result = run(setupScript, ['install', '--shell', 'posix'], { configDir });
+    const result = install(['--shell', 'posix'], { configDir });
     assert.equal(result.status, 0, result.stderr);
     assert.ok((await lstat(settingsPath)).isSymbolicLink());
     assert.equal((await stat(realSettings)).mode & 0o777, 0o600);
@@ -138,12 +142,12 @@ test('setup install writes through a settings.json symlink and keeps its mode', 
   });
 });
 
-test('setup install refuses to overwrite invalid settings.json', async () => {
+test('install refuses to overwrite invalid settings.json', async () => {
   await withConfigDir(async (configDir) => {
     const settingsPath = path.join(configDir, 'settings.json');
     await writeFile(settingsPath, '{ not json');
 
-    const result = run(setupScript, ['install', '--shell', 'posix'], { configDir });
+    const result = install(['--shell', 'posix'], { configDir });
     assert.equal(result.status, 1);
     assert.equal(await readFile(settingsPath, 'utf8'), '{ not json');
   });
@@ -151,7 +155,7 @@ test('setup install refuses to overwrite invalid settings.json', async () => {
 
 test('Windows shells launch through cmd.exe', async () => {
   await withConfigDir(async (configDir) => {
-    const gitBash = run(setupScript, ['install', '--shell', 'gitbash'], { configDir });
+    const gitBash = install(['--shell', 'gitbash'], { configDir });
     assert.equal(gitBash.status, 0, gitBash.stderr);
     assert.equal(
       JSON.parse(gitBash.stdout).command,
@@ -162,7 +166,16 @@ test('Windows shells launch through cmd.exe', async () => {
       `@echo off\r\n"${process.execPath}" "%~dp0statusline.mjs"\r\n`,
     );
 
-    const powershell = JSON.parse(run(setupScript, ['inspect', '--shell', 'powershell'], { configDir }).stdout);
+    const powershell = JSON.parse(install(['--shell', 'powershell'], { configDir }).stdout);
     assert.match(powershell.command, /System32\\cmd\.exe \/d \/s \/c ""/);
   });
+});
+
+test('install picks the shell Claude Code runs statusLine with', async () => {
+  const { detectShell } = await import('../install.mjs');
+  assert.equal(detectShell({}, 'linux'), 'posix');
+  assert.equal(detectShell({}, 'darwin'), 'posix');
+  assert.equal(detectShell({ MSYSTEM: 'MINGW64' }, 'win32'), 'gitbash');
+  assert.equal(detectShell({ SHELL: '/usr/bin/bash' }, 'win32'), 'gitbash');
+  assert.equal(detectShell({}, 'win32'), 'powershell');
 });

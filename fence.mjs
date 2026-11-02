@@ -2,11 +2,8 @@
 // bounds the filesystem and child processes; on Node 22/24 it does nothing about the network or
 // signals, so this closes those: an import allow list, plus deleting the globals that reach out.
 import { Console } from 'node:console';
-import { hash } from 'node:crypto';
 import fs from 'node:fs';
 import { registerHooks } from 'node:module';
-import path from 'node:path';
-import { fileURLToPath } from 'node:url';
 
 // Logic runs in this realm and can rewrite String.prototype, fs or process. So the checks below use
 // tables without prototypes and functions taken before logic runs.
@@ -18,13 +15,18 @@ const slice = Function.prototype.call.bind(String.prototype.slice);
 const startsWith = (s, prefix) => typeof s === 'string' && s.length >= prefix.length && slice(s, 0, prefix.length) === prefix;
 const allowedBuiltin = (id) => ALLOWED[startsWith(id, 'node:') ? id : `node:${id}`] === 1;
 
-// collector.mjs strips each src/ file once, into a folder logic can read but never write, named by
-// a hash of its source (the same formula as strippedName there). Loading that skips Node's strip.
-const STRIPPED = process.env.CLAUDE_HUD_STRIPPED;
-const VERSION = process.version;
+// collector.mjs strips each src/ file once, into a folder logic can read but never write, and
+// hud.mjs passes the list: { dir, files: { <URL path under ROOT>: <file name in dir> } }.
+// Loading those skips Node's strip.
+const stripped = (() => {
+  try {
+    const { dir, files } = JSON.parse(process.env.CLAUDE_HUD_STRIPPED);
+    return { dir: String(dir), files: table(files) };
+  } catch {
+    return { dir: '', files: table({}) };
+  }
+})();
 const { readFileSync } = fs;
-const { join } = path;
-const strippedFile = (url) => join(STRIPPED, `${hash('sha256', `${VERSION}\0${readFileSync(fileURLToPath(url), 'utf8')}`)}.js`);
 
 // Checked on the resolved URL, so `net`, `node:net` and data:/http: specifiers are all refused.
 registerHooks({
@@ -36,10 +38,11 @@ registerHooks({
     return resolved;
   },
   load(url, context, nextLoad) {
-    if (STRIPPED && startsWith(url, ROOT) && slice(url, -3) === '.ts') {
+    const name = startsWith(url, ROOT) ? stripped.files[slice(url, ROOT.length)] : undefined;
+    if (typeof name === 'string') {
       try {
-        return { format: 'module', source: readFileSync(strippedFile(url), 'utf8'), shortCircuit: true };
-      } catch { /* not stripped: Node strips it */ }
+        return { format: 'module', source: readFileSync(`${stripped.dir}${name}`, 'utf8'), shortCircuit: true };
+      } catch { /* gone in a race with an update: Node strips it */ }
     }
     return nextLoad(url, context);
   },
