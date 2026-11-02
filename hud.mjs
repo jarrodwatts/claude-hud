@@ -1,12 +1,6 @@
-// The status line command. Claude Code runs it after each message with a JSON payload on stdin.
-//
-//   stdin ─▶ hud.mjs ─▶ collector.mjs: paths, data/, stripped/, probes (the only code that runs programs)
-//                └──▶ runCage: node --permission … --import=fence.mjs src/main.ts   (logic, caged)
-//                       ─▶ {stdin, now, paths}   ◀─ ask: probe names ─▶ answers   ◀─ {lines, snapshot?}
-//            ◀── lines through terminalFilter ─▶ terminal
-//
-// `node hud.mjs <command>` runs one of the /hud skill's subcommands instead (see COMMANDS).
-// Every check under verify/ runs logic through the same runCage.
+// The status line command. Claude Code runs it after each message with a JSON payload on stdin, and
+// ARCHITECTURE.md draws one such render. `node hud.mjs <command>` runs one of the /hud skill's
+// subcommands instead (see COMMANDS). Every check under verify/ runs logic through the same runCage.
 //
 // Launchers already on users' machines reach main() through dist/index.js and src/index.ts.
 // Keep this file's syntax loadable by old Node and Bun, so they can print the upgrade line.

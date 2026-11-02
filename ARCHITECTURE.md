@@ -23,11 +23,10 @@ folder, the network, a key, posting, merging. Everything else is logic.
       a merge that moves the version = a release; users get it on their next plugin update
 ```
 
-In the repo, the line is a list in `maintainer/act.mjs`. The agent owns `src/` (except
-`src/index.ts`, the stub old launchers import), `tests/`, the README, CHANGELOG, CLAUDE,
-ARCHITECTURE, CONTRIBUTING and PLAYBOOK docs, `tsconfig.json`, and releases: a change that only
-moves the version in the manifests. Everything else is the owner's, so any kind of plugin file
-Claude Code learns to run later is the owner's from the start. `gate` passes an owner-owned change
+In the repo, the line is the `AGENT` list at the top of `maintainer/act.mjs`, the one place it is
+written. It names the agent's side: logic, its tests and the prose. Releases, changes that only move
+the version in the manifests, are the agent's too. Everything else is the owner's, so any kind of
+plugin file Claude Code learns to run later is the owner's from the start. `gate` passes an owner-owned change
 only when the owner wrote it or approved its exact head. Dependabot is one such proposer: its
 `package.json` bumps wait for the owner. Each agent run records what it spent in its artifact's name,
 `relay-tokens-<n>`, which the next run reads for the daily cap and the scorecard reads for cost.

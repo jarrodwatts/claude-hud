@@ -17,14 +17,7 @@ node verify/run.mjs corpus escape arch   # some of the owner's checks that gate 
 
 ## The line
 
-Logic is everything in `src/`. It runs caged and holds no capabilities. The owner's files below hold them, and logic can't change them (`ARCHITECTURE.md` has the whole picture, and is itself a test):
-
-```
-Claude Code ─stdin─▶ hud.mjs ─▶ collector.mjs: paths, data/, stripped/, probes, the files `set` writes
-                        └──▶ runCage: node --permission … --import=fence.mjs src/main.ts   (logic, caged)
-                               {stdin, now, paths} ─▶ asks for probes by name ◀─▶ answers ─▶ {lines, snapshot?, config?}
-           terminal ◀── terminalFilter (colour, and links to file: or the session's GitHub repo) ◀──┘
-```
+Logic is everything in `src/`. It runs caged and holds no capabilities. The owner's files below hold them, and logic can't change them. `ARCHITECTURE.md` draws the line and one render, and is itself a test. Your side of the line is the `AGENT` list at the top of `maintainer/act.mjs`.
 
 - `hud.mjs`: Node gate, stdin, `runCage` (the one way logic runs, for renders, subcommands and every check), the terminal filter, the heartbeat, subcommand dispatch. It runs Node: the cage, or, under Bun, the whole run.
 - `collector.mjs`: the only code that runs a program other than Node (`git`, `jj`, `vm_stat`, `taskkill`, the extra command), and the only code that works out a path. It writes the HUD's own files (`config.json` for `set`, the heartbeat, `stripped/`). Logic picks probes by name and reads files only from the `paths` it is given (`logicPaths`), which are exactly its read grants.
@@ -33,7 +26,7 @@ Claude Code ─stdin─▶ hud.mjs ─▶ collector.mjs: paths, data/, stripped/
 - `scripts/statusline.mjs`: the launcher `hud install` copies; it runs the newest installed version through `dist/index.js` or `src/index.ts`.
 - `skills/hud/SKILL.md`: the `/hud` skill. Its list of subcommands Claude may run without asking is a capability too.
 
-Logic may write only `data/`. It must never be able to write anything it later runs: its code is stripped of types once, by Node's own `stripTypeScriptTypes`, into `stripped/` beside `data/`, and there is no compile cache. `verify/lib/escape-probe.mjs` is the list of things logic must not do. It is owner-owned: when you find a new way out, describe it in an issue.
+Logic may write only `data/`. It must never be able to write anything it later runs: its code is stripped of types once, by Node's own `stripTypeScriptTypes`, into `stripped/` beside `data/`, which the collector writes and logic only reads. There is no compile cache logic can write. `verify/lib/escape-probe.mjs` is the list of things logic must not do. It is owner-owned: when you find a new way out, describe it in an issue.
 
 ## How a render works
 
