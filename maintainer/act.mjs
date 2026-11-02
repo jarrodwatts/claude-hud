@@ -78,15 +78,17 @@ function inspect(base, head) {
   const from = git('merge-base', base, head);
   const show = (ref, path) => git('show', `${ref}:${path}`);
   const version = (ref) => JSON.parse(show(ref, '.claude-plugin/plugin.json')).version;
-  const release = (path) => {
+  // A release: every manifest moves from the old version to a later one together, and nothing else in them changes.
+  const isRelease = () => {
     try {
       const [old, next] = [version(from), version(head)];
       return /^\d+\.\d+\.\d+$/.test(next) && next.localeCompare(old, 'en', { numeric: true }) > 0
-        && show(head, path) === show(from, path).replaceAll(`"version": "${old}"`, `"version": "${next}"`);
+        && VERSIONED.every((p) => show(head, p) === show(from, p).replaceAll(`"version": "${old}"`, `"version": "${next}"`));
     } catch {
-      return false; // a manifest that doesn't parse is no release
+      return false; // a manifest that is missing or doesn't parse is no release
     }
   };
+  let release;
   const never = [];
   const owner = [];
   const raw = git('diff', '--raw', '--no-renames', '-z', from, head).split('\0');
@@ -94,7 +96,7 @@ function inspect(base, head) {
     const [oldMode, newMode, , , status] = raw[i].slice(1).split(' ');
     const path = raw[i + 1];
     if (APPEND_ONLY.test(path) && status !== 'A') never.push(`${path}: fixtures are append-only`);
-    const agents = AGENT.some((p) => p.test(path)) || (status === 'M' && VERSIONED.includes(path) && release(path));
+    const agents = AGENT.some((p) => p.test(path)) || (VERSIONED.includes(path) && (release ??= isRelease()));
     if (!agents) owner.push(`${path} is owner-owned`);
     const plain = status === 'A' ? newMode === '100644' : status === 'D' || (status === 'M' && oldMode === newMode && !/^1[26]0000$/.test(oldMode));
     if (!plain) owner.push(`${path}: a mode, symlink, submodule or type change`);

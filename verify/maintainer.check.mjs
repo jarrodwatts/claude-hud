@@ -214,9 +214,10 @@ try {
       fs.writeFileSync(path.join(prs, file), '{}\n');
     }
   };
-  const release = (to, more = () => {}) => () => {
+  const MANIFESTS = ['.claude-plugin/plugin.json', '.claude-plugin/marketplace.json', 'package.json', 'package-lock.json'];
+  const release = (to, more = () => {}, files = MANIFESTS) => () => {
     const from = JSON.parse(fs.readFileSync(path.join(prs, '.claude-plugin', 'plugin.json'), 'utf8')).version;
-    for (const file of ['.claude-plugin/plugin.json', '.claude-plugin/marketplace.json', 'package.json', 'package-lock.json']) {
+    for (const file of files) {
       const full = path.join(prs, file);
       fs.writeFileSync(full, fs.readFileSync(full, 'utf8').replaceAll(`"version": "${from}"`, `"version": "${to}"`));
     }
@@ -235,6 +236,7 @@ try {
       const file = path.join(prs, 'package.json');
       fs.writeFileSync(file, fs.readFileSync(file, 'utf8').replace('"scripts": {', '"scripts": {\n    "postinstall": "node x.js",'));
     }), 'failure', 'a release that changes anything else in a manifest'],
+    [release('99.0.0', undefined, MANIFESTS.slice(0, 1)), 'failure', 'a release that leaves the other manifests behind'],
     [release('0.0.1'), 'failure', 'a version that goes backwards'],
   ];
   sides.forEach(([change], i) => (sha[20 + i] = commit(`side ${i}`, change, `refs/pull/${20 + i}/head`)));
