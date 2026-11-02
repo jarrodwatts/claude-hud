@@ -1,6 +1,7 @@
-// The only code that runs programs or touches files outside data/ for the HUD. Logic (src/) runs
-// caged and asks for probes by name (see createProbes); it never chooses a command line, and it
-// learns every path from logicPaths.
+// The only code that runs a program other than Node itself, and the only code that works out a path.
+// (hud.mjs runs Node: the cage, or Bun's relay. install.mjs writes the statusLine setting.) Logic
+// (src/) runs caged and asks for probes by name (see createProbes); it never chooses a command line,
+// and it learns every path from logicPaths.
 // Imports nothing from src/: this file's behaviour must not change when logic does.
 import { exec, execFile, spawn } from 'node:child_process';
 import crypto from 'node:crypto';

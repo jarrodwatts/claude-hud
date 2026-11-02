@@ -250,9 +250,10 @@ export async function runCage({ stdin = null, now = Date.now(), probes = async (
   });
 }
 
-// Bun has no permission model, so logic always runs on Node: hand the whole run to `node`.
+// Bun has no permission model, so logic always runs on Node: hand the whole run to `node`, found the
+// way the collector finds git (on Windows, only in absolute PATH entries, never the repo's folder).
 function relayToNode(argv) {
-  const node = globalThis.Bun?.which('node');
+  const node = process.platform === 'win32' ? collector.resolveWindowsExecutable('node') : 'node';
   return new Promise((resolve) => {
     if (!node) {
       print([upgradeLine(`Bun ${process.versions.bun}`)]);

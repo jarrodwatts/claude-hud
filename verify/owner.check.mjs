@@ -2,7 +2,7 @@
 // a later change to hud.mjs or collector.mjs can't loosen one of these walls and its test together.
 //   - the terminal filter keeps exactly these bytes (verify/case.mjs judges output with it, so this pins the judge too)
 //   - logic's environment and Node flags hold no secret and no capability
-//   - on Windows, git, jj and taskkill never run from the repo's folder
+//   - on Windows, git, jj, node (Bun's relay) and taskkill never run from the repo's folder
 //   - a repo's own git config never runs a command, through status, line diffs or a submodule
 //   - `hud set` can't change which files the collector reads or writes
 //   - the /hud skill runs only the read-only subcommands without asking, and reads their facts as JSON
@@ -74,8 +74,8 @@ try {
     assert.ok(!cageArgs({ grants: [], dataDir: null }).some((a) => a.startsWith('--allow-fs-write')));
   });
 
-  await check('on Windows, git and jj come from absolute PATH entries only, and taskkill from SystemRoot', () => {
-    for (const name of ['git', 'jj']) {
+  await check('on Windows, git, jj and node come from absolute PATH entries only, and taskkill from SystemRoot', () => {
+    for (const name of ['git', 'jj', 'node']) {
       const tried = [];
       const found = resolveWindowsExecutable(name, { Path: `.;.\\repo-bin;;C:\\Program Files\\${name};D:\\fallback` }, (candidate) => {
         tried.push(candidate);

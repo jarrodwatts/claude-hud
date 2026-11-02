@@ -13,8 +13,12 @@ folder, the network, a key, posting, merging. Everything else is logic.
 ═══════════╪════════ files only ════ THE LINE ═══════════╪════╪═════ JSON lines on fd 0 and 1 ════════════╪═══
  CAPABILITY│ harness.mjs + relay: holds the token,       │    │ hud.mjs: runCage, terminalFilter           │
  (owner)   │   per-run and daily token caps              │    │ collector.mjs: every path, every program   │
-           │ act.mjs: reply | label | close | propose,   │    │   (git, jj, vm_stat, the extra command)    │
+           │ act.mjs: reply | label | close | propose,   │    │   but Node (git, jj, vm_stat, extra cmd)   │
            │   and the `gate` check                      │    │ fence.mjs + node --permission: the cage    │
+           │                                             │    │ install.mjs: writes the statusLine setting │
+           │                                             │    │ launcher + stubs: run the newest install   │
+           │                                             │    │ skills/hud: Claude runs 4 read-only verbs  │
+           │                                             │    │   without asking; the rest prompt          │
            └─ ruleset: one required check, `gate` ───────┘    └─ verify/: the checks, run on every PR ─────┘
       a merge that moves the version = a release; users get it on their next plugin update
 ```
