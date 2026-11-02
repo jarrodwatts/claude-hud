@@ -267,7 +267,7 @@ export async function main({ argv = process.argv, env = process.env } = {}) {
     if (output.snapshot) collector.writeUsageSnapshot(usage.write, output.snapshot);
     print(output.lines);
     // Without input this is a person running the command by hand; keep Claude Code's last render.
-    if (stdin) collector.writeHeartbeat(paths, { outcome: 'ok', stdin, now, env });
+    if (stdin) collector.writeHeartbeat(paths, { outcome: output.failed ? output.lines[0] ?? 'failed' : 'ok', stdin, now, env });
   } catch (error) {
     const message = `[claude-hud] Error: ${error instanceof Error ? error.message : 'Unknown error'}`;
     print([`${message}. Type /hud to fix it.`]);

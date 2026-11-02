@@ -118,6 +118,11 @@ test('the config set writes keeps the file-naming keys from disk, whatever logic
   writeFileSync(configPath, JSON.stringify({ display: { externalUsagePath: '/mine.json' } }));
   writeConfig(paths, { display: { showTools: true, externalUsagePath: '/evil.json', externalUsageWritePath: '/home/u/.bashrc.json' } });
   assert.deepEqual(JSON.parse(readFileSync(configPath, 'utf8')), { display: { showTools: true, externalUsagePath: '/mine.json' } });
+
+  // Only a file-naming key, and none on disk: nothing of it may survive.
+  writeFileSync(configPath, '{}');
+  writeConfig(paths, { lineLayout: 'compact', display: { externalUsageWritePath: '/home/u/.bashrc.json' } });
+  assert.deepEqual(JSON.parse(readFileSync(configPath, 'utf8')), { lineLayout: 'compact' });
 }));
 
 test('preview renders a candidate config without saving it', () => withHome(({ run, project, configPath }) => {

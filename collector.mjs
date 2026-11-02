@@ -490,12 +490,13 @@ const CAPABILITY_KEYS = ['externalUsagePath', 'externalUsageWritePath'];
 export function writeConfig(paths, config) {
   if (!config || typeof config !== 'object' || Array.isArray(config)) throw new Error('not a config object');
   const onDisk = readJsonObject(paths.configPath)?.display ?? {};
-  const display = { ...(config.display && typeof config.display === 'object' ? config.display : {}) };
+  const { display: returned, ...next } = config;
+  const display = { ...(returned && typeof returned === 'object' ? returned : {}) };
   for (const key of CAPABILITY_KEYS) {
     delete display[key];
     if (Object.hasOwn(onDisk, key)) display[key] = onDisk[key];
   }
-  const next = Object.keys(display).length > 0 ? { ...config, display } : config;
+  if (Object.keys(display).length > 0) next.display = display;
   fs.mkdirSync(paths.hudDir, { recursive: true });
   fs.writeFileSync(paths.undoPath, fs.existsSync(paths.configPath) ? fs.readFileSync(paths.configPath) : '{}\n', { mode: 0o600 });
   replaceFile(paths.configPath, `${JSON.stringify(next, null, 2)}\n`);
