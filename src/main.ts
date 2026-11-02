@@ -60,6 +60,8 @@ export interface Sources {
 }
 
 export async function renderStdin(stdin: StdinData, config: HudConfig, { ask, files, dataDir, now, columns }: Sources): Promise<Output> {
+  // Labels follow the config being rendered, which for a preview isn't the saved one.
+  setLanguage(config.language);
   const display = config.display;
   const stdinUsage = getUsageFromStdin(stdin);
   const facts: Probe[] = ["extra"];

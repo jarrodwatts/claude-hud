@@ -140,6 +140,7 @@ test('preview renders a candidate config without saving it', () => withHome(({ r
   assert.match(sample.stdout, /^Preview at 60 columns, with a sample session:\n\[Opus 5\.5\] .*45%/);
   assert.doesNotMatch(sample.stdout, /\x1b/);
   assert.ok(!existsSync(configPath));
+  assert.match(run(['preview', '--set', 'language=zh-Hans']).stdout, /上下文/, 'labels follow the candidate config');
 
   assert.equal(run(['preview', '--last']).status, 1, 'nothing to replay before a render');
   run([], { input: payload(project), columns: 80 });
