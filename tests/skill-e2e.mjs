@@ -3,17 +3,20 @@
 //   1. `/hud` inlines `hud doctor` before the model reads a word;
 //   2. the read-only `hud preview` runs without asking, and `hud set` needs the user's approval;
 //   3. with no node on PATH, the skill still loads, with the {"runtime":"none"} fallback.
+// The plugin is installed from a folder whose path has a space, as many Windows homes do.
 // Run by CI's `skill` job (it downloads Claude Code): node tests/skill-e2e.mjs
 import { execFileSync, spawn } from 'node:child_process';
-import { existsSync, mkdirSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
+import { cpSync, existsSync, mkdirSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
 import http from 'node:http';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const CLAUDE_CODE = '2.1.310';
-const root = fileURLToPath(new URL('..', import.meta.url));
+const checkout = fileURLToPath(new URL('..', import.meta.url));
 const work = realpathSync(mkdtempSync(path.join(tmpdir(), 'hud-skill-')));
+const root = path.join(work, 'my plugins', 'claude-hud');
+cpSync(checkout, root, { recursive: true, filter: (from) => !/[\\/](node_modules|\.git)$/.test(from) });
 const pkg = `claude-code-${process.platform}-${process.arch}`;
 // CLAUDE_BIN skips the download for a local run. The platform package holds the native binary;
 // installing it directly runs no install script.
@@ -23,7 +26,7 @@ if (!process.env.CLAUDE_BIN) {
 const claudeBin = process.env.CLAUDE_BIN || path.join(work, 'cc', 'node_modules', '@anthropic-ai', pkg, 'claude');
 
 // The fake model asks for one read-only and one writing subcommand once, then just answers.
-const hud = `node ${root.replace(/\/$/, '')}/hud.mjs`;
+const hud = `node "${root}/hud.mjs"`;
 const requests = [];
 let askedForTools = false;
 const server = http.createServer((req, res) => {
@@ -108,7 +111,7 @@ try {
   const run = await withNode(['-p', '/hud is my status line set up?', '--output-format', 'text']);
   const prompt = JSON.stringify(requests.slice(since).map((r) => r.messages));
   check('/hud runs in claude -p', run.status === 0, run.out);
-  check('doctor facts are inlined into the prompt', prompt.includes('\\"supported\\": true') && prompt.includes('hud install'), prompt.slice(0, 400));
+  check('doctor facts are inlined, from a plugin path with a space', prompt.includes('\\"supported\\": true') && prompt.includes('my plugins') && prompt.includes('hud install'), prompt.slice(0, 400));
   check('$ARGUMENTS reaches the prompt', prompt.includes('is my status line set up?'));
   const [preview, set] = ['toolu_0', 'toolu_1'].map((id) => toolResults(since).find((block) => block.tool_use_id === id));
   check('hud preview is pre-approved and runs', preview && !preview.is_error && resultText(preview).includes('Preview at 60 columns'), resultText(preview));
