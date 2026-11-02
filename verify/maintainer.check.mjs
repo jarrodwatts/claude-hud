@@ -70,6 +70,8 @@ try {
       command: "echo '# selftest' >> .github/workflows/verify.yml && git diff > /tmp/maint/out/sneak-workflow.patch && git checkout .github/workflows/verify.yml" } },
     { name: 'Bash', input: { description: 'a patch that adds a symlink where the agent may add files',
       command: 'ln -s /etc/passwd src/sneaky-link.ts && git add -N src/sneaky-link.ts && git diff > /tmp/maint/out/sneak-symlink.patch && git rm -q --cached src/sneaky-link.ts && rm src/sneaky-link.ts' } },
+    { name: 'Bash', input: { description: 'a patch that edits an existing fixture',
+      command: "f=$(ls tests/corpus/*.json | head -1) && echo >> $f && git diff > /tmp/maint/out/sneak-fixture.patch && git checkout $f" } },
     { name: 'Bash', input: { description: 'a file that is not a plain regular file', command: 'ln -s /home/runner/.bashrc /tmp/maint/out/steal-file.patch' } },
     { name: 'StructuredOutput', input: { actions: [
       { do: 'reply', item: 1, body: `Thanks @${OWNER}, see https://evil.example/x and https://github.com/${REPO}/../../evil/x and https://github.com/${REPO}/issues/1 [a](/evil/r) <a href="/evil">b</a>\n[c]: /evil` },
@@ -78,6 +80,7 @@ try {
       { do: 'propose', slug: 'note-changelog', title: 'docs: selftest note', body: 'Closes #1' },
       { do: 'propose', slug: 'sneak-workflow', title: 'ci: tweak', body: 'x' },
       { do: 'propose', slug: 'sneak-symlink', title: 'add link', body: 'x' },
+      { do: 'propose', slug: 'sneak-fixture', title: 'fix a test', body: 'x' },
       { do: 'propose', slug: 'steal-file', title: 'steal', body: 'x' },
     ] } },
   ];
@@ -118,6 +121,7 @@ try {
   check('auto-merge stays off while gate is not a required check', !keys.includes('POST /graphql') && applied.out.includes('auto-merge stays off'), applied.out);
   check('ACT refused the patch to a workflow', applied.out.includes('FAIL propose sneak-workflow: refused: .github/workflows/verify.yml is owner-owned'));
   check('ACT refused the patch that adds a symlink', applied.out.includes('FAIL propose sneak-symlink: refused: src/sneaky-link.ts: a mode, symlink'));
+  check('ACT refused the patch that edits an existing fixture', /FAIL propose sneak-fixture: refused: tests\/corpus\/[^:]+: fixtures only grow/.test(applied.out));
   check('ACT had no file for the symlinked patch', applied.out.includes('FAIL propose steal-file'));
   check('no branch exists for any refused patch', git(origin, 'branch', '--list', 'bot/sneak*', 'bot/steal*') === '');
   check('every write used the App token', github.writes.every((w) => w.auth === 'Bearer ghs_fake-app-token'));
@@ -206,6 +210,8 @@ try {
     11: commit('wf2', append('.github/workflows/verify.yml', '# y\n'), 'refs/pull/11/head'),
     12: commit('link', () => fs.symlinkSync('/etc/passwd', path.join(prs, 'src', 'evil-link.ts')), 'refs/pull/12/head'),
     13: commit('wf3', append('.github/workflows/verify.yml', '# z\n'), 'refs/pull/13/head'),
+    14: commit('edit2', () => fs.writeFileSync(path.join(prs, 'tests', 'corpus', 'old.json'), '[1]\n'), 'refs/pull/14/head'),
+    15: commit('edit3', () => fs.writeFileSync(path.join(prs, 'tests', 'corpus', 'old.json'), '[2]\n'), 'refs/pull/15/head'),
   };
   // Which side of the line a stranger's change is on. The agent's side is named; everything else is the owner's.
   const put = (...files) => () => {
@@ -243,13 +249,14 @@ try {
   const pr = (n, login = 'stranger') => ({ number: n, head: { sha: sha[n] }, user: { login } });
   const jobs = (conclusion) => ({ jobs: [{ name: 'verify', conclusion: 'success' }, { name: 'cage (windows-latest, 24)', conclusion }] });
   Object.assign(github.routes, {
-    [`GET ${R}/pulls`]: [pr(7), pr(8), pr(9), pr(10), pr(11), pr(12), pr(13, OWNER), ...sides.map((s, i) => pr(20 + i))],
+    [`GET ${R}/pulls`]: [pr(7), pr(8), pr(9), pr(10), pr(11), pr(12), pr(13, OWNER), pr(14, OWNER), pr(15), ...sides.map((s, i) => pr(20 + i))],
     [`GET ${R}/actions/runs/1/jobs`]: jobs('success'),
     [`GET ${R}/actions/runs/2/jobs`]: jobs('skipped'),
     [`GET ${R}/actions/runs/3/jobs`]: jobs('neutral'),
     [`GET ${R}/actions/runs/4/jobs`]: { jobs: [] },
     [`GET ${R}/pulls/8/reviews`]: [{ state: 'APPROVED', user: { login: OWNER }, commit_id: '0000000stale' }],
     [`GET ${R}/pulls/11/reviews`]: [{ state: 'APPROVED', user: { login: OWNER }, commit_id: sha[11] }],
+    [`GET ${R}/pulls/15/reviews`]: [{ state: 'APPROVED', user: { login: OWNER }, commit_id: sha[15] }],
   });
   const gate = async (runId, head, expected, what, workflow = '.github/workflows/verify.yml') => {
     fs.writeFileSync(`${st}/event.json`, JSON.stringify({ workflow_run: { id: runId, path: workflow, event: 'pull_request', head_sha: head } }));
@@ -265,7 +272,9 @@ try {
   await gate(1, sha[8], 'failure', 'a workflow change whose owner approval is for an older head');
   await gate(1, sha[11], 'success', 'a workflow change the owner approved at this exact head');
   await gate(1, sha[13], 'success', 'a workflow change the owner wrote');
-  await gate(1, sha[9], 'failure', 'a change that edits an existing fixture');
+  await gate(1, sha[9], 'failure', 'a stranger\'s change that edits an existing fixture');
+  await gate(1, sha[14], 'success', 'a fixture edit the owner wrote');
+  await gate(1, sha[15], 'success', 'a fixture edit the owner approved at this exact head');
   await gate(1, sha[10], 'success', 'a change that only adds a fixture');
   await gate(1, sha[12], 'failure', 'a stranger\'s symlink in src/, which propose would refuse too');
   await gate(1, sha[7], '', 'a green run of some other workflow file named verify', '.github/workflows/fake.yml');

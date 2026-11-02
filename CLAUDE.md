@@ -45,7 +45,7 @@ Claude Code runs the command after each message, `/compact`, a mode change, a ra
 - Text from stdin, the transcript, git, or config is untrusted terminal input. Sanitize it (`utils/sanitize.ts`) before it's printed.
 - Rendering is pure: the clock is sampled once by `hud.mjs` and terminal width once in `renderLines`.
 - `tests/golden.test.js` pins end-to-end output. An output change must show up as a reviewed diff to `tests/golden/expected.txt`.
-- `tests/corpus/*.json` are fixtures for `verify/corpus.check.mjs`. Add new ones; never edit, rename or delete one. A case's `facts` are the probes' recorded answers, so git and jj states replay without running either.
+- `tests/corpus/*.json` are fixtures for `verify/corpus.check.mjs`. Add new ones; never edit, rename or delete one. Only the owner can, by writing or approving that exact change, when a case itself was wrong. A case's `facts` are the probes' recorded answers, so git and jj states replay without running either.
 - Imports end in `.ts`, and only erasable TypeScript is allowed (`erasableSyntaxOnly`), because users run the source.
 - Every key in `DEFAULT_CONFIG` has a description in `schema.ts`; `tests/commands.test.js` enforces it.
 - `dist/index.js` and `src/index.ts` are the stubs every launcher imports, the one `hud install` copies today included. Keep them, and keep the `version` fields: launchers find installs by version folder.
