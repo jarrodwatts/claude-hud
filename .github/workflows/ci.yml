@@ -81,6 +81,19 @@ jobs:
           node-version: ${{ matrix.node-version }}
       - run: node --test tests/launcher-compat.test.js
 
+  # The /hud skill in pinned Claude Code against a loopback fake API, with a fake key: doctor is
+  # inlined, read-only subcommands are pre-approved, and `set` needs the user's approval.
+  skill:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '24'
+      - run: node tests/skill-e2e.mjs
+
   # Bun users' launcher goes through src/index.ts and hands the render to Node.
   bun:
     runs-on: ubuntu-latest

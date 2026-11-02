@@ -87,3 +87,16 @@ export function install({ configDir, argv = [], env = process.env }) {
   fs.renameSync(temp, target);
   return report;
 }
+
+// `node install.mjs install [--shell …]`, the form the verify e2e uses, does what `hud install` does.
+if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
+  const args = process.argv.slice(2);
+  try {
+    const { claudePaths } = await import('./collector.mjs');
+    const report = install({ configDir: claudePaths().configDir, argv: args[0] === 'install' ? args.slice(1) : args });
+    process.stdout.write(`${JSON.stringify(report, null, 2)}\n`);
+  } catch (error) {
+    process.stdout.write(`claude-hud install: ${error instanceof Error ? error.message : error}\n`);
+    process.exitCode = 1;
+  }
+}

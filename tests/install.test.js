@@ -171,6 +171,15 @@ test('Windows shells launch through cmd.exe', async () => {
   });
 });
 
+test('node install.mjs install is the same as hud install', async () => {
+  await withConfigDir(async (configDir) => {
+    const result = run(fileURLToPath(new URL('../install.mjs', import.meta.url)), ['install', '--shell', 'posix'], { configDir });
+    assert.equal(result.status, 0, result.stderr);
+    const settings = JSON.parse(await readFile(path.join(configDir, 'settings.json'), 'utf8'));
+    assert.match(settings.statusLine.command, /statusline\.mjs'$/);
+  });
+});
+
 test('install picks the shell Claude Code runs statusLine with', async () => {
   const { detectShell } = await import('../install.mjs');
   assert.equal(detectShell({}, 'linux'), 'posix');
