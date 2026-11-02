@@ -1,0 +1,59 @@
+{
+  "$comment": "The bot's entire power. Claude must answer in this shape (--json-schema) and act.mjs checks it again.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["actions"],
+  "properties": {
+    "actions": {
+      "type": "array",
+      "maxItems": 50,
+      "items": {
+        "oneOf": [
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["do", "item", "body"],
+            "properties": {
+              "do": { "const": "reply" },
+              "item": { "type": "integer", "minimum": 1 },
+              "body": { "type": "string", "maxLength": 3000 }
+            }
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["do", "item"],
+            "properties": {
+              "do": { "const": "label" },
+              "item": { "type": "integer", "minimum": 1 },
+              "add": { "type": "array", "maxItems": 5, "items": { "enum": ["bug", "enhancement", "question", "duplicate", "documentation", "upstream", "invalid", "wontfix"] } },
+              "remove": { "type": "array", "maxItems": 5, "items": { "enum": ["bug", "enhancement", "question", "duplicate", "documentation", "upstream", "invalid", "wontfix"] } }
+            }
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["do", "item", "reason"],
+            "properties": {
+              "do": { "const": "close" },
+              "item": { "type": "integer", "minimum": 1 },
+              "reason": { "enum": ["completed", "not_planned", "duplicate"] }
+            }
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["do", "slug", "title", "body"],
+            "properties": {
+              "do": { "const": "propose" },
+              "slug": { "type": "string", "pattern": "^[a-z0-9-]{3,40}$" },
+              "title": { "type": "string", "maxLength": 100 },
+              "body": { "type": "string", "maxLength": 4000 },
+              "from_pr": { "type": "integer", "minimum": 1 }
+            }
+          }
+        ]
+      }
+    }
+  }
+}
