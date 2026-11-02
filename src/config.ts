@@ -605,6 +605,8 @@ export interface LoadedConfig {
   config: HudConfig;
   /** config.json alone, as written: what `hud set` edits. */
   base: Record<string, unknown>;
+  /** Why config.json exists but couldn't be read, or null. `hud set` must not overwrite it then. */
+  baseUnreadable: string | null;
   /** claude-hud.json, whose keys win over config.json. */
   override: Record<string, unknown>;
   /** Values that are ignored, each naming its file and key. Empty when the config is fine. */
@@ -620,7 +622,14 @@ export function loadConfigFiles(): LoadedConfig {
     return isPlainObject(file) ? file : null;
   });
   const merged = override ? mergeOverrides(base ?? {}, override) : base ?? {};
-  return { config: mergeConfig(merged as Partial<HudConfig>), base: base ?? {}, override: override ?? {}, problems };
+  const baseFile = files[0][1];
+  return {
+    config: mergeConfig(merged as Partial<HudConfig>),
+    base: base ?? {},
+    baseUnreadable: typeof baseFile === 'string' ? `config.json ${baseFile}` : null,
+    override: override ?? {},
+    problems,
+  };
 }
 
 export async function loadConfig(): Promise<HudConfig> {

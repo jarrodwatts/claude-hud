@@ -91,6 +91,15 @@ test('set rejects a bad value loudly and changes nothing', () => withHome(({ run
   assert.match(unknown.stdout, /display\.showTool is not a config key/);
 }));
 
+test('set refuses to overwrite a config.json it could not read', () => withHome(({ run, configPath }) => {
+  mkdirSync(path.dirname(configPath), { recursive: true });
+  writeFileSync(configPath, '{ "display": { "showTools": true }, oops');
+  const result = run(['set', 'lineLayout=compact']);
+  assert.equal(result.status, 1);
+  assert.match(result.stdout, /config\.json is not valid JSON, so set would lose what is in it/);
+  assert.equal(readFileSync(configPath, 'utf8'), '{ "display": { "showTools": true }, oops');
+}));
+
 test('set refuses the keys that name files; only the user sets those', () => withHome(({ run, configPath }) => {
   const refused = run(['set', 'display.externalUsageWritePath=/home/x/.bashrc.json']);
   assert.equal(refused.status, 1);

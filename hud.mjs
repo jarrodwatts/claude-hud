@@ -233,7 +233,8 @@ async function runCommand(name, args, { collector, paths, env }) {
       probes: collector.createProbes({ cwd: stdin?.cwd, argv: [], env, usage: collector.usagePaths(paths, env) }),
       command: { name, args, facts },
     });
-    if (output.config) collector.writeConfig(paths, output.config);
+    // Only `set`, which Claude Code asks the user about, may change config; the rest are pre-approved.
+    if (name === 'set' && output.config) collector.writeConfig(paths, output.config);
     if (output.failed) process.exitCode = 1;
     print(output.lines);
   } catch (error) {

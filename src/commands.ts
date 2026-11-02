@@ -213,6 +213,8 @@ async function preview(input: Input, facts: Facts, loaded: LoadedConfig, render:
 function set(input: Input, loaded: LoadedConfig): Output {
   const pairs = input.command!.args;
   if (pairs.length === 0) return fail(["Usage: hud set key=value [key=value...], or hud set --undo"]);
+  // Writing over a file we couldn't read would drop whatever is in it.
+  if (loaded.baseUnreadable) return fail([`${loaded.baseUnreadable}, so set would lose what is in it. Fix or move it first. Nothing was changed.`]);
   const { problems, assignments } = parseAssignments(pairs);
   if (problems.length > 0) return fail([...problems, "Nothing was changed."]);
   const config = structuredClone(loaded.base);
