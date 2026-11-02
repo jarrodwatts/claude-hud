@@ -57,7 +57,7 @@ jobs:
           node --import ./tests/clean-env.js --test
           tests/git.test.js tests/git-runner.test.js tests/jj.test.js tests/cage.test.js tests/escape-matrix.test.js
           tests/launcher-compat.test.js tests/hud.test.js tests/stdin.test.js tests/transcript.test.js tests/daily-cost.test.js
-          tests/speed.test.js tests/auth.test.js tests/memory.test.js tests/memory-coverage.test.js tests/setup-command.test.js
+          tests/speed.test.js tests/auth.test.js tests/memory.test.js tests/memory-coverage.test.js tests/install.test.js tests/commands.test.js
           tests/ansi.test.js tests/i18n.test.js tests/hyperlinks.test.js tests/terminal.test.js tests/truncate.test.js
           tests/usage-pace.test.js tests/effort.test.js tests/format-reset-time.test.js tests/prompt-cache.test.js
         shell: bash
@@ -80,6 +80,19 @@ jobs:
         with:
           node-version: ${{ matrix.node-version }}
       - run: node --test tests/launcher-compat.test.js
+
+  # The /hud skill in pinned Claude Code against a loopback fake API, with a fake key: doctor is
+  # inlined, read-only subcommands are pre-approved, and `set` needs the user's approval.
+  skill:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '24'
+      - run: node tests/skill-e2e.mjs
 
   # Bun users' launcher goes through src/index.ts and hands the render to Node.
   bun:

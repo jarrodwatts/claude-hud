@@ -15,6 +15,7 @@ We will not take:
 - A hardcoded catalog of Anthropic-compatible proxies. Use `display.providerName`.
 - OS disk or other system gauges. Use `extra-cmd`.
 - A HUD-side guess for advisor or multi-iteration context double-count, or for local models that omit `context_window`. Those need a same-invocation stdin fixture from Claude Code.
+- Code in `src/` that runs a program, opens a connection, or writes outside the data directory. Logic runs caged; anything that needs a capability is a fixed probe in `collector.mjs`.
 
 ## Development
 
@@ -23,15 +24,16 @@ npm ci
 npm test
 ```
 
-`npm test` builds and runs Node's test runner. `tests/golden.test.js` runs the CLI end to end for every case in `tests/golden/cases.mjs` and compares stdout with `tests/golden/expected.txt`. When a change is meant to alter output, run `npm run test:update-snapshots` and check the diff to `expected.txt` before committing it. Keep tests deterministic: pin the clock and use temp directories. `tests/clean-env.js` clears your own `CLAUDE_*`, `ANTHROPIC_*`, `GIT_*`, `COLUMNS` and `DEBUG` variables before each test file runs. Run a single file with `npm test -- tests/<name>.test.js` so it still applies.
+There is no build: Node runs the TypeScript in `src/` directly, so use only erasable syntax and end imports in `.ts`. `npm run typecheck` runs `tsc` without emitting. `tests/golden.test.js` runs the CLI end to end for every case in `tests/golden/cases.mjs` and compares stdout with `tests/golden/expected.txt`. When a change is meant to alter output, run `npm run test:update-snapshots` and check the diff to `expected.txt` before committing it. Keep tests deterministic: pin the clock and use temp directories. `tests/clean-env.js` clears your own `CLAUDE_*`, `ANTHROPIC_*`, `GIT_*`, `COLUMNS` and `DEBUG` variables before each test file runs. Run a single file with `npm test -- tests/<name>.test.js` so it still applies.
 
 ## Pull Requests
 
 - Keep changes focused, and describe the problem and the fix.
 - Add tests for behavior changes, or explain why they aren't needed.
 - Treat any text from stdin, the transcript, git, or config as untrusted: sanitize it before it reaches the terminal.
-- Add a row to both `README.md` and `README.zh.md` for any new config key.
-- Don't include `dist/`. CI builds and commits it after merge.
+- Describe any new config key in `src/schema.ts`; that is what `/hud` tells users.
 - Avoid new dependencies.
 
-Releases are cut by maintainers; see [RELEASING.md](RELEASING.md).
+## Releases
+
+There is nothing to build or tag. Claude Code updates users when the version in `.claude-plugin/plugin.json` changes, so a release is a PR that bumps the version in `plugin.json`, `marketplace.json`, `package.json` and `package-lock.json` together, with a `CHANGELOG.md` entry. Keep the version fields even if that changes: launchers already on users' machines find installs by version folder.

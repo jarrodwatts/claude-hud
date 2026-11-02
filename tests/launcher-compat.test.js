@@ -45,11 +45,28 @@ test('the launcher on users\' machines renders this tree through dist/index.js',
   }
 });
 
+// /hud runs `node hud.mjs doctor` with whatever node is on PATH, so it must answer on old Node too.
+test('doctor answers on any Node, and says when this one is too old', () => {
+  const home = mkdtempSync(path.join(tmpdir(), 'hud-doctor-'));
+  try {
+    const result = spawnSync(process.execPath, [path.join(root, 'hud.mjs'), 'doctor'], {
+      encoding: 'utf8', env: { PATH: process.env.PATH, HOME: home, USERPROFILE: home, CLAUDE_CONFIG_DIR: path.join(home, '.claude') },
+    });
+    assert.equal(result.status, 0, result.stderr);
+    const facts = JSON.parse(result.stdout);
+    assert.equal(facts.runtime.version, process.versions.node);
+    assert.equal(facts.runtime.supported, isNodeSupported());
+    if (!isNodeSupported()) assert.match(facts.findings[0], /needs Node 22\.18\+/);
+  } finally {
+    rmSync(home, { recursive: true, force: true, maxRetries: 5 });
+  }
+});
+
 const bun = spawnSync('bun', ['--version'], { encoding: 'utf8' });
 test('under Bun the same launcher goes through src/index.ts and renders on Node', {
   skip: bun.status === 0 ? false : 'bun not installed',
 }, () => {
-  // setup.mjs installs Bun launches with --env-file /dev/null.
+  // Older setups installed Bun launches with --env-file /dev/null.
   const result = render('bun', process.platform === 'win32' ? [] : ['--env-file', '/dev/null']);
   assert.equal(result.status, 0, result.stderr);
   assert.match(result.stdout, /\[Opus\]/);

@@ -8,10 +8,10 @@
     "hud.mjs",
     "collector.mjs",
     "fence.mjs",
+    "install.mjs",
     "dist/index.js",
     "src/",
-    "commands/",
-    "scripts/setup.mjs",
+    "skills/",
     "scripts/statusline.mjs",
     ".claude-plugin/"
   ],

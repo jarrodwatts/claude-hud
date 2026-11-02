@@ -1,6 +1,6 @@
 // Times full status line renders, the way Claude Code runs them: a fresh process per render with
 // the payload on stdin, in a dirty git repo with a real transcript. Prints a Markdown table.
-//   node scripts/latency.mjs [runs] [entry ...]     entries default to hud.mjs
+//   node scripts/latency.mjs [runs] [[label=]entry ...]     entries default to hud.mjs
 import { execFileSync, spawn } from 'node:child_process';
 import { copyFileSync, mkdirSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -9,7 +9,10 @@ import { fileURLToPath } from 'node:url';
 
 const root = fileURLToPath(new URL('..', import.meta.url));
 const runs = Number(process.argv[2]) || 40;
-const entries = (process.argv.length > 3 ? process.argv.slice(3) : [path.join(root, 'hud.mjs')]).map((entry) => path.resolve(entry));
+const entries = (process.argv.length > 3 ? process.argv.slice(3) : ['hud.mjs']).map((arg) => {
+  const [label, entry] = arg.includes('=') ? arg.split(/=(.*)/s) : [arg, arg];
+  return { label, entry: path.resolve(entry) };
+});
 
 const base = realpathSync(mkdtempSync(path.join(tmpdir(), 'hud-latency-')));
 const home = path.join(base, 'home');
@@ -44,18 +47,16 @@ function once(entry) {
   });
 }
 
-// This tree's files by name; anything else is main's build, extracted elsewhere by scripts/ci-report.sh.
-const label = (entry) => (entry.startsWith(root) ? path.relative(root, entry) : `main's ${path.basename(path.dirname(entry))}/${path.basename(entry)}`);
 const percentile = (sorted, p) => sorted[Math.min(sorted.length - 1, Math.ceil((p / 100) * sorted.length) - 1)];
 try {
   console.log(`| Entry | OS | Node | p50 ms | p90 ms | p95 ms | runs |\n|---|---|---|---|---|---|---|`);
-  for (const entry of entries) {
+  for (const { label, entry } of entries) {
     for (let i = 0; i < 3; i++) await once(entry); // warm the disk cache
     const times = [];
     for (let i = 0; i < runs; i++) times.push(await once(entry));
     times.sort((a, b) => a - b);
     const ms = (p) => percentile(times, p).toFixed(1);
-    console.log(`| ${label(entry)} | ${process.platform} | ${process.version} | ${ms(50)} | ${ms(90)} | ${ms(95)} | ${runs} |`);
+    console.log(`| ${label} | ${process.platform} | ${process.version} | ${ms(50)} | ${ms(90)} | ${ms(95)} | ${runs} |`);
   }
 } finally {
   rmSync(base, { recursive: true, force: true, maxRetries: 5 });

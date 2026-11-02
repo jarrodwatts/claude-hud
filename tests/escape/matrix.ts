@@ -3,6 +3,7 @@
 // reports whether it got through. Cases 1-21 are the user-runtime critic's matrix.
 import fs from 'node:fs';
 import path from 'node:path';
+import { pathToFileURL } from 'node:url';
 import { finish, open } from '../../src/channel.ts';
 
 interface Targets {
@@ -10,6 +11,7 @@ interface Targets {
   outside: string;
   secret: string;
   dataDir: string;
+  stripped: string;
   sibling: string;
   port: number;
   outsideModule: string;
@@ -94,6 +96,53 @@ await check('34 tokens in the environment', () => {
 await check('35 PATH in the environment', () => {
   if (!process.env.PATH) throw new Error('empty');
   return process.env.PATH;
+});
+
+// 36-40: logic must never write anything it later runs, and never run anything but the plugin's code.
+await check('36 write into stripped/', () => fs.writeFileSync(path.join(t.stripped, 'poke.js'), 'x'));
+await check('37 rename from data/ into stripped/', () => {
+  fs.writeFileSync(path.join(t.dataDir, 'move.js'), 'x');
+  fs.renameSync(path.join(t.dataDir, 'move.js'), path.join(t.stripped, 'move.js'));
+});
+// A module logic wrote in data/ that records whether it ran.
+const planted = path.join(t.dataDir, 'planted.mjs');
+fs.writeFileSync(planted, 'globalThis.plantedRan = true;\n');
+const ran = () => {
+  if (!loose.plantedRan) throw new Error('did not run');
+  loose.plantedRan = false;
+  return 'planted module ran';
+};
+await check('38 poison String.prototype.slice, import from data/', async () => {
+  const slice = String.prototype.slice;
+  const root = new URL('../../', import.meta.url).href;
+  String.prototype.slice = function (this: string, ...args: number[]) {
+    return args[0] === 0 && args[1] === root.length ? root : slice.apply(this, args);
+  };
+  try {
+    await importAny(pathToFileURL(planted).href).catch(() => {});
+  } finally {
+    String.prototype.slice = slice;
+  }
+  return ran();
+});
+await check('39 poison fs.readFileSync, swap the code fence.mjs loads', async () => {
+  const fsObject = fs as unknown as Record<string, unknown>;
+  const readFileSync = fs.readFileSync;
+  fsObject.readFileSync = (file: string, ...rest: unknown[]) => (String(file).includes('stripped')
+    ? 'globalThis.plantedRan = true;\n'
+    : (readFileSync as (...args: unknown[]) => unknown)(file, ...rest));
+  try {
+    await importAny('../../src/cost.ts').catch(() => {});
+  } finally {
+    fsObject.readFileSync = readFileSync;
+  }
+  return ran();
+});
+// Node 24 runs a transpile-cache entry in place of the .ts it was made from, and its checksum is a
+// plain crc32, so a cache inside data/ would let logic plant code for the next render.
+await check('40 a compile cache logic can write', () => {
+  if (!process.env.NODE_COMPILE_CACHE) throw new Error('none');
+  return process.env.NODE_COMPILE_CACHE;
 });
 
 finish({ lines: results });

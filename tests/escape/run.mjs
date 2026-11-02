@@ -9,7 +9,7 @@ import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { cageArgs, cageEnv, runCage } from '../../hud.mjs';
-import { claudePaths, createProbes, prepareDataDir, readGrants } from '../../collector.mjs';
+import { claudePaths, createProbes, prepareDataDir, readGrants, stripLogic } from '../../collector.mjs';
 
 const root = fileURLToPath(new URL('../..', import.meta.url));
 const ENTRY = path.join(root, 'tests', 'escape', 'matrix.ts');
@@ -61,16 +61,17 @@ export async function runMatrix({ fence = true } = {}) {
       ANTHROPIC_API_KEY: FAKE_TOKEN, CLAUDE_CODE_OAUTH_TOKEN: FAKE_TOKEN, GITHUB_TOKEN: FAKE_TOKEN };
     const paths = claudePaths(env, home);
     const dataDir = prepareDataDir(paths);
+    const stripped = stripLogic(paths.strippedDir, root);
     const sibling = `${dataDir}-sibling`;
     mkdirSync(sibling);
     const stdin = {
       cwd: project,
       transcript_path: transcript,
-      matrix: { home, outside, secret, dataDir, sibling, port: server.address().port, outsideModule: pathToFileURL(outsideModule).href },
+      matrix: { home, outside, secret, dataDir, stripped: stripped.dir, sibling, port: server.address().port, outsideModule: pathToFileURL(outsideModule).href },
     };
     const grants = readGrants({ root, dataDir, paths, stdin });
     const { lines } = fence
-      ? await runCage({ stdin, dataDir, grants, env, probes: createProbes({ cwd: project, argv: [], env }), entry: ENTRY })
+      ? await runCage({ stdin, dataDir, stripped, grants, env, probes: createProbes({ cwd: project, argv: [], env }), entry: ENTRY })
       : await runWithoutFence({ stdin, dataDir, grants, env });
     return { lines, connections };
   } finally {
