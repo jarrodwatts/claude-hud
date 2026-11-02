@@ -4,46 +4,84 @@ on:
   pull_request:
   push:
     branches: [main]
-    paths-ignore:
-      - 'dist/**'
+
+permissions:
+  contents: read
 
 jobs:
-  test:
-    runs-on: ubuntu-latest
+  # The HUD on every supported OS and Node: tests, golden output, the escape matrix, and latency.
+  cage:
     strategy:
+      fail-fast: false
       matrix:
-        node-version: [18.x, 20.x]
+        os: [ubuntu-latest, macos-latest]
+        node-version: ['22.18.0', '24']
+        include:
+          - os: ubuntu-latest
+            node-version: '26'
+    runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
       - uses: actions/setup-node@v6
         with:
           node-version: ${{ matrix.node-version }}
           cache: npm
       - run: npm ci
-      - run: npm run test:coverage
+      - run: npm run typecheck
+      - run: npm test
+      - name: Escape matrix and latency
+        run: bash scripts/ci-report.sh
 
+  # Windows: the cage, the git worker and taskkill, the launcher stubs, the escape matrix, and latency.
+  # Named for the check main's ruleset requires.
   windows-git:
+    strategy:
+      fail-fast: false
+      matrix:
+        node-version: ['22.18.0', '24']
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
       - uses: actions/setup-node@v6
         with:
-          node-version: 20.x
+          node-version: ${{ matrix.node-version }}
           cache: npm
       - run: npm ci
-      - run: npm run build
-      - name: Run Windows Git tests
-        shell: pwsh
-        run: |
-          $output = & node --test tests/git.test.js tests/git-runner.test.js 2>&1
-          $exitCode = $LASTEXITCODE
-          $output | ForEach-Object { Write-Output $_ }
-          if ($exitCode -ne 0) {
-            $details = $output -join "`n"
-            if ($details.Length -gt 3500) {
-              $details = $details.Substring($details.Length - 3500)
-            }
-            $annotation = $details.Replace('%', '%25').Replace("`r", '%0D').Replace("`n", '%0A')
-            Write-Output "::error title=Windows Git tests failed::$annotation"
-            exit $exitCode
-          }
+      - run: npm test
+        shell: bash
+      - name: Escape matrix and latency
+        run: bash scripts/ci-report.sh
+        shell: bash
+
+  # Users on old Node still run today's launcher: it must print the upgrade line, not crash.
+  # Named for the checks main's ruleset requires.
+  test:
+    strategy:
+      matrix:
+        node-version: [18.x, 20.x]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v6
+        with:
+          node-version: ${{ matrix.node-version }}
+      - run: node --test tests/launcher-compat.test.js
+
+  # Bun users' launcher goes through src/index.ts and hands the render to Node.
+  bun:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '24'
+      - uses: oven-sh/setup-bun@v2
+      - run: node --test tests/launcher-compat.test.js

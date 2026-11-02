@@ -1,6 +1,6 @@
 import * as path from 'node:path';
 import { pathToFileURL } from 'node:url';
-import { sanitizeDisplayText } from './sanitize.js';
+import { sanitizeDisplayText } from './sanitize.ts';
 
 const LINK_PROTOCOLS = new Set(['https:', 'file:']);
 

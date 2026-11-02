@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { DEFAULT_CONFIG } from '../dist/config.js';
+import { DEFAULT_CONFIG } from '../src/config.ts';
 
 const readme = (name) => readFileSync(new URL(`../${name}`, import.meta.url), 'utf8');
 const documented = (markdown) => [...markdown.matchAll(/^\| `([A-Za-z][\w.]+)` \|/gm)].map((match) => match[1]).sort();

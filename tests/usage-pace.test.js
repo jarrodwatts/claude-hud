@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { getUsagePace } from '../dist/usage-pace.js';
+import { getUsagePace } from '../src/usage-pace.ts';
 
 const HOUR = 60 * 60 * 1000;
 const DAY = 24 * HOUR;

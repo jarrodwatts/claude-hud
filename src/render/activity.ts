@@ -1,10 +1,10 @@
-import type { AgentEntry } from '../types.js';
-import { effortInfo, formatEffort } from '../effort.js';
-import { t } from '../i18n/index.js';
-import { displayLabel, sanitizeDisplayText } from '../utils/sanitize.js';
-import { truncateString } from '../utils/truncate.js';
-import type { Frame } from './frame.js';
-import { cyan, green, label, magenta, yellow } from './colors.js';
+import type { AgentEntry } from '../types.ts';
+import { effortInfo, formatEffort } from '../effort.ts';
+import { t } from '../i18n/index.ts';
+import { displayLabel, sanitizeDisplayText } from '../utils/sanitize.ts';
+import { truncateString } from '../utils/truncate.ts';
+import type { Frame } from './frame.ts';
+import { cyan, green, label, magenta, yellow } from './colors.ts';
 
 export type ActivityElement = 'tools' | 'skills' | 'mcp' | 'agents' | 'todos';
 

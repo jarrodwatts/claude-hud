@@ -1,12 +1,12 @@
-import { formatBytes } from '../memory.js';
-import { t } from '../i18n/index.js';
-import { displayLabel } from '../utils/sanitize.js';
-import type { Frame } from './frame.js';
-import { critical, dim, getContextColor, getQuotaColor, label, quotaBar, RESET, warning } from './colors.js';
-import { outputStyle } from './derive.js';
-import { barLabel, type LabelAlign } from './labels.js';
-import { addedDirs, configCountParts } from './parts.js';
-import { formatAbsoluteTime, formatAgo, wallClock } from './time.js';
+import { formatBytes } from '../memory.ts';
+import { t } from '../i18n/index.ts';
+import { displayLabel } from '../utils/sanitize.ts';
+import type { Frame } from './frame.ts';
+import { critical, dim, getContextColor, getQuotaColor, label, quotaBar, RESET, warning } from './colors.ts';
+import { outputStyle } from './derive.ts';
+import { barLabel, type LabelAlign } from './labels.ts';
+import { addedDirs, configCountParts } from './parts.ts';
+import { formatAbsoluteTime, formatAgo, wallClock } from './time.ts';
 
 const MAX_NAMED_MCP_ERRORS = 3;
 const MCP_NAME_MAX = 64;

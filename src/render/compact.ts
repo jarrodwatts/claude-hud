@@ -1,16 +1,16 @@
-import { DEFAULT_PROJECT_LINE_ORDER } from '../config.js';
-import { t } from '../i18n/index.js';
-import type { Frame } from './frame.js';
-import { activityLine, type ActivityElement } from './activity.js';
-import { separatorLine, visibleWidth } from './ansi.js';
-import { contextBarAndValue, tokenBreakdown } from './context.js';
-import { cacheHitRateLine, promptCacheLine, sessionTimeLine } from './lines.js';
-import { orderParts } from './order.js';
+import { DEFAULT_PROJECT_LINE_ORDER } from '../config.ts';
+import { t } from '../i18n/index.ts';
+import type { Frame } from './frame.ts';
+import { activityLine, type ActivityElement } from './activity.ts';
+import { separatorLine, visibleWidth } from './ansi.ts';
+import { contextBarAndValue, tokenBreakdown } from './context.ts';
+import { cacheHitRateLine, promptCacheLine, sessionTimeLine } from './lines.ts';
+import { orderParts } from './order.ts';
 import {
   advisorPart, authPart, compactionsPart, configCountParts, costPart, customLinePart, durationPart, extraPart,
   modelBadge, projectParts, sessionNamePart, sessionTokensSummary, speedPart, versionPart, type Part,
-} from './parts.js';
-import { usageParts } from './usage.js';
+} from './parts.ts';
+import { usageParts } from './usage.ts';
 
 const ACTIVITY: ActivityElement[] = ['tools', 'skills', 'mcp', 'agents', 'todos'];
 

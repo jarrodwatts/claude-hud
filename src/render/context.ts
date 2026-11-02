@@ -1,9 +1,9 @@
-import type { Frame } from './frame.js';
-import { coloredBar, getContextColor, label, RESET } from './colors.js';
-import { t } from '../i18n/index.js';
-import { formatContextValue, formatTokens } from '../utils/format.js';
-import { contextUsage } from './derive.js';
-import { barLabel, type LabelAlign } from './labels.js';
+import type { Frame } from './frame.ts';
+import { coloredBar, getContextColor, label, RESET } from './colors.ts';
+import { t } from '../i18n/index.ts';
+import { formatContextValue, formatTokens } from '../utils/format.ts';
+import { contextUsage } from './derive.ts';
+import { barLabel, type LabelAlign } from './labels.ts';
 
 function thresholds(f: Frame) {
   return {

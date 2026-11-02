@@ -1,12 +1,33 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { access, mkdtemp, readFile, rm, stat, writeFile } from 'node:fs/promises';
+import { access, mkdir, mkdtemp, readFile, rm, stat, writeFile } from 'node:fs/promises';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { tmpdir } from 'node:os';
-import { DEFAULT_CONFIG } from '../dist/config.js';
-import { getUsageFromStdin } from '../dist/stdin.js';
-import { getUsageFromExternalSnapshot, resolveUsage, writeExternalUsageSnapshot } from '../dist/external-usage.js';
+import { DEFAULT_CONFIG } from '../src/config.ts';
+import { getUsageFromStdin } from '../src/stdin.ts';
+import * as logic from '../src/external-usage.ts';
+import { createProbes, resolveUsagePaths, writeUsageSnapshot } from '../collector.mjs';
+
+// Both halves: collector.mjs validates the paths and reads and writes the files; logic parses
+// what was read and decides what to write.
+async function answer(config, probe) {
+  const usage = resolveUsagePaths({ read: config.display.externalUsagePath, write: config.display.externalUsageWritePath });
+  return { usage, value: (await createProbes({ argv: [], usage })([probe]))[probe] };
+}
+
+async function getUsageFromExternalSnapshot(config, now) {
+  return logic.getUsageFromExternalSnapshot((await answer(config, 'usage.read')).value, config, now);
+}
+
+async function resolveUsage(config, stdinUsage, now) {
+  return logic.resolveUsage(config, stdinUsage, (await answer(config, 'usage.read')).value, now);
+}
+
+async function writeExternalUsageSnapshot(config, usage, now) {
+  const { usage: paths, value: target } = await answer(config, 'usage.target');
+  return writeUsageSnapshot(paths.write, logic.externalUsageSnapshot(target, usage, now), now);
+}
 
 async function withTempFile(content) {
   const dir = await mkdtemp(path.join(tmpdir(), 'claude-hud-external-usage-'));
@@ -58,8 +79,8 @@ function makeUsage(overrides = {}) {
   };
 }
 
-test('getUsageFromExternalSnapshot returns null without a configured path', () => {
-  const usage = getUsageFromExternalSnapshot(DEFAULT_CONFIG, Date.now());
+test('getUsageFromExternalSnapshot returns null without a configured path', async () => {
+  const usage = await getUsageFromExternalSnapshot(DEFAULT_CONFIG, Date.now());
   assert.equal(usage, null);
 });
 
@@ -73,7 +94,7 @@ test('getUsageFromExternalSnapshot parses a fresh snapshot', async () => {
   }));
 
   try {
-    const usage = getUsageFromExternalSnapshot(makeConfig(filePath), updatedAt + 60_000);
+    const usage = await getUsageFromExternalSnapshot(makeConfig(filePath), updatedAt + 60_000);
     assert.deepEqual(usage, {
       fiveHour: 42,
       sevenDay: 85,
@@ -85,8 +106,8 @@ test('getUsageFromExternalSnapshot parses a fresh snapshot', async () => {
   }
 });
 
-test('getUsageFromExternalSnapshot ignores relative read paths', () => {
-  const usage = getUsageFromExternalSnapshot(makeConfig('usage.json'), Date.now());
+test('getUsageFromExternalSnapshot ignores relative read paths', async () => {
+  const usage = await getUsageFromExternalSnapshot(makeConfig('usage.json'), Date.now());
   assert.equal(usage, null);
 });
 
@@ -102,7 +123,7 @@ test('writeExternalUsageSnapshot writes stdin rate limits to the configured path
   });
 
   try {
-    const wrote = writeExternalUsageSnapshot(makeWriteConfig(filePath), usage, now);
+    const wrote = await writeExternalUsageSnapshot(makeWriteConfig(filePath), usage, now);
     const snapshot = JSON.parse(await readFile(filePath, 'utf8'));
     const fileMode = (await stat(filePath)).mode & 0o777;
 
@@ -131,9 +152,9 @@ test('writeExternalUsageSnapshot skips identical snapshots within the throttle w
   const usage = makeUsage();
 
   try {
-    assert.equal(writeExternalUsageSnapshot(config, usage, Date.now()), true);
+    assert.equal(await writeExternalUsageSnapshot(config, usage, Date.now()), true);
     const firstStat = await stat(filePath);
-    assert.equal(writeExternalUsageSnapshot(config, usage, Date.now() + 1000), false);
+    assert.equal(await writeExternalUsageSnapshot(config, usage, Date.now() + 1000), false);
     const secondStat = await stat(filePath);
 
     assert.equal(secondStat.mtimeMs, firstStat.mtimeMs);
@@ -142,24 +163,24 @@ test('writeExternalUsageSnapshot skips identical snapshots within the throttle w
   }
 });
 
-test('writeExternalUsageSnapshot never touches the filesystem for an unusable path or usage', () => {
-  const calls = [];
-  const untouchable = Object.fromEntries(
-    ['chmodSync', 'readFileSync', 'renameSync', 'rmSync', 'statSync', 'writeFileSync']
-      .map((name) => [name, () => calls.push(name)]),
-  );
-  const target = path.join(tmpdir(), 'usage.json');
+test('writeExternalUsageSnapshot writes nothing for an unusable path or usage', async () => {
+  const dir = await mkdtemp(path.join(tmpdir(), 'claude-hud-external-usage-write-'));
+  const target = path.join(dir, 'usage.json');
   const scopedOnly = { fiveHour: null, sevenDay: null, fiveHourResetAt: null, sevenDayResetAt: null, scopedWindows: [{ label: 'Fable', percent: 38, resetAt: null }] };
-  for (const [config, usage] of [
-    [DEFAULT_CONFIG, makeUsage()],
-    [makeWriteConfig('usage.json'), makeUsage()],
-    [makeWriteConfig(path.join(tmpdir(), 'usage.txt')), makeUsage()],
-    [makeWriteConfig(target), getUsageFromStdin({ rate_limits: null })],
-    [makeWriteConfig(target), scopedOnly],
-  ]) {
-    assert.equal(writeExternalUsageSnapshot(config, usage, Date.now(), untouchable), false);
+  try {
+    for (const [config, usage] of [
+      [DEFAULT_CONFIG, makeUsage()],
+      [makeWriteConfig('usage.json'), makeUsage()],
+      [makeWriteConfig(path.join(dir, 'usage.txt')), makeUsage()],
+      [makeWriteConfig(target), getUsageFromStdin({ rate_limits: null })],
+      [makeWriteConfig(target), scopedOnly],
+    ]) {
+      assert.equal(await writeExternalUsageSnapshot(config, usage, Date.now()), false);
+    }
+    assert.deepEqual(await fs.promises.readdir(dir), []);
+  } finally {
+    await rm(dir, { recursive: true, force: true });
   }
-  assert.deepEqual(calls, []);
 });
 
 test('writeExternalUsageSnapshot does not create missing parent directories', async () => {
@@ -168,7 +189,7 @@ test('writeExternalUsageSnapshot does not create missing parent directories', as
   const filePath = path.join(missingDir, 'usage.json');
 
   try {
-    const wrote = writeExternalUsageSnapshot(makeWriteConfig(filePath), makeUsage(), Date.now());
+    const wrote = await writeExternalUsageSnapshot(makeWriteConfig(filePath), makeUsage(), Date.now());
 
     assert.equal(wrote, false);
     assert.equal(await pathExists(missingDir), false);
@@ -181,27 +202,30 @@ test('writeExternalUsageSnapshot does not create missing parent directories', as
 test('writeExternalUsageSnapshot removes temp files when atomic rename fails', async () => {
   const dir = await mkdtemp(path.join(tmpdir(), 'claude-hud-external-usage-write-'));
   const filePath = path.join(dir, 'usage.json');
-  const deps = {
-    chmodSync: fs.chmodSync,
-    readFileSync: fs.readFileSync,
-    renameSync: () => {
-      throw new Error('rename failed');
-    },
-    rmSync: fs.rmSync,
-    statSync: fs.statSync,
-    writeFileSync: fs.writeFileSync,
-  };
+  // A non-empty directory at the target makes the rename fail.
+  await mkdir(filePath);
+  await writeFile(path.join(filePath, 'keep'), 'x');
 
   try {
-    const wrote = writeExternalUsageSnapshot(makeWriteConfig(filePath), makeUsage(), Date.now(), deps);
-    const files = await fs.promises.readdir(dir);
+    const wrote = await writeExternalUsageSnapshot(makeWriteConfig(filePath), makeUsage(), Date.now());
 
     assert.equal(wrote, false);
-    assert.equal(await pathExists(filePath), false);
-    assert.deepEqual(files, []);
+    assert.deepEqual(await fs.promises.readdir(dir), ['usage.json']);
+    assert.deepEqual(await fs.promises.readdir(filePath), ['keep']);
   } finally {
     await rm(dir, { recursive: true, force: true });
   }
+});
+
+test('the usage paths must be absolute, and the write path a .json file', () => {
+  const home = path.join(tmpdir(), 'home');
+  assert.deepEqual(resolveUsagePaths({ read: 'usage.json', write: 'usage.json' }, home, {}), { read: null, write: null });
+  assert.deepEqual(resolveUsagePaths({ read: '~/u.json', write: '${OUT}/w.JSON' }, home, { OUT: home }), {
+    read: path.join(home, 'u.json'),
+    write: path.join(home, 'w.JSON'),
+  });
+  assert.equal(resolveUsagePaths({ write: path.join(home, 'w.txt') }, home, {}).write, null);
+  assert.deepEqual(resolveUsagePaths({ read: 42, write: null }, home, {}), { read: null, write: null });
 });
 
 test('writeExternalUsageSnapshot emits only supported snapshot keys', async () => {
@@ -216,7 +240,7 @@ test('writeExternalUsageSnapshot emits only supported snapshot keys', async () =
   });
 
   try {
-    writeExternalUsageSnapshot(makeWriteConfig(filePath), usage, Date.now());
+    await writeExternalUsageSnapshot(makeWriteConfig(filePath), usage, Date.now());
     const snapshot = JSON.parse(await readFile(filePath, 'utf8'));
 
     assert.deepEqual(Object.keys(snapshot).sort(), ['five_hour', 'seven_day', 'updated_at']);
@@ -233,8 +257,8 @@ test('writeExternalUsageSnapshot output can be read by getUsageFromExternalSnaps
   const now = Date.UTC(2026, 3, 20, 12, 0, 0);
 
   try {
-    writeExternalUsageSnapshot(makeWriteConfig(filePath), makeUsage(), now);
-    const usage = getUsageFromExternalSnapshot(makeConfig(filePath), now + 1000);
+    await writeExternalUsageSnapshot(makeWriteConfig(filePath), makeUsage(), now);
+    const usage = await getUsageFromExternalSnapshot(makeConfig(filePath), now + 1000);
 
     assert.deepEqual(usage, makeUsage());
   } finally {
@@ -250,7 +274,7 @@ test('getUsageFromExternalSnapshot parses optional balance labels', async () => 
   }));
 
   try {
-    const usage = getUsageFromExternalSnapshot(makeConfig(filePath), updatedAt + 60_000);
+    const usage = await getUsageFromExternalSnapshot(makeConfig(filePath), updatedAt + 60_000);
     assert.deepEqual(usage, {
       fiveHour: null,
       sevenDay: null,
@@ -272,7 +296,7 @@ test('getUsageFromExternalSnapshot sanitizes balance labels before rendering', a
   }));
 
   try {
-    const usage = getUsageFromExternalSnapshot(makeConfig(filePath), updatedAt + 60_000);
+    const usage = await getUsageFromExternalSnapshot(makeConfig(filePath), updatedAt + 60_000);
     assert.equal(usage?.balanceLabel, 'click');
   } finally {
     await cleanup();
@@ -287,7 +311,7 @@ test('getUsageFromExternalSnapshot ignores stale snapshots', async () => {
   }));
 
   try {
-    const usage = getUsageFromExternalSnapshot(makeConfig(filePath, 1000), updatedAt + 1001);
+    const usage = await getUsageFromExternalSnapshot(makeConfig(filePath, 1000), updatedAt + 1001);
     assert.equal(usage, null);
   } finally {
     await cleanup();
@@ -302,7 +326,7 @@ test('getUsageFromExternalSnapshot rejects invalid schema data', async () => {
   }));
 
   try {
-    const usage = getUsageFromExternalSnapshot(makeConfig(filePath), updatedAt + 1);
+    const usage = await getUsageFromExternalSnapshot(makeConfig(filePath), updatedAt + 1);
     assert.equal(usage, null);
   } finally {
     await cleanup();
@@ -313,7 +337,7 @@ test('getUsageFromExternalSnapshot returns null for invalid JSON', async () => {
   const { filePath, cleanup } = await withTempFile('{');
 
   try {
-    const usage = getUsageFromExternalSnapshot(makeConfig(filePath), Date.now());
+    const usage = await getUsageFromExternalSnapshot(makeConfig(filePath), Date.now());
     assert.equal(usage, null);
   } finally {
     await cleanup();
@@ -331,7 +355,7 @@ test('getUsageFromExternalSnapshot parses model-scoped windows', async () => {
   }));
 
   try {
-    const usage = getUsageFromExternalSnapshot(makeConfig(filePath), updatedAt + 60_000);
+    const usage = await getUsageFromExternalSnapshot(makeConfig(filePath), updatedAt + 60_000);
     assert.deepEqual(usage?.scopedWindows, [{
       label: 'Fable',
       percent: 89,
@@ -353,7 +377,7 @@ test('getUsageFromExternalSnapshot accepts a scoped-only snapshot', async () => 
   }));
 
   try {
-    const usage = getUsageFromExternalSnapshot(makeConfig(filePath), updatedAt + 60_000);
+    const usage = await getUsageFromExternalSnapshot(makeConfig(filePath), updatedAt + 60_000);
     assert.deepEqual(usage, {
       fiveHour: null,
       sevenDay: null,
@@ -379,7 +403,7 @@ test('getUsageFromExternalSnapshot drops malformed scoped entries and sanitizes 
   }));
 
   try {
-    const usage = getUsageFromExternalSnapshot(makeConfig(filePath), updatedAt + 60_000);
+    const usage = await getUsageFromExternalSnapshot(makeConfig(filePath), updatedAt + 60_000);
     assert.deepEqual(usage?.scopedWindows, [{ label: 'Fable', percent: 12, resetAt: null }]);
   } finally {
     await cleanup();
@@ -396,7 +420,7 @@ test('getUsageFromExternalSnapshot cuts a scoped label on a grapheme boundary', 
   }));
 
   try {
-    const usage = getUsageFromExternalSnapshot(makeConfig(filePath), updatedAt + 60_000);
+    const usage = await getUsageFromExternalSnapshot(makeConfig(filePath), updatedAt + 60_000);
     assert.deepEqual(usage?.scopedWindows, [{ label: 'A'.repeat(63), percent: 12, resetAt: null }]);
   } finally {
     await cleanup();
@@ -412,7 +436,7 @@ test('getUsageFromExternalSnapshot ignores a non-array model_scoped value', asyn
   }));
 
   try {
-    const usage = getUsageFromExternalSnapshot(makeConfig(filePath), updatedAt + 60_000);
+    const usage = await getUsageFromExternalSnapshot(makeConfig(filePath), updatedAt + 60_000);
     assert.equal(usage?.scopedWindows, undefined);
     assert.equal(usage?.fiveHour, 10);
   } finally {
@@ -427,7 +451,7 @@ test('getUsageFromExternalSnapshot bounds and clamps scoped windows', async () =
     model_scoped: Array.from({ length: 12 }, (_, i) => ({ display_name: `${'x'.repeat(100)}${i}`, utilization: i === 0 ? 140 : -5 })),
   }));
   try {
-    const windows = getUsageFromExternalSnapshot(makeConfig(filePath), updatedAt)?.scopedWindows ?? [];
+    const windows = (await getUsageFromExternalSnapshot(makeConfig(filePath), updatedAt))?.scopedWindows ?? [];
     assert.equal(windows.length, 8);
     assert.equal(windows[0].label.length, 64);
     assert.deepEqual(windows.slice(0, 2).map((w) => w.percent), [100, 0]);
@@ -448,15 +472,15 @@ test('resolveUsage prefers stdin and fills gaps from the snapshot', async () => 
   try {
     const config = makeConfig(filePath);
     const fiveHourOnly = makeUsage({ sevenDay: null, sevenDayResetAt: null });
-    assert.deepEqual(resolveUsage(config, fiveHourOnly, updatedAt), {
+    assert.deepEqual(await resolveUsage(config, fiveHourOnly, updatedAt), {
       ...fiveHourOnly,
       balanceLabel: '¥6.35',
       sevenDay: 60,
       sevenDayResetAt: new Date('2026-04-27T12:00:00.000Z'),
       scopedWindows: [{ label: 'Fable', percent: 38, resetAt: null }],
     });
-    assert.equal(resolveUsage(config, null, updatedAt)?.fiveHour, 90, 'snapshot stands in when stdin has none');
-    assert.equal(resolveUsage(makeConfig(''), makeUsage(), updatedAt).balanceLabel, undefined);
+    assert.equal((await resolveUsage(config, null, updatedAt))?.fiveHour, 90, 'snapshot stands in when stdin has none');
+    assert.equal((await resolveUsage(makeConfig(''), makeUsage(), updatedAt)).balanceLabel, undefined);
   } finally {
     await cleanup();
   }

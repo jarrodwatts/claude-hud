@@ -1,8 +1,8 @@
 import * as fs from 'node:fs';
 import * as os from 'node:os';
-import { getClaudeConfigJsonPath } from './claude-config-dir.js';
-import { displayLabel } from './utils/sanitize.js';
-import { truncateString } from './utils/truncate.js';
+import { getClaudeConfigJsonPath } from './claude-config-dir.ts';
+import { displayLabel } from './utils/sanitize.ts';
+import { truncateString } from './utils/truncate.ts';
 
 /**
  * Authentication info for the current Claude Code login, derived from the

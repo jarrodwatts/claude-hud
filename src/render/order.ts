@@ -1,5 +1,5 @@
-import type { FirstLineSegment } from '../config.js';
-import type { Part } from './parts.js';
+import type { FirstLineSegment } from '../config.ts';
+import type { Part } from './parts.ts';
 
 /**
  * Applies projectLineOrder to the keyed parts. Unkeyed parts keep their slots, a key's

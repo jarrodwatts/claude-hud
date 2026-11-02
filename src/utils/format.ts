@@ -1,4 +1,4 @@
-import type { ContextUsage } from '../stdin.js';
+import type { ContextUsage } from '../stdin.ts';
 
 /** `1.2M`, `45k`, or `800`. */
 export function formatTokens(n: number): string {

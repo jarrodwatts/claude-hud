@@ -1,4 +1,4 @@
-import type { RenderContext } from '../types.js';
+import type { RenderContext } from '../types.ts';
 
 // Everything a render reads, with the clock and terminal width sampled once.
 export interface Frame extends RenderContext {

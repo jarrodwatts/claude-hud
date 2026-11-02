@@ -1,0 +1,223 @@
+// The status line command. Claude Code runs it after each message with a JSON payload on stdin.
+//
+//   stdin ─▶ hud.mjs ─▶ collector.mjs: data/, grants, probes (the only code that runs programs)
+//                └──▶ node --permission … --import=fence.mjs src/main.ts   (logic, caged)
+//                         asks for probes by name ◀─▶ answers; returns {lines, snapshot?}
+//            ◀── lines, filtered to colour codes and file:/github.com links ─▶ terminal
+//
+// Launchers already on users' machines reach main() through dist/index.js and src/index.ts.
+// Keep this file's syntax loadable by old Node and Bun, so they can print the upgrade line.
+import { spawn } from 'node:child_process';
+import fs from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath, pathToFileURL } from 'node:url';
+
+const ROOT = path.dirname(fileURLToPath(import.meta.url));
+const LOGIC = path.join(ROOT, 'src', 'main.ts');
+const FENCE = pathToFileURL(path.join(ROOT, 'fence.mjs')).href;
+const MAX_OUTPUT_BYTES = 64 * 1024;
+const WALL_MS = 10_000;
+
+// CLAUDE_HUD_DISABLE=1 blanks the HUD for one session while keeping the statusLine setting.
+export function isHudDisabled(env = process.env) {
+  const value = env.CLAUDE_HUD_DISABLE?.trim().toLowerCase();
+  return !!value && !['0', 'false', 'off', 'no'].includes(value);
+}
+
+// Type stripping, --permission and module.registerHooks are all unflagged from 22.18.
+export function isNodeSupported(version = process.versions.node) {
+  const [major, minor] = version.split('.').map(Number);
+  return major > 22 || (major === 22 && minor >= 18);
+}
+
+const upgradeLine = (runtime) => `claude-hud needs Node 22.18+ (this is ${runtime}). Type /hud to fix it.`;
+
+// Only SGR colour and OSC 8 links to file: or github.com survive; every other control byte goes.
+const ALLOWED = /(\x1b\[[0-9;]*m|\x1b\]8;;(?:(?:https:\/\/github\.com\/|file:\/\/)[^\x00-\x1f\x7f-\x9f]*)?\x1b\\)|[\x00-\x1f\x7f-\x9f]/g;
+export const filterLine = (line) => String(line).replace(ALLOWED, (match, kept) => kept ?? '');
+
+function print(lines) {
+  if (lines.length > 0) process.stdout.write(lines.map((line) => `${filterLine(line)}\n`).join(''));
+}
+
+const NO_DATA_TIMEOUT_MS = 250;
+const IDLE_TIMEOUT_MS = 250;
+const MAX_STDIN_BYTES = 256 * 1024;
+
+// Null for a TTY (setup's manual run), no input, oversized input, or invalid JSON. Resolves as
+// soon as the buffered text parses, or after incomplete input goes idle.
+export function readStdin(stream = process.stdin) {
+  if (stream.isTTY) return Promise.resolve(null);
+  return new Promise((resolve) => {
+    let raw = '';
+    let done = false;
+    let idleTimer;
+    const finish = (value) => {
+      if (done) return;
+      done = true;
+      clearTimeout(noDataTimer);
+      clearTimeout(idleTimer);
+      stream.pause();
+      resolve(value);
+    };
+    const parse = () => {
+      try {
+        const value = JSON.parse(raw);
+        return value !== null && typeof value === 'object' ? value : null;
+      } catch {
+        return null;
+      }
+    };
+    const noDataTimer = setTimeout(() => {
+      if (!raw) finish(null);
+    }, NO_DATA_TIMEOUT_MS);
+    stream.setEncoding('utf8');
+    stream.on('data', (chunk) => {
+      raw += chunk;
+      if (raw.length > MAX_STDIN_BYTES) return finish(null);
+      const parsed = parse();
+      if (parsed) return finish(parsed);
+      clearTimeout(idleTimer);
+      idleTimer = setTimeout(() => finish(parse()), IDLE_TIMEOUT_MS);
+    });
+    stream.on('end', () => finish(parse()));
+    stream.on('error', () => finish(null));
+  });
+}
+
+// Logic sees no secrets: no PATH, no tokens. It only learns whether an API key is set, and the
+// base URL without credentials or query.
+const PASSED_ENV = ['HOME', 'USERPROFILE', 'HOMEDRIVE', 'HOMEPATH', 'SystemRoot', 'TZ', 'LANG', 'LANGUAGE', 'LC_ALL', 'LC_CTYPE',
+  'LC_TIME', 'LC_MESSAGES', 'COLUMNS', 'DEBUG', 'CLAUDE_CONFIG_DIR', 'CLAUDE_CODE_USE_BEDROCK', 'CLAUDE_CODE_USE_VERTEX'];
+
+export function cageEnv(env = process.env) {
+  const caged = { PATH: '' };
+  for (const name of PASSED_ENV) if (typeof env[name] === 'string') caged[name] = env[name];
+  if (env.ANTHROPIC_API_KEY?.trim()) caged.ANTHROPIC_API_KEY = 'set';
+  for (const name of ['ANTHROPIC_BASE_URL', 'ANTHROPIC_API_BASE_URL']) {
+    try {
+      const url = new URL(env[name]?.trim() ?? '');
+      caged[name] = `${url.origin}${url.pathname}`;
+    } catch { /* unset or not a URL */ }
+  }
+  return caged;
+}
+
+/** Node flags for the cage. Never --allow-child-process, --allow-worker, --allow-addons or --allow-wasi. */
+export function cageArgs({ grants, dataDir, entry = LOGIC }) {
+  return ['--permission', ...grants.map((grant) => `--allow-fs-read=${grant}`), ...(dataDir ? [`--allow-fs-write=${dataDir}`] : []),
+    '--disallow-code-generation-from-strings', `--import=${FENCE}`, entry];
+}
+
+/** Runs caged logic: sends the payload, answers its probes, and resolves with its {lines, snapshot?}. */
+export function runCage({ stdin, dataDir, writable = true, grants, env = process.env, probes, entry }) {
+  return new Promise((resolve, reject) => {
+    // Node 24 also caches type-stripped source there, which halves logic's startup.
+    const compileCache = writable ? { NODE_COMPILE_CACHE: path.join(dataDir, 'cache') } : {};
+    const child = spawn(process.execPath, cageArgs({ grants, dataDir: writable ? dataDir : null, entry }), {
+      env: { ...cageEnv(env), ...compileCache }, stdio: ['pipe', 'pipe', 'pipe'], windowsHide: true,
+    });
+    let settled = false;
+    const settle = (error, output) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      child.stdin.end();
+      if (error) {
+        child.kill('SIGKILL');
+        reject(error);
+      } else {
+        resolve(output);
+      }
+    };
+    const timer = setTimeout(() => settle(new Error('timed out')), WALL_MS);
+    const send = (message) => {
+      if (!settled) child.stdin.write(`${JSON.stringify(message)}\n`);
+    };
+    let buffered = '';
+    let bytes = 0;
+    child.stdout.setEncoding('utf8');
+    child.stdout.on('data', (chunk) => {
+      bytes += Buffer.byteLength(chunk);
+      if (bytes > MAX_OUTPUT_BYTES) return settle(new Error('output too large'));
+      buffered += chunk;
+      for (let newline = buffered.indexOf('\n'); newline !== -1; newline = buffered.indexOf('\n')) {
+        let message;
+        try {
+          message = JSON.parse(buffered.slice(0, newline));
+        } catch {
+          return settle(new Error('unreadable output'));
+        }
+        buffered = buffered.slice(newline + 1);
+        if (Array.isArray(message?.lines)) return settle(null, { lines: message.lines.map(String), snapshot: message.snapshot });
+        if (Number.isSafeInteger(message?.id)) {
+          probes(message.ask).catch(() => ({})).then((answers) => send({ id: message.id, answers }));
+        }
+      }
+    });
+    if (env.DEBUG) child.stderr.pipe(process.stderr);
+    else child.stderr.resume();
+    child.stdin.on('error', () => {});
+    child.on('error', (error) => settle(error));
+    child.on('close', (code) => settle(new Error(`logic exited with code ${code}`)));
+    send({ stdin, dataDir, now: Date.now() });
+  });
+}
+
+// Bun has no permission model, so logic always runs on Node: hand the whole render to `node`.
+function relayToNode(argv) {
+  const node = globalThis.Bun?.which('node');
+  return new Promise((resolve) => {
+    if (!node) {
+      print([upgradeLine(`Bun ${process.versions.bun}`)]);
+      return resolve();
+    }
+    const child = spawn(node, [path.join(ROOT, 'hud.mjs'), ...argv.slice(2)], { stdio: 'inherit' });
+    child.on('error', () => resolve(print([upgradeLine(`Bun ${process.versions.bun}`)])));
+    child.on('close', () => resolve());
+  });
+}
+
+export async function main({ argv = process.argv, env = process.env } = {}) {
+  if (isHudDisabled(env)) return;
+  if (process.versions.bun) return relayToNode(argv);
+  if (!isNodeSupported()) return print([upgradeLine(process.version)]);
+
+  try {
+    const collector = await import('./collector.mjs');
+    const stdin = await readStdin();
+    const paths = collector.claudePaths(env);
+    let dataDir = paths.dataDir;
+    let writable = true;
+    try {
+      dataDir = collector.prepareDataDir(paths);
+    } catch {
+      writable = false; // A read-only home only costs the caches and the cost ledger.
+    }
+    const usage = collector.usagePaths(paths, env);
+    const output = await runCage({
+      stdin,
+      dataDir,
+      writable,
+      grants: collector.readGrants({ root: ROOT, dataDir, paths, stdin }),
+      env,
+      probes: collector.createProbes({ cwd: stdin?.cwd, argv, env, usage }),
+    });
+    if (output.snapshot) collector.writeUsageSnapshot(usage.write, output.snapshot);
+    print(output.lines);
+  } catch (error) {
+    print([`[claude-hud] Error: ${error instanceof Error ? error.message : 'Unknown error'}`]);
+  }
+}
+
+const isSamePath = (a, b) => {
+  try {
+    return fs.realpathSync(a) === fs.realpathSync(b);
+  } catch {
+    return false;
+  }
+};
+const ENTRIES = [path.join(ROOT, 'hud.mjs'), path.join(ROOT, 'dist', 'index.js'), path.join(ROOT, 'src', 'index.ts')];
+if (process.argv[1] && ENTRIES.some((entry) => isSamePath(process.argv[1], entry))) {
+  await main();
+}

@@ -1,12 +1,12 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import * as os from 'node:os';
-import { expandHomeDirPrefix, getClaudeConfigDir, getHudPluginDir } from './claude-config-dir.js';
-import { createDebug } from './debug.js';
-import type { Language } from './i18n/types.js';
-import { MAX_TERMINAL_WIDTH } from './utils/terminal.js';
-import { sanitizeDisplayText } from './utils/sanitize.js';
-import { truncateString } from './utils/truncate.js';
+import { expandHomeDirPrefix, getClaudeConfigDir, getHudPluginDir } from './claude-config-dir.ts';
+import { createDebug } from './debug.ts';
+import type { Language } from './i18n/types.ts';
+import { MAX_TERMINAL_WIDTH } from './utils/terminal.ts';
+import { sanitizeDisplayText } from './utils/sanitize.ts';
+import { truncateString } from './utils/truncate.ts';
 
 const debug = createDebug('config');
 const MAX_CONFIG_FILE_BYTES = 64 * 1024;

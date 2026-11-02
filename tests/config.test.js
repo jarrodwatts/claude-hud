@@ -11,7 +11,7 @@ import {
   DEFAULT_CONFIG,
   DEFAULT_ELEMENT_ORDER,
   DEFAULT_MERGE_GROUPS,
-} from '../dist/config.js';
+} from '../src/config.ts';
 
 function withPath(keyPath, value) {
   const keys = keyPath.split('.');

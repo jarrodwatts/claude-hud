@@ -1,5 +1,5 @@
-import type { HudColorName, HudColorValue, HudColorOverrides, UsageValueMode } from '../config.js';
-import { isPaceAlert, type UsagePace } from '../usage-pace.js';
+import type { HudColorName, HudColorValue, HudColorOverrides, UsageValueMode } from '../config.ts';
+import { isPaceAlert, type UsagePace } from '../usage-pace.ts';
 
 export const RESET = '\x1b[0m';
 

@@ -10,12 +10,12 @@ import {
   getCostTotals,
   getDailyCostLedgerPath,
   DAILY_COST_WRITE_THROTTLE_MS,
-} from '../dist/daily-cost.js';
+} from '../src/daily-cost.ts';
 
-let homeDir;
+let dataDir;
 
 function deps(now) {
-  return { homeDir: () => homeDir, now: () => now };
+  return { dataDir: () => dataDir, now: () => now };
 }
 
 function localDateKey(now) {
@@ -26,7 +26,7 @@ function localDateKey(now) {
 }
 
 function readLedger() {
-  return JSON.parse(fs.readFileSync(getDailyCostLedgerPath(homeDir), 'utf8'));
+  return JSON.parse(fs.readFileSync(getDailyCostLedgerPath(dataDir), 'utf8'));
 }
 
 // Noon local time, so +/- a few hours never crosses a day boundary.
@@ -35,11 +35,11 @@ const NOON = new Date(2026, 6, 15, 12, 0, 0).getTime();
 const DAY_MS = 24 * 60 * 60 * 1000;
 
 beforeEach(async () => {
-  homeDir = await mkdtemp(path.join(tmpdir(), 'claude-hud-daily-'));
+  dataDir = await mkdtemp(path.join(tmpdir(), 'claude-hud-daily-'));
 });
 
 afterEach(async () => {
-  await rm(homeDir, { recursive: true, force: true });
+  await rm(dataDir, { recursive: true, force: true });
 });
 
 test('returns null when nothing has been recorded', () => {
@@ -96,7 +96,7 @@ test('drops sessions unseen for more than 24 hours', () => {
 });
 
 test('recovers from a corrupt ledger file', () => {
-  const ledgerPath = getDailyCostLedgerPath(homeDir);
+  const ledgerPath = getDailyCostLedgerPath(dataDir);
   fs.mkdirSync(path.dirname(ledgerPath), { recursive: true });
   fs.writeFileSync(ledgerPath, 'not json{');
 
@@ -105,7 +105,7 @@ test('recovers from a corrupt ledger file', () => {
 });
 
 test('ignores malformed session entries in the ledger', () => {
-  const ledgerPath = getDailyCostLedgerPath(homeDir);
+  const ledgerPath = getDailyCostLedgerPath(dataDir);
   fs.mkdirSync(path.dirname(ledgerPath), { recursive: true });
   fs.writeFileSync(ledgerPath, JSON.stringify({
     date: localDateKey(NOON),
@@ -140,7 +140,7 @@ test('still reports the ledger total when the current payload has no cost', () =
 
 test('persists content changes immediately and throttles ts-only refreshes', () => {
   todayUsd({ session_id: 'a', cost: { total_cost_usd: 1.0 } }, undefined, deps(NOON));
-  const ledgerPath = getDailyCostLedgerPath(homeDir);
+  const ledgerPath = getDailyCostLedgerPath(dataDir);
   const firstMtime = fs.statSync(ledgerPath).mtimeMs;
 
   // Unchanged total within the throttle window: no rewrite.
@@ -222,17 +222,17 @@ if (stallMs > 0) {
 getCostTotals(
   { session_id: process.env.HUD_SESSION, cost: { total_cost_usd: Number(process.env.HUD_COST) } },
   undefined,
-  { homeDir: () => home, now: () => Number(process.env.HUD_NOW) },
+  { dataDir: () => home, now: () => Number(process.env.HUD_NOW) },
 );
 `;
 
 function childProcess(session, cost, nowMs, stallMs = 0) {
-  const modulePath = fileURLToPath(new URL('../dist/daily-cost.js', import.meta.url));
+  const modulePath = fileURLToPath(new URL('../src/daily-cost.ts', import.meta.url));
   return spawn(process.execPath, ['--input-type=module', '-e', CHILD_SOURCE], {
     env: {
       ...process.env,
       HUD_MODULE: pathToFileURL(modulePath).href,
-      HUD_HOME: homeDir,
+      HUD_HOME: dataDir,
       HUD_SESSION: session,
       HUD_COST: String(cost),
       HUD_NOW: String(nowMs),
@@ -273,11 +273,11 @@ test('many processes updating at once all end up in the ledger', async () => {
 
   const sessions = readLedger().sessions;
   for (const [i, id] of ids.entries()) assert.equal(sessions[id]?.baseline, i + 1, id);
-  assert.deepEqual(fs.readdirSync(path.dirname(getDailyCostLedgerPath(homeDir))).sort(), ['daily-cost.json']);
+  assert.deepEqual(fs.readdirSync(path.dirname(getDailyCostLedgerPath(dataDir))).sort(), ['daily-cost.json']);
 });
 
 test('a lock left behind by a crashed process does not block updates', () => {
-  const ledgerPath = getDailyCostLedgerPath(homeDir);
+  const ledgerPath = getDailyCostLedgerPath(dataDir);
   fs.mkdirSync(path.dirname(ledgerPath), { recursive: true });
   const lockPath = `${ledgerPath}.lock`;
   fs.writeFileSync(lockPath, '');

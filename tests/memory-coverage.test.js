@@ -1,67 +1,55 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { _setMemoryReaderForTests, formatBytes, getMemoryUsage, parseLinuxMeminfo, parseVmStat } from '../dist/memory.js';
+import { formatBytes, getMemoryUsage, parseLinuxMeminfo, parseVmStat } from '../src/memory.ts';
 
 test('getMemoryUsage returns null when totalBytes is zero', async () => {
-  _setMemoryReaderForTests(() => ({
+  const result = getMemoryUsage({
     totalBytes: 0,
     freeBytes: 0,
-  }));
-
-  const result = await getMemoryUsage();
+  });
   assert.equal(result, null);
 });
 
 test('getMemoryUsage returns null when totalBytes is negative', async () => {
-  _setMemoryReaderForTests(() => ({
+  const result = getMemoryUsage({
     totalBytes: -1,
     freeBytes: 0,
-  }));
-
-  const result = await getMemoryUsage();
+  });
   assert.equal(result, null);
 });
 
 test('getMemoryUsage returns null when totalBytes is non-finite', async () => {
-  _setMemoryReaderForTests(() => ({
+  const result = getMemoryUsage({
     totalBytes: Infinity,
     freeBytes: 1000,
-  }));
-
-  const result = await getMemoryUsage();
+  });
   assert.equal(result, null);
 });
 
 test('getMemoryUsage treats non-finite freeBytes as 0', async () => {
-  _setMemoryReaderForTests(() => ({
+  const result = getMemoryUsage({
     totalBytes: 8 * 1024 ** 3,
     freeBytes: NaN,
-  }));
-
-  const result = await getMemoryUsage();
+  });
   assert.equal(result.usedPercent, 100);
   assert.equal(result.freeBytes, 0);
   assert.equal(result.usedBytes, 8 * 1024 ** 3);
 });
 
 test('getMemoryUsage clamps negative freeBytes to 0', async () => {
-  _setMemoryReaderForTests(() => ({
+  const result = getMemoryUsage({
     totalBytes: 16 * 1024 ** 3,
     freeBytes: -500,
-  }));
-
-  const result = await getMemoryUsage();
+  });
   assert.equal(result.freeBytes, 0);
   assert.equal(result.usedPercent, 100);
 });
 
 test('getMemoryUsage calculates correct percentages for normal values', async () => {
-  _setMemoryReaderForTests(() => ({
+  const result = getMemoryUsage({
     totalBytes: 16 * 1024 ** 3,
     freeBytes: 8 * 1024 ** 3,
-  }));
-
-  const result = await getMemoryUsage();
+  });
   assert.equal(result.usedPercent, 50);
   assert.equal(result.usedBytes, 8 * 1024 ** 3);
   assert.equal(result.freeBytes, 8 * 1024 ** 3);
@@ -70,12 +58,10 @@ test('getMemoryUsage calculates correct percentages for normal values', async ()
 
 test('getMemoryUsage clamps usedPercent between 0 and 100', async () => {
   // freeBytes larger than totalBytes → clamp free to total → used = 0
-  _setMemoryReaderForTests(() => ({
+  const result = getMemoryUsage({
     totalBytes: 4 * 1024 ** 3,
     freeBytes: 5 * 1024 ** 3,
-  }));
-
-  const result = await getMemoryUsage();
+  });
   assert.equal(result.usedPercent, 0);
   assert.equal(result.freeBytes, 4 * 1024 ** 3);
 });
@@ -119,8 +105,4 @@ test('formatBytes handles edge cases', () => {
   assert.equal(formatBytes(1024 ** 4), '1.0 TB');
   assert.equal(formatBytes(5.5 * 1024), '5.5 KB');
   assert.equal(formatBytes(15 * 1024), '15 KB');
-});
-
-test.after(() => {
-  _setMemoryReaderForTests(null);
 });

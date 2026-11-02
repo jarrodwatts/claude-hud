@@ -1,4 +1,4 @@
-import { truncateString } from './truncate.js';
+import { truncateString } from './truncate.ts';
 
 // C0 and C1 controls, DEL, and the bidi marks, embeddings, overrides, and isolates.
 const CONTROL_AND_BIDI = /[\u0000-\u001F\u007F-\u009F؜‎‏‪-‮⁦-⁩⁪-⁯]/g;

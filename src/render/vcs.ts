@@ -1,10 +1,10 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
-import { DEFAULT_CONFIG } from '../config.js';
-import type { Frame, Layout } from './frame.js';
-import { critical, dim, git as gitColor, gitBranch, green, red, warning, yellow } from './colors.js';
-import { getFileHref, safeHyperlink } from '../utils/hyperlinks.js';
-import { sanitizeDisplayText } from '../utils/sanitize.js';
+import { DEFAULT_CONFIG } from '../config.ts';
+import type { Frame, Layout } from './frame.ts';
+import { critical, dim, git as gitColor, gitBranch, green, red, warning, yellow } from './colors.ts';
+import { getFileHref, safeHyperlink } from '../utils/hyperlinks.ts';
+import { sanitizeDisplayText } from '../utils/sanitize.ts';
 
 function aheadCount(f: Frame, ahead: number): string {
   const config = f.config.gitStatus ?? DEFAULT_CONFIG.gitStatus;

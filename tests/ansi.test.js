@@ -1,7 +1,7 @@
 import { test, afterEach } from 'node:test';
 import assert from 'node:assert/strict';
-import { separatorLine, textWidth, visibleWidth, wrapToWidth } from '../dist/render/ansi.js';
-import { setLanguage } from '../dist/i18n/index.js';
+import { separatorLine, textWidth, visibleWidth, wrapToWidth } from '../src/render/ansi.ts';
+import { setLanguage } from '../src/i18n/index.ts';
 
 const RESET = '\x1b[0m';
 const link = (url, text, end = '\x1b\\') => `\x1b]8;;${url}${end}${text}\x1b]8;;${end}`;

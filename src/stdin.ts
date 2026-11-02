@@ -1,63 +1,7 @@
-import type { StdinData, UsageData, TranscriptData } from './types.js';
-import type { ModelFormatMode } from './config.js';
-import { sanitizeTranscriptModel } from './model-source.js';
-import { displayLabel } from './utils/sanitize.js';
-
-const NO_DATA_TIMEOUT_MS = 250;
-const IDLE_TIMEOUT_MS = 250;
-const MAX_STDIN_BYTES = 256 * 1024;
-
-type StdinStream = Pick<NodeJS.ReadStream, 'setEncoding' | 'on' | 'pause'> & { isTTY?: boolean };
-
-// Returns null for a TTY (setup's manual run), no input, oversized input, or invalid JSON.
-// Resolves as soon as the buffered text parses, or after incomplete input goes idle.
-export function readStdin(stream: StdinStream = process.stdin): Promise<StdinData | null> {
-  if (stream.isTTY) {
-    return Promise.resolve(null);
-  }
-
-  return new Promise((resolve) => {
-    let raw = '';
-    let done = false;
-    let idleTimer: ReturnType<typeof setTimeout> | undefined;
-    const finish = (value: StdinData | null): void => {
-      if (done) return;
-      done = true;
-      clearTimeout(noDataTimer);
-      clearTimeout(idleTimer);
-      stream.pause();
-      resolve(value);
-    };
-    const parse = (): StdinData | null => {
-      try {
-        const value: unknown = JSON.parse(raw);
-        return value !== null && typeof value === 'object' ? value as StdinData : null;
-      } catch {
-        return null;
-      }
-    };
-    const noDataTimer = setTimeout(() => {
-      if (!raw) finish(null);
-    }, NO_DATA_TIMEOUT_MS);
-
-    stream.setEncoding('utf8');
-    stream.on('data', (chunk: string) => {
-      raw += chunk;
-      if (raw.length > MAX_STDIN_BYTES) {
-        finish(null);
-        return;
-      }
-      const parsed = parse();
-      if (parsed) finish(parsed);
-      else {
-        clearTimeout(idleTimer);
-        idleTimer = setTimeout(() => finish(parse()), IDLE_TIMEOUT_MS);
-      }
-    });
-    stream.on('end', () => finish(parse()));
-    stream.on('error', () => finish(null));
-  });
-}
+import type { StdinData, UsageData, TranscriptData } from './types.ts';
+import type { ModelFormatMode } from './config.ts';
+import { sanitizeTranscriptModel } from './model-source.ts';
+import { displayLabel } from './utils/sanitize.ts';
 
 export function getTotalTokens(stdin: StdinData): number {
   const usage = stdin.context_window?.current_usage;

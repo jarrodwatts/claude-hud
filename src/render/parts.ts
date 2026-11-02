@@ -1,18 +1,18 @@
-import type { FirstLineSegment, PathLevels } from '../config.js';
-import { DEFAULT_CONFIG } from '../config.js';
-import { formatAuthSegment } from '../auth.js';
-import { formatEffort } from '../effort.js';
-import { formatUsd } from '../cost.js';
-import { formatModelName, getProviderLabel, resolveModelName } from '../stdin.js';
-import { t } from '../i18n/index.js';
-import { formatTokens } from '../utils/format.js';
-import { getFileHref, safeHyperlink } from '../utils/hyperlinks.js';
-import { displayLabel, sanitizeDisplayText } from '../utils/sanitize.js';
-import { truncateString } from '../utils/truncate.js';
-import type { Frame, Layout } from './frame.js';
-import { custom, dim, label, model as modelColor, project as projectColor } from './colors.js';
-import { claudeCodeVersion, effort, sessionCostUsd, sessionDuration, sessionName } from './derive.js';
-import { vcsPart } from './vcs.js';
+import type { FirstLineSegment, PathLevels } from '../config.ts';
+import { DEFAULT_CONFIG } from '../config.ts';
+import { formatAuthSegment } from '../auth.ts';
+import { formatEffort } from '../effort.ts';
+import { formatUsd } from '../cost.ts';
+import { formatModelName, getProviderLabel, resolveModelName } from '../stdin.ts';
+import { t } from '../i18n/index.ts';
+import { formatTokens } from '../utils/format.ts';
+import { getFileHref, safeHyperlink } from '../utils/hyperlinks.ts';
+import { displayLabel, sanitizeDisplayText } from '../utils/sanitize.ts';
+import { truncateString } from '../utils/truncate.ts';
+import type { Frame, Layout } from './frame.ts';
+import { custom, dim, label, model as modelColor, project as projectColor } from './colors.ts';
+import { claudeCodeVersion, effort, sessionCostUsd, sessionDuration, sessionName } from './derive.ts';
+import { vcsPart } from './vcs.ts';
 
 /** A first-line part; `key` lets projectLineOrder move it, null keeps its slot. */
 export interface Part {

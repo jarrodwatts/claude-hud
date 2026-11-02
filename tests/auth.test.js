@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { mkdtemp, mkdir, rm, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { tmpdir } from 'node:os';
-import { deriveAuthInfo, readAuthInfo, truncateUser, formatAuthSegment } from '../dist/auth.js';
+import { deriveAuthInfo, readAuthInfo, truncateUser, formatAuthSegment } from '../src/auth.ts';
 
 const MAX_ACCOUNT = {
   oauthAccount: {

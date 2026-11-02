@@ -1,4 +1,4 @@
-import { displayLabel } from './utils/sanitize.js';
+import { displayLabel } from './utils/sanitize.ts';
 
 export const TRANSCRIPT_MODEL_MAX_LEN = 80;
 

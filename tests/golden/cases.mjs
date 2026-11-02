@@ -1,4 +1,4 @@
-// Golden cases: each renders `node dist/index.js` end to end. Placeholders
+// Golden cases: each renders `node hud.mjs` end to end. Placeholders
 // <PROJECT>, <TRANSCRIPT>, and <HOME> are filled in by golden.test.js.
 export const NOW_MS = Date.parse('2026-10-01T12:00:00.000Z');
 const NOW = NOW_MS / 1000;

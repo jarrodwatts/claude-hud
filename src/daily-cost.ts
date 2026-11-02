@@ -1,11 +1,9 @@
 import * as fs from 'node:fs';
-import * as os from 'node:os';
 import * as path from 'node:path';
-import { getHudPluginDir } from './claude-config-dir.js';
-import { getNativeCostUsd } from './cost.js';
-import { createDebug } from './debug.js';
-import type { StdinData } from './types.js';
-import { SEVEN_DAY_WINDOW_MS } from './usage-pace.js';
+import { getNativeCostUsd } from './cost.ts';
+import { createDebug } from './debug.ts';
+import type { StdinData } from './types.ts';
+import { SEVEN_DAY_WINDOW_MS } from './usage-pace.ts';
 
 const debug = createDebug('daily-cost');
 
@@ -42,17 +40,12 @@ export type CostTotals = {
 };
 
 export type DailyCostDeps = {
-  homeDir: () => string;
+  dataDir: () => string;
   now: () => number;
 };
 
-const defaultDeps: DailyCostDeps = {
-  homeDir: () => os.homedir(),
-  now: () => Date.now(),
-};
-
-export function getDailyCostLedgerPath(homeDir: string): string {
-  return path.join(getHudPluginDir(homeDir), 'daily-cost.json');
+export function getDailyCostLedgerPath(dataDir: string): string {
+  return path.join(dataDir, 'daily-cost.json');
 }
 
 function localDateKey(now: number): string {
@@ -159,10 +152,10 @@ function withLedgerLock<T>(ledgerPath: string, update: () => T): T {
 // week's spend across sessions, or null when nothing has been recorded.
 export function getCostTotals(
   stdin: StdinData,
-  options?: { allowRoutedCost?: boolean; sevenDayResetAt?: Date | null },
-  deps: DailyCostDeps = defaultDeps,
+  options: { allowRoutedCost?: boolean; sevenDayResetAt?: Date | null } | undefined,
+  deps: DailyCostDeps,
 ): CostTotals | null {
-  const ledgerPath = getDailyCostLedgerPath(deps.homeDir());
+  const ledgerPath = getDailyCostLedgerPath(deps.dataDir());
   return withLedgerLock(ledgerPath, () => updateLedger(ledgerPath, stdin, options, deps));
 }
 
