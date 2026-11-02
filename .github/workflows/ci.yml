@@ -23,3 +23,25 @@ jobs:
         run: |
           sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
           unshare --map-current-user --net sh -c 'npx --offline tsc -p . && node --import ./tests/clean-env.js --test'
+
+  # TEMPORARY, removed before review: render latency against main's compiled dist/, for the PR body.
+  latency:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, macos-latest, windows-latest]
+        node: ['22.18', '24']
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v6
+        with:
+          node-version: ${{ matrix.node }}
+      - name: Latency, main's dist vs this branch
+        shell: bash
+        run: |
+          git fetch --quiet --depth=1 origin main
+          mkdir -p "$RUNNER_TEMP/main" && git archive FETCH_HEAD | (cd "$RUNNER_TEMP/main" && tar -x)
+          node scripts/latency.mjs 60 "main=$RUNNER_TEMP/main/dist/index.js" "branch=hud.mjs" | tee -a "$GITHUB_STEP_SUMMARY"
