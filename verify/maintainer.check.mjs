@@ -68,8 +68,8 @@ try {
       command: "echo '<!-- selftest -->' >> CHANGELOG.md && git diff > /tmp/maint/out/note-changelog.patch && git checkout CHANGELOG.md" } },
     { name: 'Bash', input: { description: 'a patch to a workflow',
       command: "echo '# selftest' >> .github/workflows/verify.yml && git diff > /tmp/maint/out/sneak-workflow.patch && git checkout .github/workflows/verify.yml" } },
-    { name: 'Bash', input: { description: 'a patch that adds a symlink',
-      command: 'ln -s /etc/passwd sneaky-link && git add -N sneaky-link && git diff > /tmp/maint/out/sneak-symlink.patch && git rm -q --cached sneaky-link && rm sneaky-link' } },
+    { name: 'Bash', input: { description: 'a patch that adds a symlink where the agent may add files',
+      command: 'ln -s /etc/passwd src/sneaky-link.ts && git add -N src/sneaky-link.ts && git diff > /tmp/maint/out/sneak-symlink.patch && git rm -q --cached src/sneaky-link.ts && rm src/sneaky-link.ts' } },
     { name: 'Bash', input: { description: 'a file that is not a plain regular file', command: 'ln -s /home/runner/.bashrc /tmp/maint/out/steal-file.patch' } },
     { name: 'StructuredOutput', input: { actions: [
       { do: 'reply', item: 1, body: `Thanks @${OWNER}, see https://evil.example/x and https://github.com/${REPO}/../../evil/x and https://github.com/${REPO}/issues/1` },
@@ -117,7 +117,7 @@ try {
   check('the ordinary patch became branch bot/note-changelog, with a PR', git(origin, 'branch', '--list', 'bot/note-changelog') !== '' && keys.includes(`POST ${R}/pulls`));
   check('auto-merge stays off while gate is not a required check', !keys.includes('POST /graphql') && applied.out.includes('auto-merge stays off'), applied.out);
   check('ACT refused the patch to a workflow', applied.out.includes('FAIL propose sneak-workflow: refused: .github/workflows/verify.yml is owner-owned'));
-  check('ACT refused the patch that adds a symlink', applied.out.includes('FAIL propose sneak-symlink: refused: sneaky-link: a mode, symlink'));
+  check('ACT refused the patch that adds a symlink', applied.out.includes('FAIL propose sneak-symlink: refused: src/sneaky-link.ts: a mode, symlink'));
   check('ACT had no file for the symlinked patch', applied.out.includes('FAIL propose steal-file'));
   check('no branch exists for any refused patch', git(origin, 'branch', '--list', 'bot/sneak*', 'bot/steal*') === '');
   check('every write used the App token', github.writes.every((w) => w.auth === 'Bearer ghs_fake-app-token'));
@@ -204,7 +204,7 @@ try {
     9: commit('edit', () => fs.writeFileSync(path.join(prs, 'tests', 'corpus', 'old.json'), '[]\n'), 'refs/pull/9/head'),
     10: commit('add', () => fs.writeFileSync(path.join(prs, 'tests', 'corpus', 'new.json'), '{}\n'), 'refs/pull/10/head'),
     11: commit('wf2', append('.github/workflows/verify.yml', '# y\n'), 'refs/pull/11/head'),
-    12: commit('link', () => fs.symlinkSync('/etc/passwd', path.join(prs, 'src', 'evil-link')), 'refs/pull/12/head'),
+    12: commit('link', () => fs.symlinkSync('/etc/passwd', path.join(prs, 'src', 'evil-link.ts')), 'refs/pull/12/head'),
     13: commit('wf3', append('.github/workflows/verify.yml', '# z\n'), 'refs/pull/13/head'),
   };
   // Which side of the line a stranger's change is on. The agent's side is named; everything else is the owner's.
