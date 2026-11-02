@@ -1,6 +1,9 @@
 // Loaded with --import into the caged logic process before any logic code runs. --permission
 // bounds the filesystem and child processes; on Node 22/24 it does nothing about the network or
 // signals, so this closes those: an import allow list, plus deleting the globals that reach out.
+// That is a list of the known ways out, never proven complete: verify/lib/escape-probe.mjs tries each
+// one found so far, and a new one goes there. Node's own network permission (25+, --allow-net absent)
+// would be a real wall, and is not yet relied on or verified here.
 import { Console } from 'node:console';
 import diagnostics from 'node:diagnostics_channel';
 import fs from 'node:fs';
