@@ -633,9 +633,9 @@ export async function parseTranscript(transcriptPath: string, dataDir: string): 
 const AGENT_ID = /^[\w-]{1,64}$/;
 
 /** A subagent's effort, from the first assistant record of `<session>/subagents/agent-<id>.jsonl`. */
-async function subagentEffort(transcriptPath: string, agentId: string): Promise<string | undefined> {
+async function subagentEffort(subagentsDir: string, agentId: string): Promise<string | undefined> {
   if (!AGENT_ID.test(agentId)) return undefined;
-  const file = path.join(path.dirname(transcriptPath), path.basename(transcriptPath, '.jsonl'), 'subagents', `agent-${agentId}.jsonl`);
+  const file = path.join(subagentsDir, `agent-${agentId}.jsonl`);
   try {
     // Checked before opening, which would block on a pipe.
     if (!(await fs.promises.stat(file)).isFile()) return undefined;
@@ -663,8 +663,8 @@ async function subagentEffort(transcriptPath: string, agentId: string): Promise<
 }
 
 /** Sets each agent's effort in place; agents without a known id or first reply stay without one. */
-export async function addSubagentEfforts(transcriptPath: string, agents: AgentEntry[]): Promise<void> {
+export async function addSubagentEfforts(subagentsDir: string, agents: AgentEntry[]): Promise<void> {
   await Promise.all(agents.map(async (agent) => {
-    if (agent.agentId) agent.effort = await subagentEffort(transcriptPath, agent.agentId);
+    if (agent.agentId) agent.effort = await subagentEffort(subagentsDir, agent.agentId);
   }));
 }

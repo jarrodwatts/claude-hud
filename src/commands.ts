@@ -1,6 +1,6 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
-import type { Answers, Facts, Input, Output } from "./channel.ts";
+import type { Answers, Facts, Input, Output, Paths } from "./channel.ts";
 import { checkValue, configKey, configKeys, mergeConfig, mergeOverrides, type HudConfig, type LoadedConfig } from "./config.ts";
 import { stripAnsi, textWidth } from "./render/ansi.ts";
 import { schemaLines } from "./schema.ts";
@@ -111,17 +111,16 @@ function readJson(file: string): Raw | null {
 }
 
 // Claude Code's own settings, highest precedence first. Managed policy settings aren't read.
-function settingsFiles(facts: Facts): Array<{ scope: string; file: string }> {
-  const configDir = path.dirname(path.dirname(path.dirname(facts.configPath)));
+function settingsFiles({ project, user }: Paths): Array<{ scope: string; file: string }> {
   return [
-    { scope: "local", file: path.join(facts.cwd, ".claude", "settings.local.json") },
-    { scope: "project", file: path.join(facts.cwd, ".claude", "settings.json") },
-    { scope: "user", file: path.join(configDir, "settings.json") },
+    ...(project ? [{ scope: "local", file: project.localSettings }] : []),
+    ...(project?.settings ? [{ scope: "project", file: project.settings }] : []),
+    { scope: "user", file: user.settings },
   ];
 }
 
-function doctor(facts: Facts, loaded: LoadedConfig, now: number): Output {
-  const settings = settingsFiles(facts).map(entry => ({ ...entry, value: readJson(entry.file) }));
+function doctor(facts: Facts, paths: Paths, loaded: LoadedConfig, now: number): Output {
+  const settings = settingsFiles(paths).map(entry => ({ ...entry, value: readJson(entry.file) }));
   const statusSource = settings.find(entry => isObject(entry.value?.statusLine));
   const statusLine = statusSource?.value?.statusLine as Raw | undefined;
   const command = typeof statusLine?.command === "string" ? statusLine.command : "";
@@ -206,7 +205,7 @@ async function preview(input: Input, facts: Facts, loaded: LoadedConfig, render:
   for (const [key, value] of assignments) setPath(base, key, value);
   const config = mergeConfig(mergeOverrides(base, loaded.override) as Partial<HudConfig>);
   const stdin = mergeDeep(last ? facts.heartbeat!.stdin : SAMPLE, state) as StdinData;
-  const output = await render(stdin, config, { ask: last ? ask : noFacts, files: last, dataDir: scratchDir(input.dataDir), now: input.now, columns: width });
+  const output = await render(stdin, config, { ask: last ? ask : noFacts, files: last, paths: input.paths, dataDir: scratchDir(input.paths.data), now: input.now, columns: width });
   return { lines: [`Preview at ${width} columns, ${last ? "replaying the last real render" : "with a sample session"}:`, ...output.lines.map(stripAnsi)] };
 }
 
@@ -288,7 +287,7 @@ async function report(input: Input, facts: Facts, loaded: LoadedConfig, render: 
   };
   // What the maintainer will see from this case: the scrubbed input alone, no files or programs.
   const actual = await render(stdin, mergeConfig(config as Partial<HudConfig>), {
-    ask: noFacts, files: false, dataDir: scratchDir(input.dataDir), now: beat.at, columns,
+    ask: noFacts, files: false, paths: input.paths, dataDir: scratchDir(input.paths.data), now: beat.at, columns,
   });
   return { lines: json({ case: testCase, actual: actual.lines.map(stripAnsi) }) };
 }
@@ -298,7 +297,7 @@ async function report(input: Input, facts: Facts, loaded: LoadedConfig, render: 
 export async function runCommand(input: Input, loaded: LoadedConfig, render: Render, ask: Sources["ask"]): Promise<Output> {
   const { name, args, facts } = input.command!;
   switch (name) {
-    case "doctor": return doctor(facts, loaded, input.now);
+    case "doctor": return doctor(facts, input.paths, loaded, input.now);
     case "schema": return { lines: schemaLines(args) };
     case "preview": return preview(input, facts, loaded, render, ask);
     case "set": return set(input, loaded);

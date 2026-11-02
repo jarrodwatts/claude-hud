@@ -1,3 +1,0 @@
-[
-  {"tool": "Bash", "input": {"description": "keep calling the model", "command": "echo again"}}
-]

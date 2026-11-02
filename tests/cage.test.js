@@ -3,8 +3,8 @@ import assert from 'node:assert/strict';
 import { existsSync, lstatSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, realpathSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
-import { cageArgs, cageEnv, filterLine } from '../hud.mjs';
-import { claudePaths, prepareDataDir, readGrants, stripLogic, strippedName } from '../collector.mjs';
+import { cageArgs, cageEnv, terminalFilter } from '../hud.mjs';
+import { claudePaths, logicPaths, prepareDataDir, readGrants, stripLogic, strippedName } from '../collector.mjs';
 
 function withHome(fn) {
   const home = realpathSync(mkdtempSync(path.join(tmpdir(), 'hud-cage-')));
@@ -71,19 +71,29 @@ test('symlinks in data/, and a symlinked data/ itself, are removed before logic 
 
 test('logic may read its settings files but never .credentials.json or the whole config dir', () => withHome((home, paths) => {
   const cwd = path.join(home, 'project');
-  const stdin = { cwd, transcript_path: path.join(home, '.claude', 'projects', 'p', 's.jsonl') };
-  const grants = readGrants({ root: '/plugin', dataDir: paths.dataDir, paths, stdin });
+  const named = logicPaths(paths, { cwd, transcript_path: path.join(home, '.claude', 'projects', 'p', 's.jsonl') });
+  assert.equal(named.project.localSettings, path.join(cwd, '.claude', 'settings.local.json'));
+  assert.equal(named.subagents, path.join(home, '.claude', 'projects', 'p', 's', 'subagents'));
+  const grants = readGrants('/plugin', named);
   assert.ok(grants.includes(path.join(paths.configDir, 'settings.json')));
-  assert.ok(grants.includes(path.join(cwd, '.claude', 'settings.local.json')));
-  assert.ok(grants.includes(path.join(home, '.claude', 'projects', 'p', 's', 'subagents')));
+  assert.ok(grants.includes(named.project.localSettings));
+  assert.ok(grants.includes(named.subagents));
   assert.ok(grants.includes(paths.claudeJson));
   for (const grant of grants) {
     assert.ok(!grant.endsWith('.credentials.json'), grant);
     assert.notEqual(grant, paths.configDir);
-    assert.notEqual(grant, path.join(cwd, '.claude'), 'when cwd is home, that is the config dir');
+    assert.notEqual(grant, path.join(cwd, '.claude'));
   }
-  assert.deepEqual(readGrants({ root: '/plugin', dataDir: '/d', paths, stdin: { cwd: 'relative', transcript_path: 'x.jsonl' } })
-    .filter((g) => g.includes('relative') || g.includes('x.jsonl')), [], 'relative paths are never granted');
+  const relative = logicPaths(paths, { cwd: 'relative', transcript_path: 'x.jsonl' });
+  assert.equal(relative.project, null, 'relative paths are never granted');
+  assert.equal(relative.transcript, null);
+}));
+
+test('a project whose .claude is the user config dir counts those files once, as the user\'s', () => withHome((home, paths) => {
+  mkdirSync(paths.configDir, { recursive: true });
+  const { project } = logicPaths(paths, { cwd: home });
+  assert.deepEqual([project.dotClaudeMd, project.rules, project.settings], [null, null, null]);
+  assert.equal(project.localSettings, path.join(paths.configDir, 'settings.local.json'));
 }));
 
 test('a symlinked rules directory is granted at its target too', {
@@ -93,7 +103,7 @@ test('a symlinked rules directory is granted at its target too', {
   mkdirSync(target, { recursive: true });
   mkdirSync(paths.configDir, { recursive: true });
   symlinkSync(target, path.join(paths.configDir, 'rules'));
-  assert.ok(readGrants({ root: '/plugin', dataDir: paths.dataDir, paths, stdin: null }).includes(target));
+  assert.ok(readGrants('/plugin', logicPaths(paths, null)).includes(target));
 }));
 
 test('logic gets no PATH and no secrets', () => {
@@ -117,15 +127,22 @@ test('the cage never grants child processes, workers, addons, WASI or the networ
   assert.ok(!cageArgs({ grants: [], dataDir: null }).some((a) => a.startsWith('--allow-fs-write')));
 });
 
-test('output keeps colour and file:/github.com links and drops every other control', () => {
+test('output keeps colour, file: links and links into the session\'s repo, and drops every other escape whole', () => {
+  const filter = terminalFilter({ workspace: { repo: { host: 'github.com', owner: 'o', name: 'r' } } });
   const link = (url, text) => `\x1b]8;;${url}\x1b\\${text}\x1b]8;;\x1b\\`;
   for (const kept of ['\x1b[0m\x1b[36m[Opus]\x1b[0m', '\x1b[38;2;0;255;0mx\x1b[38;5;208my', link('file:///home/u/my%20project', 'p'),
-    link('https://github.com/o/r/tree/main', 'main'), link('file://C:/Users/ü/項目', 'p'), 'a\u00a0b 全']) {
-    assert.equal(filterLine(kept), kept);
+    link('https://github.com/o/r/tree/main', 'main'), link('https://github.com/o/r/commit/abc1234', 'c'), link('file://C:/Users/ü/項目', 'p'), 'a\u00a0b 全']) {
+    assert.equal(filter(kept), kept);
   }
-  // The link opener loses its ESC and shows as text; the empty closer is harmless and kept.
-  assert.equal(filterLine(link('https://evil.example/', 'x')), ']8;;https://evil.example/\\x\x1b]8;;\x1b\\');
-  assert.equal(filterLine('a\x1b]0;title\x07b'), 'a]0;titleb');
-  assert.equal(filterLine('a\x1b[2Jb\x1b[1;1Hc'), 'a[2Jb[1;1Hc');
-  assert.equal(filterLine('a\rb\tc\x9bd\x00e\x7f'), 'abcde');
+  // A refused link goes whole, opener and all; the empty closer is harmless and kept.
+  for (const url of ['https://evil.example/', 'https://github.com/evil/r/tree/main', 'https://github.com/o/r/../../evil/x', 'https://github.com/o/rx/',
+    'http://github.com/o/r/', 'javascript:alert(1)']) {
+    assert.equal(filter(link(url, 'x')), 'x\x1b]8;;\x1b\\', url);
+  }
+  assert.equal(terminalFilter(null)(link('https://github.com/o/r/tree/main', 'x')), 'x\x1b]8;;\x1b\\', 'no repo reported, no web links');
+  assert.equal(filter('a\x1b]0;title\x07b'), 'ab');
+  assert.equal(filter('a\x1b[2Jb\x1b[1;1Hc'), 'abc');
+  assert.equal(filter('a\rb\tc\x9bd\x00e\x7f'), 'abcde');
+  assert.equal(filter('a\u202eb\u2066c'), 'abc', 'bidi controls go too');
+  assert.equal(filter('a\x1b]8;;https://evil.example/'), 'a', 'an unterminated sequence goes to the end of the line');
 });

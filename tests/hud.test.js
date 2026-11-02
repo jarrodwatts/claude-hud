@@ -5,7 +5,7 @@ import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { filterLine, isHudDisabled, isNodeSupported } from '../hud.mjs';
+import { isHudDisabled, isNodeSupported } from '../hud.mjs';
 import { formatSessionDuration } from '../src/utils/format.ts';
 
 const entry = fileURLToPath(new URL('../hud.mjs', import.meta.url));

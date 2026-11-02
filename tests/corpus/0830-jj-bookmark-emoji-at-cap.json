@@ -1,0 +1,28 @@
+{
+  "note": "jj labels no longer cut an emoji in half when they hit their length cap (#830, CHANGELOG 0.13.1). Replays a recorded `jj log` whose bookmark crosses the 64-character cap on an emoji.",
+  "columns": 200,
+  "config": {
+    "jjStatus": {
+      "enabled": true
+    }
+  },
+  "stdin": {
+    "model": {
+      "display_name": "Opus 5.5"
+    },
+    "context_window": {
+      "used_percentage": 12,
+      "context_window_size": 200000
+    },
+    "cwd": "/home/user/proj"
+  },
+  "facts": {
+    "jj": "kxqpwzmr\u001fbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb👍👍\u001f1\u001f0\n"
+  },
+  "expect": [
+    "exit 0",
+    "contains jj:(",
+    "no lone surrogate",
+    "only safe escapes"
+  ]
+}

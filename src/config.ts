@@ -1,7 +1,6 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
-import * as os from 'node:os';
-import { expandHomeDirPrefix, getClaudeConfigDir, getHudPluginDir } from './claude-config-dir.ts';
+import type { Paths } from './channel.ts';
 import { createDebug } from './debug.ts';
 import type { Language } from './i18n/types.ts';
 import { MAX_TERMINAL_WIDTH } from './utils/terminal.ts';
@@ -317,16 +316,6 @@ export const DEFAULT_CONFIG: HudConfig = {
   },
 };
 
-export function getConfigPath(): string {
-  return path.join(getHudPluginDir(os.homedir()), 'config.json');
-}
-
-// Lives outside plugins/, which users often symlink across several CLAUDE_CONFIG_DIRs,
-// so it stays per-directory and can override the shared config.
-export function getConfigOverridePath(): string {
-  return path.join(getClaudeConfigDir(os.homedir()), 'claude-hud.json');
-}
-
 // A rule maps a raw user value to a valid one, or to the fallback (the default). `accepts` says
 // in words what it takes, for `hud schema` and for config problems. `freeText` marks the user's
 // own words or paths, which `hud report` masks.
@@ -390,12 +379,10 @@ const barChar = rule('one visible character', (value, fallback) => {
   return graphemes.length === 1 && !INVISIBLE_CODEPOINT.test(value) ? value : fallback;
 });
 
-// Expands a leading ~ and ${VAR}; unset variables are left as written.
+// collector.mjs resolves these (a leading ~ and ${VAR} are expanded) and reads or writes the file;
+// logic only needs to know whether one is set.
 const usagePath = rule('an absolute path (a leading ~ and ${VAR} are expanded)', (value) => (
-  typeof value === 'string'
-    ? expandHomeDirPrefix(value.trim(), os.homedir())
-      .replace(/\$\{([A-Za-z_][A-Za-z0-9_]*)\}/g, (match, name: string) => process.env[name] ?? match)
-    : ''
+  typeof value === 'string' ? value.trim() : ''
 ), true);
 const boolean = rule('true | false', (value, fallback) => (typeof value === 'boolean' ? value : fallback));
 
@@ -613,8 +600,8 @@ export interface LoadedConfig {
   problems: string[];
 }
 
-export function loadConfigFiles(): LoadedConfig {
-  const files = [['config.json', readConfigFile(getConfigPath())], ['claude-hud.json', readConfigFile(getConfigOverridePath())]] as const;
+export function loadConfigFiles(paths: Pick<Paths, 'config' | 'override'>): LoadedConfig {
+  const files = [['config.json', readConfigFile(paths.config)], ['claude-hud.json', readConfigFile(paths.override)]] as const;
   const problems: string[] = [];
   const [base, override] = files.map(([name, file]) => {
     if (typeof file === 'string') problems.push(`${name} ${file}`);
@@ -632,6 +619,6 @@ export function loadConfigFiles(): LoadedConfig {
   };
 }
 
-export async function loadConfig(): Promise<HudConfig> {
-  return loadConfigFiles().config;
+export async function loadConfig(paths: Pick<Paths, 'config' | 'override'>): Promise<HudConfig> {
+  return loadConfigFiles(paths).config;
 }

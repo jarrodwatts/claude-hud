@@ -124,7 +124,7 @@ function closeOpenHyperlink(str: string): string {
   return lastUrl ? OSC8_CLOSE : '';
 }
 
-function truncateToWidth(str: string, width: number): string {
+export function truncateToWidth(str: string, width: number): string {
   if (width <= 0 || visibleWidth(str) <= width) return str;
   const suffix = width >= 3 ? '...' : '.'.repeat(width);
   const kept = sliceToWidth(str, width - suffix.length);

@@ -2,6 +2,7 @@
 // bounds the filesystem and child processes; on Node 22/24 it does nothing about the network or
 // signals, so this closes those: an import allow list, plus deleting the globals that reach out.
 import { Console } from 'node:console';
+import diagnostics from 'node:diagnostics_channel';
 import fs from 'node:fs';
 import { registerHooks } from 'node:module';
 
@@ -47,6 +48,17 @@ registerHooks({
     return nextLoad(url, context);
   },
 });
+
+// Audit mode, which only verify/ asks for (see cageArgs in hud.mjs): Node denies nothing and reports
+// each access outside the grants on these channels. They are listed on stderr as logic exits.
+if (process.execArgv.includes('--permission-audit')) {
+  const outside = new Set();
+  for (const scope of ['fs', 'net', 'child', 'worker', 'inspector', 'wasi', 'addon']) {
+    diagnostics.subscribe(`node:permission-model:${scope}`, (m) => outside.add(`${m.permission} ${m.resource ?? ''}`.trim()));
+  }
+  const { writeSync } = fs;
+  process.on('exit', () => writeSync(2, `claude-hud audit ${JSON.stringify([...outside])}\n`));
+}
 
 const seal = (object, key, value) => {
   try {

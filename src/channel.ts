@@ -3,18 +3,39 @@ import type { StdinData } from './types.ts';
 
 // Logic runs caged and talks to hud.mjs over raw descriptors, one JSON message per line:
 //
-//   hud ─▶ logic   {stdin, dataDir, now, command?}   once, first
-//   logic ─▶ hud   {id, ask: ['git.status', …]}      any number; names from createProbes in collector.mjs
-//   hud ─▶ logic   {id, answers: {…}}
+//   hud ─▶ logic   {stdin, now, paths, command?}   once, first
+//   logic ─▶ hud   {id, ask: ['git.status', …]}    any number; names from createProbes in collector.mjs
+//   hud ─▶ logic   {id, answers: {…}}              the probes' answers: a case's `facts` are these, recorded
 //   logic ─▶ hud   {lines, snapshot?, config?, failed?}   last
 //
 // The fence takes away the stdio streams, so fd 0 is read with fs.
 
+/**
+ * Every file logic may read, named by logicPaths in collector.mjs, which grants exactly these.
+ * Logic works out no path of its own. A null project means stdin had no usable cwd.
+ */
+export interface Paths {
+  /** The one directory logic may write. */
+  data: string;
+  config: string;
+  override: string;
+  heartbeat: string;
+  claudeJson: string;
+  user: { claudeMd: string; rules: string; settings: string };
+  /** dotClaudeMd, rules and settings are null when the project's .claude is the user's config dir. */
+  project: {
+    claudeMd: string; localMd: string; mcpJson: string; dotClaudeMd: string | null; dotLocalMd: string;
+    rules: string | null; settings: string | null; localSettings: string;
+  } | null;
+  transcript: string | null;
+  subagents: string | null;
+}
+
 export interface Input {
   stdin: StdinData | null;
-  dataDir: string;
   /** The render's one clock reading, taken by hud.mjs so a replayed input renders the same. */
   now: number;
+  paths: Paths;
   /** A `hud <name> …` subcommand instead of a render, with the facts hud.mjs gathered for it. */
   command?: { name: string; args: string[]; facts: Facts };
 }

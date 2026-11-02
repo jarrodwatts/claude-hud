@@ -1,5 +1,6 @@
 // The only code that runs programs or touches files outside data/ for the HUD. Logic (src/) runs
-// caged and asks for probes by name (see createProbes); it never chooses a command line or a path.
+// caged and asks for probes by name (see createProbes); it never chooses a command line, and it
+// learns every path from logicPaths.
 // Imports nothing from src/: this file's behaviour must not change when logic does.
 import { exec, execFile, spawn } from 'node:child_process';
 import crypto from 'node:crypto';
@@ -14,12 +15,16 @@ export const GIT_MAX_OUTPUT_BYTES = 1024 * 1024;
 const TREE_KILL_TIMEOUT_MS = 1000;
 const WORKER_STARTUP_MS = 1500;
 
-// ---- Paths. These match src/claude-config-dir.ts, which logic uses to find the same files.
-// This file must stay loadable on old Node, so `hud doctor` can explain what to upgrade.
+// ---- Paths. Every path the HUD uses is worked out here and handed to logic as data (logicPaths),
+// so logic never knows a file this file doesn't grant. Must stay loadable on old Node, so `hud
+// doctor` can explain what to upgrade.
 
 const expandHome = (p, home) => (p === '~' ? home : p.startsWith('~/') || p.startsWith('~\\') ? path.join(home, p.slice(2)) : p);
 
-export function claudePaths(env = process.env, home = os.homedir()) {
+// os.homedir() reads this process's environment; a caller may pass another one.
+const homeOf = (env) => (process.platform === 'win32' ? env.USERPROFILE : env.HOME) || os.homedir();
+
+export function claudePaths(env = process.env, home = homeOf(env)) {
   const custom = env.CLAUDE_CONFIG_DIR?.trim();
   const configDir = custom ? path.resolve(expandHome(custom, home)) : path.join(home, '.claude');
   const hudDir = path.join(configDir, 'plugins', 'claude-hud');
@@ -31,9 +36,57 @@ export function claudePaths(env = process.env, home = os.homedir()) {
     dataDir: path.join(hudDir, 'data'),
     strippedDir: path.join(hudDir, 'stripped'),
     configPath: path.join(hudDir, 'config.json'),
+    // Outside plugins/, which users often symlink across several config dirs, so it stays per-directory.
+    overridePath: path.join(configDir, 'claude-hud.json'),
     undoPath: path.join(hudDir, 'config.undo.json'),
     heartbeat: path.join(hudDir, 'heartbeat.json'),
   };
+}
+
+const sameDir = (a, b) => {
+  try {
+    return fs.realpathSync(a) === fs.realpathSync(b);
+  } catch {
+    return path.resolve(a) === path.resolve(b);
+  }
+};
+
+/**
+ * Every file logic may read, by name. hud.mjs grants exactly these (plus logic's own code) and sends
+ * this same object to logic, which reads nothing else. Never .credentials.json. `input` is a stdin
+ * payload: its cwd names the project, its transcript_path the session.
+ */
+export function logicPaths(paths, input) {
+  const absolute = (p) => (typeof p === 'string' && path.isAbsolute(p) ? p : null);
+  const cwd = absolute(input?.cwd);
+  const transcript = absolute(input?.transcript_path);
+  const user = { claudeMd: path.join(paths.configDir, 'CLAUDE.md'), rules: path.join(paths.configDir, 'rules'),
+    settings: path.join(paths.configDir, 'settings.json') };
+  let project = null;
+  if (cwd) {
+    const dir = path.join(cwd, '.claude');
+    // A project whose .claude is the user's config dir: those files count once, as the user's.
+    const own = !sameDir(dir, paths.configDir);
+    project = { claudeMd: path.join(cwd, 'CLAUDE.md'), localMd: path.join(cwd, 'CLAUDE.local.md'), mcpJson: path.join(cwd, '.mcp.json'),
+      dotClaudeMd: own ? path.join(dir, 'CLAUDE.md') : null, dotLocalMd: path.join(dir, 'CLAUDE.local.md'),
+      rules: own ? path.join(dir, 'rules') : null, settings: own ? path.join(dir, 'settings.json') : null,
+      localSettings: path.join(dir, 'settings.local.json') };
+  }
+  return {
+    data: paths.dataDir, config: paths.configPath, override: paths.overridePath, heartbeat: paths.heartbeat, claudeJson: paths.claudeJson,
+    user, project, transcript,
+    subagents: transcript && path.join(path.dirname(transcript), path.basename(transcript, '.jsonl'), 'subagents'),
+  };
+}
+
+/** The read grants for a cage run: logic's own code and every path in `named`. Rule counting walks real paths, so rules dirs add their targets. */
+export function readGrants(root, named) {
+  const flat = (value) => (value && typeof value === 'object' ? Object.values(value).flatMap(flat) : typeof value === 'string' ? [value] : []);
+  const grants = [root, ...flat(named)];
+  for (const rules of [named.user?.rules, named.project?.rules].filter(Boolean)) {
+    try { grants.push(fs.realpathSync(rules)); } catch { /* missing */ }
+  }
+  return [...new Set(grants)];
 }
 
 // ---- data/: the one directory logic may write.
@@ -110,25 +163,6 @@ export function stripLogic(dir, root) {
   }
 }
 
-/** What logic may read: its own code, data/, the transcript, and the settings files it counts. Never .credentials.json. */
-export function readGrants({ root, dataDir, paths, stdin }) {
-  const { configDir, hudDir, claudeJson } = paths;
-  const dirs = (base) => [path.join(base, 'CLAUDE.md'), path.join(base, 'CLAUDE.local.md'), path.join(base, 'settings.json'),
-    path.join(base, 'settings.local.json'), path.join(base, 'rules')];
-  const grants = [root, dataDir, paths.configPath, paths.heartbeat, path.join(configDir, 'claude-hud.json'), claudeJson, ...dirs(configDir)];
-  const cwd = typeof stdin?.cwd === 'string' && path.isAbsolute(stdin.cwd) ? stdin.cwd : null;
-  if (cwd) grants.push(path.join(cwd, 'CLAUDE.md'), path.join(cwd, 'CLAUDE.local.md'), path.join(cwd, '.mcp.json'), ...dirs(path.join(cwd, '.claude')));
-  const transcript = stdin?.transcript_path;
-  if (typeof transcript === 'string' && path.isAbsolute(transcript)) {
-    grants.push(transcript, path.join(path.dirname(transcript), path.basename(transcript, '.jsonl'), 'subagents'));
-  }
-  // Rule counting walks real paths, so a symlinked rules directory needs its target too.
-  for (const rules of grants.filter((p) => path.basename(p) === 'rules')) {
-    try { grants.push(fs.realpathSync(rules)); } catch { /* missing */ }
-  }
-  return [...new Set(grants)];
-}
-
 // ---- Config keys that name files outside data/. Read only from the user's own config files.
 
 function readJsonObject(file, maxBytes = 64 * 1024) {
@@ -148,7 +182,7 @@ function readJsonObject(file, maxBytes = 64 * 1024) {
 
 /** Reads the user's own config values, claude-hud.json over config.json key by key, for the few keys this file needs. */
 export function userSettings(paths) {
-  const files = [readJsonObject(path.join(paths.configDir, 'claude-hud.json')), readJsonObject(paths.configPath)];
+  const files = [readJsonObject(paths.overridePath), readJsonObject(paths.configPath)];
   return (section, key) => files.find((f) => f?.[section] && typeof f[section] === 'object' && key in f[section])?.[section][key];
 }
 
@@ -165,7 +199,7 @@ export function probesToStart(setting) {
   return setting('gitStatus', 'enabled') === false || setting('jjStatus', 'enabled') === true ? [] : ['git.status'];
 }
 
-/** Absolute paths only, with ~ and ${VAR} expanded as src/config.ts does; the write path must end in .json. */
+/** Absolute paths only, with ~ and ${VAR} expanded; the write path must end in .json. Logic only ever sees the raw strings. */
 export function resolveUsagePaths({ read, write }, home = os.homedir(), env = process.env) {
   const resolve = (value) => {
     const expanded = typeof value === 'string'
@@ -521,7 +555,7 @@ function replaceFile(file, text) {
 // ---- The menu logic picks from
 
 /** Every probe logic may ask for, bound to this render's inputs. Each resolves to plain JSON. */
-export function createProbes({ cwd, argv = process.argv, env = process.env, usage = { read: null, write: null } }) {
+export function createProbes({ cwd, argv = process.argv, env = process.env, usage = { read: null, write: null }, early = [] }) {
   const extraCmd = parseExtraCmdArg(argv, env);
   const extra = extraCmd ? runExtraCmd(extraCmd) : Promise.resolve(null);
   let overrides;
@@ -577,7 +611,8 @@ export function createProbes({ cwd, argv = process.argv, env = process.env, usag
       .map(async (name) => { answers[name] = await run(name); }));
     return answers;
   };
-  ask.start = (names) => names.forEach(run);
+  // hud.mjs calls this once logic's Node is starting, so `early` (see probesToStart) runs meanwhile.
+  ask.start = () => early.forEach(run);
   return ask;
 }
 

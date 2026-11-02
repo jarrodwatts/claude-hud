@@ -1,0 +1,40 @@
+{
+  "note": "The branch link comes from Claude Code's workspace.repo, and git status from one porcelain v2 call with ahead, behind and dirty state (CHANGELOG 0.10.0).",
+  "columns": 120,
+  "config": {
+    "gitStatus": {
+      "showAheadBehind": true
+    }
+  },
+  "stdin": {
+    "model": {
+      "display_name": "Opus 5.5"
+    },
+    "context_window": {
+      "used_percentage": 12,
+      "context_window_size": 200000
+    },
+    "cwd": "/home/user/proj",
+    "workspace": {
+      "current_dir": "/home/user/proj",
+      "project_dir": "/home/user/proj",
+      "repo": {
+        "host": "github.com",
+        "owner": "octo",
+        "name": "proj"
+      }
+    }
+  },
+  "facts": {
+    "git.status": {
+      "stdout": "# branch.oid 1111111111111111111111111111111111111111\u0000# branch.head feat/links\u0000# branch.upstream origin/feat/links\u0000# branch.ab +2 -1\u00001 .M N... 100644 100644 100644 1111111111111111111111111111111111111111 1111111111111111111111111111111111111111 README.md\u0000"
+    }
+  },
+  "expect": [
+    "exit 0",
+    "contains git:(feat/links* ↑2 ↓1)",
+    "every line closes its OSC 8 link",
+    "only safe escapes",
+    "no line wider than columns"
+  ]
+}

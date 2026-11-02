@@ -1,108 +1,25 @@
-name: CI
+# Advisory, and never required: the agent's own tests (unit tests, golden output, the type check) on
+# its pull requests. They are agent-owned code, so they run with no network. A red run reaches the
+# agent's inbox as a log tail; the gate reads only the verify workflow.
+name: ci
 
-on:
-  pull_request:
-  push:
-    branches: [main]
+on: pull_request
 
 permissions:
   contents: read
 
 jobs:
-  # The HUD on every supported OS and Node: tests, golden output, the escape matrix, and latency.
-  cage:
-    strategy:
-      fail-fast: false
-      matrix:
-        os: [ubuntu-latest, macos-latest]
-        node-version: ['22.18.0', '24']
-        include:
-          - os: ubuntu-latest
-            node-version: '26'
-    runs-on: ${{ matrix.os }}
+  tests:
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v6
         with:
           persist-credentials: false
       - uses: actions/setup-node@v6
         with:
-          node-version: ${{ matrix.node-version }}
-          cache: npm
-      - run: npm ci
-      - run: npm run typecheck
-      - run: npm test
-      - name: Escape matrix and latency
-        run: bash scripts/ci-report.sh
-
-  # Windows: the cage, the git worker and taskkill, the launcher stubs, the escape matrix, and latency.
-  # Named for the check main's ruleset requires.
-  windows-git:
-    strategy:
-      fail-fast: false
-      matrix:
-        node-version: ['22.18.0', '24']
-    runs-on: windows-latest
-    steps:
-      - uses: actions/checkout@v6
-        with:
-          persist-credentials: false
-      - uses: actions/setup-node@v6
-        with:
-          node-version: ${{ matrix.node-version }}
-          cache: npm
-      - run: npm ci
-      # The rest of the suite assumes POSIX paths, file modes, symlinks or sh, and failed on
-      # Windows before this change too; Windows used to run only the two git files.
-      - run: >-
-          node --import ./tests/clean-env.js --test
-          tests/git.test.js tests/git-runner.test.js tests/jj.test.js tests/cage.test.js tests/escape-matrix.test.js
-          tests/launcher-compat.test.js tests/hud.test.js tests/stdin.test.js tests/transcript.test.js tests/daily-cost.test.js
-          tests/speed.test.js tests/auth.test.js tests/memory.test.js tests/memory-coverage.test.js tests/install.test.js tests/commands.test.js
-          tests/ansi.test.js tests/i18n.test.js tests/hyperlinks.test.js tests/terminal.test.js tests/truncate.test.js
-          tests/usage-pace.test.js tests/effort.test.js tests/format-reset-time.test.js tests/prompt-cache.test.js
-        shell: bash
-      - name: Escape matrix and latency
-        run: bash scripts/ci-report.sh
-        shell: bash
-
-  # Users on old Node still run today's launcher: it must print the upgrade line, not crash.
-  # Named for the checks main's ruleset requires.
-  test:
-    strategy:
-      matrix:
-        node-version: [18.x, 20.x]
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v6
-        with:
-          persist-credentials: false
-      - uses: actions/setup-node@v6
-        with:
-          node-version: ${{ matrix.node-version }}
-      - run: node --test tests/launcher-compat.test.js
-
-  # The /hud skill in pinned Claude Code against a loopback fake API, with a fake key: doctor is
-  # inlined, read-only subcommands are pre-approved, and `set` needs the user's approval.
-  skill:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v6
-        with:
-          persist-credentials: false
-      - uses: actions/setup-node@v6
-        with:
-          node-version: '24'
-      - run: node tests/skill-e2e.mjs
-
-  # Bun users' launcher goes through src/index.ts and hands the render to Node.
-  bun:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v6
-        with:
-          persist-credentials: false
-      - uses: actions/setup-node@v6
-        with:
-          node-version: '24'
-      - uses: oven-sh/setup-bun@v2
-      - run: node --test tests/launcher-compat.test.js
+          node-version: 24
+      - run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: Tests and type check, with no network
+        run: |
+          sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
+          unshare --map-current-user --net sh -c 'npx --offline tsc -p . && node --import ./tests/clean-env.js --test'

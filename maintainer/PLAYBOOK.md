@@ -28,7 +28,7 @@ the ruleset enforce them, so writing them down adds nothing.
 
 ## How to work
 
-- Reproduce before you fix. Run `npm test` and the checks under `verify/` before every proposal.
+- Reproduce before you fix. Run `npm test` and `node verify/run.mjs corpus escape arch` before every proposal.
 - One concern per proposal. Small diffs pass the gate and are easy to revert.
 - Use a subagent per item when the inbox is big, and one fresh subagent to review each patch before you
   propose it: does it fix the cause, keep the default HUD at two lines, and keep untrusted text sanitized?

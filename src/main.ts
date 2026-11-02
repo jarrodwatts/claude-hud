@@ -1,4 +1,4 @@
-import { ask, finish, open, type Ask, type Output, type Probe } from "./channel.ts";
+import { ask, finish, open, type Ask, type Output, type Paths, type Probe } from "./channel.ts";
 import { getUsageFromStdin, isContextUnreported } from "./stdin.ts";
 import { addSubagentEfforts, parseTranscript } from "./transcript.ts";
 import { renderLines } from "./render/index.ts";
@@ -14,6 +14,7 @@ import { getCostTotals } from "./daily-cost.ts";
 import { getOutputSpeed } from "./speed.ts";
 import { externalUsageSnapshot, resolveUsage, type UsageTarget } from "./external-usage.ts";
 import { getTerminalWidth } from "./utils/terminal.ts";
+import { truncateToWidth, visibleWidth } from "./render/ansi.ts";
 import { setLanguage, t } from "./i18n/index.ts";
 import type { StdinData, TranscriptData } from "./types.ts";
 
@@ -54,12 +55,15 @@ async function resolveVcsStatus(
 export interface Sources {
   ask: Ask;
   files: boolean;
+  /** What logic may read, from collector.mjs. */
+  paths: Paths;
+  /** Where this render keeps state: paths.data, or a scratch dir for a preview. */
   dataDir: string;
   now: number;
   columns: number | null;
 }
 
-export async function renderStdin(stdin: StdinData, config: HudConfig, { ask, files, dataDir, now, columns }: Sources): Promise<Output> {
+export async function renderStdin(stdin: StdinData, config: HudConfig, { ask, files, paths, dataDir, now, columns }: Sources): Promise<Output> {
   // Labels follow the config being rendered, which for a preview isn't the saved one.
   setLanguage(config.language);
   const display = config.display;
@@ -69,11 +73,10 @@ export async function renderStdin(stdin: StdinData, config: HudConfig, { ask, fi
   if (display.showUsage && display.externalUsagePath) facts.push("usage.read");
   if (display.externalUsageWritePath && stdinUsage) facts.push("usage.target");
 
-  const transcriptPath = stdin.transcript_path ?? "";
   const readTranscript = async (): Promise<TranscriptData> => {
-    const data = await parseTranscript(transcriptPath, dataDir);
+    const data = await parseTranscript(paths.transcript ?? "", dataDir);
     // Only the agents the line will show, since each lookup opens a file.
-    if (display.showAgents && display.showAgentEffort) await addSubagentEfforts(transcriptPath, shownAgents(data.agents, now));
+    if (display.showAgents && display.showAgentEffort && paths.subagents) await addSubagentEfforts(paths.subagents, shownAgents(data.agents, now));
     return data;
   };
   const [answers, transcript, gitStatus] = await Promise.all([
@@ -86,7 +89,7 @@ export async function renderStdin(stdin: StdinData, config: HudConfig, { ask, fi
   const lines = renderLines({
     stdin,
     transcript,
-    ...(files && display.showConfigCounts ? countConfigs(stdin.cwd) : NO_COUNTS),
+    ...(files && display.showConfigCounts ? countConfigs(paths) : NO_COUNTS),
     costTotals: display.showDailyCost || display.showWeeklyCost
       ? getCostTotals(stdin, { allowRoutedCost: display.showRoutedCost, sevenDayResetAt: usageData?.sevenDayResetAt ?? null },
         { dataDir: () => dataDir, now: () => now })
@@ -97,23 +100,27 @@ export async function renderStdin(stdin: StdinData, config: HudConfig, { ask, fi
     memoryUsage: "memory" in answers ? getMemoryUsage(readMemory(answers.memory as MemoryFacts)) : null,
     config,
     extraLabel: extraCmdLabel(answers.extra),
-    authInfo: files && (display.showAuth || display.showAuthUser) ? readAuthInfo() : null,
+    authInfo: files && (display.showAuth || display.showAuthUser) ? readAuthInfo(paths.claudeJson) : null,
   }, columns, now);
   const snapshot = externalUsageSnapshot(answers["usage.target"] as UsageTarget, stdinUsage, now);
   return snapshot ? { lines, snapshot } : { lines };
 }
 
-// A config problem is one line ending in /hud, never a silent fallback.
-function problemLine(problems: string[]): string[] {
+// A config problem is one line ending in /hud, never a silent fallback. Like every line it fits the
+// terminal; when it can't, the problem is cut, never the way to fix it.
+const FIX = ". Type /hud to fix it.";
+function problemLine(problems: string[], columns: number | null): string[] {
   if (problems.length === 0) return [];
   const more = problems.length > 1 ? ` (and ${problems.length - 1} more)` : "";
-  return [`claude-hud: ${problems[0]}${more}. Type /hud to fix it.`];
+  const line = `claude-hud: ${problems[0]}${more}`;
+  if (!columns || visibleWidth(line + FIX) <= columns) return [line + FIX];
+  return [truncateToWidth(`${truncateToWidth(line, Math.max(1, columns - FIX.length))}${FIX}`, columns)];
 }
 
 export async function main(): Promise<void> {
   const input = await open();
   try {
-    const loaded = loadConfigFiles();
+    const loaded = loadConfigFiles(input.paths);
     setLanguage(loaded.config.language);
     if (input.command) {
       // Loaded only for a subcommand, so a render doesn't pay for it.
@@ -121,14 +128,15 @@ export async function main(): Promise<void> {
       finish(await runCommand(input, loaded, renderStdin, ask));
       return;
     }
-    const { stdin, dataDir, now } = input;
+    const { stdin, paths, now } = input;
     if (!stdin) {
       // Setup runs the command without input to check that it starts.
       finish({ lines: [t("init.initializing"), ...(process.platform === "darwin" ? [t("init.macosNote")] : [])] });
       return;
     }
-    const output = await renderStdin(stdin, loaded.config, { ask, files: true, dataDir, now, columns: getTerminalWidth() });
-    finish({ ...output, lines: [...output.lines, ...problemLine(loaded.problems)] });
+    const columns = getTerminalWidth();
+    const output = await renderStdin(stdin, loaded.config, { ask, files: true, paths, dataDir: paths.data, now, columns });
+    finish({ ...output, lines: [...output.lines, ...problemLine(loaded.problems, columns)] });
   } catch (error) {
     finish({ lines: [`[claude-hud] Error: ${error instanceof Error ? error.message : "Unknown error"}. Type /hud to fix it.`], failed: true });
   }

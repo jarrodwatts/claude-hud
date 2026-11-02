@@ -12,25 +12,26 @@ npm run typecheck                  # tsc, noEmit
 npm run test:update-snapshots      # regenerate tests/golden/expected.txt after an intended output change
 echo '{"model":{"display_name":"Opus"},"context_window":{"used_percentage":45,"context_window_size":200000}}' | node hud.mjs
 node hud.mjs doctor                # the /hud skill's subcommands: doctor, schema, preview, set, report, install
+node verify/run.mjs corpus escape arch   # some of the owner's checks that gate every PR (verify.yml runs all of them)
 ```
 
 ## The line
 
-Logic is everything in `src/`. It runs caged and holds no capabilities. Four files at the root hold them, and logic can't change them:
+Logic is everything in `src/`. It runs caged and holds no capabilities. Four files at the root hold them, and logic can't change them (`ARCHITECTURE.md` has the whole picture, and is itself a test):
 
 ```
-Claude Code ─stdin─▶ hud.mjs ─▶ collector.mjs: data/, stripped/, read grants, probes, the files `set` writes
-                        └──▶ node --permission … --import=fence.mjs src/main.ts   (logic, caged)
-                                 asks for probes by name ◀─▶ raw answers
-                        ◀── {lines, snapshot?, config?} ─▶ filter (SGR + file:/github.com OSC 8 only) ─▶ terminal
+Claude Code ─stdin─▶ hud.mjs ─▶ collector.mjs: paths, data/, stripped/, probes, the files `set` writes
+                        └──▶ runCage: node --permission … --import=fence.mjs src/main.ts   (logic, caged)
+                               {stdin, now, paths} ─▶ asks for probes by name ◀─▶ answers ─▶ {lines, snapshot?, config?}
+           terminal ◀── terminalFilter (colour, and links to file: or the session's GitHub repo) ◀──┘
 ```
 
-- `hud.mjs`: Node gate, stdin, the cage's flags and env, the output filter, the heartbeat, subcommand dispatch.
-- `collector.mjs`: the only code that runs programs (`git`, `jj`, `vm_stat`, `taskkill`, the extra command) or writes outside `data/`. Logic picks probes by name; it never supplies an argv or a path.
+- `hud.mjs`: Node gate, stdin, `runCage` (the one way logic runs, for renders, subcommands and every check), the terminal filter, the heartbeat, subcommand dispatch.
+- `collector.mjs`: the only code that runs programs (`git`, `jj`, `vm_stat`, `taskkill`, the extra command) or writes outside `data/`, and the only code that works out a path. Logic picks probes by name and reads files only from the `paths` it is given (`logicPaths`), which are exactly its read grants.
 - `fence.mjs`: the import allow list, deleted globals, and the loader for `stripped/`.
 - `install.mjs`: `hud install`, which writes `statusLine` in the user's `settings.json`.
 
-Logic may write only `data/`. It must never be able to write anything it later runs: its code is stripped of types once, by Node's own `stripTypeScriptTypes`, into `stripped/` beside `data/`, and there is no compile cache. `tests/escape/matrix.ts` is the list of things logic must not do; add a case for each new way out you find.
+Logic may write only `data/`. It must never be able to write anything it later runs: its code is stripped of types once, by Node's own `stripTypeScriptTypes`, into `stripped/` beside `data/`, and there is no compile cache. `verify/lib/escape-probe.mjs` is the list of things logic must not do. It is owner-owned: when you find a new way out, describe it in an issue.
 
 ## How a render works
 
@@ -49,6 +50,7 @@ Claude Code runs the command after each message, `/compact`, a mode change, a ra
 - Text from stdin, the transcript, git, or config is untrusted terminal input. Sanitize it (`utils/sanitize.ts`) before it's printed.
 - Rendering is pure: the clock is sampled once by `hud.mjs` and terminal width once in `renderLines`.
 - `tests/golden.test.js` pins end-to-end output. An output change must show up as a reviewed diff to `tests/golden/expected.txt`.
+- `tests/corpus/*.json` are fixtures for `verify/corpus.check.mjs`. Add new ones; never edit, rename or delete one. A case's `facts` are the probes' recorded answers, so git and jj states replay without running either.
 - Imports end in `.ts`, and only erasable TypeScript is allowed (`erasableSyntaxOnly`), because users run the source.
 - Every key in `DEFAULT_CONFIG` has a description in `schema.ts`; `tests/commands.test.js` enforces it.
 - `dist/index.js` and `src/index.ts` are stubs that launchers already on users' machines import. Keep them, and keep the `version` fields: those launchers find installs by version folder.

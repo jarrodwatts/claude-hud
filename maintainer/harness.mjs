@@ -9,8 +9,8 @@ import crypto from 'node:crypto';
 import path from 'node:path';
 import { execFileSync, spawn } from 'node:child_process';
 import { scorecard } from './scorecard.mjs';
+import { installClaudeCode } from '../verify/lib/claude-code.mjs';
 
-const CLAUDE = { version: '2.1.310', sha256: '8c90b0170d08fdb370db282c61d74897b834fc2569dd14c35eb1e491212dc6de' };
 const MODEL = 'claude-opus-5-5';
 const TOOLS = 'Bash,Read,Edit,Write,Glob,Grep,Task';
 const JAIL = '/tmp/maint';
@@ -20,6 +20,8 @@ const TOKEN = env.RELAY_TOKEN;
 delete env.RELAY_TOKEN;
 const UPSTREAM = new URL(env.RELAY_UPSTREAM ?? 'https://api.anthropic.com');
 const BUDGET = Number(env.RELAY_BUDGET ?? 3e6); // input + cache-write + output tokens per run
+const DAILY_BUDGET = Number(env.RELAY_DAILY_BUDGET ?? 4 * BUDGET); // across every run in the last 24 hours
+const AGENT_EVENTS = ['issues', 'issue_comment', 'schedule', 'workflow_dispatch']; // the events maintain.yml's agent job runs on
 const [outDir] = process.argv.slice(2);
 const sh = (cmd, ...args) => execFileSync(cmd, args, { encoding: 'utf8', stdio: ['ignore', 'pipe', 'inherit'] }).trim();
 const agent = (...args) => ['-u', 'agent', 'env', '-i', '-C', `${JAIL}/repo`, 'HOME=/home/agent',
@@ -32,12 +34,34 @@ const run = (args, ms) => new Promise((done) => { // async, so the relay in this
   p.on('close', (code) => { clearTimeout(timer); done({ code, out }); });
 });
 const gh = async (p) => {
-  const r = await fetch(`https://api.github.com/repos/${env.GITHUB_REPOSITORY}/${p}`, { headers: { authorization: `Bearer ${env.GITHUB_TOKEN}` } });
+  const r = await fetch(`${env.GITHUB_API_URL ?? 'https://api.github.com'}/repos/${env.GITHUB_REPOSITORY}/${p}`, { headers: { authorization: `Bearer ${env.GITHUB_TOKEN}` } });
   if (!r.ok) throw new Error(`GET ${p}: ${r.status}`);
   return p.includes('/logs') ? (await r.text()).slice(-3000) : r.json();
 };
 
 if (!TOKEN) { console.log('maintainer inactive: no RELAY_TOKEN'); process.exit(0); }
+
+// 0. The daily cap. Each agent run of the last 24 hours counts what its relay recorded (the artifact
+//    relay-tokens-<n>), or its whole per-run budget if it recorded nothing, since it may have died
+//    mid-spend. Anything unreadable throws, so no run starts: the cap fails closed.
+const since24h = new Date(Date.now() - 864e5).toISOString();
+const { workflow_runs: recent } = await gh(`actions/workflows/maintain.yml/runs?created=>${since24h}&per_page=100`);
+if (recent.length >= 100) throw new Error('100 or more maintainer runs in a day: not starting');
+let spentToday = 0;
+for (const r of recent.filter((r) => r.id !== Number(env.GITHUB_RUN_ID) && AGENT_EVENTS.includes(r.event))) {
+  const recorded = (await gh(`actions/runs/${r.id}/artifacts`)).artifacts.map((a) => /^relay-tokens-(\d+)$/.exec(a.name)?.[1]).find(Boolean);
+  if (recorded) spentToday += Number(recorded);
+  else if ((await gh(`actions/runs/${r.id}/jobs`)).jobs.some((j) => j.name === 'agent' && j.conclusion !== 'skipped' && j.steps?.length)) spentToday += BUDGET;
+}
+const budget = Math.min(BUDGET, DAILY_BUDGET - spentToday);
+console.log(`relay: ${spentToday} of the daily ${DAILY_BUDGET} tokens spent in the last 24 hours; this run may spend ${Math.max(0, budget)}`);
+if (budget <= 0) { // records a spend of 0, so this run doesn't count against the next day's cap
+  console.log('maintainer paused: the daily token cap is spent');
+  fs.mkdirSync(outDir, { recursive: true });
+  fs.writeFileSync(`${outDir}/relay.json`, JSON.stringify({ model: MODEL, budget: 0, spent: 0 }));
+  if (env.GITHUB_OUTPUT) fs.appendFileSync(env.GITHUB_OUTPUT, 'tokens=0\noutbox=no\n');
+  process.exit(0);
+}
 
 // 1. The inbox, read with the job's read-only token, plus the frozen scorecard.
 const since = new Date(Date.now() - 14 * 864e5).toISOString();
@@ -53,7 +77,8 @@ const inbox = { repo: env.GITHUB_REPOSITORY, now: new Date().toISOString(), scor
     .map((c) => ({ author: c.user.login, role: c.author_association, at: c.created_at, body: cut(c.body) })) })) };
 
 // 2. The relay: the only holder of the token. Only POST /v1/messages, model pinned, 400 once the budget is spent
-//    (Claude retries a 429 for minutes but stops on a 400).
+//    (Claude retries a 429 for minutes but stops on a 400). A reply whose usage it can't read spends the
+//    whole budget: accounting that can't count must not keep spending.
 let spent = 0;
 const usage = (text) => ['input_tokens', 'cache_creation_input_tokens', 'output_tokens']
   .reduce((sum, k) => sum + Math.max(0, ...[...text.matchAll(new RegExp(`"${k}":(\\d+)`, 'g'))].map((m) => Number(m[1]))), 0);
@@ -63,7 +88,7 @@ const relay = http.createServer((req, res) => {
     res.writeHead(400, { 'content-type': 'application/json' }).end(JSON.stringify({ type: 'error', error: { type: 'invalid_request_error', message: `relay: ${why}` } })); };
   if (req.headers.authorization !== `Bearer ${placeholder}`) return deny('wrong placeholder');
   if (req.method !== 'POST' || !/^\/v1\/messages(\/count_tokens)?(\?beta=true)?$/.test(req.url)) return deny('only POST /v1/messages');
-  if (spent >= BUDGET) return deny(`run budget of ${BUDGET} tokens spent`);
+  if (spent >= budget) return deny(`run budget of ${budget} tokens spent`);
   let body = '';
   req.on('data', (c) => (body += c)).on('end', () => {
     let out; try { out = JSON.stringify({ ...JSON.parse(body), model: MODEL }); } catch { return deny('body is not JSON'); }
@@ -72,8 +97,13 @@ const relay = http.createServer((req, res) => {
       headers: { ...headers, host: UPSTREAM.host, authorization: `Bearer ${TOKEN}`, 'content-length': Buffer.byteLength(out) } }, (r) => {
       let text = '';
       res.writeHead(r.statusCode, r.headers);
-      r.on('data', (c) => { text += c; res.write(c); }).on('end', () => { res.end(); spent += usage(text);
-        console.log(`relay: ${req.url} ${r.statusCode}, ${spent}/${BUDGET} tokens`); });
+      r.on('data', (c) => { text += c; res.write(c); }).on('end', () => {
+        res.end();
+        const counted = usage(text);
+        if (r.statusCode === 200 && counted === 0) console.log(`relay: no usage readable in the reply to ${req.url}; counting the whole budget`);
+        spent = r.statusCode === 200 && counted === 0 ? budget : spent + counted;
+        console.log(`relay: ${req.url} ${r.statusCode}, ${spent}/${budget} tokens`);
+      });
     });
     up.on('error', (e) => deny(`upstream ${e.code}`)).end(out);
   });
@@ -81,10 +111,7 @@ const relay = http.createServer((req, res) => {
 await new Promise((ok) => relay.listen(PORT, '127.0.0.1', ok));
 
 // 3. The jail: user `agent` may connect to the relay and nothing else, the runner's home closed, a fresh clone, and a canary to catch leaks.
-const tgz = `/tmp/anthropic-ai-claude-code-linux-x64-${CLAUDE.version}.tgz`;
-if (!fs.existsSync(tgz)) sh('npm', 'pack', '--silent', '--pack-destination', '/tmp', `@anthropic-ai/claude-code-linux-x64@${CLAUDE.version}`);
-if (crypto.createHash('sha256').update(fs.readFileSync(tgz)).digest('hex') !== CLAUDE.sha256) throw new Error('Claude Code checksum mismatch');
-sh('sudo', 'tar', '-xzf', tgz, '-C', '/usr/local/bin', '--strip-components=1', 'package/claude');
+sh('sudo', 'install', '-m', '755', installClaudeCode('/tmp/claude-code'), '/usr/local/bin/claude'); // pinned, checksum checked
 if (!fs.existsSync('/home/agent')) {
   sh('sudo', 'useradd', '--create-home', 'agent');
   sh('sudo', 'iptables', '-A', 'OUTPUT', '-m', 'owner', '--uid-owner', 'agent', '-d', '127.0.0.1', '-p', 'tcp', '--dport', String(PORT), '-j', 'ACCEPT');
@@ -124,7 +151,7 @@ await run(['pkill', '-KILL', '-u', 'agent']);
 relay.close();
 const result = (() => { try { return JSON.parse(claude.out); } catch { return {}; } })();
 console.log(`claude exit ${claude.code}: ${result.is_error ? result.result : (result.subtype ?? 'no result')}; relay spent ${spent} tokens`);
-const files = { 'relay.json': JSON.stringify({ model: MODEL, budget: BUDGET, spent }) };
+const files = { 'relay.json': JSON.stringify({ model: MODEL, budget, spent }) };
 if (result.structured_output) files['outbox.json'] = JSON.stringify(result.structured_output, null, 1);
 const uid = Number(sh('id', '-u', 'agent'));
 for (const name of fs.readdirSync(`${JAIL}/out`)) {

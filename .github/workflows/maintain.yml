@@ -2,8 +2,8 @@
 #   agent: Claude jailed as unix user `agent`, no keys, network = the relay  -> artifact: outbox + patches
 #   act:   holds the App token; act.mjs carries out the outbox as data       <- reply | label | close | propose
 #   gate:  after every verify run, main's act.mjs posts the required "gate" check
-# Inactive until the owner sets vars.ACT_APP_ID. A PR that touches the maintainer runs `selftest`: the same
-# code against fake tokens, a scripted model, a fake GitHub API and a local git origin.
+# Inactive until the owner sets vars.ACT_APP_ID. verify/maintainer.check.mjs runs this same code against fakes
+# on every pull request, so a change here is gated like any other.
 name: maintain
 
 on:
@@ -17,13 +17,11 @@ on:
   workflow_run:
     workflows: [verify]
     types: [completed]
-  pull_request:
-    paths: ['maintainer/**', '.github/workflows/maintain.yml']
 
 permissions: {}
 
-# One agent run at a time plus one waiting, so a flood of events costs two runs. The gate, the selftest
-# and events made by bots never queue here, so they can't displace a waiting run.
+# One agent run at a time plus one waiting, so a flood of events costs two runs. The gate and events made
+# by bots never queue here, so they can't displace a waiting run.
 concurrency:
   group: ${{ github.event.sender.type != 'Bot' && contains('issues issue_comment schedule workflow_dispatch', github.event_name) && 'maintainer' || github.run_id }}
 
@@ -47,7 +45,7 @@ jobs:
         env:
           RELAY_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           GITHUB_TOKEN: ${{ github.token }}
-      # The artifact's name records the run's spend for the scorecard.
+      # The artifact's name records the run's spend, for the scorecard and the next run's daily cap.
       - if: steps.harness.outputs.tokens != ''
         uses: actions/upload-artifact@v7
         with: { name: 'relay-tokens-${{ steps.harness.outputs.tokens }}', path: '${{ runner.temp }}/outbox' }
@@ -67,7 +65,7 @@ jobs:
         uses: actions/create-github-app-token@v3
         with: { app-id: '${{ vars.ACT_APP_ID }}', private-key: '${{ secrets.ACT_APP_KEY }}' }
       - run: node maintainer/act.mjs apply "$RUNNER_TEMP/outbox"
-        env: { GH_TOKEN: '${{ steps.app.outputs.token }}', ACT_BOT: '${{ steps.app.outputs.app-slug }}[bot]' }
+        env: { GH_TOKEN: '${{ steps.app.outputs.token }}', ACT_BOT: '${{ steps.app.outputs.app-slug }}[bot]', ACT_APP_ID: '${{ vars.ACT_APP_ID }}' }
 
   gate:
     name: post gate check # never just "gate": a skipped job of that name would count as the required check
@@ -83,16 +81,3 @@ jobs:
         with: { app-id: '${{ vars.ACT_APP_ID }}', private-key: '${{ secrets.ACT_APP_KEY }}' }
       - run: node maintainer/act.mjs gate
         env: { GH_TOKEN: '${{ steps.app.outputs.token }}' }
-
-  selftest:
-    if: github.event_name == 'pull_request'
-    runs-on: ubuntu-24.04
-    timeout-minutes: 20
-    permissions: { contents: read, issues: read, pull-requests: read, actions: read }
-    steps:
-      - uses: actions/checkout@v6
-        with: { persist-credentials: false, fetch-depth: 0 }
-      - uses: actions/setup-node@v6
-        with: { node-version: 24 }
-      - run: bash maintainer/selftest/run.sh
-        env: { GITHUB_TOKEN: '${{ github.token }}' }

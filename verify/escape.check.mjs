@@ -1,64 +1,67 @@
-// P1: the escape matrix. Runs a hostile probe as logic inside the real cage and requires every way
-// out to be denied. The cage comes from hud.mjs itself, so CI tests the exact flags users run under.
-// Contract: hud.mjs exports cage({ logicDir, entry, dataDir }) -> { args, env }, meaning
-// spawn(process.execPath, args, { env }), and it renders only when it is the entry point.
-import { spawn } from 'node:child_process';
+// P1: the escape matrix. lib/escape-probe.mjs runs as logic through hud.mjs's own runCage, so this
+// tests the exact grants, environment, flags and fence users run under, in a fake home holding a
+// fake token, next to a local listener that counts connections. Every case must be blocked, and
+// the probe's one allowed write must work.
 import fs from 'node:fs';
-import net from 'node:net';
+import { createServer } from 'node:net';
 import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
+import { runCage } from '../hud.mjs';
+import { claudePaths } from '../collector.mjs';
 
-const root = fileURLToPath(new URL('..', import.meta.url));
-const missing = ['hud.mjs', 'fence.mjs'].filter((f) => !fs.existsSync(path.join(root, f)));
-if (missing.length) {
-  console.log(`skip: no cage yet (${missing.join(', ')} missing); spec step 3 adds it`);
-  process.exit(78);
-}
-const { cage } = await import(pathToFileURL(path.join(root, 'hud.mjs')).href);
-
+const FAKE_TOKEN = 'sk-ant-fake-token-0000';
+const PROBE = fileURLToPath(new URL('lib/escape-probe.mjs', import.meta.url));
+const EXPECTED = fs.readFileSync(PROBE, 'utf8').match(/^await check\(/gm).length;
 const base = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'hud-escape-')));
-const [logicDir, dataDir, outside] = ['logic', 'data', 'outside'].map((d) => path.join(base, d));
-for (const d of [logicDir, dataDir, outside]) fs.mkdirSync(d);
-const secret = path.join(outside, '.credentials.json');
-fs.writeFileSync(secret, '{"token":"fake-not-a-secret"}');
-fs.copyFileSync(new URL('lib/escape-probe.mjs', import.meta.url), path.join(logicDir, 'probe.mjs'));
-
-// A loopback listener: any connection at all is an escape, whatever the probe reports.
 let connections = 0;
-const server = net.createServer((s) => (connections++, s.destroy()));
-await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
-fs.writeFileSync(path.join(logicDir, 'targets.json'), JSON.stringify({ outside, data: dataDir, secret, port: server.address().port }));
-
-const { args, env } = cage({ logicDir, entry: path.join(logicDir, 'probe.mjs'), dataDir });
-// Async, so the listener above can see connections while the probe runs.
-const run = await new Promise((resolve) => {
-  const child = spawn(process.execPath, args, { env });
-  let stdout = '';
-  let stderr = '';
-  child.stdout.on('data', (d) => (stdout += d));
-  child.stderr.on('data', (d) => (stderr += d));
-  child.stdin.end('{}');
-  const killer = setTimeout(() => child.kill('SIGKILL'), 30_000);
-  child.on('close', (status) => {
-    clearTimeout(killer);
-    resolve({ status, stdout, stderr });
-  });
+const server = createServer((socket) => {
+  connections++;
+  socket.destroy();
 });
-server.close();
+await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
 
-let report;
+let lines;
 try {
-  report = JSON.parse(run.stdout.trim().split('\n').pop());
-} catch {
-  console.log(`FAIL the probe did not finish (exit ${run.status}):\n${run.stdout}${run.stderr}`.slice(0, 3000));
-  process.exit(1);
+  const home = path.join(base, 'home');
+  const outside = path.join(base, 'outside');
+  const project = path.join(home, 'project');
+  for (const dir of [outside, project, path.join(home, '.claude')]) fs.mkdirSync(dir, { recursive: true });
+  const secret = path.join(home, '.claude', '.credentials.json');
+  fs.writeFileSync(secret, JSON.stringify({ claudeAiOauth: { accessToken: FAKE_TOKEN } }));
+  const outsideModule = path.join(outside, 'evil.mjs');
+  fs.writeFileSync(outsideModule, 'export default 1;\n');
+  const transcript = path.join(home, '.claude', 'projects', 'p', 'session.jsonl');
+  fs.mkdirSync(path.dirname(transcript), { recursive: true });
+  fs.writeFileSync(transcript, '');
+
+  const env = { HOME: home, USERPROFILE: home, SystemRoot: process.env.SystemRoot, PATH: process.env.PATH,
+    ANTHROPIC_API_KEY: FAKE_TOKEN, CLAUDE_CODE_OAUTH_TOKEN: FAKE_TOKEN, GITHUB_TOKEN: FAKE_TOKEN };
+  const paths = claudePaths(env);
+  // What an earlier, hijacked render could have left: a symlink in data/ pointing outside (case 46).
+  fs.mkdirSync(paths.dataDir, { recursive: true });
+  try {
+    fs.symlinkSync(outside, path.join(paths.dataDir, 'planted-link'), 'junction');
+  } catch { /* no symlinks without privileges on this Windows: case 46 still runs */ }
+  const sibling = `${fs.realpathSync(paths.dataDir)}-sibling`;
+  fs.mkdirSync(sibling);
+  const stdin = {
+    cwd: project,
+    transcript_path: transcript,
+    matrix: { home, outside, secret, stripped: paths.strippedDir, sibling, port: server.address().port, outsideModule: pathToFileURL(outsideModule).href },
+  };
+  ({ lines } = await runCage({ stdin, env, entry: PROBE }));
+} finally {
+  server.close();
+  fs.rmSync(base, { recursive: true, force: true, maxRetries: 5 });
 }
-const escaped = report.results.filter(([, r]) => r !== 'denied');
-for (const [name, r] of report.results) console.log(`${r === 'denied' ? '  ok' : 'FAIL'} ${name}: ${r}`);
-const controlOk = report.control === 'wrote inside the data dir';
-console.log(`${controlOk ? '  ok' : 'FAIL'} control: ${report.control}`);
-if (connections) console.log(`FAIL the loopback listener got ${connections} connection(s)`);
-fs.rmSync(base, { recursive: true, force: true });
-console.log(`${report.results.length - escaped.length}/${report.results.length} denied on Node ${process.version} ${process.platform}`);
-process.exitCode = escaped.length || connections || !controlOk ? 1 : 0;
+
+const control = lines.pop();
+const cases = lines.filter((line) => line.startsWith('blocked ') || line.startsWith('ESCAPED '));
+const escaped = lines.filter((line) => !line.startsWith('blocked '));
+for (const line of lines) console.log(`${line.startsWith('blocked ') ? '  ok' : 'FAIL'} ${line}`);
+console.log(`${control === 'control wrote inside data/' ? '  ok' : 'FAIL'} ${control}`);
+if (connections) console.log(`FAIL the local listener got ${connections} connection(s)`);
+const ok = escaped.length === 0 && connections === 0 && cases.length === EXPECTED && control === 'control wrote inside data/';
+console.log(`${ok ? '' : 'FAIL '}${cases.length - escaped.length}/${cases.length} escape cases blocked on Node ${process.version} ${process.platform}`);
+process.exitCode = ok ? 0 : 1;

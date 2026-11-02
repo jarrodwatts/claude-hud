@@ -26,6 +26,8 @@ npm test
 
 There is no build: Node runs the TypeScript in `src/` directly, so use only erasable syntax and end imports in `.ts`. `npm run typecheck` runs `tsc` without emitting. `tests/golden.test.js` runs the CLI end to end for every case in `tests/golden/cases.mjs` and compares stdout with `tests/golden/expected.txt`. When a change is meant to alter output, run `npm run test:update-snapshots` and check the diff to `expected.txt` before committing it. Keep tests deterministic: pin the clock and use temp directories. `tests/clean-env.js` clears your own `CLAUDE_*`, `ANTHROPIC_*`, `GIT_*`, `COLUMNS` and `DEBUG` variables before each test file runs. Run a single file with `npm test -- tests/<name>.test.js` so it still applies.
 
+Those tests are the agent's and yours, and advisory. The owner's checks live in `verify/` and run on every pull request (`.github/workflows/verify.yml`): the escape matrix, the corpus in `tests/corpus/` (fixtures may be added, never changed), the real Claude Code end-to-end run, the launcher on old Node and Bun, the diagram test against `ARCHITECTURE.md`, and the maintainer. The one required check, `gate`, reads all of them.
+
 ## Pull Requests
 
 - Keep changes focused, and describe the problem and the fix.

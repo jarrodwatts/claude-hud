@@ -5,11 +5,17 @@
 import fs from 'node:fs';
 import { execFileSync } from 'node:child_process';
 
-// Owner-owned paths: text that holds a capability, or checks one. Entries ending in '/' are directories.
-const FROZEN = ['.github/', '.claude/', '.claude-plugin/', '.mcp.json', 'commands/', 'hooks/', 'skills/', 'scripts/',
-  'verify/', 'hud.mjs', 'collector.mjs', 'fence.mjs', 'install.mjs', 'dist/index.js', 'src/index.ts', 'package.json',
-  'package-lock.json', 'maintainer/harness.mjs', 'maintainer/probe.mjs', 'maintainer/scorecard.mjs', 'maintainer/act.mjs',
-  'maintainer/outbox.schema.json'];
+// Owner-owned paths: text that holds a capability, or checks one. The agent owns everything else.
+const FROZEN = [
+  // Directories where any file, old or new, holds a capability: workflows, Claude Code settings and
+  // plugin parts (which run or pre-approve tools on users' machines), and the checks.
+  '.github/', '.claude/', '.claude-plugin/', 'skills/', 'commands/', 'agents/', 'hooks/', 'verify/',
+  // Files that run with full authority on users' machines, or decide what does.
+  '.mcp.json', 'hud.mjs', 'collector.mjs', 'fence.mjs', 'install.mjs', 'scripts/statusline.mjs', 'dist/index.js', 'src/index.ts',
+  'package.json', 'package-lock.json',
+  // The maintainer's own capabilities.
+  'maintainer/harness.mjs', 'maintainer/probe.mjs', 'maintainer/scorecard.mjs', 'maintainer/act.mjs', 'maintainer/outbox.schema.json',
+];
 // Fixtures that may gain files but never change, lose or rename one.
 const APPEND_ONLY = ['tests/corpus/', 'redteam/payloads/'];
 const CAPS = { reply: 20, label: 20, close: 20, propose: 5 };
@@ -47,22 +53,50 @@ function valid(s, v) {
   return false;
 }
 
-// Bot text can't link out or ping anyone: links leave only for this repo, and @ gets a zero-width space.
-const clean = (s) => s.replace(/\b(?:https?:\/\/|www\.)\S+/gi, (u) => (u.startsWith(`https://github.com/${REPO}/`) ? u : '[link removed]'))
-  .replace(/@(?=[\w-])/g, '@​');
+// Bot text can't link out or ping anyone. Every URL-like run (scheme://, //host or www.) is parsed, and
+// stays only as an https page of this repo already in its parsed form, so no `..` or encoding trick
+// leads elsewhere. @ gets a zero-width space.
+const URLISH = /(?:\b[a-z][a-z0-9+.-]*:)?\/\/[^\s<>()[\]"'`]+|\bwww\.[^\s<>()[\]"'`]+/gi;
+const ownPage = (text) => {
+  try {
+    const url = new URL(text);
+    return url.protocol === 'https:' && url.host === 'github.com' && url.href === text && url.pathname.startsWith(`/${REPO}/`);
+  } catch {
+    return false;
+  }
+};
+const clean = (s) => s.replace(URLISH, (u) => (ownPage(u) ? u : '[link removed]')).replace(/@(?=[\w-])/g, '@\u200b');
 
-// Why a staged change is refused, judged from git's own record of the index, never from the patch text.
-function refuse() {
-  const raw = git('diff', '--cached', '--raw', '--no-renames', '-z').split('\0');
+// What a change does, from git's own records of it, never from patch text. propose and the gate both judge with this.
+//   never: what nobody may merge (a fixture changed, lost or renamed; fixtures only grow)
+//   owner: what only the owner may merge (an owner-owned path; a mode, symlink, submodule, type or binary change)
+function inspect(...range) {
+  const never = [];
+  const owner = [];
+  const raw = git('diff', '--raw', '--no-renames', '-z', ...range).split('\0');
   for (let i = 0; i + 1 < raw.length; i += 2) {
     const [oldMode, newMode, , , status] = raw[i].slice(1).split(' ');
     const path = raw[i + 1];
-    if (under(FROZEN, path)) return `${path} is owner-owned`;
-    if (under(APPEND_ONLY, path) && status !== 'A') return `${path} is append-only`;
+    if (under(APPEND_ONLY, path) && status !== 'A') never.push(`${path}: fixtures are append-only`);
+    if (under(FROZEN, path)) owner.push(`${path} is owner-owned`);
     const plain = status === 'A' ? newMode === '100644' : status === 'D' || (status === 'M' && oldMode === newMode && !/^1[26]0000$/.test(oldMode));
-    if (!plain) return `${path}: a mode, symlink, submodule or type change`;
+    if (!plain) owner.push(`${path}: a mode, symlink, submodule or type change`);
   }
-  if (/(^|\0)-\t-\t/.test(git('diff', '--cached', '--numstat', '--no-renames', '-z'))) return 'a binary change';
+  for (const entry of git('diff', '--numstat', '--no-renames', '-z', ...range).split('\0')) {
+    if (entry.startsWith('-\t-\t')) owner.push(`${entry.slice(4)}: a binary change`);
+  }
+  return { never, owner };
+}
+
+// Auto-merge lands a PR as soon as main's required checks pass, so it is turned on only while `gate`
+// is one of them, posted by this App or unpinned. Read from GitHub on every propose; unreadable means off.
+async function gateRequired() {
+  try {
+    return (await api('GET', 'rules/branches/main')).some((rule) => rule.type === 'required_status_checks'
+      && rule.parameters.required_status_checks.some((c) => c.context === 'gate' && (c.integration_id == null || String(c.integration_id) === env.ACT_APP_ID)));
+  } catch {
+    return false;
+  }
 }
 
 const VERBS = {
@@ -74,14 +108,15 @@ const VERBS = {
     git('fetch', '--quiet', '--no-tags', REMOTE, '+refs/heads/main:refs/act/main');
     git('checkout', '--quiet', '--force', '-B', `bot/${a.slug}`, 'refs/act/main');
     git('apply', '--index', `${dir}/patches/${a.slug}.patch`);
-    const why = refuse();
-    if (why) throw new Error(`refused: ${why}`);
+    const { never, owner } = inspect('--cached');
+    if (never.length || owner.length) throw new Error(`refused: ${[...never, ...owner][0]}`);
     const user = a.from_pr && (await api('GET', `pulls/${a.from_pr}`)).user; // re-landed work keeps its author
     const author = user ? ['--author', `${user.login} <${user.id}+${user.login}@users.noreply.github.com>`] : [];
     git('-c', `user.name=${BOT}`, '-c', `user.email=${BOT}@users.noreply.github.com`, 'commit', '--quiet', '--no-verify', ...author, '-m', clean(a.title));
     git('push', '--quiet', '--force', REMOTE, `HEAD:refs/heads/bot/${a.slug}`);
     const [open] = await api('GET', `pulls?state=open&head=${OWNER}:bot/${a.slug}`);
     const pr = open ?? (await api('POST', 'pulls', { head: `bot/${a.slug}`, base: 'main', title: clean(a.title), body: clean(a.body) }));
+    if (!(await gateRequired())) return console.log(`auto-merge stays off for #${pr.number}: gate is not a required check on main`);
     await api('POST', '/graphql', { variables: { id: pr.node_id }, query:
       'mutation($id: ID!) { enablePullRequestAutoMerge(input: {pullRequestId: $id, mergeMethod: REBASE}) { clientMutationId } }' });
   },
@@ -111,13 +146,12 @@ async function gate() {
   for (const j of jobs) if (j.conclusion !== 'success') fails.push(`verify job "${j.name}" concluded ${j.conclusion}; only success counts`);
   git('fetch', '--quiet', '--no-tags', REMOTE, '+refs/heads/main:refs/gate/base', `+refs/pull/${pr.number}/head:refs/gate/head`);
   if (git('rev-parse', 'refs/gate/head') !== run.head_sha) fails.push('the PR has moved on since this verify run');
-  const changed = (...args) => git('diff', '--no-renames', '--name-only', 'refs/gate/base...refs/gate/head', ...args).split('\n').filter(Boolean);
-  for (const f of changed('--diff-filter=DMT', '--', ...APPEND_ONLY)) fails.push(`${f}: fixtures are append-only`);
-  const frozen = changed().filter((f) => under(FROZEN, f));
-  if (frozen.length && pr.user.login !== OWNER) {
+  const { never, owner } = inspect('refs/gate/base...refs/gate/head');
+  fails.push(...never);
+  if (owner.length && pr.user.login !== OWNER) {
     const reviews = await api('GET', `pulls/${pr.number}/reviews?per_page=100`);
     if (!reviews.some((r) => r.state === 'APPROVED' && r.user.login === OWNER && r.commit_id === run.head_sha))
-      fails.push(`owner-owned paths changed (${frozen.join(', ')}): the owner must approve ${run.head_sha.slice(0, 7)}, then re-run verify`);
+      fails.push(`only the owner may merge this (${owner.join('; ')}): the owner must approve ${run.head_sha.slice(0, 7)}, then re-run verify`);
   }
   const conclusion = fails.length ? 'failure' : 'success';
   const summary = fails.map((f) => `- ${f}`).join('\n') || 'Every verify job passed, fixtures only grew, and owner-owned paths are untouched or approved.';

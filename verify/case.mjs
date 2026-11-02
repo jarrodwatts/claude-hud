@@ -1,18 +1,19 @@
 // The corpus contract, shared by the corpus runner, the e2e check and the maintainer's intake.
 // FIELDS is the fixture schema. EXPECT is the closed vocabulary: a fixture may only use these
 // words, so its properties outlive any redesign and nobody ever needs to edit an old fixture.
+import { terminalFilter } from '../hud.mjs';
 
 export const FIELDS = {
   note: 'string', // what broke, with the issue or CHANGELOG link (required)
-  columns: 'number', // the COLUMNS the HUD process gets (required)
+  columns: 'number', // the COLUMNS the HUD gets (required)
   stdin: 'object|string', // Claude Code's payload; a string is sent as raw bytes (required)
   expect: 'array', // words from EXPECT (required)
   config: 'object', // non-default config.json keys
   versions: 'object', // { claudeCode, node, hud } from the report
   platform: 'string', // process.platform; the case runs only there
   tz: 'string', // TZ, default UTC
-  now: 'string', // ISO time the clock is pinned to
-  facts: 'object', // collector facts; needs the cage (spec step 3)
+  now: 'string', // ISO time of the render's clock
+  facts: 'object', // the probes' answers by probe name (createProbes in collector.mjs), replayed instead of run
   stdinOpen: 'boolean', // leave the pipe open after writing stdin
 };
 const REQUIRED = ['note', 'columns', 'stdin', 'expect'];
@@ -20,23 +21,28 @@ const REQUIRED = ['note', 'columns', 'stdin', 'expect'];
 // Text a terminal shows, and what a terminal does with the rest.
 const SGR = /\x1b\[[0-9;:]*m/g;
 const OSC8 = /\x1b\]8;[^;\x07\x1b]*;([^\x07\x1b]*)(?:\x07|\x1b\\)/g;
-const BIDI = /[؜‎‏‪-‮⁦-⁯]/;
 export const visible = (s) => s.replace(SGR, '').replace(OSC8, '');
 const wide = /[ᄀ-ᅟ⺀-〾ぁ-꓏가-힣豈-﫿︰-﹏＀-｠￠-￦]|[\u{1f300}-\u{1faff}\u{20000}-\u{3fffd}]/u;
 const zero = /[\p{M}​-‍︀-️]/u;
 export const cells = (s) => [...visible(s)].reduce((n, ch) => n + (zero.test(ch) ? 0 : wide.test(ch) ? 2 : 1), 0);
-// Only colour and links to https:// or file:// may reach the terminal; no other control byte or bidi mark.
-export const unsafeEscape = (s) => {
-  const badLink = [...s.matchAll(OSC8)].map((m) => m[1]).find((url) => url && !/^(https|file):\/\//.test(url));
-  if (badLink) return `link to ${JSON.stringify(badLink)}`;
-  const rest = s.replace(SGR, '').replace(OSC8, '');
-  const bad = rest.match(/[\x00-\x09\x0b-\x1f\x7f-\x9f]/) ?? rest.match(BIDI);
-  return bad ? `byte U+${bad[0].codePointAt(0).toString(16).padStart(4, '0')}` : null;
-};
+
+// Safe means hud.mjs's own terminal filter keeps every byte: one allow list for the filter and the checks.
+export function unsafeEscape(text, stdin = null) {
+  const filter = terminalFilter(stdin !== null && typeof stdin === 'object' ? stdin : null);
+  for (const line of text.split('\n')) {
+    const kept = filter(line);
+    if (kept === line) continue;
+    let at = 0;
+    while (line[at] === kept[at]) at++;
+    return `escape ${JSON.stringify(line.slice(at, at + 24))}`;
+  }
+  return null;
+}
 // A line leaves a link open when its last OSC 8 sequence opens one.
 const openLink = (line) => Boolean([...line.matchAll(OSC8)].at(-1)?.[1]);
 
-// Each word: pattern -> (result {code, out, ms}, case, ...captures) -> true or the reason it failed.
+// Each word: pattern -> (result {code, out, raw?, err, ms}, case, ...captures) -> true or the reason it failed.
+// `out` is what reaches the terminal; `raw` is logic's own lines, before hud.mjs's filter.
 const lines = (r) => r.out.replace(/\n$/, '').split('\n');
 export const EXPECT = [
   [/^exit 0$/, (r) => r.code === 0 || `exit ${r.code}: ${r.err.slice(0, 200)}`],
@@ -44,7 +50,8 @@ export const EXPECT = [
   [/^at most (\d+) lines$/, (r, c, n) => lines(r).length <= Number(n) || `${lines(r).length} lines`],
   [/^no line wider than columns$/, (r, c) => lines(r).every((l) => cells(l) <= c.columns) || `a line is ${Math.max(...lines(r).map(cells))} cells`],
   [/^every line closes its OSC 8 link$/, (r) => !lines(r).some(openLink) || 'a line leaves a link open'],
-  [/^only safe escapes$/, (r) => !unsafeEscape(r.out) || `unsafe ${unsafeEscape(r.out)}`],
+  // Judged on logic's own lines, so the filter stays a second wall rather than the only one.
+  [/^only safe escapes$/, (r, c) => !unsafeEscape(r.raw ?? r.out, c.stdin) || `unsafe ${unsafeEscape(r.raw ?? r.out, c.stdin)}`],
   [/^no lone surrogate$/, (r) => !/[�\p{Cs}]/u.test(r.out) || 'a character was cut in half'],
   [/^contains (.+)$/s, (r, c, text) => visible(r.out).includes(text) || `no ${JSON.stringify(text)}`],
   [/^lacks (.+)$/s, (r, c, text) => !visible(r.out).includes(text) || `has ${JSON.stringify(text)}`],

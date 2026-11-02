@@ -1,11 +1,12 @@
 // The status line command. Claude Code runs it after each message with a JSON payload on stdin.
 //
-//   stdin ─▶ hud.mjs ─▶ collector.mjs: data/, grants, probes (the only code that runs programs)
-//                └──▶ node --permission … --import=fence.mjs src/main.ts   (logic, caged)
-//                         asks for probes by name ◀─▶ answers; returns {lines, snapshot?}
-//            ◀── lines, filtered to colour codes and file:/github.com links ─▶ terminal
+//   stdin ─▶ hud.mjs ─▶ collector.mjs: paths, data/, probes (the only code that runs programs)
+//                └──▶ runCage: node --permission … --import=fence.mjs src/main.ts   (logic, caged)
+//                       ─▶ {stdin, now, paths}   ◀─ ask: probe names ─▶ answers   ◀─ {lines, snapshot?}
+//            ◀── lines through terminalFilter ─▶ terminal
 //
 // `node hud.mjs <command>` runs one of the /hud skill's subcommands instead (see COMMANDS).
+// Every check under verify/ runs logic through the same runCage.
 //
 // Launchers already on users' machines reach main() through dist/index.js and src/index.ts.
 // Keep this file's syntax loadable by old Node and Bun, so they can print the upgrade line.
@@ -34,12 +35,46 @@ export function isNodeSupported(version = process.versions.node) {
 
 const upgradeLine = (runtime) => `claude-hud needs Node 22.18+ (this is ${runtime}). Type /hud to fix it.`;
 
-// Only SGR colour and OSC 8 links to file: or github.com survive; every other control byte goes.
-const ALLOWED = /(\x1b\[[0-9;]*m|\x1b\]8;;(?:(?:https:\/\/github\.com\/|file:\/\/)[^\x00-\x1f\x7f-\x9f]*)?\x1b\\)|[\x00-\x1f\x7f-\x9f]/g;
-export const filterLine = (line) => String(line).replace(ALLOWED, (match, kept) => kept ?? '');
+// ---- What may reach the terminal. One allow list: verify/case.mjs judges output with it too.
 
-function print(lines) {
-  if (lines.length > 0) process.stdout.write(lines.map((line) => `${filterLine(line)}\n`).join(''));
+// Whole escape sequences (CSI, OSC, other ESC), then single control and bidi characters.
+const ESCAPES = /\x1b\[[0-?]*[ -/]*[@-~]|\x1b\][^\x07\x1b]*(?:\x07|\x1b\\)?|\x1b[ -/]*[0-~]?|[\x00-\x1f\x7f-\x9f؜‎‏‪-‮⁦-⁩]/g;
+const SGR = /^\x1b\[[0-9;]*m$/;
+const OSC8 = /^\x1b\]8;;(.*)\x1b\\$/s;
+const GITHUB_NAME = /^[A-Za-z0-9_.-]+$/;
+
+/**
+ * The filter each line passes on its way to the terminal, for the session in `stdin`. It keeps SGR
+ * colour, and OSC 8 links to file: URLs or to pages of the GitHub repo Claude Code reported
+ * (stdin.workspace.repo). Every other escape sequence is dropped whole, and every other control or
+ * bidi character goes. Logic never decides what reaches the terminal.
+ */
+export function terminalFilter(stdin) {
+  const repo = stdin?.workspace?.repo;
+  const pages = repo?.host === 'github.com' && GITHUB_NAME.test(repo.owner ?? '') && GITHUB_NAME.test(repo.name ?? '')
+    ? `https://github.com/${repo.owner}/${repo.name}/`
+    : null;
+  const linkAllowed = (target) => {
+    if (target === '') return true; // closes the open link
+    try {
+      const url = new URL(target);
+      // A web link must already be in the parsed form, so no `..` or encoding trick leaves the repo.
+      return url.protocol === 'file:' || (pages !== null && url.href === target && target.startsWith(pages));
+    } catch {
+      return false;
+    }
+  };
+  const keep = (sequence) => {
+    const link = OSC8.exec(sequence);
+    return SGR.test(sequence) || (link !== null && linkAllowed(link[1]));
+  };
+  return (line) => String(line).replace(ESCAPES, (sequence) => (keep(sequence) ? sequence : ''));
+}
+
+function print(lines, stdin = null) {
+  if (lines.length === 0) return;
+  const filter = terminalFilter(stdin);
+  process.stdout.write(lines.map((line) => `${filter(line)}\n`).join(''));
 }
 
 const NO_DATA_TIMEOUT_MS = 250;
@@ -105,23 +140,60 @@ export function cageEnv(env = process.env) {
   return caged;
 }
 
-/** Node flags for the cage. Never --allow-child-process, --allow-worker, --allow-addons or --allow-wasi. */
-export function cageArgs({ grants, dataDir, entry = LOGIC }) {
-  return ['--permission', ...grants.map((grant) => `--allow-fs-read=${grant}`), ...(dataDir ? [`--allow-fs-write=${dataDir}`] : []),
-    '--disallow-code-generation-from-strings', `--import=${FENCE}`, entry];
+/**
+ * Node flags for the cage. Never --allow-child-process, --allow-worker, --allow-addons or --allow-wasi.
+ * --disallow-code-generation-from-strings only stops eval and new Function. It is no wall: logic could
+ * write a module and import it. The wall is fence.mjs, which loads nothing from outside the plugin,
+ * while data/, the one place logic writes, is never inside the plugin. For the same reason there is no
+ * compile cache: Node trusts a cache entry by its crc32, so a cache logic can write would let it plant
+ * code for the next render. `audit` swaps --permission for --permission-audit: nothing is denied, and
+ * fence.mjs reports each access outside the grants.
+ */
+export function cageArgs({ grants, dataDir, entry = LOGIC, audit = false }) {
+  return [audit ? '--permission-audit' : '--permission', ...grants.map((grant) => `--allow-fs-read=${grant}`),
+    ...(dataDir ? [`--allow-fs-write=${dataDir}`] : []), '--disallow-code-generation-from-strings', `--import=${FENCE}`, entry];
 }
 
-/** Runs caged logic: sends the payload, answers its probes, and resolves with its {lines, snapshot?}. */
-export function runCage({ stdin, dataDir, writable = true, stripped = null, grants, env = process.env, probes, entry, now = Date.now(), command }) {
+const isInside = (file, dir) => {
+  const relative = path.relative(dir, file);
+  return !relative.startsWith('..') && !path.isAbsolute(relative);
+};
+
+/**
+ * The one way logic runs: for a render, for a subcommand, and for every check under verify/.
+ *   stdin    Claude Code's payload, or null       now    the render's one clock reading
+ *   probes   names => answers: collector.createProbes for a real render, recorded facts in the corpus
+ *   env      the environment; its HOME and CLAUDE_CONFIG_DIR place data/ and every path logic reads
+ *   entry    the logic to run (the escape matrix runs its probe instead)
+ *   audit    see cageArgs
+ *   command  a /hud subcommand, { name, args, facts }, instead of a render
+ * Resolves with logic's { lines, snapshot?, config?, failed? }, plus `outside` (the accesses outside
+ * the grants) in audit mode.
+ */
+export async function runCage({ stdin = null, now = Date.now(), probes = async () => ({}), env = process.env, entry = LOGIC, audit = false, command }) {
+  const collector = await import('./collector.mjs');
+  const paths = collector.claudePaths(env);
+  let dataDir = null;
+  try {
+    dataDir = collector.prepareDataDir(paths);
+  } catch { /* a read-only home only costs the caches and the cost ledger */ }
+  if (dataDir && isInside(dataDir, fs.realpathSync(ROOT))) dataDir = null;
+  // A subcommand's project is the folder Claude Code ran it in.
+  const named = collector.logicPaths(paths, command ? { ...stdin, cwd: command.facts.cwd } : stdin);
+  if (dataDir) named.data = dataDir;
+  const stripped = collector.stripLogic(paths.strippedDir, ROOT);
+  const grants = collector.readGrants(ROOT, { ...named, stripped: stripped?.dir });
+
   return new Promise((resolve, reject) => {
-    const args = cageArgs({ grants: stripped ? [...grants, stripped.dir] : grants, dataDir: writable ? dataDir : null, entry });
-    const child = spawn(process.execPath, args, {
+    const child = spawn(process.execPath, cageArgs({ grants, dataDir, entry, audit }), {
       env: { ...cageEnv(env), ...(stripped ? { CLAUDE_HUD_STRIPPED: JSON.stringify({ dir: path.join(stripped.dir, path.sep), files: stripped.files }) } : {}) },
       stdio: ['pipe', 'pipe', 'pipe'],
       windowsHide: true,
     });
     let settled = false;
-    const settle = (error, output) => {
+    let output = null;
+    let stderr = '';
+    const settle = (error, value) => {
       if (settled) return;
       settled = true;
       clearTimeout(timer);
@@ -130,7 +202,7 @@ export function runCage({ stdin, dataDir, writable = true, stripped = null, gran
         child.kill('SIGKILL');
         reject(error);
       } else {
-        resolve(output);
+        resolve(value);
       }
     };
     const timer = setTimeout(() => settle(new Error('timed out')), WALL_MS);
@@ -153,19 +225,29 @@ export function runCage({ stdin, dataDir, writable = true, stripped = null, gran
         }
         buffered = buffered.slice(newline + 1);
         if (Array.isArray(message?.lines)) {
-          return settle(null, { lines: message.lines.map(String), snapshot: message.snapshot, config: message.config, failed: message.failed === true });
-        }
-        if (Number.isSafeInteger(message?.id)) {
-          probes(message.ask).catch(() => ({})).then((answers) => send({ id: message.id, answers }));
+          output = { lines: message.lines.map(String), snapshot: message.snapshot, config: message.config, failed: message.failed === true };
+          // In audit mode the report comes as logic exits, which closing its input makes it do.
+          if (audit) child.stdin.end();
+          else return settle(null, output);
+        } else if (Number.isSafeInteger(message?.id)) {
+          Promise.resolve().then(() => probes(message.ask)).catch(() => ({})).then((answers) => send({ id: message.id, answers }));
         }
       }
     });
-    if (env.DEBUG) child.stderr.pipe(process.stderr);
-    else child.stderr.resume();
+    child.stderr.setEncoding('utf8');
+    child.stderr.on('data', (chunk) => {
+      if (audit) stderr = (stderr + chunk).slice(-MAX_OUTPUT_BYTES);
+      if (env.DEBUG) process.stderr.write(chunk);
+    });
     child.stdin.on('error', () => {});
     child.on('error', (error) => settle(error));
-    child.on('close', (code) => settle(new Error(`logic exited with code ${code}`)));
-    send({ stdin, dataDir, now, ...(command ? { command } : {}) });
+    child.on('close', (code) => {
+      if (!output) return settle(new Error(`logic exited with code ${code}`));
+      const report = stderr.split('\n').findLast((line) => line.startsWith('claude-hud audit '));
+      settle(null, audit ? { ...output, outside: report ? JSON.parse(report.slice('claude-hud audit '.length)) : ['no audit report'] } : output);
+    });
+    probes.start?.(); // after the spawn: logic's startup is the long pole
+    send({ stdin, now, paths: named, ...(command ? { command } : {}) });
   });
 }
 
@@ -188,19 +270,6 @@ function relayToNode(argv) {
 
 // The /hud skill's subcommands. All but install run as logic in the cage, like a render.
 const COMMANDS = ['doctor', 'schema', 'preview', 'set', 'report', 'install'];
-
-/** What a cage run needs from the collector: data/, the read grants for each input, and stripped/. */
-function cageInputs(collector, paths, inputs) {
-  let dataDir = paths.dataDir;
-  let writable = true;
-  try {
-    dataDir = collector.prepareDataDir(paths);
-  } catch {
-    writable = false; // A read-only home only costs the caches and the cost ledger.
-  }
-  const grants = [...new Set(inputs.flatMap((stdin) => collector.readGrants({ root: ROOT, dataDir, paths, stdin })))];
-  return { dataDir, writable, grants, stripped: collector.stripLogic(paths.strippedDir, ROOT) };
-}
 
 async function runCommand(name, args, { collector, paths, env }) {
   const facts = collector.commandFacts({ root: ROOT, paths, env });
@@ -226,17 +295,12 @@ async function runCommand(name, args, { collector, paths, env }) {
     }
     // The last render's input, saved by hud.mjs from Claude Code, so preview and report can replay it.
     const stdin = facts.heartbeat?.stdin ?? null;
-    const output = await runCage({
-      stdin,
-      ...cageInputs(collector, paths, [stdin, { cwd: facts.cwd }]),
-      env,
-      probes: collector.createProbes({ cwd: stdin?.cwd, argv: [], env, usage: collector.usagePaths(paths, env) }),
-      command: { name, args, facts },
-    });
+    const probes = collector.createProbes({ cwd: stdin?.cwd, argv: [], env, usage: collector.usagePaths(paths, env) });
+    const output = await runCage({ stdin, env, probes, command: { name, args, facts } });
     // Only `set`, which Claude Code asks the user about, may change config; the rest are pre-approved.
     if (name === 'set' && output.config) collector.writeConfig(paths, output.config);
     if (output.failed) process.exitCode = 1;
-    print(output.lines);
+    print(output.lines, stdin);
   } catch (error) {
     process.exitCode = 1;
     print([`claude-hud ${name}: ${error instanceof Error ? error.message : 'Unknown error'}`]);
@@ -261,12 +325,10 @@ export async function main({ argv = process.argv, env = process.env } = {}) {
     stdin = await readStdin();
     const setting = collector.userSettings(paths);
     const usage = collector.usagePaths(paths, env, setting);
-    const probes = collector.createProbes({ cwd: stdin?.cwd, argv, env, usage });
-    const rendering = runCage({ stdin, ...cageInputs(collector, paths, [stdin]), env, now, probes });
-    probes.start(collector.probesToStart(setting)); // after the spawn: logic's startup is the long pole
-    const output = await rendering;
+    const probes = collector.createProbes({ cwd: stdin?.cwd, argv, env, usage, early: collector.probesToStart(setting) });
+    const output = await runCage({ stdin, now, probes, env });
     if (output.snapshot) collector.writeUsageSnapshot(usage.write, output.snapshot);
-    print(output.lines);
+    print(output.lines, stdin);
     // Without input this is a person running the command by hand; keep Claude Code's last render.
     if (stdin) collector.writeHeartbeat(paths, { outcome: output.failed ? output.lines[0] ?? 'failed' : 'ok', stdin, now, env });
   } catch (error) {
