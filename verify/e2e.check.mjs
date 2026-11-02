@@ -158,12 +158,14 @@ async function inside(work) {
   // Time the installed statusLine command the way Claude Code runs it: a shell, stdin, COLUMNS.
   const stdin = JSON.stringify({ cwd: user.proj, workspace: { current_dir: user.proj, project_dir: user.proj }, model: { display_name: 'Sonnet 5.5' },
     context_window: { used_percentage: 4, context_window_size: 200000 }, rate_limits: { five_hour: { used_percentage: 25, resets_at: Math.floor(Date.now() / 1000) + 5400 } } });
+  // 40 timed runs after 3 untimed ones: with 20, p95 was the single slowest run, so one stall on a
+  // shared runner decided the check.
   const ms = [];
   let raw = '';
-  for (let i = 0; i < 20; i++) {
+  for (let i = -3; i < 40; i++) {
     const start = performance.now();
     raw = execFileSync('sh', ['-c', command], { env: { ...user.env, COLUMNS: String(COLS) }, cwd: user.proj, input: stdin, encoding: 'utf8' });
-    ms.push(Math.round(performance.now() - start));
+    if (i >= 0) ms.push(Math.round(performance.now() - start));
   }
 
   // The /hud skill, in `claude -p`.
