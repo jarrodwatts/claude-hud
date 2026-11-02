@@ -32,7 +32,13 @@ async function outside() {
   // The platform package holds the native binary; installing it directly runs no install script.
   execFileSync('npm', ['install', '--prefix', path.join(work, 'cc'), '--ignore-scripts', '--no-audit', '--no-fund', `@anthropic-ai/${BIN}@${CLAUDE_CODE}`], { stdio: 'ignore' });
   step(`installed Claude Code ${CLAUDE_CODE}`);
-  execFileSync('unshare', ['-rn', process.execPath, fileURLToPath(import.meta.url)], { env: { ...process.env, E2E_WORK: work, E2E_T0: String(t0) }, stdio: 'inherit' });
+  try {
+    execFileSync('unshare', ['-rn', process.execPath, fileURLToPath(import.meta.url)], { env: { ...process.env, E2E_WORK: work, E2E_T0: String(t0) }, stdio: 'inherit' });
+  } catch {
+    // Ubuntu 24.04 refuses `unshare -r` until: sysctl kernel.apparmor_restrict_unprivileged_userns=0
+    console.log('FAIL the Claude Code session did not finish (see above); if unshare was refused, allow user namespaces');
+    process.exit(1);
+  }
   const r = JSON.parse(fs.readFileSync(path.join(work, 'result.json'), 'utf8'));
   fs.writeFileSync(path.join(out, 'screen.ans'), r.screen);
   fs.writeFileSync(path.join(out, 'screen.html'), ans2html(r.screen, `claude-hud e2e, Claude Code ${CLAUDE_CODE}`));
