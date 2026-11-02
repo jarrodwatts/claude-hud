@@ -1,6 +1,6 @@
 // The maintainer harness (owner-owned). It runs on a fresh GitHub VM as `runner`, which has passwordless sudo.
 // It builds the inbox, keeps the subscription token inside the relay, jails Claude as the unix user `agent`
-// (no sudo, loopback only), proves the jail with the reach probe, and collects what Claude left as plain data.
+// (no sudo, network = the relay only), proves the jail with the reach probe, and collects what Claude left as plain data.
 //   RELAY_TOKEN=<subscription token> node maintainer/harness.mjs <out dir>
 import fs from 'node:fs';
 import http from 'node:http';
@@ -105,8 +105,7 @@ const canary = `ghp_${crypto.randomBytes(18).toString('hex')}`;
 execFileSync('sudo', ['-u', 'agent', 'sh', '-c', 'mkdir -p /home/agent/.config/gh && cat > /home/agent/.config/gh/hosts.yml'], { input: `github.com:\n  oauth_token: ${canary}\n` });
 
 // 4. The reach probe, as `agent`. Anything reachable aborts the run.
-const runnerDir = sh('sh', '-c', 'dirname "$(readlink /proc/$(pgrep -x Runner.Worker | head -1)/exe)" 2>/dev/null || true');
-const probe = await run(agent('node', `${JAIL}/probe.mjs`, String(PORT), placeholder, String(process.pid), env.HOME, ...(runnerDir ? [runnerDir] : [])), 120e3);
+const probe = await run(agent('node', `${JAIL}/probe.mjs`, String(PORT), placeholder, String(process.pid), env.HOME, env.RUNNER_TEMP), 120e3);
 console.log(probe.out);
 if (probe.code !== 0) throw new Error('the reach probe found a way out of the jail: run aborted');
 
@@ -125,7 +124,8 @@ await run(['pkill', '-KILL', '-u', 'agent']);
 relay.close();
 const result = (() => { try { return JSON.parse(claude.out); } catch { return {}; } })();
 console.log(`claude exit ${claude.code}: ${result.is_error ? result.result : (result.subtype ?? 'no result')}; relay spent ${spent} tokens`);
-const files = result.structured_output ? { 'outbox.json': JSON.stringify(result.structured_output, null, 1) } : {};
+const files = { 'relay.json': JSON.stringify({ model: MODEL, budget: BUDGET, spent }) };
+if (result.structured_output) files['outbox.json'] = JSON.stringify(result.structured_output, null, 1);
 const uid = Number(sh('id', '-u', 'agent'));
 for (const name of fs.readdirSync(`${JAIL}/out`)) {
   const st = fs.lstatSync(`${JAIL}/out/${name}`);

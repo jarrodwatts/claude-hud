@@ -27,7 +27,7 @@ check "a symlink the agent left in out/ was not collected" grep -q 'ignored out/
 
 echo "== 2. ACT carries out that outbox against a fake GitHub and a local origin"
 origin=$st/server/$GITHUB_REPOSITORY
-git init -q --bare "$origin" && git push -q "$origin" HEAD:refs/heads/main
+git init -q --bare -b main "$origin" && git push -q "$origin" HEAD:refs/heads/main
 git clone -q "$origin" "$st/act" && git clone -q "$origin" "$st/prs"
 echo '{}' > "$st/routes.json"
 node "$here/fake-github.mjs" 18788 "$st/routes.json" "$st/github.log" & sleep 0.5
@@ -46,14 +46,16 @@ check "ACT had no file for the symlinked patch" grep -q 'FAIL propose steal-file
 check "no branch exists for any refused patch" test -z "$(git -C "$origin" branch --list 'bot/sneak*' 'bot/steal*')"
 check "every write used the App token" jq -es 'all(.auth == "Bearer ghs_fake-app-token")' "$st/github.log"
 mkdir -p "$st/bad" && echo '{"actions":[{"do":"merge","item":1}]}' > "$st/bad/outbox.json" && : > "$st/github.log"
-if act apply "$st/bad"; then fail "ACT accepted an outbox with a verb outside the schema"; fi
+if act apply "$st/bad" 2> "$st/bad.txt"; then fail "ACT accepted an outbox with a verb outside the schema"; fi
 check "an outbox with a verb outside the schema does nothing at all" test ! -s "$st/github.log"
 
 echo "== 3. The relay refuses once the run's budget is spent"
 node "$here/fake-model.mjs" 18789 "$here/steps-spend.json" "$st/model-spend.log" & sleep 0.5
 RELAY_TOKEN=$token RELAY_UPSTREAM=http://127.0.0.2:18789 RELAY_BUDGET=600 node "$m/harness.mjs" "$st/spend" | tee "$st/harness-spend.txt"
-check "the relay answered 400: run budget spent" grep -q 'refused POST /v1/messages?beta=true: run budget of 600 tokens spent' "$st/harness-spend.txt"
-check "Claude stopped at the first refusal instead of retrying" test "$(grep -c 'run budget of 600 tokens spent' "$st/harness-spend.txt")" -le 2
+check "the relay answered 400 once 600 tokens were spent" grep -q 'refused POST /v1/messages?beta=true: run budget of 600 tokens spent' "$st/harness-spend.txt"
+check "Claude stopped on the 400 instead of retrying until a timeout" grep -q 'claude exit 1: API Error: 400 relay: run budget' "$st/harness-spend.txt"
+after() { sed -n '/run budget of 600 tokens spent/,$p' "$st/harness-spend.txt"; }
+check "no call reached the model once the budget was spent" test -z "$(after | grep ' 200, ')"
 check "no outbox came out of a run that ran out of budget" test ! -e "$st/spend/outbox.json"
 
 echo "== 4. The gate, run on fake verify results for PR heads in the local origin"
