@@ -27,13 +27,14 @@ const zero = /[\p{M}​-‍︀-️]/u;
 export const cells = (s) => [...visible(s)].reduce((n, ch) => n + (zero.test(ch) ? 0 : wide.test(ch) ? 2 : 1), 0);
 // Only colour and links to https:// or file:// may reach the terminal; no other control byte or bidi mark.
 export const unsafeEscape = (s) => {
-  const links = [...s.matchAll(OSC8)].map((m) => m[1]).find((url) => url && !/^(https|file):\/\//.test(url));
-  if (links) return `link to ${JSON.stringify(links)}`;
+  const badLink = [...s.matchAll(OSC8)].map((m) => m[1]).find((url) => url && !/^(https|file):\/\//.test(url));
+  if (badLink) return `link to ${JSON.stringify(badLink)}`;
   const rest = s.replace(SGR, '').replace(OSC8, '');
   const bad = rest.match(/[\x00-\x09\x0b-\x1f\x7f-\x9f]/) ?? rest.match(BIDI);
   return bad ? `byte U+${bad[0].codePointAt(0).toString(16).padStart(4, '0')}` : null;
 };
-const openLink = (line) => [...line.matchAll(OSC8)].reduce((open, m) => m[1] !== '', false);
+// A line leaves a link open when its last OSC 8 sequence opens one.
+const openLink = (line) => Boolean([...line.matchAll(OSC8)].at(-1)?.[1]);
 
 // Each word: pattern -> (result {code, out, ms}, case, ...captures) -> true or the reason it failed.
 const lines = (r) => r.out.replace(/\n$/, '').split('\n');
