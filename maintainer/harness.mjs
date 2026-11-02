@@ -14,6 +14,7 @@ const CLAUDE = { version: '2.1.310', sha256: '8c90b0170d08fdb370db282c61d74897b8
 const MODEL = 'claude-opus-5-5';
 const TOOLS = 'Bash,Read,Edit,Write,Glob,Grep,Task';
 const JAIL = '/tmp/maint';
+const PORT = 8642; // the relay, and the only place `agent` may connect to
 const env = process.env;
 const TOKEN = env.RELAY_TOKEN;
 delete env.RELAY_TOKEN;
@@ -77,17 +78,16 @@ const relay = http.createServer((req, res) => {
     up.on('error', (e) => deny(`upstream ${e.code}`)).end(out);
   });
 });
-await new Promise((ok) => relay.listen(0, '127.0.0.1', ok));
-const port = relay.address().port;
+await new Promise((ok) => relay.listen(PORT, '127.0.0.1', ok));
 
-// 3. The jail: user `agent`, loopback 127.0.0.1 only, the runner's home closed, a fresh clone, and a canary to catch leaks.
+// 3. The jail: user `agent` may connect to the relay and nothing else, the runner's home closed, a fresh clone, and a canary to catch leaks.
 const tgz = `/tmp/anthropic-ai-claude-code-linux-x64-${CLAUDE.version}.tgz`;
 if (!fs.existsSync(tgz)) sh('npm', 'pack', '--silent', '--pack-destination', '/tmp', `@anthropic-ai/claude-code-linux-x64@${CLAUDE.version}`);
 if (crypto.createHash('sha256').update(fs.readFileSync(tgz)).digest('hex') !== CLAUDE.sha256) throw new Error('Claude Code checksum mismatch');
 sh('sudo', 'tar', '-xzf', tgz, '-C', '/usr/local/bin', '--strip-components=1', 'package/claude');
 if (!fs.existsSync('/home/agent')) {
   sh('sudo', 'useradd', '--create-home', 'agent');
-  sh('sudo', 'iptables', '-A', 'OUTPUT', '-m', 'owner', '--uid-owner', 'agent', '-o', 'lo', '-d', '127.0.0.1', '-j', 'ACCEPT');
+  sh('sudo', 'iptables', '-A', 'OUTPUT', '-m', 'owner', '--uid-owner', 'agent', '-d', '127.0.0.1', '-p', 'tcp', '--dport', String(PORT), '-j', 'ACCEPT');
   for (const t of ['iptables', 'ip6tables']) sh('sudo', t, '-A', 'OUTPUT', '-m', 'owner', '--uid-owner', 'agent', '-j', 'REJECT');
 }
 sh('sudo', 'chmod', '700', env.HOME); // holds the workspace, step scripts and the runner itself
@@ -106,7 +106,7 @@ execFileSync('sudo', ['-u', 'agent', 'sh', '-c', 'mkdir -p /home/agent/.config/g
 
 // 4. The reach probe, as `agent`. Anything reachable aborts the run.
 const runnerDir = sh('sh', '-c', 'dirname "$(readlink /proc/$(pgrep -x Runner.Worker | head -1)/exe)" 2>/dev/null || true');
-const probe = await run(agent('node', `${JAIL}/probe.mjs`, String(port), placeholder, String(process.pid), env.HOME, ...(runnerDir ? [runnerDir] : [])), 120e3);
+const probe = await run(agent('node', `${JAIL}/probe.mjs`, String(PORT), placeholder, String(process.pid), env.HOME, ...(runnerDir ? [runnerDir] : [])), 120e3);
 console.log(probe.out);
 if (probe.code !== 0) throw new Error('the reach probe found a way out of the jail: run aborted');
 
@@ -114,7 +114,7 @@ if (probe.code !== 0) throw new Error('the reach probe found a way out of the ja
 const prompt = `You maintain this repository. Read maintainer/PLAYBOOK.md first and follow it. ${JAIL}/inbox.json holds the GitHub state;
 open PRs are fetched as refs/remotes/pr/<number>. You have no network and no GitHub access: you act only through your final answer.
 To propose a change, save \`git diff\` against main to ${JAIL}/out/<slug>.patch and add a propose action with that slug.`;
-const claude = await run(agent(`ANTHROPIC_BASE_URL=http://127.0.0.1:${port}`, `CLAUDE_CODE_OAUTH_TOKEN=${placeholder}`, `GH_TOKEN=${canary}`,
+const claude = await run(agent(`ANTHROPIC_BASE_URL=http://127.0.0.1:${PORT}`, `CLAUDE_CODE_OAUTH_TOKEN=${placeholder}`, `GH_TOKEN=${canary}`,
   'DISABLE_AUTOUPDATER=1', 'CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC=1', 'CLAUDE_CODE_DISABLE_AUTO_MEMORY=1',
   'claude', '-p', prompt, '--model', MODEL, '--output-format', 'json', '--no-session-persistence',
   '--json-schema', fs.readFileSync(new URL('outbox.schema.json', import.meta.url), 'utf8'),
