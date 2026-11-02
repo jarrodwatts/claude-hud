@@ -10,8 +10,6 @@ permissions:
 jobs:
   verify:
     runs-on: ubuntu-24.04
-    env:
-      VERIFY_OUT: ${{ runner.temp }}/verify
     steps:
       - uses: actions/checkout@v6
         with:
@@ -28,7 +26,7 @@ jobs:
       - run: npm ci
       - run: npm run build --if-present
       - id: run
-        run: node verify/run.mjs || echo "failed=true" >> "$GITHUB_OUTPUT"
+        run: VERIFY_OUT="$RUNNER_TEMP/verify" node verify/run.mjs || echo "failed=true" >> "$GITHUB_OUTPUT"
       - uses: actions/upload-artifact@v7
         with:
           path: ${{ runner.temp }}/verify/screen.png
