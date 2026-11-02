@@ -1,5 +1,5 @@
 blank_issues_enabled: false
 contact_links:
   - name: Security report
-    url: mailto:jarrodwttsyt@gmail.com
-    about: Please report security vulnerabilities via email.
+    url: https://github.com/jarrodwatts/claude-hud/security/advisories/new
+    about: Report security vulnerabilities privately, through GitHub's advisory flow.
