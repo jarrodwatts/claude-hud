@@ -1,0 +1,57 @@
+# Frozen. Every check lives in verify/*.check.mjs and runs through verify/run.mjs, so adding a
+# check never edits this file. No secrets, no caches, no `if:` (a skipped job would count as passed).
+name: verify
+
+on: pull_request
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24
+      - name: Terminal, fonts, and user namespaces for the e2e
+        run: |
+          sudo apt-get update -q
+          sudo apt-get install -yq --no-install-recommends tmux fonts-dejavu-core fonts-noto-core
+          sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
+      - run: npm ci
+      - run: npm run build --if-present
+      - id: run
+        run: VERIFY_OUT="$RUNNER_TEMP/verify" node verify/run.mjs || echo "failed=true" >> "$GITHUB_OUTPUT"
+      - uses: actions/upload-artifact@v7
+        with:
+          path: ${{ runner.temp }}/verify/screen.png
+          archive: false
+      - uses: actions/upload-artifact@v7
+        with:
+          path: ${{ runner.temp }}/verify/screen.html
+          archive: false
+      - name: Verdict
+        run: test "${{ steps.run.outputs.failed }}" != true
+
+  cage:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, windows-latest]
+        node: ['22.18', '24', '26']
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v6
+        with:
+          node-version: ${{ matrix.node }}
+      - run: npm ci
+      - run: npm run build --if-present
+      - run: node verify/run.mjs escape corpus

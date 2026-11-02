@@ -1,0 +1,32 @@
+{
+  "note": "Render the prompt-cache clock as 'until <time>' so it reads as expiry, not write time (#727).",
+  "columns": 120,
+  "now": "2026-10-01T12:00:00Z",
+  "config": {
+    "display": {
+      "showPromptCache": true
+    }
+  },
+  "stdin": {
+    "model": {
+      "display_name": "Opus 5.5"
+    },
+    "context_window": {
+      "used_percentage": 45,
+      "context_window_size": 200000
+    },
+    "prompt_cache": {
+      "warm": true,
+      "caching_observed": true,
+      "ttl": "5m",
+      "expires_at": 1790856240,
+      "requests": 10,
+      "misses": 1,
+      "hit_ratio": 0.91
+    }
+  },
+  "expect": [
+    "exit 0",
+    "contains until"
+  ]
+}

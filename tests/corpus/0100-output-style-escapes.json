@@ -1,0 +1,26 @@
+{
+  "note": "The output style is sanitized before display; it reached the terminal raw (CHANGELOG 0.10.0 Security).",
+  "columns": 120,
+  "config": {
+    "display": {
+      "showOutputStyle": true
+    }
+  },
+  "stdin": {
+    "model": {
+      "display_name": "Opus 5.5"
+    },
+    "context_window": {
+      "used_percentage": 45,
+      "context_window_size": 200000
+    },
+    "output_style": {
+      "name": "Explan\u001b[1Aatory\u0007⁦"
+    }
+  },
+  "expect": [
+    "exit 0",
+    "only safe escapes",
+    "contains Explanatory"
+  ]
+}

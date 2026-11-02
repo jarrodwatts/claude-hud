@@ -1,0 +1,24 @@
+{
+  "note": "Sanitize session names before display (#754, CHANGELOG 0.9.0 Security).",
+  "columns": 120,
+  "config": {
+    "display": {
+      "showSessionName": true
+    }
+  },
+  "stdin": {
+    "model": {
+      "display_name": "Opus 5.5"
+    },
+    "context_window": {
+      "used_percentage": 45,
+      "context_window_size": 200000
+    },
+    "session_name": "\u001b]0;pwned\u0007name\u001b[2J‮gnp.exe\b"
+  },
+  "expect": [
+    "exit 0",
+    "only safe escapes",
+    "contains name"
+  ]
+}

@@ -1,0 +1,19 @@
+{
+  "note": "A folder name containing ' │ ' no longer leaves the project link open over the rest of the HUD when line 1 wraps (CHANGELOG 0.11.0).",
+  "columns": 14,
+  "stdin": {
+    "model": {
+      "display_name": "Opus 5.5"
+    },
+    "context_window": {
+      "used_percentage": 45,
+      "context_window_size": 200000
+    },
+    "cwd": "/home/user/a │ b"
+  },
+  "expect": [
+    "exit 0",
+    "every line closes its OSC 8 link",
+    "no line wider than columns"
+  ]
+}

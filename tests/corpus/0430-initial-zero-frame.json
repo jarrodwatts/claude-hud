@@ -1,0 +1,20 @@
+{
+  "note": "Context handling for the initial frame, before Claude Code reports any usage (#430, #460).",
+  "columns": 120,
+  "stdin": {
+    "model": {
+      "display_name": "Opus 5.5"
+    },
+    "context_window": {
+      "context_window_size": 200000,
+      "used_percentage": null,
+      "current_usage": null
+    }
+  },
+  "expect": [
+    "exit 0",
+    "contains Context",
+    "contains 0%",
+    "lacks NaN"
+  ]
+}

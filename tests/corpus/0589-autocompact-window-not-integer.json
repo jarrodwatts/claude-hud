@@ -1,0 +1,23 @@
+{
+  "note": "Validate autoCompactWindow as an integer before using it in context calculations (#589).",
+  "columns": 120,
+  "config": {
+    "display": {
+      "autoCompactWindow": "abc"
+    }
+  },
+  "stdin": {
+    "model": {
+      "display_name": "Opus 5.5"
+    },
+    "context_window": {
+      "used_percentage": 45,
+      "context_window_size": 200000
+    }
+  },
+  "expect": [
+    "exit 0",
+    "contains 45%",
+    "lacks NaN"
+  ]
+}
