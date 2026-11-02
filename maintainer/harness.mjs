@@ -84,9 +84,13 @@ const inbox = { repo: env.GITHUB_REPOSITORY, now: new Date().toISOString(), scor
     .map((c) => ({ author: c.user.login, role: c.author_association, at: c.created_at, body: cut(c.body) })) })) };
 
 // 2. The relay: the only holder of the token. Only POST /v1/messages, model pinned, 400 once the budget is spent
-//    (Claude retries a 429 for minutes but stops on a 400). A reply whose usage it can't read spends the
-//    whole budget: accounting that can't count must not keep spending.
+//    (Claude retries a 429 for minutes but stops on a 400). Usage is only known once a reply ends, so each
+//    request first reserves the most it could cost, its prompt (a token is never shorter than a byte) plus
+//    its max_tokens, and is refused if that doesn't fit: requests sent at once can't overrun the budget
+//    together. A reply whose usage it can't read spends the whole budget: accounting that can't count
+//    must not keep spending.
 let spent = 0;
+let reserved = 0;
 const usage = (text) => ['input_tokens', 'cache_creation_input_tokens', 'output_tokens']
   .reduce((sum, k) => sum + Math.max(0, ...[...text.matchAll(new RegExp(`"${k}":(\\d+)`, 'g'))].map((m) => Number(m[1]))), 0);
 const placeholder = `relay-${crypto.randomUUID()}`;
@@ -98,7 +102,13 @@ const relay = http.createServer((req, res) => {
   if (spent >= budget) return deny(`run budget of ${budget} tokens spent`);
   let body = '';
   req.on('data', (c) => (body += c)).on('end', () => {
-    let out; try { out = JSON.stringify({ ...JSON.parse(body), model: MODEL }); } catch { return deny('body is not JSON'); }
+    let request; try { request = JSON.parse(body); } catch { return deny('body is not JSON'); }
+    const out = JSON.stringify({ ...request, model: MODEL });
+    const most = Buffer.byteLength(out) + (Number.isSafeInteger(request.max_tokens) && request.max_tokens > 0 ? request.max_tokens : budget);
+    if (spent + reserved + most > budget) return deny(`run budget of ${budget} tokens: ${spent} spent and ${reserved} held by requests in flight, so this one, which could cost ${most}, can't start`);
+    reserved += most;
+    let held = most;
+    const release = () => { reserved -= held; held = 0; };
     const { 'accept-encoding': _, 'x-api-key': __, ...headers } = req.headers; // plain text back, so usage can be counted
     const up = (UPSTREAM.protocol === 'https:' ? https : http).request(new URL(req.url, UPSTREAM), { method: 'POST',
       headers: { ...headers, host: UPSTREAM.host, authorization: `Bearer ${TOKEN}`, 'content-length': Buffer.byteLength(out) } }, (r) => {
@@ -106,13 +116,14 @@ const relay = http.createServer((req, res) => {
       res.writeHead(r.statusCode, r.headers);
       r.on('data', (c) => { text += c; res.write(c); }).on('end', () => {
         res.end();
+        release();
         const counted = usage(text);
         if (r.statusCode === 200 && counted === 0) console.log(`relay: no usage readable in the reply to ${req.url}; counting the whole budget`);
         spent = r.statusCode === 200 && counted === 0 ? budget : spent + counted;
         console.log(`relay: ${req.url} ${r.statusCode}, ${spent}/${budget} tokens`);
       });
     });
-    up.on('error', (e) => deny(`upstream ${e.code}`)).end(out);
+    up.on('error', (e) => { release(); deny(`upstream ${e.code}`); }).end(out);
   });
 });
 await new Promise((ok) => relay.listen(PORT, '127.0.0.1', ok));

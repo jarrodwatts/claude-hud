@@ -3,18 +3,19 @@
 // the status line.
 //   reply(body)  the tool calls for this turn, [{ name, input }], or null for the text "mock reply"
 //   usage        what every reply reports it used (the maintainer check sends zeros, which its relay can't count)
+//   delay        milliseconds before each reply, so requests sent together are in flight together
 //   host, port   where to listen; the maintainer check uses 127.0.0.2, which the jail can't reach
 // Resolves with { port, requests, close }; each request is its parsed body plus `url` and `auth`.
 import http from 'node:http';
 
 const USAGE = { input_tokens: 1200, output_tokens: 7, cache_creation_input_tokens: 300, cache_read_input_tokens: 40000 };
 
-export function startFakeApi({ reply = () => null, usage = USAGE, host = '127.0.0.1', port = 0 } = {}) {
+export function startFakeApi({ reply = () => null, usage = USAGE, delay = 0, host = '127.0.0.1', port = 0 } = {}) {
   const requests = [];
   const server = http.createServer((req, res) => {
     let raw = '';
     req.on('data', (c) => (raw += c));
-    req.on('end', () => {
+    req.on('end', () => setTimeout(() => {
       let body = {};
       try {
         body = JSON.parse(raw);
@@ -45,7 +46,7 @@ export function startFakeApi({ reply = () => null, usage = USAGE, host = '127.0.
         ['message_stop', {}]);
       for (const [type, data] of events) res.write(`event: ${type}\ndata: ${JSON.stringify({ type, ...data })}\n\n`);
       res.end();
-    });
+    }, delay));
   });
   return new Promise((resolve) => server.listen(port, host, () => resolve({ port: server.address().port, requests, close: () => server.close() })));
 }

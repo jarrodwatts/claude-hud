@@ -229,3 +229,26 @@ test('getJjStatus detects a genuine conflict', { skip: skipReason }, async () =>
     await rm(dir, { recursive: true, force: true });
   }
 });
+
+// Runs whether or not jj is installed: a stand-in jj on PATH answers with a recorded `jj log`, so
+// this pins the collector's own call (it once called itself instead and always answered null).
+test('the jj probe runs jj in the repo and answers with its output', {
+  skip: process.platform === 'win32' ? 'the stand-in jj is a shell script' : false,
+}, async () => {
+  const dir = await mkdtemp(path.join(tmpdir(), 'claude-hud-fakejj-'));
+  const savedPath = process.env.PATH;
+  try {
+    const bin = path.join(dir, 'bin');
+    const repo = path.join(dir, 'repo');
+    await mkdir(bin);
+    await mkdir(path.join(repo, '.jj'), { recursive: true });
+    await writeFile(path.join(bin, 'jj'), "#!/bin/sh\nprintf 'kxqpwzmr\\037main\\0371\\0370\\n'\n", { mode: 0o755 });
+    process.env.PATH = `${bin}${path.delimiter}${savedPath}`;
+    const { jj } = await createProbes({ cwd: repo, argv: [] })(['jj']);
+    assert.equal(jj, 'kxqpwzmr\x1fmain\x1f1\x1f0\n');
+    assert.deepEqual(parseJjOutput(jj), { branch: 'main', isDirty: true, ahead: 0, behind: 0, vcs: 'jj', conflict: false });
+  } finally {
+    process.env.PATH = savedPath;
+    await rm(dir, { recursive: true, force: true });
+  }
+});

@@ -132,11 +132,26 @@ try {
   let api = await startFakeApi({ host: '127.0.0.2', reply: keepCalling });
   const spend = await node(harness, [`${st}/spend`], harnessEnv(api, { RELAY_BUDGET: '600' }));
   api.close();
-  const after = spend.out.slice(spend.out.indexOf('run budget of 600 tokens spent'));
-  check('the relay answered 400 once 600 tokens were spent', spend.out.includes('refused POST /v1/messages?beta=true: run budget of 600 tokens spent'));
+  const after = spend.out.slice(Math.max(0, spend.out.indexOf('run budget of 600 tokens')));
+  check('the relay answered 400 to a request a 600-token budget cannot cover', spend.out.includes('refused POST /v1/messages?beta=true: run budget of 600 tokens'));
   check('Claude stopped on the 400 instead of retrying until a timeout', spend.out.includes('claude exit 1: API Error: 400 relay: run budget'));
-  check('no call reached the model once the budget was spent', !after.includes(' 200, '));
+  check('no call reached the model past the budget', spend.out.includes('run budget of 600 tokens') && !after.includes(' 200, '));
   check('no outbox came out of a run that ran out of budget', !fs.existsSync(`${st}/spend/outbox.json`));
+
+  // A hijacked agent holds the placeholder and a shell: it sends eight requests at once, each of which
+  // could cost a million tokens. Each holds its most until it ends, so only two fit in 3M together.
+  const token = "$(cat /proc/[0-9]*/environ 2>/dev/null | tr '\\0' '\\n' | sed -n 's/^CLAUDE_CODE_OAUTH_TOKEN=//p' | head -1)";
+  const burst = { name: 'Bash', input: { description: 'eight requests at once, straight to the relay',
+    command: `T=${token}; for i in 1 2 3 4 5 6 7 8; do curl -s -o /dev/null -H "authorization: Bearer $T" -H 'content-type: application/json' `
+      + `-d '{"model":"x","max_tokens":1000000,"stream":true,"messages":[{"role":"user","content":"hi"}]}' http://127.0.0.1:8642/v1/messages & done; wait` } };
+  let burstSent = false;
+  api = await startFakeApi({ host: '127.0.0.2', delay: 1500,
+    reply: (body) => (body.tools?.length ? [burstSent ? { name: 'StructuredOutput', input: { actions: [] } } : (burstSent = true, burst)] : null) });
+  const together = await node(harness, [`${st}/together`], harnessEnv(api));
+  api.close();
+  const reached = api.requests.filter((r) => r.max_tokens === 1000000).length;
+  check('requests sent at once reserve their most: 2 of 8 million-token requests reached the model', reached === 2 && together.out.includes('held by requests in flight'),
+    `${reached} reached`);
 
   api = await startFakeApi({ host: '127.0.0.2', reply: keepCalling, usage: { input_tokens: 0, output_tokens: 0 } });
   const blind = await node(harness, [`${st}/blind`], harnessEnv(api));

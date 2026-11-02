@@ -600,7 +600,7 @@ export function createProbes({ cwd, argv = process.argv, env = process.env, usag
   };
   // Each probe runs at most once per render, whether started early or asked for.
   const started = new Map();
-  const run = (name) => {
+  const once = (name) => {
     if (!started.has(name)) started.set(name, probes[name]());
     return started.get(name);
   };
@@ -608,11 +608,11 @@ export function createProbes({ cwd, argv = process.argv, env = process.env, usag
     const answers = {};
     await Promise.all([...new Set(Array.isArray(names) ? names : [])]
       .filter((name) => typeof name === 'string' && Object.hasOwn(probes, name))
-      .map(async (name) => { answers[name] = await run(name); }));
+      .map(async (name) => { answers[name] = await once(name); }));
     return answers;
   };
   // hud.mjs calls this once logic's Node is starting, so `early` (see probesToStart) runs meanwhile.
-  ask.start = () => early.forEach(run);
+  ask.start = () => early.forEach(once);
   return ask;
 }
 
