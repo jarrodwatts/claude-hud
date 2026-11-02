@@ -1,5 +1,5 @@
 {
-  "note": "The daily cost ledger no longer throws on a non-string session_id (CHANGELOG 0.10.0).",
+  "note": "The daily cost ledger no longer throws on a non-string session_id (CHANGELOG 0.10.0). (edited)",
   "columns": 120,
   "config": {
     "display": {
