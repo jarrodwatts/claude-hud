@@ -1,6 +1,6 @@
 // The status line command. Claude Code runs it after each message with a JSON payload on stdin.
 //
-//   stdin ─▶ hud.mjs ─▶ collector.mjs: paths, data/, probes (the only code that runs programs)
+//   stdin ─▶ hud.mjs ─▶ collector.mjs: paths, data/, stripped/, probes (the only code that runs programs)
 //                └──▶ runCage: node --permission … --import=fence.mjs src/main.ts   (logic, caged)
 //                       ─▶ {stdin, now, paths}   ◀─ ask: probe names ─▶ answers   ◀─ {lines, snapshot?}
 //            ◀── lines through terminalFilter ─▶ terminal
@@ -14,23 +14,22 @@ import { spawn } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
+import * as collector from './collector.mjs';
 
 const ROOT = path.dirname(fileURLToPath(import.meta.url));
 const LOGIC = path.join(ROOT, 'src', 'main.ts');
 const FENCE = pathToFileURL(path.join(ROOT, 'fence.mjs')).href;
 const MAX_OUTPUT_BYTES = 64 * 1024;
+// The cage's wall stops runaway logic, not slow probes, so it sits well above them. Each probe has its
+// own shorter limit, and a slow one blanks only its own element. Git's runs chain: a config read, then
+// status and line diffs, then branch or tag on a timeout, each up to 1-2 s plus 1.5 s on Windows for its
+// worker to start. The extra command may take 3 s.
 const WALL_MS = 10_000;
 
 // CLAUDE_HUD_DISABLE=1 blanks the HUD for one session while keeping the statusLine setting.
 export function isHudDisabled(env = process.env) {
   const value = env.CLAUDE_HUD_DISABLE?.trim().toLowerCase();
   return !!value && !['0', 'false', 'off', 'no'].includes(value);
-}
-
-// Type stripping, --permission and module.registerHooks are all unflagged from 22.18.
-export function isNodeSupported(version = process.versions.node) {
-  const [major, minor] = version.split('.').map(Number);
-  return major > 22 || (major === 22 && minor >= 18);
 }
 
 const upgradeLine = (runtime) => `claude-hud needs Node 22.18+ (this is ${runtime}). Type /hud to fix it.`;
@@ -145,9 +144,10 @@ export function cageEnv(env = process.env) {
  * --disallow-code-generation-from-strings only stops eval and new Function. It is no wall: logic could
  * write a module and import it. The wall is fence.mjs, which loads nothing from outside the plugin,
  * while data/, the one place logic writes, is never inside the plugin. For the same reason there is no
- * compile cache: Node trusts a cache entry by its crc32, so a cache logic can write would let it plant
- * code for the next render. `audit` swaps --permission for --permission-audit: nothing is denied, and
- * fence.mjs reports each access outside the grants.
+ * compile cache logic can write: Node trusts a cache entry by its crc32, so such a cache would let it
+ * plant code for the next render. The one cache, stripped/, is written by collector.mjs and only read
+ * by logic. `audit` swaps --permission for --permission-audit: nothing is denied, and fence.mjs
+ * reports each access outside the grants.
  */
 export function cageArgs({ grants, dataDir, entry = LOGIC, audit = false }) {
   return [audit ? '--permission-audit' : '--permission', ...grants.map((grant) => `--allow-fs-read=${grant}`),
@@ -171,7 +171,6 @@ const isInside = (file, dir) => {
  * the grants) in audit mode.
  */
 export async function runCage({ stdin = null, now = Date.now(), probes = async () => ({}), env = process.env, entry = LOGIC, audit = false, command }) {
-  const collector = await import('./collector.mjs');
   const paths = collector.claudePaths(env);
   let dataDir = null;
   try {
@@ -271,7 +270,7 @@ function relayToNode(argv) {
 // The /hud skill's subcommands. All but install run as logic in the cage, like a render.
 const COMMANDS = ['doctor', 'schema', 'preview', 'set', 'report', 'install'];
 
-async function runCommand(name, args, { collector, paths, env }) {
+async function runCommand(name, args, { paths, env }) {
   const facts = collector.commandFacts({ root: ROOT, paths, env });
   const printJson = (value) => process.stdout.write(`${JSON.stringify(value, null, 2)}\n`);
   if (!facts.runtime.supported) {
@@ -311,10 +310,9 @@ export async function main({ argv = process.argv, env = process.env } = {}) {
   const command = COMMANDS.includes(argv[2]) ? argv[2] : null;
   if (!command && isHudDisabled(env)) return;
   if (process.versions.bun) return relayToNode(argv);
-  const collector = await import('./collector.mjs');
   const paths = collector.claudePaths(env);
-  if (command) return runCommand(command, argv.slice(3), { collector, paths, env });
-  if (!isNodeSupported()) {
+  if (command) return runCommand(command, argv.slice(3), { paths, env });
+  if (!collector.isNodeSupported(process.versions.node)) {
     collector.writeHeartbeat(paths, { outcome: 'upgrade', env });
     return print([upgradeLine(process.version)]);
   }
@@ -338,14 +336,7 @@ export async function main({ argv = process.argv, env = process.env } = {}) {
   }
 }
 
-const isSamePath = (a, b) => {
-  try {
-    return fs.realpathSync(a) === fs.realpathSync(b);
-  } catch {
-    return false;
-  }
-};
 const ENTRIES = [path.join(ROOT, 'hud.mjs'), path.join(ROOT, 'dist', 'index.js'), path.join(ROOT, 'src', 'index.ts')];
-if (process.argv[1] && ENTRIES.some((entry) => isSamePath(process.argv[1], entry))) {
+if (process.argv[1] && ENTRIES.some((entry) => collector.samePath(process.argv[1], entry))) {
   await main();
 }

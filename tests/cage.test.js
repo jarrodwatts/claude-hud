@@ -3,7 +3,6 @@ import assert from 'node:assert/strict';
 import { existsSync, lstatSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, realpathSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
-import { cageArgs, cageEnv, terminalFilter } from '../hud.mjs';
 import { claudePaths, logicPaths, prepareDataDir, readGrants, stripLogic, strippedName } from '../collector.mjs';
 
 function withHome(fn) {
@@ -105,44 +104,3 @@ test('a symlinked rules directory is granted at its target too', {
   symlinkSync(target, path.join(paths.configDir, 'rules'));
   assert.ok(readGrants('/plugin', logicPaths(paths, null)).includes(target));
 }));
-
-test('logic gets no PATH and no secrets', () => {
-  const env = cageEnv({
-    PATH: '/usr/bin', HOME: '/home/u', TZ: 'UTC', CLAUDE_CONFIG_DIR: '/c', ANTHROPIC_API_KEY: 'sk-ant-fake',
-    CLAUDE_CODE_OAUTH_TOKEN: 'fake', GITHUB_TOKEN: 'fake', AWS_SECRET_ACCESS_KEY: 'fake',
-    ANTHROPIC_BASE_URL: 'https://user:pass@api.minimax.io/anthropic?key=fake',
-  });
-  assert.deepEqual(env, {
-    PATH: '', HOME: '/home/u', TZ: 'UTC', CLAUDE_CONFIG_DIR: '/c', ANTHROPIC_API_KEY: 'set',
-    ANTHROPIC_BASE_URL: 'https://api.minimax.io/anthropic',
-  });
-});
-
-test('the cage never grants child processes, workers, addons, WASI or the network', () => {
-  const args = cageArgs({ grants: ['/a', '/b'], dataDir: '/d' });
-  assert.deepEqual(args.filter((a) => a.startsWith('--allow-')), ['--allow-fs-read=/a', '--allow-fs-read=/b', '--allow-fs-write=/d']);
-  assert.ok(args.includes('--permission'));
-  assert.ok(args.includes('--disallow-code-generation-from-strings'));
-  assert.match(args.at(-2), /^--import=file:.*fence\.mjs$/);
-  assert.ok(!cageArgs({ grants: [], dataDir: null }).some((a) => a.startsWith('--allow-fs-write')));
-});
-
-test('output keeps colour, file: links and links into the session\'s repo, and drops every other escape whole', () => {
-  const filter = terminalFilter({ workspace: { repo: { host: 'github.com', owner: 'o', name: 'r' } } });
-  const link = (url, text) => `\x1b]8;;${url}\x1b\\${text}\x1b]8;;\x1b\\`;
-  for (const kept of ['\x1b[0m\x1b[36m[Opus]\x1b[0m', '\x1b[38;2;0;255;0mx\x1b[38;5;208my', link('file:///home/u/my%20project', 'p'),
-    link('https://github.com/o/r/tree/main', 'main'), link('https://github.com/o/r/commit/abc1234', 'c'), link('file://C:/Users/ü/項目', 'p'), 'a\u00a0b 全']) {
-    assert.equal(filter(kept), kept);
-  }
-  // A refused link goes whole, opener and all; the empty closer is harmless and kept.
-  for (const url of ['https://evil.example/', 'https://github.com/evil/r/tree/main', 'https://github.com/o/r/../../evil/x', 'https://github.com/o/rx/',
-    'http://github.com/o/r/', 'javascript:alert(1)']) {
-    assert.equal(filter(link(url, 'x')), 'x\x1b]8;;\x1b\\', url);
-  }
-  assert.equal(terminalFilter(null)(link('https://github.com/o/r/tree/main', 'x')), 'x\x1b]8;;\x1b\\', 'no repo reported, no web links');
-  assert.equal(filter('a\x1b]0;title\x07b'), 'ab');
-  assert.equal(filter('a\x1b[2Jb\x1b[1;1Hc'), 'abc');
-  assert.equal(filter('a\rb\tc\x9bd\x00e\x7f'), 'abcde');
-  assert.equal(filter('a\u202eb\u2066c'), 'abc', 'bidi controls go too');
-  assert.equal(filter('a\x1b]8;;https://evil.example/'), 'a', 'an unterminated sequence goes to the end of the line');
-});

@@ -26,7 +26,7 @@ npm test
 
 There is no build: Node runs the TypeScript in `src/` directly, so use only erasable syntax and end imports in `.ts`. `npm run typecheck` runs `tsc` without emitting. `tests/golden.test.js` runs the CLI end to end for every case in `tests/golden/cases.mjs` and compares stdout with `tests/golden/expected.txt`. When a change is meant to alter output, run `npm run test:update-snapshots` and check the diff to `expected.txt` before committing it. Keep tests deterministic: pin the clock and use temp directories. `tests/clean-env.js` clears your own `CLAUDE_*`, `ANTHROPIC_*`, `GIT_*`, `COLUMNS` and `DEBUG` variables before each test file runs. Run a single file with `npm test -- tests/<name>.test.js` so it still applies.
 
-Those tests are the agent's and yours, and advisory. The owner's checks live in `verify/` and run on every pull request (`.github/workflows/verify.yml`): the escape matrix, the corpus in `tests/corpus/` (fixtures may be added, never changed), the real Claude Code end-to-end run, the launcher on old Node and Bun, the diagram test against `ARCHITECTURE.md`, and the maintainer. The one required check, `gate`, reads all of them.
+Those tests are the agent's and yours, and advisory. The owner's checks live in `verify/` and run on every pull request (`.github/workflows/verify.yml`): the escape matrix, the corpus in `tests/corpus/` (fixtures may be added, never changed), the real Claude Code end-to-end run, the launcher on old Node and Bun, the diagram test against `ARCHITECTURE.md`, the owner's own walls (`owner`), and the maintainer. The one required check, `gate`, reads all of them.
 
 ## Pull Requests
 
@@ -38,4 +38,4 @@ Those tests are the agent's and yours, and advisory. The owner's checks live in 
 
 ## Releases
 
-There is nothing to build or tag. Claude Code updates users when the version in `.claude-plugin/plugin.json` changes, so a release is a PR that bumps the version in `plugin.json`, `marketplace.json`, `package.json` and `package-lock.json` together, with a `CHANGELOG.md` entry. Keep the version fields even if that changes: launchers already on users' machines find installs by version folder.
+There is nothing to build or tag. Claude Code updates users when the version in `.claude-plugin/plugin.json` changes, so a release is a PR that bumps the version in `plugin.json`, `marketplace.json`, `package.json` and `package-lock.json` together, with a `CHANGELOG.md` entry. A PR that moves only the version in those files needs no owner approval, so the maintainer can release too. Keep the version fields even if that changes: launchers already on users' machines find installs by version folder.

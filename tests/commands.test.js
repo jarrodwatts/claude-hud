@@ -10,7 +10,6 @@ import { fileURLToPath } from 'node:url';
 import { configKeys } from '../src/config.ts';
 import { DESCRIPTIONS } from '../src/schema.ts';
 import { mask, scrubStdin } from '../src/commands.ts';
-import { claudePaths, writeConfig } from '../collector.mjs';
 
 const hud = fileURLToPath(new URL('../hud.mjs', import.meta.url));
 
@@ -124,19 +123,6 @@ test('set writes config.json, keeps what it did not touch, and --undo puts it ba
 
   assert.equal(run(['set', '--undo']).status, 0);
   assert.deepEqual(JSON.parse(readFileSync(configPath, 'utf8')), { pathLevels: 2 });
-}));
-
-test('the config set writes keeps the file-naming keys from disk, whatever logic hands back', () => withHome(({ home, configPath }) => {
-  const paths = claudePaths({}, home);
-  mkdirSync(path.dirname(configPath), { recursive: true });
-  writeFileSync(configPath, JSON.stringify({ display: { externalUsagePath: '/mine.json' } }));
-  writeConfig(paths, { display: { showTools: true, externalUsagePath: '/evil.json', externalUsageWritePath: '/home/u/.bashrc.json' } });
-  assert.deepEqual(JSON.parse(readFileSync(configPath, 'utf8')), { display: { showTools: true, externalUsagePath: '/mine.json' } });
-
-  // Only a file-naming key, and none on disk: nothing of it may survive.
-  writeFileSync(configPath, '{}');
-  writeConfig(paths, { lineLayout: 'compact', display: { externalUsageWritePath: '/home/u/.bashrc.json' } });
-  assert.deepEqual(JSON.parse(readFileSync(configPath, 'utf8')), { lineLayout: 'compact' });
 }));
 
 test('preview renders a candidate config without saving it', () => withHome(({ run, project, configPath }) => {

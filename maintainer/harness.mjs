@@ -21,7 +21,7 @@ delete env.RELAY_TOKEN;
 const UPSTREAM = new URL(env.RELAY_UPSTREAM ?? 'https://api.anthropic.com');
 const BUDGET = Number(env.RELAY_BUDGET ?? 3e6); // input + cache-write + output tokens per run
 const DAILY_BUDGET = Number(env.RELAY_DAILY_BUDGET ?? 4 * BUDGET); // across every run in the last 24 hours
-const AGENT_EVENTS = ['issues', 'issue_comment', 'schedule', 'workflow_dispatch']; // the events maintain.yml's agent job runs on
+const AGENT_EVENTS = ['issues', 'issue_comment', 'schedule', 'workflow_dispatch']; // the agent job's events; maintain.yml names them twice more, and the maintainer check holds all three equal
 const [outDir] = process.argv.slice(2);
 const sh = (cmd, ...args) => execFileSync(cmd, args, { encoding: 'utf8', stdio: ['ignore', 'pipe', 'inherit'] }).trim();
 const agent = (...args) => ['-u', 'agent', 'env', '-i', '-C', `${JAIL}/repo`, 'HOME=/home/agent',

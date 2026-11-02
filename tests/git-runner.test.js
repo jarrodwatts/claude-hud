@@ -9,8 +9,7 @@ import {
   GIT_MAX_OUTPUT_BYTES,
   GitTimeoutError,
   createGitEnvironment,
-  resolveTaskkillPath,
-  resolveWindowsGitExecutable,
+  resolveWindowsExecutable,
   runGit,
   runGitInWorker,
   terminateWindowsProcessTree,
@@ -24,7 +23,7 @@ const removeOnceReleased = (dir) => rm(dir, { recursive: true, force: true, maxR
 
 function absoluteGit() {
   return process.platform === 'win32'
-    ? resolveWindowsGitExecutable()
+    ? resolveWindowsExecutable('git')
     : execFileSync('sh', ['-c', 'command -v git'], { encoding: 'utf8' }).trim();
 }
 
@@ -41,31 +40,6 @@ test('Git subprocess environment disables prompts and optional locks', () => {
   assert.equal(environment.GIT_TERMINAL_PROMPT, '0');
   assert.equal(environment.GCM_INTERACTIVE, 'Never');
   assert.equal(GIT_MAX_OUTPUT_BYTES, 1024 * 1024);
-});
-
-test('taskkill path requires a drive-absolute SystemRoot', () => {
-  assert.equal(
-    resolveTaskkillPath({ SystemRoot: 'C:\\Windows' }),
-    'C:\\Windows\\System32\\taskkill.exe',
-  );
-  assert.equal(resolveTaskkillPath({ SystemRoot: 'relative\\Windows' }), null);
-  assert.equal(resolveTaskkillPath({ SystemRoot: '\\\\server\\share' }), null);
-  assert.equal(resolveTaskkillPath({ SystemRoot: 'C:\\Windows\0elsewhere' }), null);
-  assert.equal(resolveTaskkillPath({}), null);
-});
-
-test('Windows Git resolution ignores relative PATH entries and returns an absolute executable', () => {
-  const candidates = [];
-  const resolved = resolveWindowsGitExecutable(
-    { Path: '.\\repo-bin;C:\\Program Files\\Git\\cmd;D:\\fallback' },
-    (candidate) => {
-      candidates.push(candidate);
-      return candidate.startsWith('C:\\') ? candidate : null;
-    },
-  );
-
-  assert.deepEqual(candidates, ['C:\\Program Files\\Git\\cmd\\git.exe']);
-  assert.equal(resolved, 'C:\\Program Files\\Git\\cmd\\git.exe');
 });
 
 test('Windows tree termination targets only the owned child PID without a shell', async () => {

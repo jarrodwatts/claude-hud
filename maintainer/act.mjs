@@ -5,19 +5,23 @@
 import fs from 'node:fs';
 import { execFileSync } from 'node:child_process';
 
-// Owner-owned paths: text that holds a capability, or checks one. The agent owns everything else.
-const FROZEN = [
-  // Directories where any file, old or new, holds a capability: workflows, Claude Code settings and
-  // plugin parts (which run or pre-approve tools on users' machines), and the checks.
-  '.github/', '.claude/', '.claude-plugin/', 'skills/', 'commands/', 'agents/', 'hooks/', 'verify/',
-  // Files that run with full authority on users' machines, or decide what does.
-  '.mcp.json', 'hud.mjs', 'collector.mjs', 'fence.mjs', 'install.mjs', 'scripts/statusline.mjs', 'dist/index.js', 'src/index.ts',
-  'package.json', 'package-lock.json',
-  // The maintainer's own capabilities.
-  'maintainer/harness.mjs', 'maintainer/probe.mjs', 'maintainer/scorecard.mjs', 'maintainer/act.mjs', 'maintainer/outbox.schema.json',
+// The agent's paths: logic, its tests, and prose. Everything else holds a capability or decides how one
+// loads (workflows, the checks, the owner's code, manifests, git and npm config, and every file Claude
+// Code runs from a plugin: hooks, monitors, language servers, skills…), so it needs the owner. Naming
+// the agent's side means a kind of plugin file Claude Code learns to run later is the owner's from day one.
+// Plain ASCII names matched without case, so no disk that folds case or Unicode turns one into
+// src/index.ts, the stub that launchers already on users' machines import.
+const AGENT = [
+  /^src\/(?!index\.ts$)[\w./-]+\.ts$/i,
+  /^tests\/[\w./-]+$/i,
+  /^(README|README\.zh|CHANGELOG|CLAUDE|ARCHITECTURE|CONTRIBUTING|maintainer\/PLAYBOOK)\.md$/i,
+  /^tsconfig\.json$/i,
 ];
-// Fixtures that may gain files but never change, lose or rename one.
-const APPEND_ONLY = ['tests/corpus/', 'redteam/payloads/'];
+// Fixtures may gain files but never change, lose or rename one.
+const APPEND_ONLY = /^tests\/corpus\//i;
+// A release moves the version and nothing else, in the files that carry it. That is the agent's call:
+// a release ships main, and everything on main already passed the gate.
+const VERSIONED = ['.claude-plugin/plugin.json', '.claude-plugin/marketplace.json', 'package.json', 'package-lock.json'];
 const CAPS = { reply: 20, label: 20, close: 20, propose: 5 };
 const SCHEMA = JSON.parse(fs.readFileSync(new URL('outbox.schema.json', import.meta.url), 'utf8'));
 
@@ -29,7 +33,6 @@ const REMOTE = `${SERVER}/${REPO}`;
 const auth = `AUTHORIZATION: basic ${Buffer.from(`x-access-token:${TOKEN}`).toString('base64')}`;
 const gitEnv = { ...env, GIT_TERMINAL_PROMPT: '0', GIT_CONFIG_COUNT: '1', GIT_CONFIG_KEY_0: `http.${SERVER}/.extraheader`, GIT_CONFIG_VALUE_0: auth };
 const git = (...args) => execFileSync('git', ['-c', 'core.hooksPath=/dev/null', ...args], { encoding: 'utf8', env: gitEnv }).trim();
-const under = (list, path) => list.some((p) => (p.endsWith('/') ? path.startsWith(p) : path === p));
 
 async function api(method, path, body) {
   const url = path.startsWith('/') ? API + path : `${API}/repos/${REPO}/${path}`;
@@ -69,31 +72,46 @@ const clean = (s) => s.replace(URLISH, (u) => (ownPage(u) ? u : '[link removed]'
 
 // What a change does, from git's own records of it, never from patch text. propose and the gate both judge with this.
 //   never: what nobody may merge (a fixture changed, lost or renamed; fixtures only grow)
-//   owner: what only the owner may merge (an owner-owned path; a mode, symlink, submodule, type or binary change)
-function inspect(...range) {
+//   owner: what only the owner may merge (a path outside AGENT that isn't a release; a mode, symlink,
+//          submodule, type or binary change)
+function inspect(base, head) {
+  const from = git('merge-base', base, head);
+  const show = (ref, path) => git('show', `${ref}:${path}`);
+  const version = (ref) => JSON.parse(show(ref, '.claude-plugin/plugin.json')).version;
+  const release = (path) => {
+    try {
+      const [old, next] = [version(from), version(head)];
+      return /^\d+\.\d+\.\d+$/.test(next) && next.localeCompare(old, 'en', { numeric: true }) > 0
+        && show(head, path) === show(from, path).replaceAll(`"version": "${old}"`, `"version": "${next}"`);
+    } catch {
+      return false; // a manifest that doesn't parse is no release
+    }
+  };
   const never = [];
   const owner = [];
-  const raw = git('diff', '--raw', '--no-renames', '-z', ...range).split('\0');
+  const raw = git('diff', '--raw', '--no-renames', '-z', from, head).split('\0');
   for (let i = 0; i + 1 < raw.length; i += 2) {
     const [oldMode, newMode, , , status] = raw[i].slice(1).split(' ');
     const path = raw[i + 1];
-    if (under(APPEND_ONLY, path) && status !== 'A') never.push(`${path}: fixtures are append-only`);
-    if (under(FROZEN, path)) owner.push(`${path} is owner-owned`);
+    if (APPEND_ONLY.test(path) && status !== 'A') never.push(`${path}: fixtures are append-only`);
+    const agents = AGENT.some((p) => p.test(path)) || (status === 'M' && VERSIONED.includes(path) && release(path));
+    if (!agents) owner.push(`${path} is owner-owned`);
     const plain = status === 'A' ? newMode === '100644' : status === 'D' || (status === 'M' && oldMode === newMode && !/^1[26]0000$/.test(oldMode));
     if (!plain) owner.push(`${path}: a mode, symlink, submodule or type change`);
   }
-  for (const entry of git('diff', '--numstat', '--no-renames', '-z', ...range).split('\0')) {
+  for (const entry of git('diff', '--numstat', '--no-renames', '-z', from, head).split('\0')) {
     if (entry.startsWith('-\t-\t')) owner.push(`${entry.slice(4)}: a binary change`);
   }
   return { never, owner };
 }
 
 // Auto-merge lands a PR as soon as main's required checks pass, so it is turned on only while `gate`
-// is one of them, posted by this App or unpinned. Read from GitHub on every propose; unreadable means off.
+// is one of them, pinned to this App. An unpinned `gate` is not enough: any workflow job named gate, a
+// fork's included, would satisfy it. Read from GitHub on every propose; unreadable means off.
 async function gateRequired() {
   try {
     return (await api('GET', 'rules/branches/main')).some((rule) => rule.type === 'required_status_checks'
-      && rule.parameters.required_status_checks.some((c) => c.context === 'gate' && (c.integration_id == null || String(c.integration_id) === env.ACT_APP_ID)));
+      && rule.parameters.required_status_checks.some((c) => c.context === 'gate' && env.ACT_APP_ID && String(c.integration_id) === env.ACT_APP_ID));
   } catch {
     return false;
   }
@@ -108,11 +126,11 @@ const VERBS = {
     git('fetch', '--quiet', '--no-tags', REMOTE, '+refs/heads/main:refs/act/main');
     git('checkout', '--quiet', '--force', '-B', `bot/${a.slug}`, 'refs/act/main');
     git('apply', '--index', `${dir}/patches/${a.slug}.patch`);
-    const { never, owner } = inspect('--cached');
-    if (never.length || owner.length) throw new Error(`refused: ${[...never, ...owner][0]}`);
     const user = a.from_pr && (await api('GET', `pulls/${a.from_pr}`)).user; // re-landed work keeps its author
     const author = user ? ['--author', `${user.login} <${user.id}+${user.login}@users.noreply.github.com>`] : [];
     git('-c', `user.name=${BOT}`, '-c', `user.email=${BOT}@users.noreply.github.com`, 'commit', '--quiet', '--no-verify', ...author, '-m', clean(a.title));
+    const { never, owner } = inspect('refs/act/main', 'HEAD');
+    if (never.length || owner.length) throw new Error(`refused: ${[...never, ...owner][0]}`);
     git('push', '--quiet', '--force', REMOTE, `HEAD:refs/heads/bot/${a.slug}`);
     const [open] = await api('GET', `pulls?state=open&head=${OWNER}:bot/${a.slug}`);
     const pr = open ?? (await api('POST', 'pulls', { head: `bot/${a.slug}`, base: 'main', title: clean(a.title), body: clean(a.body) }));
@@ -138,7 +156,12 @@ async function apply(dir) {
 async function gate() {
   const run = JSON.parse(fs.readFileSync(env.GITHUB_EVENT_PATH, 'utf8')).workflow_run;
   if (run.path !== '.github/workflows/verify.yml' || run.event !== 'pull_request') return console.log(`no gate: ${run.path} on ${run.event}`);
-  const pr = (await api('GET', 'pulls?state=open&per_page=100')).find((p) => p.head.sha === run.head_sha);
+  let pr;
+  for (let page = 1; !pr; page++) {
+    const open = await api('GET', `pulls?state=open&per_page=100&page=${page}`);
+    pr = open.find((p) => p.head.sha === run.head_sha);
+    if (open.length < 100) break;
+  }
   if (!pr) return console.log(`no gate: no open PR has head ${run.head_sha}`);
   const fails = [];
   const { jobs } = await api('GET', `actions/runs/${run.id}/jobs?per_page=100`);
@@ -146,7 +169,7 @@ async function gate() {
   for (const j of jobs) if (j.conclusion !== 'success') fails.push(`verify job "${j.name}" concluded ${j.conclusion}; only success counts`);
   git('fetch', '--quiet', '--no-tags', REMOTE, '+refs/heads/main:refs/gate/base', `+refs/pull/${pr.number}/head:refs/gate/head`);
   if (git('rev-parse', 'refs/gate/head') !== run.head_sha) fails.push('the PR has moved on since this verify run');
-  const { never, owner } = inspect('refs/gate/base...refs/gate/head');
+  const { never, owner } = inspect('refs/gate/base', 'refs/gate/head');
   fails.push(...never);
   if (owner.length && pr.user.login !== OWNER) {
     const reviews = await api('GET', `pulls/${pr.number}/reviews?per_page=100`);

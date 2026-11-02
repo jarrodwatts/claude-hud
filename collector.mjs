@@ -43,7 +43,7 @@ export function claudePaths(env = process.env, home = homeOf(env)) {
   };
 }
 
-const sameDir = (a, b) => {
+export const samePath = (a, b) => {
   try {
     return fs.realpathSync(a) === fs.realpathSync(b);
   } catch {
@@ -66,7 +66,7 @@ export function logicPaths(paths, input) {
   if (cwd) {
     const dir = path.join(cwd, '.claude');
     // A project whose .claude is the user's config dir: those files count once, as the user's.
-    const own = !sameDir(dir, paths.configDir);
+    const own = !samePath(dir, paths.configDir);
     project = { claudeMd: path.join(cwd, 'CLAUDE.md'), localMd: path.join(cwd, 'CLAUDE.local.md'), mcpJson: path.join(cwd, '.mcp.json'),
       dotClaudeMd: own ? path.join(dir, 'CLAUDE.md') : null, dotLocalMd: path.join(dir, 'CLAUDE.local.md'),
       rules: own ? path.join(dir, 'rules') : null, settings: own ? path.join(dir, 'settings.json') : null,
@@ -269,7 +269,7 @@ export function createGitEnvironment(base = process.env) {
 /** Run git and resolve with its stdout. Rejects on non-zero exit, timeout, or oversized output. */
 export function runGit(cwd, args, timeout, platform = process.platform) {
   if (platform === 'win32') {
-    const gitExecutable = resolveWindowsGitExecutable();
+    const gitExecutable = resolveWindowsExecutable('git');
     if (!gitExecutable) return Promise.reject(new Error('Unable to resolve an absolute git.exe from PATH'));
     return runGitInWorker(gitExecutable, cwd, args, timeout);
   }
@@ -361,8 +361,11 @@ export function resolveTaskkillPath(environment = process.env) {
   return path.win32.join(path.win32.normalize(systemRoot), 'System32', 'taskkill.exe');
 }
 
-/** Resolve git.exe from absolute PATH entries only, so a git.exe in the repo cwd is never picked up. */
-export function resolveWindowsGitExecutable(environment = process.env, resolveCandidate = (candidate) => {
+/**
+ * Resolve <name>.exe from absolute PATH entries only. Windows looks for a bare program name in the
+ * folder it runs in before PATH, and that folder is the user's repo, so git and jj never run by bare name.
+ */
+export function resolveWindowsExecutable(name, environment = process.env, resolveCandidate = (candidate) => {
   try {
     const resolved = fs.realpathSync(candidate);
     return fs.statSync(resolved).isFile() ? resolved : null;
@@ -375,7 +378,7 @@ export function resolveWindowsGitExecutable(environment = process.env, resolveCa
   for (const rawEntry of pathValue.split(path.win32.delimiter)) {
     const entry = rawEntry.trim().replace(/^"(.*)"$/, '$1');
     if (!entry || entry.includes('\0') || !path.win32.isAbsolute(entry)) continue;
-    const resolved = resolveCandidate(path.win32.join(entry, 'git.exe'));
+    const resolved = resolveCandidate(path.win32.join(entry, `${name}.exe`));
     if (resolved && path.win32.isAbsolute(resolved)) return resolved;
   }
   return null;
@@ -450,7 +453,8 @@ const run = (file, args, options) => new Promise((resolve) => {
 
 // ---- `hud` subcommands: what logic can't look up from inside the cage, and the one file `set` writes.
 
-const isSupported = (version) => {
+/** Type stripping, --permission and module.registerHooks are all unflagged from Node 22.18. */
+export const isNodeSupported = (version) => {
   const [major, minor] = String(version).replace(/^v/, '').split('.').map(Number);
   return major > 22 || (major === 22 && minor >= 18);
 };
@@ -476,7 +480,7 @@ export function findRuntimes(env = process.env, home = os.homedir(), platform = 
     for (const name of names) {
       if (!/^v?\d+\.\d+\.\d+$/.test(name)) continue;
       const file = inner === 'win' ? path.join(dir, name, 'node.exe') : path.join(dir, name, inner, exe);
-      if (fs.existsSync(file)) found.push({ manager, version: name.replace(/^v/, ''), path: file, supported: isSupported(name) });
+      if (fs.existsSync(file)) found.push({ manager, version: name.replace(/^v/, ''), path: file, supported: isNodeSupported(name) });
     }
   }
   const system = platform === 'win32'
@@ -504,7 +508,7 @@ export function commandFacts({ root, paths, env = process.env, cwd = process.cwd
   const pkg = readJsonObject(path.join(root, 'package.json'));
   return {
     runtime: { name: process.versions.bun ? 'bun' : 'node', version: process.versions.bun ?? process.versions.node, path: process.execPath,
-      supported: !process.versions.bun && isSupported(process.versions.node) },
+      supported: !process.versions.bun && isNodeSupported(process.versions.node) },
     runtimes: findRuntimes(env, paths.home),
     plugin: { root, version: typeof pkg?.version === 'string' ? pkg.version : null },
     configPath: paths.configPath,
@@ -577,7 +581,8 @@ export function createProbes({ cwd, argv = process.argv, env = process.env, usag
     'git.describe': () => git(['describe', '--tags', '--exact-match', 'HEAD'], 1000, false),
     jj: async () => {
       const dir = typeof cwd === 'string' && isJjRepo(cwd) ? realDirectory(cwd) : null;
-      return dir ? run('jj', JJ_ARGS, { cwd: dir, timeout: 2000, maxBuffer: 16 * 1024 }) : null;
+      const jj = process.platform === 'win32' ? resolveWindowsExecutable('jj') : 'jj';
+      return dir && jj ? run(jj, JJ_ARGS, { cwd: dir, timeout: 2000, maxBuffer: 16 * 1024 }) : null;
     },
     // os.freemem() leaves out reclaimable cache, so logic uses the OS's own accounting where it is cheap.
     memory: async () => {

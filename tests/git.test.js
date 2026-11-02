@@ -241,46 +241,6 @@ test('getGitStatus falls back to the branch alone when status times out', {
   });
 });
 
-test('getGitStatus never runs commands named in the repository\'s own config', {
-  skip: process.platform === 'win32' ? 'needs POSIX commands' : false,
-}, async () => {
-  await withRepo(async ({ dir, git, write }) => {
-    await commitStale(dir, git, write, '*.txt filter=evil\n*.md filter=in.cluded\n', ['a.txt', 'b.md']);
-    await write('a.txt', 'a.txt\nmore\n');
-    const ran = (what) => path.join(dir, '.git', `ran-${what}`);
-    // GHSA-fq7j-8hxj-jfqh: core.fsmonitor runs on every status. A filter driver runs whenever git
-    // hashes a changed file, whether it's in .git/config or a file that config includes.
-    writeConfig(path.join(dir, '.git', 'config'), {
-      'core.fsmonitor': `touch '${ran('fsmonitor')}'`,
-      'filter.evil.clean': `sh -c 'touch "${ran('filter')}"; cat'`,
-      'include.path': 'included',
-    });
-    writeConfig(path.join(dir, '.git', 'included'), { 'filter.in.cluded.clean': `sh -c 'touch "${ran('included')}"; cat'` });
-
-    const status = await getGitStatus(dir, { lineDiffs: true });
-    assert.deepEqual(status?.lineDiff, { added: 1, deleted: 0 }, 'still reports the change');
-    for (const what of ['fsmonitor', 'filter', 'included']) assert.equal(await exists(ran(what)), false, what);
-  });
-});
-
-test('getGitStatus does not run git inside submodules, which reads their own config', {
-  skip: process.platform === 'win32' ? 'needs POSIX commands' : false,
-}, async () => {
-  await withRepo(async ({ dir: sub, git: subGit, write: subWrite }) => {
-    await commitStale(sub, subGit, subWrite, '*.txt filter=evil\n', ['s.txt']);
-    await withRepo(async ({ dir, git }) => {
-      git('-c', 'protocol.file.allow=always', 'submodule', '-q', 'add', sub, 'sm');
-      git('commit', '-q', '-m', 'submodule');
-      await utimes(path.join(dir, 'sm', 's.txt'), OLD, OLD);
-      const marker = path.join(dir, '.git', 'ran-submodule-filter');
-      writeConfig(path.join(dir, '.git', 'modules', 'sm', 'config'), { 'filter.evil.clean': `sh -c 'touch "${marker}"; cat'` });
-
-      assert.equal((await getGitStatus(dir, { lineDiffs: true }))?.branch, 'main');
-      assert.equal(await exists(marker), false);
-    });
-  });
-});
-
 test('getGitStatus keeps filters from the user\'s own config, such as git-lfs', {
   skip: process.platform === 'win32' ? 'needs a POSIX filter command' : false,
 }, async () => {

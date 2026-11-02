@@ -21,7 +21,8 @@ on:
 permissions: {}
 
 # One agent run at a time plus one waiting, so a flood of events costs two runs. The gate and events made
-# by bots never queue here, so they can't displace a waiting run.
+# by bots never queue here, so they can't displace a waiting run. The agent's events are listed here, in
+# the agent job's `if`, and in harness.mjs AGENT_EVENTS (which counts runs for the daily cap); the maintainer check holds them equal.
 concurrency:
   group: ${{ github.event.sender.type != 'Bot' && contains('issues issue_comment schedule workflow_dispatch', github.event_name) && 'maintainer' || github.run_id }}
 

@@ -48,6 +48,12 @@ const base = { GITHUB_REPOSITORY: REPO, GITHUB_API_URL: github.url };
 const harnessEnv = (api, more = {}) => ({ ...base, GITHUB_TOKEN: 'ghs_fake-readonly', RELAY_TOKEN: TOKEN, RELAY_UPSTREAM: `http://127.0.0.2:${api.port}`, ...more });
 const always = (tool) => (body) => (body.tools?.length ? [tool] : null);
 try {
+  // The agent's events are written three times; the daily cap undercounts runs if they drift apart.
+  const workflow = fs.readFileSync(path.join(root, '.github', 'workflows', 'maintain.yml'), 'utf8');
+  const lists = [...workflow.matchAll(/contains\('([^']+)', github\.event_name\)/g)].map((m) => m[1].split(' ').sort().join(' '));
+  const counted = fs.readFileSync(harness, 'utf8').match(/const AGENT_EVENTS = \[([^\]]*)\]/)?.[1].match(/[\w]+/g).sort().join(' ');
+  check('maintain.yml and the harness name the same agent events', lists.length === 2 && lists.every((l) => l === counted), `${lists} vs ${counted}`);
+
   console.log('== 0. With no secrets, everything exits cleanly and does nothing');
   const idle = await node(harness, [`${st}/none`], base);
   check('the harness is inactive without RELAY_TOKEN', idle.code === 0 && idle.out.includes('inactive') && !fs.existsSync(`${st}/none`), idle.out);
@@ -116,9 +122,11 @@ try {
   check('no branch exists for any refused patch', git(origin, 'branch', '--list', 'bot/sneak*', 'bot/steal*') === '');
   check('every write used the App token', github.writes.every((w) => w.auth === 'Bearer ghs_fake-app-token'));
   const requiring = (integration) => [{ type: 'required_status_checks', parameters: { required_status_checks: [{ context: 'gate', integration_id: integration }] } }];
-  github.routes[`GET ${R}/rules/branches/main`] = requiring(15368);
-  await apply(`${st}/run`);
-  check('auto-merge stays off while the required gate is pinned to another app', !github.writes.some((w) => w.key === 'POST /graphql'));
+  for (const [integration, what] of [[15368, 'pinned to another app'], [undefined, 'unpinned, so any job named gate would do']]) {
+    github.routes[`GET ${R}/rules/branches/main`] = requiring(integration);
+    await apply(`${st}/run`);
+    check(`auto-merge stays off while the required gate is ${what}`, !github.writes.some((w) => w.key === 'POST /graphql'));
+  }
   github.routes[`GET ${R}/rules/branches/main`] = requiring(123);
   await apply(`${st}/run`);
   check('auto-merge goes on once gate is required from this App', github.writes.filter((w) => w.key === 'POST /graphql').length === 1);
@@ -199,10 +207,41 @@ try {
     12: commit('link', () => fs.symlinkSync('/etc/passwd', path.join(prs, 'src', 'evil-link')), 'refs/pull/12/head'),
     13: commit('wf3', append('.github/workflows/verify.yml', '# z\n'), 'refs/pull/13/head'),
   };
+  // Which side of the line a stranger's change is on. The agent's side is named; everything else is the owner's.
+  const put = (...files) => () => {
+    for (const file of files) {
+      fs.mkdirSync(path.dirname(path.join(prs, file)), { recursive: true });
+      fs.writeFileSync(path.join(prs, file), '{}\n');
+    }
+  };
+  const release = (to, more = () => {}) => () => {
+    const from = JSON.parse(fs.readFileSync(path.join(prs, '.claude-plugin', 'plugin.json'), 'utf8')).version;
+    for (const file of ['.claude-plugin/plugin.json', '.claude-plugin/marketplace.json', 'package.json', 'package-lock.json']) {
+      const full = path.join(prs, file);
+      fs.writeFileSync(full, fs.readFileSync(full, 'utf8').replaceAll(`"version": "${from}"`, `"version": "${to}"`));
+    }
+    more();
+  };
+  const sides = [
+    [put('src/render/new-part.ts', 'tests/new-part.test.js'), 'success', 'a new logic file and its test'],
+    [put('monitors/monitors.json'), 'failure', 'a plugin monitor, which Claude Code runs unsandboxed'],
+    [put('.lsp.json'), 'failure', 'a plugin language server'],
+    [put('Hooks/hooks.json'), 'failure', 'hooks under another case, which a case-insensitive disk opens as hooks/'],
+    [put('src/Index.ts'), 'failure', 'src/Index.ts, the launcher stub on a case-insensitive disk'],
+    [put('src/package.json'), 'failure', 'a package.json that changes how src/ loads'],
+    [put('.gitattributes'), 'failure', 'git attributes, which change how owner files are written to disk'],
+    [release('99.0.0'), 'success', 'a release: the version moves in every manifest, and nothing else'],
+    [release('99.0.0', () => {
+      const file = path.join(prs, 'package.json');
+      fs.writeFileSync(file, fs.readFileSync(file, 'utf8').replace('"scripts": {', '"scripts": {\n    "postinstall": "node x.js",'));
+    }), 'failure', 'a release that changes anything else in a manifest'],
+    [release('0.0.1'), 'failure', 'a version that goes backwards'],
+  ];
+  sides.forEach(([change], i) => (sha[20 + i] = commit(`side ${i}`, change, `refs/pull/${20 + i}/head`)));
   const pr = (n, login = 'stranger') => ({ number: n, head: { sha: sha[n] }, user: { login } });
   const jobs = (conclusion) => ({ jobs: [{ name: 'verify', conclusion: 'success' }, { name: 'cage (windows-latest, 24)', conclusion }] });
   Object.assign(github.routes, {
-    [`GET ${R}/pulls`]: [pr(7), pr(8), pr(9), pr(10), pr(11), pr(12), pr(13, OWNER)],
+    [`GET ${R}/pulls`]: [pr(7), pr(8), pr(9), pr(10), pr(11), pr(12), pr(13, OWNER), ...sides.map((s, i) => pr(20 + i))],
     [`GET ${R}/actions/runs/1/jobs`]: jobs('success'),
     [`GET ${R}/actions/runs/2/jobs`]: jobs('skipped'),
     [`GET ${R}/actions/runs/3/jobs`]: jobs('neutral'),
@@ -228,6 +267,7 @@ try {
   await gate(1, sha[10], 'success', 'a change that only adds a fixture');
   await gate(1, sha[12], 'failure', 'a stranger\'s symlink in src/, which propose would refuse too');
   await gate(1, sha[7], '', 'a green run of some other workflow file named verify', '.github/workflows/fake.yml');
+  for (const [i, [, expected, what]] of sides.entries()) await gate(1, sha[20 + i], expected, what);
 } finally {
   github.close();
 }

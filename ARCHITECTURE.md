@@ -16,14 +16,24 @@ folder, the network, a key, posting, merging. Everything else is logic.
            │ act.mjs: reply | label | close | propose,   │    │   (git, jj, vm_stat, the extra command)    │
            │   and the `gate` check                      │    │ fence.mjs + node --permission: the cage    │
            └─ ruleset: one required check, `gate` ───────┘    └─ verify/: the checks, run on every PR ─────┘
-                     merged to main = shipped
+                 a merge that moves the version = shipped to every user
 ```
+
+In the repo, the line is a list in `maintainer/act.mjs`. The agent owns `src/` (except
+`src/index.ts`, the stub old launchers import), `tests/`, the README, CHANGELOG, CLAUDE,
+ARCHITECTURE, CONTRIBUTING and PLAYBOOK docs, `tsconfig.json`, and releases: a change that only
+moves the version in the manifests. Everything else is the owner's, so any kind of plugin file
+Claude Code learns to run later is the owner's from the start. `gate` passes an owner-owned change
+only when the owner wrote it or approved its exact head. Dependabot is one such proposer: its
+`package.json` bumps wait for the owner. Each agent run records what it spent in its artifact's name,
+`relay-tokens-<n>`, which the next run reads for the daily cap and the scorecard reads for cost.
 
 On the user's side, one render is:
 
 ```
-Claude Code ─stdin─▶ hud.mjs ─▶ collector.mjs: paths (logicPaths), data/, probes
-                        └─▶ runCage: node --permission --allow-fs-read=<each path> --allow-fs-write=data/
+Claude Code ─stdin─▶ hud.mjs ─▶ collector.mjs: paths (logicPaths), data/, probes, and stripped/:
+                        │       src/ with types removed by Node's own stripper, read-only to logic
+                        └─▶ runCage: node --permission --allow-fs-read=<each path, stripped/> --allow-fs-write=data/
                                      --import=fence.mjs src/main.ts
                               ─▶ {stdin, now, paths}  ◀─ ask: ["git.status", …] ─▶ answers  ◀─ {lines, snapshot?}
            terminal ◀─ terminalFilter: colour, and links to file: or the session's own GitHub repo
@@ -31,7 +41,9 @@ Claude Code ─stdin─▶ hud.mjs ─▶ collector.mjs: paths (logicPaths), dat
 
 A test case (`tests/corpus/*.json`) is the same render with the probes' answers recorded as `facts`,
 so the corpus replays git and jj states without running either. Every check in `verify/` goes
-through the same `runCage`.
+through the same `runCage`. The owner's own walls (the terminal filter, git's untrusted config,
+program lookup on Windows) are pinned by fixed data in `verify/owner.check.mjs`, not by tests the
+agent can edit.
 
 ## The logic side, as a test
 
