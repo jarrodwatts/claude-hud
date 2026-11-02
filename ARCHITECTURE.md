@@ -19,7 +19,8 @@ folder, the network, a key, posting, merging. Everything else is logic.
            │                                             │    │ launcher + stubs: run the newest install   │
            │                                             │    │ skills/hud: Claude runs 4 read-only verbs  │
            │                                             │    │   without asking; the rest prompt          │
-           └─ ruleset: one required check, `gate` ───────┘    └─ verify/: the checks, run on every PR ─────┘
+           └─ ruleset: one required check, `gate` ───────┘    └────────────────────────────────────────────┘
+      verify/ (on GitHub, every PR) judges both sides, and `gate` reads it; ci.yml's tests are advisory
       a merge that moves the version = a release; users get it on their next plugin update
 ```
 
