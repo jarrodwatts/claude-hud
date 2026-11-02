@@ -144,7 +144,8 @@ try {
   check('a reply with no readable usage counts as the whole budget, and the relay stops', blind.out.includes('no usage readable')
     && blind.out.includes('tokens spent') && blind.out.includes('claude exit 1') && !fs.existsSync(`${st}/blind/outbox.json`));
 
-  github.routes[`GET ${R}/actions/workflows/maintain.yml/runs`] = { workflow_runs: [{ id: 1, event: 'schedule' }, { id: 2, event: 'issues' }, { id: 3, event: 'workflow_run' }] };
+  github.routes[`GET ${R}/actions/workflows/maintain.yml/runs`] = { workflow_runs: [{ id: 1, event: 'schedule', created_at: new Date().toISOString() }, { id: 2, event: 'issues', created_at: new Date().toISOString() },
+    { id: 3, event: 'workflow_run', created_at: new Date().toISOString() }, { id: 4, event: 'schedule', created_at: '2020-01-01T00:00:00Z' }] };
   github.routes[`GET ${R}/actions/runs/1/artifacts`] = { artifacts: [{ name: 'relay-tokens-1000' }] };
   github.routes[`GET ${R}/actions/runs/2/jobs`] = { jobs: [{ name: 'agent', conclusion: 'failure', steps: [{ name: 'harness' }] }] };
   api = await startFakeApi({ host: '127.0.0.2', reply: keepCalling });

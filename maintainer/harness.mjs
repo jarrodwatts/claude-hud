@@ -44,11 +44,18 @@ if (!TOKEN) { console.log('maintainer inactive: no RELAY_TOKEN'); process.exit(0
 // 0. The daily cap. Each agent run of the last 24 hours counts what its relay recorded (the artifact
 //    relay-tokens-<n>), or its whole per-run budget if it recorded nothing, since it may have died
 //    mid-spend. Anything unreadable throws, so no run starts: the cap fails closed.
-const since24h = new Date(Date.now() - 864e5).toISOString();
-const { workflow_runs: recent } = await gh(`actions/workflows/maintain.yml/runs?created=>${since24h}&per_page=100`);
-if (recent.length >= 100) throw new Error('100 or more maintainer runs in a day: not starting');
+const dayAgo = new Date(Date.now() - 864e5);
+const recent = [];
+for (const event of AGENT_EVENTS) {
+  for (let page = 1; ; page++) {
+    const { workflow_runs: runs } = await gh(`actions/workflows/maintain.yml/runs?event=${event}&created=>=${dayAgo.toISOString().slice(0, 10)}&per_page=100&page=${page}`);
+    recent.push(...runs.filter((r) => r.event === event && new Date(r.created_at) > dayAgo && r.id !== Number(env.GITHUB_RUN_ID)));
+    if (runs.length < 100) break;
+    if (page === 5) throw new Error(`over 500 ${event} runs in two days: not starting`);
+  }
+}
 let spentToday = 0;
-for (const r of recent.filter((r) => r.id !== Number(env.GITHUB_RUN_ID) && AGENT_EVENTS.includes(r.event))) {
+for (const r of recent) {
   const recorded = (await gh(`actions/runs/${r.id}/artifacts`)).artifacts.map((a) => /^relay-tokens-(\d+)$/.exec(a.name)?.[1]).find(Boolean);
   if (recorded) spentToday += Number(recorded);
   else if ((await gh(`actions/runs/${r.id}/jobs`)).jobs.some((j) => j.name === 'agent' && j.conclusion !== 'skipped' && j.steps?.length)) spentToday += BUDGET;
