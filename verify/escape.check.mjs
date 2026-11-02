@@ -22,6 +22,7 @@ const server = createServer((socket) => {
 await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
 
 let lines;
+let planted;
 try {
   const home = path.join(base, 'home');
   const outside = path.join(base, 'outside');
@@ -40,9 +41,12 @@ try {
   const paths = claudePaths(env);
   // What an earlier, hijacked render could have left: a symlink in data/ pointing outside (case 46).
   fs.mkdirSync(paths.dataDir, { recursive: true });
+  planted = 'was planted, and the collector swept it before logic ran';
   try {
     fs.symlinkSync(outside, path.join(paths.dataDir, 'planted-link'), 'junction');
-  } catch { /* no symlinks without privileges on this Windows: case 46 still runs */ }
+  } catch (error) {
+    planted = `could not be planted here (${error.code}), so case 46 only shows the write is refused`;
+  }
   const sibling = `${fs.realpathSync(paths.dataDir)}-sibling`;
   fs.mkdirSync(sibling);
   const stdin = {
@@ -57,6 +61,7 @@ try {
 }
 
 const control = lines.pop();
+console.log(`  -- the symlink for case 46 ${planted}`);
 const cases = lines.filter((line) => line.startsWith('blocked ') || line.startsWith('ESCAPED '));
 const escaped = lines.filter((line) => !line.startsWith('blocked '));
 for (const line of lines) console.log(`${line.startsWith('blocked ') ? '  ok' : 'FAIL'} ${line}`);
