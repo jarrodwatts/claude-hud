@@ -264,7 +264,8 @@ export function runExtraCmd(cmd, timeout = 3000) {
 export class GitTimeoutError extends Error {}
 
 export function createGitEnvironment(base = process.env) {
-  return { ...base, GIT_OPTIONAL_LOCKS: '0', GIT_TERMINAL_PROMPT: '0', GCM_INTERACTIVE: 'Never' };
+  // GIT_NO_LAZY_FETCH: a partial clone fetches missing blobs on its own, through the repo's own transport config.
+  return { ...base, GIT_OPTIONAL_LOCKS: '0', GIT_TERMINAL_PROMPT: '0', GCM_INTERACTIVE: 'Never', GIT_NO_LAZY_FETCH: '1' };
 }
 
 /** Run git and resolve with its stdout. Rejects on non-zero exit, timeout, or oversized output. */
@@ -386,14 +387,18 @@ export function resolveWindowsExecutable(name, environment = process.env, resolv
 }
 
 /**
- * A repository's own config is as untrusted as its files, and git runs commands it names:
- * core.fsmonitor on every status, and filter drivers whenever it hashes a changed file. Both
- * are turned off for drivers that don't come from the user's global or system config, so
- * git-lfs keeps working. A driver name git can't take back in `-c` makes git refuse to run.
+ * A repository's own config is as untrusted as its files, and git runs commands it names. Each
+ * kind is shut whole rather than key by key:
+ *   - the network: protocol.allow=never (and GIT_NO_LAZY_FETCH) stops every transport, so a
+ *     partial clone's lazy fetch can't reach core.sshCommand, credential helpers or url rewrites
+ *   - core.fsmonitor, which runs on every status
+ *   - filter drivers, which run whenever git hashes a changed file. Drivers from the user's
+ *     global or system config keep working (git-lfs). A repo driver whose name isn't plain
+ *     ([\w.-]) can't be named back in `-c` (bytes that aren't UTF-8, an `=`), so git isn't run.
  * The probes also pass --ignore-submodules=dirty, since git inside a submodule reads its config.
  */
 async function untrustedConfigOverrides(cwd) {
-  const overrides = ['-c', 'core.quotePath=false', '--no-optional-locks', '-c', 'core.fsmonitor=false'];
+  const overrides = ['-c', 'core.quotePath=false', '--no-optional-locks', '-c', 'core.fsmonitor=false', '-c', 'protocol.allow=never'];
   let listed;
   try {
     listed = await runGit(cwd, ['config', '--show-scope', '-z', '--get-regexp', '^filter\\.'], 1000);
@@ -407,7 +412,8 @@ async function untrustedConfigOverrides(cwd) {
     if (scope === 'global' || scope === 'system') continue;
     const key = entry.split('\n', 1)[0];
     const name = key.slice('filter.'.length, key.lastIndexOf('.'));
-    if (name) drivers.add(name);
+    if (!/^[\w.-]+$/.test(name)) throw new Error('a repo filter driver git could not be told to skip');
+    drivers.add(name);
   }
   for (const name of drivers) {
     overrides.push('-c', `filter.${name}.clean=`, '-c', `filter.${name}.process=`, '-c', `filter.${name}.required=false`);

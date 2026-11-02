@@ -3,7 +3,9 @@
 //   - the terminal filter keeps exactly these bytes (verify/case.mjs judges output with it, so this pins the judge too)
 //   - logic's environment and Node flags hold no secret and no capability
 //   - on Windows, git, jj, node (Bun's relay) and taskkill never run from the repo's folder
-//   - a repo's own git config never runs a command, through status, line diffs or a submodule
+//   - a repo's own git config never runs a command, through status, line diffs or a submodule,
+//     a filter name `-c` can't express (GHSA-f7gq-pcm8-rxr4), or a partial clone's lazy fetch
+//     (GHSA-f7gq-pcm8-rxr4, GHSA-25hg-g83m-4w35)
 //   - --extra-cmd runs nothing unless the user's environment opts in
 //   - `hud set` can't change which files the collector reads or writes
 //   - the /hud skill runs only the read-only subcommands without asking, and reads their facts as JSON
@@ -136,6 +138,57 @@ try {
     // The control: the same repo's filter does run when git is run plainly, so the check above can fail.
     main.git('add', 'a.txt');
     assert.ok(fs.existsSync(ran('filter')), 'the planted filter never runs at all, so this check proves nothing');
+  });
+
+  await check('a repo filter whose name `-c` cannot express makes the collector skip git, not run it', async () => {
+    const ran = (what) => path.join(tmp, `ran-name-${what}`);
+    for (const [label, name] of [['not-utf8', Buffer.from([0xff])], ['equals', Buffer.from('a=b')]]) {
+      const dir = path.join(tmp, `name-${label}`);
+      fs.mkdirSync(dir);
+      const git = (...args) => execFileSync('git', ['-c', 'user.name=t', '-c', 'user.email=t@t', ...args], { cwd: dir, stdio: ['ignore', 'pipe', 'ignore'] });
+      git('init', '-q', '-b', 'main');
+      fs.writeFileSync(path.join(dir, '.gitattributes'), Buffer.concat([Buffer.from('*.txt filter='), name, Buffer.from('\n')]));
+      fs.writeFileSync(path.join(dir, 'a.txt'), 'a\n');
+      git('add', '.gitattributes', 'a.txt');
+      git('commit', '-qm', 'files');
+      fs.appendFileSync(path.join(dir, '.git', 'config'), Buffer.concat([Buffer.from('[filter "'), name,
+        Buffer.from(`"]\n\tclean = "sh -c 'touch ${ran(label)}; cat'"\n`)])); // quoted: `;` starts a config comment
+      const old = new Date('2020-01-01T00:00:00Z');
+      fs.utimesSync(path.join(dir, 'a.txt'), old, old);
+      fs.appendFileSync(path.join(dir, 'a.txt'), 'more\n');
+      const answers = await createProbes({ cwd: dir, argv: [] })(['git.status', 'git.numstat']);
+      assert.ok(!fs.existsSync(ran(label)), `${label}: the filter ran`);
+      assert.ok(!answers['git.status']?.stdout, `${label}: git still ran: ${JSON.stringify(answers)}`);
+      git('add', 'a.txt'); // the control: plain git runs this filter, so the check above can fail
+      assert.ok(fs.existsSync(ran(label)), `${label}: the planted filter never runs at all, so this check proves nothing`);
+    }
+  });
+
+  await check('a partial clone\'s lazy fetch never runs the repo\'s core.sshCommand, through status or line diffs', async () => {
+    const marker = path.join(tmp, 'ran-lazy-fetch');
+    const sh = (cwd, ...args) => execFileSync('git', ['-c', 'user.name=t', '-c', 'user.email=t@t', '-c', 'protocol.file.allow=always', ...args],
+      { cwd, stdio: ['ignore', 'pipe', 'ignore'] });
+    const srv = path.join(tmp, 'lazy-srv.git');
+    const seed = path.join(tmp, 'lazy-seed');
+    const dir = path.join(tmp, 'lazy-repo');
+    sh(tmp, 'init', '-q', '--bare', srv);
+    sh(srv, 'config', 'uploadpack.allowFilter', 'true');
+    fs.mkdirSync(seed);
+    sh(seed, 'init', '-q', '-b', 'main');
+    fs.writeFileSync(path.join(seed, 'a.txt'), Array.from({ length: 50 }, (_, i) => i).join('\n') + '\n');
+    fs.writeFileSync(path.join(seed, 'b.txt'), Array.from({ length: 50 }, (_, i) => `b${i}`).join('\n') + '\n');
+    sh(seed, 'add', '.');
+    sh(seed, 'commit', '-qm', 'init');
+    sh(seed, 'push', '-q', srv, 'HEAD:refs/heads/main');
+    sh(tmp, 'clone', '-q', '--filter=blob:none', '--no-checkout', '--branch', 'main', `file://${srv}`, dir);
+    sh(dir, 'read-tree', 'HEAD'); // an index from trees, still no blobs
+    fs.writeFileSync(path.join(dir, 'a.txt'), Array.from({ length: 60 }, (_, i) => i).join('\n') + '\n');
+    sh(dir, 'config', 'remote.origin.url', 'ssh://attacker.invalid/repo');
+    sh(dir, 'config', 'core.sshCommand', `sh -c 'touch "${marker}"; exit 1'`);
+    await createProbes({ cwd: dir, argv: [] })(['git.status', 'git.numstat', 'git.branch']);
+    assert.ok(!fs.existsSync(marker), 'the lazy fetch ran core.sshCommand');
+    try { sh(dir, 'diff-index', '--numstat', 'HEAD'); } catch {} // the control: plain git does fetch, so the check above can fail
+    assert.ok(fs.existsSync(marker), 'the planted lazy fetch never runs at all, so this check proves nothing');
   });
 
   await check('--extra-cmd, the one arbitrary shell command, is ignored unless CLAUDE_HUD_ALLOW_EXTRA_CMD turns it on', () => {
