@@ -56,10 +56,11 @@ function valid(s, v) {
   return false;
 }
 
-// Bot text can't link out or ping anyone. Every URL-like run (scheme://, //host or www.) is parsed, and
-// stays only as an https page of this repo already in its parsed form, so no `..` or encoding trick
+// Bot text can't link out or ping anyone. Every URL-like run (scheme://, //host or www.) and every link
+// target, however relative (`[t](x)`, `[r]: x`, href= or src=), is parsed, and stays only as an https
+// page of this repo already in its parsed form, so no `..`, encoding trick or path like /someone/else
 // leads elsewhere. @ gets a zero-width space.
-const URLISH = /(?:\b[a-z][a-z0-9+.-]*:)?\/\/[^\s<>()[\]"'`]+|\bwww\.[^\s<>()[\]"'`]+/gi;
+const URLISH = /(?:\b[a-z][a-z0-9+.-]*:)?\/\/[^\s<>()[\]"'`]+|\bwww\.[^\s<>()[\]"'`]+|(?<=\]\(\s*<?|^ {0,3}\[[^\]\n]+\]:[ \t]*<?|\b(?:href|src)\s*=\s*["']?)[^\s<>()"'`]+/gim;
 const ownPage = (text) => {
   try {
     const url = new URL(text);

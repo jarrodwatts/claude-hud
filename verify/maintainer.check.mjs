@@ -72,7 +72,7 @@ try {
       command: 'ln -s /etc/passwd src/sneaky-link.ts && git add -N src/sneaky-link.ts && git diff > /tmp/maint/out/sneak-symlink.patch && git rm -q --cached src/sneaky-link.ts && rm src/sneaky-link.ts' } },
     { name: 'Bash', input: { description: 'a file that is not a plain regular file', command: 'ln -s /home/runner/.bashrc /tmp/maint/out/steal-file.patch' } },
     { name: 'StructuredOutput', input: { actions: [
-      { do: 'reply', item: 1, body: `Thanks @${OWNER}, see https://evil.example/x and https://github.com/${REPO}/../../evil/x and https://github.com/${REPO}/issues/1` },
+      { do: 'reply', item: 1, body: `Thanks @${OWNER}, see https://evil.example/x and https://github.com/${REPO}/../../evil/x and https://github.com/${REPO}/issues/1 [a](/evil/r) <a href="/evil">b</a>\n[c]: /evil` },
       { do: 'label', item: 1, add: ['bug'], remove: ['question'] },
       { do: 'close', item: 2, reason: 'not_planned' },
       { do: 'propose', slug: 'note-changelog', title: 'docs: selftest note', body: 'Closes #1' },
@@ -111,8 +111,8 @@ try {
   };
   const applied = await apply(`${st}/run`);
   const keys = github.writes.map((w) => w.key);
-  check('the reply lost its outside links and its @mention, and kept the repo link',
-    github.writes[0]?.body?.body === `Thanks @​${OWNER}, see [link removed] and [link removed] and https://github.com/${REPO}/issues/1`, JSON.stringify(github.writes[0]));
+  check('the reply lost its outside links, relative ones included, and its @mention, and kept the repo link',
+    github.writes[0]?.body?.body === `Thanks @​${OWNER}, see [link removed] and [link removed] and https://github.com/${REPO}/issues/1 [a]([link removed]) <a href="[link removed]">b</a>\n[c]: [link removed]`, JSON.stringify(github.writes[0]));
   check('label and close went through', github.writes.some((w) => w.body?.state_reason === 'not_planned') && keys.includes(`POST ${R}/issues/1/labels`));
   check('the ordinary patch became branch bot/note-changelog, with a PR', git(origin, 'branch', '--list', 'bot/note-changelog') !== '' && keys.includes(`POST ${R}/pulls`));
   check('auto-merge stays off while gate is not a required check', !keys.includes('POST /graphql') && applied.out.includes('auto-merge stays off'), applied.out);
