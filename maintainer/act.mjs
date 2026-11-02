@@ -72,9 +72,9 @@ const ownPage = (text) => {
 const clean = (s) => s.replace(URLISH, (u) => (ownPage(u) ? u : '[link removed]')).replace(/@(?=[\w-])/g, '@\u200b');
 
 // What a change does, from git's own records of it, never from patch text. propose and the gate both judge with this.
-//   never: what nobody may merge (a fixture changed, lost or renamed; fixtures only grow)
-//   owner: what only the owner may merge (a path outside AGENT that isn't a release; a mode, symlink,
-//          submodule, type or binary change)
+// The result is what only the owner may merge: a path outside AGENT that isn't a release; a fixture
+// changed, lost or renamed (fixtures only grow, unless the owner says a case was wrong); a mode, symlink,
+// submodule, type or binary change.
 function inspect(base, head) {
   const from = git('merge-base', base, head);
   const show = (ref, path) => git('show', `${ref}:${path}`);
@@ -90,13 +90,12 @@ function inspect(base, head) {
     }
   };
   let release;
-  const never = [];
   const owner = [];
   const raw = git('diff', '--raw', '--no-renames', '-z', from, head).split('\0');
   for (let i = 0; i + 1 < raw.length; i += 2) {
     const [oldMode, newMode, , , status] = raw[i].slice(1).split(' ');
     const path = raw[i + 1];
-    if (APPEND_ONLY.test(path) && status !== 'A') never.push(`${path}: fixtures are append-only`);
+    if (APPEND_ONLY.test(path) && status !== 'A') owner.push(`${path}: fixtures only grow`);
     const agents = AGENT.some((p) => p.test(path)) || (VERSIONED.includes(path) && (release ??= isRelease()));
     if (!agents) owner.push(`${path} is owner-owned`);
     const plain = status === 'A' ? newMode === '100644' : status === 'D' || (status === 'M' && oldMode === newMode && !/^1[26]0000$/.test(oldMode));
@@ -105,7 +104,7 @@ function inspect(base, head) {
   for (const entry of git('diff', '--numstat', '--no-renames', '-z', from, head).split('\0')) {
     if (entry.startsWith('-\t-\t')) owner.push(`${entry.slice(4)}: a binary change`);
   }
-  return { never, owner };
+  return owner;
 }
 
 // Auto-merge lands a PR as soon as main's required checks pass, so it is turned on only while `gate`
@@ -132,8 +131,8 @@ const VERBS = {
     const user = a.from_pr && (await api('GET', `pulls/${a.from_pr}`)).user; // re-landed work keeps its author
     const author = user ? ['--author', `${user.login} <${user.id}+${user.login}@users.noreply.github.com>`] : [];
     git('-c', `user.name=${BOT}`, '-c', `user.email=${BOT}@users.noreply.github.com`, 'commit', '--quiet', '--no-verify', ...author, '-m', clean(a.title));
-    const { never, owner } = inspect('refs/act/main', 'HEAD');
-    if (never.length || owner.length) throw new Error(`refused: ${[...never, ...owner][0]}`);
+    const owner = inspect('refs/act/main', 'HEAD');
+    if (owner.length) throw new Error(`refused: ${owner[0]}`);
     git('push', '--quiet', '--force', REMOTE, `HEAD:refs/heads/bot/${a.slug}`);
     const [open] = await api('GET', `pulls?state=open&head=${OWNER}:bot/${a.slug}`);
     const pr = open ?? (await api('POST', 'pulls', { head: `bot/${a.slug}`, base: 'main', title: clean(a.title), body: clean(a.body) }));
@@ -172,15 +171,14 @@ async function gate() {
   for (const j of jobs) if (j.conclusion !== 'success') fails.push(`verify job "${j.name}" concluded ${j.conclusion}; only success counts`);
   git('fetch', '--quiet', '--no-tags', REMOTE, '+refs/heads/main:refs/gate/base', `+refs/pull/${pr.number}/head:refs/gate/head`);
   if (git('rev-parse', 'refs/gate/head') !== run.head_sha) fails.push('the PR has moved on since this verify run');
-  const { never, owner } = inspect('refs/gate/base', 'refs/gate/head');
-  fails.push(...never);
+  const owner = inspect('refs/gate/base', 'refs/gate/head');
   if (owner.length && pr.user.login !== OWNER) {
     const reviews = await api('GET', `pulls/${pr.number}/reviews?per_page=100`);
     if (!reviews.some((r) => r.state === 'APPROVED' && r.user.login === OWNER && r.commit_id === run.head_sha))
       fails.push(`only the owner may merge this (${owner.join('; ')}): the owner must approve ${run.head_sha.slice(0, 7)}, then re-run verify`);
   }
   const conclusion = fails.length ? 'failure' : 'success';
-  const summary = fails.map((f) => `- ${f}`).join('\n') || 'Every verify job passed, fixtures only grew, and owner-owned paths are untouched or approved.';
+  const summary = fails.map((f) => `- ${f}`).join('\n') || 'Every verify job passed, and owner-owned paths and fixtures are untouched or the owner\'s.';
   console.log(`gate ${conclusion} for #${pr.number} at ${run.head_sha}\n${summary}`);
   await api('POST', 'check-runs', { name: 'gate', head_sha: run.head_sha, status: 'completed', conclusion, output: { title: `gate: ${conclusion}`, summary } });
 }
