@@ -77,7 +77,7 @@ flowchart TD
   entry --> read & parse & render & shared & fsio & host
   read --> parse & shared & fsio & host
   parse --> shared & host
-  render --> read & parse & shared & fsio & host
+  render --> read & parse & shared & host
   shared --> host
 ```
 

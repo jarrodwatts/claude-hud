@@ -1,0 +1,20 @@
+{
+  "note": "Changed files are listed in git's order (#857). The sort by mtime stat'ed files in the cwd, which the cage doesn't grant, so it read outside the grants and never sorted.",
+  "columns": 120,
+  "config": { "gitStatus": { "showFileStats": true } },
+  "stdin": {
+    "model": { "display_name": "Opus" },
+    "cwd": "/home/user/repo"
+  },
+  "facts": {
+    "git.status": {
+      "stdout": "# branch.oid 1111111111111111111111111111111111111111\u0000# branch.head main\u00001 .M N... 100644 100644 100644 2222222222222222222222222222222222222222 2222222222222222222222222222222222222222 a.txt\u00001 .M N... 100644 100644 100644 3333333333333333333333333333333333333333 3333333333333333333333333333333333333333 b.txt\u0000"
+    },
+    "git.numstat": { "stdout": "1\t0\ta.txt\u00001\t0\tb.txt\u0000" }
+  },
+  "expect": [
+    "exit 0",
+    "contains ~a.txt(+1)  ~b.txt(+1)",
+    "no line wider than columns"
+  ]
+}
