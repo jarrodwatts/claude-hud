@@ -4,6 +4,12 @@ All notable changes to Claude HUD will be documented in this file.
 
 ## [Unreleased]
 
+## [0.15.1] - 2026-11-03
+
+### Fixed
+- A symlink in `rules/` that points outside the folders the HUD may read no longer hides the whole rules count. Only that link is skipped; the other rules are still counted. Thanks to @yx64 (#857).
+- The changed-files line lists files in the order git prints them. This is what 0.15.0 already showed; the code no longer claims to sort newest first (#857).
+
 ## [0.15.0] - 2026-11-02
 
 ### Security
