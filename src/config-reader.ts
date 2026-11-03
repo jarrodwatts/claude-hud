@@ -51,22 +51,32 @@ function countRules(dir: string, state = { visited: new Set<string>(), entries: 
   state.visited.add(root);
   state.directories += 1;
 
-  let count = 0;
+  let entries: string[];
   try {
-    for (const entry of fs.readdirSync(root)) {
-      if (++state.entries > MAX_RULE_ENTRIES) break;
-      const target = realPath(path.join(root, entry));
-      if (!target || state.visited.has(target)) continue;
-      const stat = fs.statSync(target);
-      if (stat.isDirectory()) {
-        count += countRules(target, state);
-      } else if (stat.isFile() && entry.endsWith('.md')) {
-        state.visited.add(target);
-        count += 1;
-      }
-    }
+    entries = fs.readdirSync(root);
   } catch (error) {
     debug(`Failed to read rules from ${dir}:`, error);
+    return 0;
+  }
+  let count = 0;
+  for (const entry of entries) {
+    if (++state.entries > MAX_RULE_ENTRIES) break;
+    const target = realPath(path.join(root, entry));
+    if (!target || state.visited.has(target)) continue;
+    // A link out of the read grants can't be stat'ed; skip it, not the entries after it.
+    let stat: fs.Stats;
+    try {
+      stat = fs.statSync(target);
+    } catch (error) {
+      debug(`Failed to read rule ${target}:`, error);
+      continue;
+    }
+    if (stat.isDirectory()) {
+      count += countRules(target, state);
+    } else if (stat.isFile() && entry.endsWith('.md')) {
+      state.visited.add(target);
+      count += 1;
+    }
   }
   return count;
 }
