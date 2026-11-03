@@ -1,4 +1,3 @@
-import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { DEFAULT_CONFIG } from '../config.ts';
 import type { Frame, Layout } from './frame.ts';
@@ -65,7 +64,7 @@ function insideCwd(cwd: string, candidate: string): string | null {
 
 const MAX_FILES = 6;
 
-/** Recently changed files, newest first, with per-file line diffs (expanded, gitStatus.showFileStats). */
+/** Changed files in git's order, with per-file line diffs (expanded, gitStatus.showFileStats). */
 export function gitFilesLine(f: Frame): string | null {
   const stats = f.gitStatus?.fileStats;
   if (!(f.config?.gitStatus?.showFileStats ?? false) || !stats) return null;
@@ -73,21 +72,11 @@ export function gitFilesLine(f: Frame): string | null {
   if (f.width !== null && f.width < 60) return null;
 
   const cwd = f.stdin.cwd;
-  const mtime = (fullPath: string): number => {
-    const resolved = cwd ? insideCwd(cwd, fullPath) : null;
-    return resolved ? fs.statSync(resolved).mtimeMs : 0;
-  };
-  const sorted = [...stats.trackedFiles].sort((a, b) => {
-    try {
-      return mtime(b.fullPath) - mtime(a.fullPath);
-    } catch {
-      return 0;
-    }
-  });
+  const files = stats.trackedFiles;
 
   const colorFor = { added: green, deleted: red, modified: yellow } as const;
   const prefix = { added: '+', deleted: '-', modified: '~' } as const;
-  const entries = sorted.slice(0, MAX_FILES).map((file) => {
+  const entries = files.slice(0, MAX_FILES).map((file) => {
     const color = colorFor[file.type];
     const resolved = cwd ? insideCwd(cwd, file.fullPath) : null;
     const name = color(sanitizeDisplayText(file.basename));
@@ -98,7 +87,7 @@ export function gitFilesLine(f: Frame): string | null {
     return entry;
   });
 
-  if (sorted.length > MAX_FILES) entries.push(dim(`+${sorted.length - MAX_FILES} more`));
+  if (files.length > MAX_FILES) entries.push(dim(`+${files.length - MAX_FILES} more`));
   if (stats.untracked > 0) entries.push(dim(`?${stats.untracked}`));
   return entries.join('  ');
 }

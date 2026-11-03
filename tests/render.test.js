@@ -2,7 +2,6 @@
 // clock-relative activity, and sanitization. Every case renders through renderLines.
 import { test, afterEach } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync, rmSync, utimesSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { renderLines } from '../src/render/index.ts';
@@ -249,27 +248,19 @@ test('jj has its own toggle, a conflict marker, and no git-only details', () => 
   assert.equal(lines(ctx({ gitStatus: jj, config: { jjStatus: { enabled: true, showConflicts: false, showDirty: false } } }))[0], '[Opus] │ my-project jj:(main)');
 });
 
-test('the git files line lists the newest files first and hides below 60 columns', () => {
-  const cwd = mkdtempSync(path.join(tmpdir(), 'hud-files-'));
-  try {
-    const names = ['a.ts', 'b.ts', 'c.ts', 'd.ts', 'e.ts', 'f.ts', 'g.ts'];
-    names.forEach((name, index) => {
-      writeFileSync(path.join(cwd, name), '');
-      utimesSync(path.join(cwd, name), new Date(2026, 0, 1 + index), new Date(2026, 0, 1 + index));
-    });
-    const trackedFiles = [
-      ...names.map((name) => ({ basename: name, fullPath: name, type: 'modified', lineDiff: { added: 1, deleted: 0 } })),
-      { basename: 'outside.ts', fullPath: '../outside.ts', type: 'added' },
-    ];
-    const status = { ...gitStatus, fileStats: { ...gitStatus.fileStats, trackedFiles } };
-    const c = ctx({ gitStatus: status, stdin: { cwd }, config: gitConfig });
-    const files = raw(c, 120).at(-1);
-    assert.equal(plain(files), '~g.ts(+1)  ~f.ts(+1)  ~e.ts(+1)  ~d.ts(+1)  ~c.ts(+1)  ~b.ts(+1)  +2 more  ?3');
-    assert.ok(files.includes(`file://${cwd}/g.ts`));
-    assert.ok(!lines(c, 59).some((line) => line.includes('g.ts')));
-  } finally {
-    rmSync(cwd, { recursive: true, force: true });
-  }
+test("the git files line keeps git's order and hides below 60 columns", () => {
+  const cwd = path.join(tmpdir(), 'hud-files');
+  const names = ['a.ts', 'b.ts', 'c.ts', 'd.ts', 'e.ts', 'f.ts', 'g.ts'];
+  const trackedFiles = [
+    ...names.map((name) => ({ basename: name, fullPath: name, type: 'modified', lineDiff: { added: 1, deleted: 0 } })),
+    { basename: 'outside.ts', fullPath: '../outside.ts', type: 'added' },
+  ];
+  const status = { ...gitStatus, fileStats: { ...gitStatus.fileStats, trackedFiles } };
+  const c = ctx({ gitStatus: status, stdin: { cwd }, config: gitConfig });
+  const files = raw(c, 120).at(-1);
+  assert.equal(plain(files), '~a.ts(+1)  ~b.ts(+1)  ~c.ts(+1)  ~d.ts(+1)  ~e.ts(+1)  ~f.ts(+1)  +2 more  ?3');
+  assert.ok(files.includes(`file://${cwd}/a.ts`));
+  assert.ok(!lines(c, 59).some((line) => line.includes('a.ts')));
 });
 
 test('showSeparators puts a rule before the first activity line, clamped to the width', () => {
