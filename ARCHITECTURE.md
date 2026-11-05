@@ -76,7 +76,7 @@ flowchart TD
   stub --> hud
   entry --> read & parse & render & shared & fsio & host
   read --> parse & shared & fsio & host
-  parse --> shared & host
+  parse --> shared & host & fsio
   render --> read & parse & shared & host
   shared --> host
 ```
