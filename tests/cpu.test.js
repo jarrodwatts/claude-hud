@@ -1,28 +1,17 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import os from 'node:os';
-import { getCpuUsage, parseCpuSamples, readCpu, sampleCpuTimes } from '../src/cpu.ts';
+import { parseCpuSamples, readCpu } from '../src/cpu.ts';
 import { cpuLine } from '../src/render/lines.ts';
 import { createFrame } from '../src/render/frame.ts';
 import { mergeConfig } from '../src/config.ts';
 
 const cpu = (usedPercent, numCores) => ({ usedPercent, numCores });
 
-test('sampleCpuTimes aggregates os.cpus() tick counts', () => {
-  const sample = sampleCpuTimes();
-  assert.equal(typeof sample.user, 'number');
-  assert.equal(typeof sample.sys, 'number');
-  assert.equal(typeof sample.idle, 'number');
-  assert.ok(sample.user >= 0 && sample.sys >= 0 && sample.idle >= 0);
-  // The sum should track the machine's total tick count, which grows monotonically.
-  const again = sampleCpuTimes();
-  assert.ok(again.user + again.sys + again.idle >= sample.user + sample.sys + sample.idle);
-});
-
-test('parseCpuSamples returns a utilization delta between two samples', () => {
+test('parseCpuSamples returns a utilization percentage between two samples', () => {
   const a = { user: 100, sys: 50, idle: 850 };
   const b = { user: 150, sys: 60, idle: 890 }; // +50 user, +10 sys, +40 idle over 100 ticks = 60% used
-  assert.deepEqual(parseCpuSamples([a, b]), { user: 60, sys: 0, idle: 40 });
+  assert.equal(parseCpuSamples([a, b]), 60);
 });
 
 test('parseCpuSamples returns null when the window is too short to trust', () => {
@@ -32,16 +21,11 @@ test('parseCpuSamples returns null when the window is too short to trust', () =>
 });
 
 test('readCpu parses a probe answer and ignores malformed input', () => {
-  assert.deepEqual(readCpu({ cpuSamples: [{ user: 100, sys: 50, idle: 850 }, { user: 150, sys: 60, idle: 890 }] }), { user: 60, sys: 0, idle: 40 });
+  assert.equal(readCpu({ cpuSamples: [{ user: 100, sys: 50, idle: 850 }, { user: 150, sys: 60, idle: 890 }], cores: 8 }), 60);
   assert.equal(readCpu(null), null);
   assert.equal(readCpu({}), null);
   assert.equal(readCpu({ cpuSamples: [{ user: 1, sys: 1, idle: 1 }] }), null);
-});
-
-test('getCpuUsage computes a percentage and core count from a delta', () => {
-  assert.deepEqual(getCpuUsage({ user: 60, sys: 0, idle: 40 }), { usedPercent: 60, numCores: os.cpus().length });
-  assert.deepEqual(getCpuUsage({ user: 0, sys: 0, idle: 100 }), { usedPercent: 0, numCores: os.cpus().length });
-  assert.equal(getCpuUsage({ user: 0, sys: 0, idle: 0 }), null);
+  assert.equal(readCpu({ cpuSamples: [{ user: 100, sys: 50, idle: 850 }, { user: 150, sys: 60, idle: 890 }] }), null); // missing cores
 });
 
 test('cpuLine renders the bar, colored percentage and core count', () => {

@@ -599,7 +599,8 @@ export function createProbes({ cwd, argv = process.argv, env = process.env, usag
     },
     // CPU usage: two reads of os.cpus() tick counts, ~100 ms apart, give a delta-based
     // utilization on every platform without the weight of `top` (which is also unreliable
-    // on its first sample). Logic parses the two samples into a pure percentage.
+    // on its first sample). Logic only parses the two samples; the probe also returns
+    // the core count so logic stays pure.
     cpu: async () => {
       const sample = () => {
         let user = 0, sys = 0, idle = 0;
@@ -609,7 +610,7 @@ export function createProbes({ cwd, argv = process.argv, env = process.env, usag
       const a = sample();
       await new Promise((r) => setTimeout(r, 100));
       const b = sample();
-      return { cpuSamples: [a, b] };
+      return { cpuSamples: [a, b], cores: os.cpus().length };
     },
     extra: () => extra,
     'usage.read': () => (usage.read ? readText(usage.read)?.text ?? null : null),

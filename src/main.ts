@@ -9,7 +9,7 @@ import { getJjStatus } from "./jj.ts";
 import { loadConfigFiles, type HudConfig } from "./config.ts";
 import { extraCmdLabel } from "./extra-cmd.ts";
 import { getMemoryUsage, readMemory, type MemoryFacts } from "./memory.ts";
-import { getCpuUsage, readCpu, type CpuFacts } from "./cpu.ts";
+import { readCpu, type CpuFacts } from "./cpu.ts";
 import { readAuthInfo } from "./auth.ts";
 import { getCostTotals } from "./daily-cost.ts";
 import { getOutputSpeed } from "./speed.ts";
@@ -88,10 +88,16 @@ export async function renderStdin(stdin: StdinData, config: HudConfig, { ask, fi
   ]);
 
   const usageData = display.showUsage ? resolveUsage(config, stdinUsage, answers["usage.read"], now) : null;
-  const cpuRaw = (display.showCpu && config.lineLayout === "expanded" && "cpu" in answers)
-    ? readCpu(answers.cpu as CpuFacts)
+  const cpuUsage = (display.showCpu && config.lineLayout === "expanded" && "cpu" in answers)
+    ? (() => {
+        const facts = answers.cpu as CpuFacts;
+        if (!facts) return null;
+        const usedPercent = readCpu(facts);
+        return usedPercent !== null && typeof facts.cores === 'number'
+          ? { usedPercent, numCores: facts.cores }
+          : null;
+      })()
     : null;
-  const cpuUsage = cpuRaw ? getCpuUsage(cpuRaw) : null;
   const lines = renderLines({
     stdin,
     transcript,
