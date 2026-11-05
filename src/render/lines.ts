@@ -97,9 +97,8 @@ export function cpuLine(f: Frame, align: LabelAlign = {}): string | null {
   if (f.config?.lineLayout !== 'expanded' || f.config?.display?.showCpu !== true || !cpu) return null;
   const colors = f.config?.colors;
   const prefix = barLabel('label.approxCpu', colors, align);
-  const percent = `${getQuotaColor(cpu.usedPercent, colors)}${cpu.usedPercent}%${RESET}`;
   const bar = quotaBar(cpu.usedPercent, f.barWidth, colors);
-  return `${prefix} ${bar} ${cpu.usedPercent}% (${cpu.numCores} cores)`;
+  return `${prefix} ${bar} ${getQuotaColor(cpu.usedPercent, colors)}${cpu.usedPercent}%${RESET} (${cpu.numCores} cores)`;
 }
 
 /** Added dirs on their own line, when addedDirsLayout is "line". */

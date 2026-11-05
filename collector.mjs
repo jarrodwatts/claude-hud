@@ -597,11 +597,19 @@ export function createProbes({ cwd, argv = process.argv, env = process.env, usag
       if (process.platform === 'darwin') return { vmStat: await run('/usr/bin/vm_stat', [], { timeout: 1000 }) };
       return {};
     },
-    // CPU usage: top on both Linux and macOS. Two samples needed for utilization.
+    // CPU usage: two reads of os.cpus() tick counts, ~100 ms apart, give a delta-based
+    // utilization on every platform without the weight of `top` (which is also unreliable
+    // on its first sample). Logic parses the two samples into a pure percentage.
     cpu: async () => {
-      if (process.platform === 'linux') return { top: await run('/usr/bin/top', ['-b', '-n', '1'], { timeout: 3000 }) };
-      if (process.platform === 'darwin') return { top: await run('/usr/bin/top', ['-l', '1', '-s', '0'], { timeout: 3000 }) };
-      return {};
+      const sample = () => {
+        let user = 0, sys = 0, idle = 0;
+        for (const c of os.cpus()) { user += c.times.user; sys += c.times.sys; idle += c.times.idle; }
+        return { user, sys, idle };
+      };
+      const a = sample();
+      await new Promise((r) => setTimeout(r, 100));
+      const b = sample();
+      return { cpuSamples: [a, b] };
     },
     extra: () => extra,
     'usage.read': () => (usage.read ? readText(usage.read)?.text ?? null : null),

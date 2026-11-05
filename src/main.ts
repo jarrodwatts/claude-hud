@@ -91,7 +91,7 @@ export async function renderStdin(stdin: StdinData, config: HudConfig, { ask, fi
   const cpuRaw = (display.showCpu && config.lineLayout === "expanded" && "cpu" in answers)
     ? readCpu(answers.cpu as CpuFacts)
     : null;
-  const cpuUsage = cpuRaw ? getCpuUsage(cpuRaw, dataDir, process.platform) : null;
+  const cpuUsage = cpuRaw ? getCpuUsage(cpuRaw) : null;
   const lines = renderLines({
     stdin,
     transcript,
