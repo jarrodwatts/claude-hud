@@ -1,6 +1,5 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import os from 'node:os';
 import { parseCpuSamples, readCpu } from '../src/cpu.ts';
 import { cpuLine } from '../src/render/lines.ts';
 import { createFrame } from '../src/render/frame.ts';

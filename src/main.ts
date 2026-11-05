@@ -93,9 +93,7 @@ export async function renderStdin(stdin: StdinData, config: HudConfig, { ask, fi
         const facts = answers.cpu as CpuFacts;
         if (!facts) return null;
         const usedPercent = readCpu(facts);
-        return usedPercent !== null && typeof facts.cores === 'number'
-          ? { usedPercent, numCores: facts.cores }
-          : null;
+        return usedPercent === null ? null : { usedPercent, numCores: facts.cores };
       })()
     : null;
   const lines = renderLines({

@@ -4,9 +4,9 @@ type RawCpu = { user: number; sys: number; idle: number };
 export type CpuFacts = { cpuSamples: [RawCpu, RawCpu]; cores: number } | null | undefined;
 
 /**
- * Convert two tick samples into a utilization percentage. Returns null when the window is too
- * short to trust (e.g. the first render after a long idle), so callers show nothing rather
- * than a meaningless number.
+ * Convert two tick samples into a utilization percentage. Returns null when no ticks passed
+ * between them (e.g. the system was completely idle for 100 ms), so callers show nothing
+ * rather than a meaningless number.
  */
 export function parseCpuSamples(samples: [RawCpu, RawCpu]): number | null {
   const [a, b] = samples;
