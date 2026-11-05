@@ -9,6 +9,7 @@ import { getJjStatus } from "./jj.ts";
 import { loadConfigFiles, type HudConfig } from "./config.ts";
 import { extraCmdLabel } from "./extra-cmd.ts";
 import { getMemoryUsage, readMemory, type MemoryFacts } from "./memory.ts";
+import { getCpuUsage, readCpu, type CpuFacts, resetCpuSample } from "./cpu.ts";
 import { readAuthInfo } from "./auth.ts";
 import { getCostTotals } from "./daily-cost.ts";
 import { getOutputSpeed } from "./speed.ts";
@@ -70,6 +71,7 @@ export async function renderStdin(stdin: StdinData, config: HudConfig, { ask, fi
   const stdinUsage = getUsageFromStdin(stdin);
   const facts: Probe[] = ["extra"];
   if (display.showMemoryUsage && config.lineLayout === "expanded") facts.push("memory");
+  if (display.showCpu && config.lineLayout === "expanded") facts.push("cpu");
   if (display.showUsage && display.externalUsagePath) facts.push("usage.read");
   if (display.externalUsageWritePath && stdinUsage) facts.push("usage.target");
 
@@ -86,6 +88,10 @@ export async function renderStdin(stdin: StdinData, config: HudConfig, { ask, fi
   ]);
 
   const usageData = display.showUsage ? resolveUsage(config, stdinUsage, answers["usage.read"], now) : null;
+  const cpuRaw = (display.showCpu && config.lineLayout === "expanded" && "cpu" in answers)
+    ? readCpu(answers.cpu as CpuFacts)
+    : null;
+  const cpuUsage = cpuRaw ? getCpuUsage(cpuRaw) : null;
   const lines = renderLines({
     stdin,
     transcript,
@@ -98,6 +104,7 @@ export async function renderStdin(stdin: StdinData, config: HudConfig, { ask, fi
     gitStatus,
     usageData,
     memoryUsage: "memory" in answers ? getMemoryUsage(readMemory(answers.memory as MemoryFacts)) : null,
+    cpuUsage,
     config,
     extraLabel: extraCmdLabel(answers.extra),
     authInfo: files && (display.showAuth || display.showAuthUser) ? readAuthInfo(paths.claudeJson) : null,

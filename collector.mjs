@@ -597,6 +597,12 @@ export function createProbes({ cwd, argv = process.argv, env = process.env, usag
       if (process.platform === 'darwin') return { vmStat: await run('/usr/bin/vm_stat', [], { timeout: 1000 }) };
       return {};
     },
+    // CPU usage: /proc/stat on Linux, sysctl kern.cp_time on macOS. Two samples needed for utilization.
+    cpu: async () => {
+      if (process.platform === 'linux') return { linuxStat: readText('/proc/stat')?.text ?? null };
+      if (process.platform === 'darwin') return { macosSysctl: await run('/usr/bin/sysctl', ['-n', 'kern.cp_time'], { timeout: 1000 }) };
+      return {};
+    },
     extra: () => extra,
     'usage.read': () => (usage.read ? readText(usage.read)?.text ?? null : null),
     // The current snapshot, so logic can skip a write that changes nothing. Null when the path can't be written.

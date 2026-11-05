@@ -135,6 +135,11 @@ export interface MemoryInfo {
   usedPercent: number;
 }
 
+export interface CpuInfo {
+  usedPercent: number;
+  numCores: number;
+}
+
 /** Check if usage limit is reached (either window at 100%) */
 export function isLimitReached(data: UsageData): boolean {
   return data.fiveHour === 100 || data.sevenDay === 100;
@@ -198,6 +203,7 @@ export interface RenderContext {
   gitStatus: GitStatus | null;
   usageData: UsageData | null;
   memoryUsage: MemoryInfo | null;
+  cpuUsage: CpuInfo | null;
   config: HudConfig;
   extraLabel: string | null;
   authInfo?: AuthInfo | null;
