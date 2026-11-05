@@ -604,7 +604,11 @@ export function createProbes({ cwd, argv = process.argv, env = process.env, usag
     cpu: async () => {
       const sample = () => {
         let user = 0, sys = 0, idle = 0;
-        for (const c of os.cpus()) { user += c.times.user; sys += c.times.sys; idle += c.times.idle; }
+        for (const c of os.cpus()) {
+          user += c.times.user + c.times.nice;
+          sys += c.times.sys + c.times.irq;
+          idle += c.times.idle;
+        }
         return { user, sys, idle };
       };
       const a = sample();

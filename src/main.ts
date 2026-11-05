@@ -71,7 +71,7 @@ export async function renderStdin(stdin: StdinData, config: HudConfig, { ask, fi
   const stdinUsage = getUsageFromStdin(stdin);
   const facts: Probe[] = ["extra"];
   if (display.showMemoryUsage && config.lineLayout === "expanded") facts.push("memory");
-  if (display.showCpu && config.lineLayout === "expanded") facts.push("cpu");
+  if (display.showCpu && config.lineLayout === "expanded" && config.elementOrder.includes("cpu")) facts.push("cpu");
   if (display.showUsage && display.externalUsagePath) facts.push("usage.read");
   if (display.externalUsageWritePath && stdinUsage) facts.push("usage.target");
 
