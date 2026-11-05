@@ -52,7 +52,7 @@ export interface Facts {
   heartbeat: { at: number; runtime: string; path: string; outcome: string; columns: number | null; stdin: StdinData | null } | null;
 }
 
-export type Probe = 'git.status' | 'git.numstat' | 'git.branch' | 'git.describe' | 'jj' | 'memory' | 'extra' | 'usage.read' | 'usage.target';
+export type Probe = 'git.status' | 'git.numstat' | 'git.branch' | 'git.describe' | 'jj' | 'memory' | 'cpu' | 'extra' | 'usage.read' | 'usage.target';
 export type Answers = Partial<Record<Probe, unknown>>;
 export type Ask = (probes: Probe[]) => Promise<Answers>;
 
