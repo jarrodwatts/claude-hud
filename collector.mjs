@@ -613,8 +613,12 @@ export function createProbes({ cwd, argv = process.argv, env = process.env, usag
         const f = line.split(/\s+/);
         // cpu user nice system idle iowait irq softirq steal guest guest_nice
         const num = f.map(Number);
-        if (num.length < 8 || num.slice(1).some((n) => !Number.isFinite(n))) return null;
+        // steal is the 9th field (index 8); a shorter line has no steal, so sys
+        // would be NaN and the row would silently vanish.
+        if (num.length < 9 || num.slice(1).some((n) => !Number.isFinite(n))) return null;
         const [_, user, nice, system, idle, iowait, irq, softirq, steal] = num;
+        // iowait is idle time, not busy: os.cpus() excludes it too, so keep it
+        // out of both numerator and denominator rather than double-counting.
         return { user: user + nice, sys: system + irq + softirq + steal, idle };
       };
       const sample = () => {
