@@ -179,3 +179,29 @@ test('install picks the shell Claude Code runs statusLine with', async () => {
   assert.equal(detectShell({ SHELL: '/usr/bin/bash' }, 'win32'), 'gitbash');
   assert.equal(detectShell({}, 'win32'), 'powershell');
 });
+
+test('install picks Git Bash from PowerShell when Claude Code would use it (#861)', async () => {
+  const { detectShell } = await import('../install.mjs');
+  const only = (file) => (candidate) => candidate === file;
+  const none = () => false;
+  // CLAUDE_CODE_GIT_BASH_PATH reaches the PowerShell tool through settings.json `env`.
+  assert.equal(detectShell({ CLAUDE_CODE_GIT_BASH_PATH: 'D:\\Tools\\Git\\bin\\bash.exe' }, 'win32', none), 'gitbash');
+  assert.equal(detectShell({ CLAUDE_CODE_GIT_BASH_PATH: '' }, 'win32', none), 'powershell');
+  // Git for Windows at its default machine-wide or per-user location.
+  assert.equal(
+    detectShell({ ProgramFiles: 'C:\\Program Files' }, 'win32', only('C:\\Program Files\\Git\\bin\\bash.exe')),
+    'gitbash',
+  );
+  assert.equal(
+    detectShell({ ProgramFiles: 'C:\\Program Files (x86)', ProgramW6432: 'C:\\Program Files' }, 'win32', only('C:\\Program Files\\Git\\bin\\bash.exe')),
+    'gitbash',
+  );
+  assert.equal(
+    detectShell({ LOCALAPPDATA: 'C:\\Users\\u\\AppData\\Local' }, 'win32', only('C:\\Users\\u\\AppData\\Local\\Programs\\Git\\bin\\bash.exe')),
+    'gitbash',
+  );
+  assert.equal(detectShell({ ProgramFiles: 'C:\\Program Files', LOCALAPPDATA: 'C:\\Users\\u\\AppData\\Local' }, 'win32', none), 'powershell');
+  // Only Windows looks for Git Bash; elsewhere the shell is always posix.
+  assert.equal(detectShell({ CLAUDE_CODE_GIT_BASH_PATH: 'x' }, 'linux', () => true), 'posix');
+  assert.equal(detectShell({ ProgramFiles: 'C:\\Program Files' }, 'darwin', () => true), 'posix');
+});
