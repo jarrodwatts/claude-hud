@@ -9,10 +9,15 @@ const SHELLS = ['posix', 'gitbash', 'powershell'];
 const LAUNCHER = fileURLToPath(new URL('./scripts/statusline.mjs', import.meta.url));
 
 // Claude Code runs statusLine through bash on macOS, Linux and WSL. On Windows it uses Git Bash
-// when installed (which sets MSYSTEM for the commands Claude runs), otherwise PowerShell.
-export function detectShell(env = process.env, platform = process.platform) {
+// when installed, otherwise PowerShell. Run from Git Bash, MSYSTEM or SHELL says so. Run from
+// PowerShell (Claude Code's PowerShell tool included) neither is set, so look for the Git Bash
+// Claude Code would find: CLAUDE_CODE_GIT_BASH_PATH, or Git for Windows at its default location (#861).
+export function detectShell(env = process.env, platform = process.platform, exists = fs.existsSync) {
   if (platform !== 'win32') return 'posix';
-  return env.MSYSTEM || /bash/i.test(env.SHELL ?? '') ? 'gitbash' : 'powershell';
+  if (env.MSYSTEM || /bash/i.test(env.SHELL ?? '')) return 'gitbash';
+  if (env.CLAUDE_CODE_GIT_BASH_PATH) return 'gitbash';
+  const roots = [env.ProgramFiles, env.ProgramW6432, env.LOCALAPPDATA && path.win32.join(env.LOCALAPPDATA, 'Programs')];
+  return roots.some((root) => root && exists(path.win32.join(root, 'Git', 'bin', 'bash.exe'))) ? 'gitbash' : 'powershell';
 }
 
 const quote = (value) => `'${value.replaceAll("'", `'\\''`)}'`;

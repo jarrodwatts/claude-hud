@@ -4,6 +4,9 @@ All notable changes to Claude HUD will be documented in this file.
 
 ## [Unreleased]
 
+### Fixed
+- On Windows, `hud install` run from PowerShell (Claude Code's PowerShell tool included) now writes the Git Bash form of the status line when Claude Code would run it through Git Bash: when `CLAUDE_CODE_GIT_BASH_PATH` is set, or Git for Windows is at its default location. Before, it wrote a `cmd.exe` command whose backslashes Git Bash strips, so the HUD never appeared. Thanks to @NanakiEmi (#861).
+
 ## [0.15.1] - 2026-11-03
 
 ### Fixed
