@@ -54,13 +54,13 @@ test('deriveAuthInfo reports API Key when no oauth account but key exported', ()
 
 test('deriveAuthInfo gives API Key precedence over a stale oauth account', () => {
   const info = deriveAuthInfo(MAX_ACCOUNT, { ANTHROPIC_API_KEY: 'sk-test' });
-  assert.deepEqual(info, { method: 'API Key', user: null });
+  assert.deepEqual(info, { method: 'API Key', user: null, email: null });
 });
 
 test('deriveAuthInfo returns nulls for missing/invalid input', () => {
-  assert.deepEqual(deriveAuthInfo(null, {}), { method: null, user: null });
-  assert.deepEqual(deriveAuthInfo('junk', {}), { method: null, user: null });
-  assert.deepEqual(deriveAuthInfo({ oauthAccount: 42 }, {}), { method: null, user: null });
+  assert.deepEqual(deriveAuthInfo(null, {}), { method: null, user: null, email: null });
+  assert.deepEqual(deriveAuthInfo('junk', {}), { method: null, user: null, email: null });
+  assert.deepEqual(deriveAuthInfo({ oauthAccount: 42 }, {}), { method: null, user: null, email: null });
 });
 
 test('deriveAuthInfo strips ANSI sequences and control characters from values', () => {
@@ -81,15 +81,15 @@ test('readAuthInfo honors CLAUDE_CONFIG_DIR and handles unreadable profiles', as
     process.env.CLAUDE_CONFIG_DIR = configDir;
     await mkdir(configDir, { recursive: true });
 
-    assert.deepEqual(readAuthInfo(), { method: null, user: null });
+    assert.deepEqual(readAuthInfo(), { method: null, user: null, email: null });
 
     // Claude Code keeps claude.json INSIDE the overridden config directory.
     const jsonPath = path.join(configDir, '.claude.json');
     await writeFile(jsonPath, JSON.stringify(MAX_ACCOUNT), 'utf8');
-    assert.deepEqual(readAuthInfo(), { method: 'Claude Max 20x', user: 'someone.long' });
+    assert.deepEqual(readAuthInfo(), { method: 'Claude Max 20x', user: 'someone.long', email: 'someone.long@example.com' });
 
     await writeFile(jsonPath, '{invalid', 'utf8');
-    assert.deepEqual(readAuthInfo(), { method: null, user: null });
+    assert.deepEqual(readAuthInfo(), { method: null, user: null, email: null });
   } finally {
     delete process.env.CLAUDE_CONFIG_DIR;
     delete process.env.ANTHROPIC_API_KEY;
@@ -103,7 +103,7 @@ test('readAuthInfo reports an API key without requiring an oauth profile', async
   try {
     process.env.CLAUDE_CONFIG_DIR = path.join(tempDir, 'missing');
     process.env.ANTHROPIC_API_KEY = 'sk-test';
-    assert.deepEqual(readAuthInfo(), { method: 'API Key', user: null });
+    assert.deepEqual(readAuthInfo(), { method: 'API Key', user: null, email: null });
   } finally {
     delete process.env.CLAUDE_CONFIG_DIR;
     delete process.env.ANTHROPIC_API_KEY;
@@ -134,6 +134,23 @@ test('formatAuthSegment joins method and truncated user', () => {
   );
   assert.equal(formatAuthSegment(info, { showAuth: false, showAuthUser: false }), null);
   assert.equal(formatAuthSegment(null, { showAuth: true, showAuthUser: true }), null);
+});
+
+test('authUserFullEmail shows the whole email address (#864)', () => {
+  const info = deriveAuthInfo(MAX_ACCOUNT, {});
+  assert.equal(
+    formatAuthSegment(info, { showAuth: true, showAuthUser: true, authUserFullEmail: true, authUserLength: 0 }),
+    'Claude Max 20x · someone.long@example.com',
+  );
+  assert.equal(
+    formatAuthSegment(info, { showAuthUser: true, authUserFullEmail: true, authUserLength: 8 }),
+    'someone.…',
+  );
+  // Without an email there is nothing fuller to show, so the display name stays.
+  const named = deriveAuthInfo({ oauthAccount: { displayName: 'Some One' } }, {});
+  assert.equal(formatAuthSegment(named, { showAuthUser: true, authUserFullEmail: true, authUserLength: 0 }), 'Some One');
+  // Off by default.
+  assert.equal(formatAuthSegment(info, { showAuthUser: true, authUserLength: 0 }), 'someone.long');
 });
 
 // --- derived-auth caching -------------------------------------------------

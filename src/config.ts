@@ -161,6 +161,8 @@ export interface HudConfig {
     showSessionName: boolean;
     showAuth: boolean;
     showAuthUser: boolean;
+    // Show the whole email address instead of its local part.
+    authUserFullEmail: boolean;
     // Max characters of the account name (0 = full).
     authUserLength: number;
     showClaudeCodeVersion: boolean;
@@ -262,6 +264,7 @@ export const DEFAULT_CONFIG: HudConfig = {
     showSessionName: false,
     showAuth: false,
     showAuthUser: false,
+    authUserFullEmail: false,
     authUserLength: 8,
     showClaudeCodeVersion: false,
     showEffortLevel: false,

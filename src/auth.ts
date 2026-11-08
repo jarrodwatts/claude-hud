@@ -9,14 +9,16 @@ import { truncateString } from './utils/truncate.ts';
  *
  *   method: human-readable auth/plan label (e.g. "Claude Max 20x", "API Key")
  *   user:   account identifier (email local part, falling back to displayName)
+ *   email:  the full email address, for display.authUserFullEmail
  */
 export interface AuthInfo {
   method: string | null;
   user: string | null;
+  email: string | null;
 }
 
-const EMPTY_AUTH_INFO: AuthInfo = { method: null, user: null };
-const API_KEY_AUTH_INFO: AuthInfo = { method: 'API Key', user: null };
+const EMPTY_AUTH_INFO: AuthInfo = { method: null, user: null, email: null };
+const API_KEY_AUTH_INFO: AuthInfo = { method: 'API Key', user: null, email: null };
 const AUTH_VALUE_MAX_LEN = 128;
 
 function hasApiKey(env: NodeJS.ProcessEnv): boolean {
@@ -85,11 +87,11 @@ export function deriveAuthInfo(claudeJson: unknown, env: NodeJS.ProcessEnv = pro
   const email = readString(account, 'emailAddress');
   const user = email ? email.split('@')[0] : readString(account, 'displayName');
 
-  return { method, user };
+  return { method, user, email };
 }
 
 /**
- * Cache of the two DERIVED fields, keyed on the source file's identity.
+ * Cache of the DERIVED fields, keyed on the source file's identity.
  *
  * The identity combines mtime, ctime, size, device, and inode so a replacement
  * or rapid rewrite cannot reuse a stale entry based on one timestamp alone.
@@ -115,12 +117,12 @@ export function truncateUser(user: string, maxLength: number): string {
 
 /**
  * Builds the standalone auth segment for the end of the first HUD line,
- * honoring the showAuth / showAuthUser / authUserLength display settings.
+ * honoring the showAuth / showAuthUser / authUserFullEmail / authUserLength display settings.
  * Returns e.g. "Claude Max 20x · yukinosh…", or null when nothing to show.
  */
 export function formatAuthSegment(
   info: AuthInfo | null | undefined,
-  display: { showAuth?: boolean; showAuthUser?: boolean; authUserLength?: number } | undefined,
+  display: { showAuth?: boolean; showAuthUser?: boolean; authUserFullEmail?: boolean; authUserLength?: number } | undefined,
 ): string | null {
   if (!info) {
     return null;
@@ -130,8 +132,9 @@ export function formatAuthSegment(
   if (display?.showAuth && info.method) {
     parts.push(info.method);
   }
-  if (display?.showAuthUser && info.user) {
-    parts.push(truncateUser(info.user, display?.authUserLength ?? 8));
+  const user = display?.authUserFullEmail && info.email ? info.email : info.user;
+  if (display?.showAuthUser && user) {
+    parts.push(truncateUser(user, display?.authUserLength ?? 8));
   }
 
   return parts.length > 0 ? parts.join(' · ') : null;

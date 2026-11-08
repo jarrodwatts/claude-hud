@@ -78,6 +78,7 @@ export const DESCRIPTIONS: Record<string, string> = {
   "display.showSessionTokens": "Show the session's cumulative token totals, e.g. `Tokens 262k (in: 6k, out: 2k, cache: 254k)`",
   "display.showAuth": "Show the auth method (subscription plan) of the current login as its own segment at the end of the first line, e.g. `Claude Max 20x`. Derived from the `oauthAccount` block in `~/.claude.json` (or `$CLAUDE_CONFIG_DIR/.claude.json` when the config directory is overridden); shows `API Key` when there is no OAuth login but `ANTHROPIC_API_KEY` is set",
   "display.showAuthUser": "Show the logged-in account (email local part, falling back to profile display name) next to the auth method",
+  "display.authUserFullEmail": "With `showAuthUser`, show the whole email address (e.g. `you@example.com`) instead of the part before `@`. `authUserLength` still applies; set it to `0` to see the address in full",
   "display.authUserLength": "Maximum characters of the account name to display before truncating with `…`. `0` shows the full name",
   "display.showAdvisor": "Inline the model configured via Claude Code's `/advisor` on the project line, e.g. `Advisor: Opus 4.7`. Read from the `advisorModel` field that Claude Code stamps on each assistant transcript record; sanitised and capped at 64 chars before rendering",
   "display.advisorOverride": "Optional manual override for the displayed advisor label. When non-empty, replaces transcript-driven detection. Also sanitised and capped at 64 chars",
