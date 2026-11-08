@@ -4,6 +4,8 @@ All notable changes to Claude HUD will be documented in this file.
 
 ## [Unreleased]
 
+## [0.15.2] - 2026-11-08
+
 ### Added
 - `display.authUserFullEmail` option. With `showAuthUser` on, the HUD shows your whole email address instead of the part before `@`. Set `authUserLength` to `0` too, or the address is cut to 8 characters. Off by default (#864).
 
