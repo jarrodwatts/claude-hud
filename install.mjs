@@ -17,17 +17,30 @@ export function detectShell(env = process.env, platform = process.platform) {
 
 const quote = (value) => `'${value.replaceAll("'", `'\\''`)}'`;
 
-function buildCommand(shell, launcher, env = process.env) {
+// cmd.exe reads a batch file in the console code page, so this one holds no path. The runtime arrives
+// in a variable instead.
+const GITBASH_SHIM = '@echo off\r\n"%CLAUDE_HUD_RUNTIME%" "%~dp0statusline.mjs"\r\n';
+
+function buildCommand(shell, launcher, runtime, env = process.env) {
   if (shell === 'gitbash') {
     // Launch through cmd.exe: Git Bash creates native children suspended, so a
     // killed statusLine shell would otherwise strand a node.exe (#747).
-    return 'exec "${CLAUDE_CONFIG_DIR:-$HOME/.claude}/plugins/claude-hud/statusline.cmd"';
+    // cmd.exe expands % and splits at & in its command line, so that line holds only variables. cmd
+    // expands them in one pass: a % in a value stays as it is, and the quotes, which come from a
+    // variable in the same pass, already enclose the path when cmd looks for &. A literal " can't be
+    // written here, because msys passes it to cmd.exe as \". Path conversion is off for this exec, so
+    // the switches arrive as written whatever the user's MSYS settings: /d skips the user's cmd
+    // AutoRun, whose output would join the HUD's, and /v:off keeps a DelayedExpansion setting from
+    // eating a ! in a path. cmd.exe is named by its full path, never looked up on PATH.
+    const shim = path.join(path.dirname(launcher), 'statusline.cmd');
+    const cmd = path.win32.join(env.SystemRoot || 'C:\\Windows', 'System32', 'cmd.exe');
+    return `CLAUDE_HUD_RUNTIME=${quote(runtime)} CLAUDE_HUD_SHIM=${quote(shim)} CLAUDE_HUD_QUOTE='"' MSYS_NO_PATHCONV=1 MSYS2_ARG_CONV_EXCL='*' exec ${quote(cmd)} /d /v:off /c '%CLAUDE_HUD_QUOTE%%CLAUDE_HUD_SHIM%%CLAUDE_HUD_QUOTE%'`;
   }
   if (shell === 'powershell') {
     const cmd = path.win32.join(env.SystemRoot || 'C:\\Windows', 'System32', 'cmd.exe');
-    return `${cmd} /d /s /c ""${process.execPath}" "${launcher}""`;
+    return `${cmd} /d /s /c ""${runtime}" "${launcher}""`;
   }
-  return `${quote(process.execPath)} ${quote(launcher)}`;
+  return `${quote(runtime)} ${quote(launcher)}`;
 }
 
 function readSettings(file) {
@@ -46,7 +59,7 @@ function readSettings(file) {
  * Refuses to replace another tool's status line unless `replace` is set; the old command is kept.
  * argv: [--shell posix|gitbash|powershell] [--replace]
  */
-export function install({ configDir, argv = [], env = process.env }) {
+export function install({ configDir, argv = [], env = process.env, runtime = process.execPath }) {
   const flag = (name) => (argv.includes(name) ? argv[argv.indexOf(name) + 1] : undefined);
   const shell = flag('--shell') ?? detectShell(env);
   if (!SHELLS.includes(shell)) throw new Error(`--shell must be one of ${SHELLS.join(', ')}`);
@@ -55,7 +68,7 @@ export function install({ configDir, argv = [], env = process.env }) {
   const launcher = path.join(hudDir, 'statusline.mjs');
   const settingsPath = path.join(configDir, 'settings.json');
   const settings = readSettings(settingsPath);
-  const command = buildCommand(shell, launcher, env);
+  const command = buildCommand(shell, launcher, runtime, env);
   const existing = typeof settings.statusLine?.command === 'string' ? settings.statusLine.command : '';
   const replaced = existing === '' ? 'none' : existing.includes('claude-hud') ? 'claude-hud' : 'other';
   if (replaced === 'other' && !argv.includes('--replace')) {
@@ -66,7 +79,7 @@ export function install({ configDir, argv = [], env = process.env }) {
   fs.mkdirSync(hudDir, { recursive: true });
   fs.copyFileSync(LAUNCHER, launcher);
   if (shell === 'gitbash') {
-    fs.writeFileSync(path.join(hudDir, 'statusline.cmd'), `@echo off\r\n"${process.execPath}" "%~dp0statusline.mjs"\r\n`);
+    fs.writeFileSync(path.join(hudDir, 'statusline.cmd'), GITBASH_SHIM);
   }
   if (fs.existsSync(settingsPath)) {
     report.backupPath = `${settingsPath}.bak.${new Date().toISOString().replace(/[-:]/g, '').replace(/\..+/, '')}`;

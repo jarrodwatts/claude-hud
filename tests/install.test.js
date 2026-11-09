@@ -153,21 +153,34 @@ test('install refuses to overwrite invalid settings.json', async () => {
   });
 });
 
-test('Windows shells launch through cmd.exe', async () => {
-  await withConfigDir(async (configDir) => {
-    const gitBash = install(['--shell', 'gitbash'], { configDir });
-    assert.equal(gitBash.status, 0, gitBash.stderr);
-    assert.equal(
-      JSON.parse(gitBash.stdout).command,
-      'exec "${CLAUDE_CONFIG_DIR:-$HOME/.claude}/plugins/claude-hud/statusline.cmd"',
-    );
+// Characters that cmd.exe or PowerShell would read in a path: non-ASCII (a batch file is read in the
+// console code page), a space, and each shell's own specials.
+const ODD_RUNTIME = "C:\\Users\\张三\\O'Brien ’ 100% & (x) $HOME;!\\node.exe";
+const ODD_DIR = "用户 O'Brien ’ 100% & (x) $HOME;!";
+
+test('Git Bash: statusline.cmd holds no path, and cmd.exe gets the runtime and the shim through the environment', async () => {
+  const { install: installTo } = await import('../install.mjs');
+  await withConfigDir(async (root) => {
+    const configDir = path.join(root, ODD_DIR, '.claude');
+    const { command } = installTo({ configDir, argv: ['--shell', 'gitbash'], env: { SystemRoot: 'C:\\WINDOWS' }, runtime: ODD_RUNTIME });
     assert.equal(
       await readFile(path.join(configDir, 'plugins', 'claude-hud', 'statusline.cmd'), 'utf8'),
-      `@echo off\r\n"${process.execPath}" "%~dp0statusline.mjs"\r\n`,
+      '@echo off\r\n"%CLAUDE_HUD_RUNTIME%" "%~dp0statusline.mjs"\r\n',
     );
 
-    const powershell = JSON.parse(install(['--shell', 'powershell'], { configDir }).stdout);
-    assert.match(powershell.command, /System32\\cmd\.exe \/d \/s \/c ""/);
+    const cmdExe = "'C:\\WINDOWS\\System32\\cmd.exe'";
+    assert.ok(command.includes(` exec ${cmdExe} `), command);
+
+    if (process.platform === 'win32') return;
+    // A stand-in takes cmd.exe's place and records what bash hands it, and whether msys path conversion is off for it.
+    const standIn = path.join(root, 'cmd.exe');
+    await writeFile(standIn, '#!/bin/sh\nprintf \'%s\\0\' "$@" "$CLAUDE_HUD_RUNTIME" "$CLAUDE_HUD_SHIM" "$CLAUDE_HUD_QUOTE" "$MSYS_NO_PATHCONV" "$MSYS2_ARG_CONV_EXCL"\n', { mode: 0o755 });
+    const ran = spawnSync('bash', ['-c', command.replace(cmdExe, `'${standIn}'`)], { encoding: 'utf8', env: { PATH: '/usr/bin:/bin' } });
+    assert.equal(ran.status, 0, ran.stderr);
+    assert.deepEqual(ran.stdout.split('\0').slice(0, -1), [
+      '/d', '/v:off', '/c', '%CLAUDE_HUD_QUOTE%%CLAUDE_HUD_SHIM%%CLAUDE_HUD_QUOTE%',
+      ODD_RUNTIME, path.join(configDir, 'plugins', 'claude-hud', 'statusline.cmd'), '"', '1', '*',
+    ]);
   });
 });
 
