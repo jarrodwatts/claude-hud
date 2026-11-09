@@ -4,6 +4,9 @@ All notable changes to Claude HUD will be documented in this file.
 
 ## [Unreleased]
 
+### Added
+- `display.weeklyCostPeriod` option. Set it to a weekday such as `"monday"` and `Week $…` counts calendar weeks: it clears at 00:00 local time on that day instead of when the 7-day quota window rolls over, so it also shows with an API key. The `Weekly` usage bar still follows the quota window. `"quota"` by default (#867).
+
 ## [0.15.2] - 2026-11-08
 
 ### Added

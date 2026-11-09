@@ -91,8 +91,8 @@ export async function renderStdin(stdin: StdinData, config: HudConfig, { ask, fi
     transcript,
     ...(files && display.showConfigCounts ? countConfigs(paths) : NO_COUNTS),
     costTotals: display.showDailyCost || display.showWeeklyCost
-      ? getCostTotals(stdin, { allowRoutedCost: display.showRoutedCost, sevenDayResetAt: usageData?.sevenDayResetAt ?? null },
-        { dataDir: () => dataDir, now: () => now })
+      ? getCostTotals(stdin, { allowRoutedCost: display.showRoutedCost, sevenDayResetAt: usageData?.sevenDayResetAt ?? null,
+        weeklyCostPeriod: display.weeklyCostPeriod }, { dataDir: () => dataDir, now: () => now })
       : null,
     outputSpeed: display.showSpeed ? getOutputSpeed(stdin, dataDir) : null,
     gitStatus,

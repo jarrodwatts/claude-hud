@@ -207,6 +207,8 @@ for (const [name, config] of Object.entries(options)) {
 for (const [name, config] of SINGLE_TOGGLES) add(`toggle/${name}`, { stdin: rich, config });
 add('toggle/showRoutedCost+bedrock', { stdin: stdin.bedrock, config: { display: { showCost: true, showRoutedCost: true } } });
 add('toggle/showCost+bedrock', { stdin: stdin.bedrock, config: { display: { showCost: true } } });
+add('toggle/showWeeklyCost+apiUser', { stdin: stdin.apiUser, config: { display: { showWeeklyCost: true } } });
+add('toggle/weeklyCostPeriod=monday+apiUser', { stdin: stdin.apiUser, config: { display: { showWeeklyCost: true, weeklyCostPeriod: 'monday' } } });
 
 for (const columns of [undefined, 60, 120]) {
   const at = columns ? `@${columns}` : '';

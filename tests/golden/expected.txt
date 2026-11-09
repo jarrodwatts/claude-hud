@@ -398,6 +398,14 @@
 \e[0m\e[36m[Opus 5.5]\e[0m │ \e]8;;file://<BASE>/home/dev/my-project\e\\e[33mmy-project\e[0m\e]8;;\e\
 \e[0m\e[2mContext\e[0m \e[32m█████\e[2m░░░░░\e[0m \e[32m45%\e[0m
 
+### toggle/showWeeklyCost+apiUser
+\e[0m\e[36m[Opus 5.5]\e[0m │ \e]8;;file://<BASE>/home/dev/my-project\e\\e[33mmy-project\e[0m\e]8;;\e\
+\e[0m\e[2mContext\e[0m \e[32m█████\e[2m░░░░░\e[0m \e[32m45%\e[0m
+
+### toggle/weeklyCostPeriod=monday+apiUser
+\e[0m\e[36m[Opus 5.5]\e[0m │ \e]8;;file://<BASE>/home/dev/my-project\e\\e[33mmy-project\e[0m\e]8;;\e\ │ \e[2mWeek $0.0000\e[0m
+\e[0m\e[2mContext\e[0m \e[32m█████\e[2m░░░░░\e[0m \e[32m45%\e[0m
+
 ### kitchen-sink/expanded
 \e[0m\e[36m[Opus 5.5 ◑ high]\e[0m │ \e]8;;file://<BASE>/home/dev/my-project\e\\e[33mmy-project\e[0m\e]8;;\e\ \e[35mgit:(\e[0m\e]8;;https://github.com/jarrodwatts/claude-hud/tree/main\e\\e[36mmain*\e[0m\e]8;;\e\ [\e[32m+2\e[0m]\e[35m)\e[0m \e[35m⎇ feat-auth\e[0m │ \e[2mAdvisor:\e[0m Opus 5.5 │ \e[2mauth-fix\e[0m │ \e[2mCC v2.1.286\e[0m │ \e[2m⏱️  1h 0m\e[0m │ \e[2mCost $1.23 | Today $0.0000 | Week $0.0000\e[0m
 \e[0m\e[2mContext\e[0m \e[32m█████\e[2m░░░░░\e[0m \e[32m45%\e[0m │ \e[2mUsage\e[0m \e[94m███\e[2m░░░░░░░\e[0m \e[94m25%\e[0m (resets in 1h 30m)
