@@ -184,6 +184,19 @@ test('Git Bash: statusline.cmd holds no path, and cmd.exe gets the runtime and t
   });
 });
 
+test('Git Bash: cmd.exe comes only from a drive-absolute SystemRoot', async () => {
+  const { install: installTo } = await import('../install.mjs');
+  await withConfigDir(async (configDir) => {
+    const gitBash = (env) => installTo({ configDir, argv: ['--shell', 'gitbash'], env, runtime: ODD_RUNTIME });
+    for (const SystemRoot of ['.\\repo', 'repo', 'C:', 'C:repo', '\\Windows', '\\\\server\\share', 'C:\\Win\0dows']) {
+      assert.throws(() => gitBash({ SystemRoot }), /SystemRoot/, SystemRoot);
+    }
+    assert.equal(await readFile(path.join(configDir, 'settings.json'), 'utf8').catch(() => 'absent'), 'absent');
+    assert.match(gitBash({ SYSTEMROOT: 'D:\\Win' }).command, / exec 'D:\\Win\\System32\\cmd\.exe' /);
+    assert.match(gitBash({}).command, / exec 'C:\\Windows\\System32\\cmd\.exe' /);
+  });
+});
+
 test('PowerShell: the command calls the runtime with each path as a literal string', async () => {
   const { install: installTo } = await import('../install.mjs');
   await withConfigDir(async (root) => {

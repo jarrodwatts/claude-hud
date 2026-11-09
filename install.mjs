@@ -21,6 +21,16 @@ const quote = (value) => `'${value.replaceAll("'", `'\\''`)}'`;
 // in a variable instead.
 const GITBASH_SHIM = '@echo off\r\n"%CLAUDE_HUD_RUNTIME%" "%~dp0statusline.mjs"\r\n';
 
+// System32\cmd.exe under a drive-absolute SystemRoot, as collector.mjs finds taskkill: anything else
+// would let the command find a cmd.exe relative to the directory Claude Code runs it in.
+function cmdExePath(env) {
+  const systemRoot = env.SystemRoot ?? env.SYSTEMROOT ?? 'C:\\Windows';
+  if (systemRoot.includes('\0') || !/^[A-Za-z]:[\\/]/.test(systemRoot) || !path.win32.isAbsolute(systemRoot)) {
+    throw new Error(`SystemRoot is not a drive-absolute path: ${JSON.stringify(systemRoot)}`);
+  }
+  return path.win32.join(path.win32.normalize(systemRoot), 'System32', 'cmd.exe');
+}
+
 function buildCommand(shell, launcher, runtime, env = process.env) {
   if (shell === 'gitbash') {
     // Launch through cmd.exe: Git Bash creates native children suspended, so a
@@ -33,7 +43,7 @@ function buildCommand(shell, launcher, runtime, env = process.env) {
     // AutoRun, whose output would join the HUD's, and /v:off keeps a DelayedExpansion setting from
     // eating a ! in a path. cmd.exe is named by its full path, never looked up on PATH.
     const shim = path.join(path.dirname(launcher), 'statusline.cmd');
-    const cmd = path.win32.join(env.SystemRoot || 'C:\\Windows', 'System32', 'cmd.exe');
+    const cmd = cmdExePath(env);
     return `CLAUDE_HUD_RUNTIME=${quote(runtime)} CLAUDE_HUD_SHIM=${quote(shim)} CLAUDE_HUD_QUOTE='"' MSYS_NO_PATHCONV=1 MSYS2_ARG_CONV_EXCL='*' exec ${quote(cmd)} /d /v:off /c '%CLAUDE_HUD_QUOTE%%CLAUDE_HUD_SHIM%%CLAUDE_HUD_QUOTE%'`;
   }
   if (shell === 'powershell') {
