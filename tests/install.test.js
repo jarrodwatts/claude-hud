@@ -153,21 +153,73 @@ test('install refuses to overwrite invalid settings.json', async () => {
   });
 });
 
-test('Windows shells launch through cmd.exe', async () => {
-  await withConfigDir(async (configDir) => {
-    const gitBash = install(['--shell', 'gitbash'], { configDir });
-    assert.equal(gitBash.status, 0, gitBash.stderr);
+// Characters that cmd.exe or PowerShell would read in a path: non-ASCII (a batch file is read in the
+// console code page), a space, and each shell's own specials.
+const ODD_RUNTIME = "C:\\Users\\张三\\O'Brien ’ 100% & (x) $HOME;!\\node.exe";
+const ODD_DIR = "用户 O'Brien ’ 100% & (x) $HOME;!";
+
+test('Git Bash: the shim holds no path, and cmd.exe gets the runtime and the shim through the environment', async () => {
+  const { install: installTo } = await import('../install.mjs');
+  await withConfigDir(async (root) => {
+    const configDir = path.join(root, ODD_DIR, '.claude');
+    const { command } = installTo({ configDir, argv: ['--shell', 'gitbash'], env: { SystemRoot: 'C:\\WINDOWS' }, runtime: ODD_RUNTIME });
     assert.equal(
-      JSON.parse(gitBash.stdout).command,
-      'exec "${CLAUDE_CONFIG_DIR:-$HOME/.claude}/plugins/claude-hud/statusline.cmd"',
-    );
-    assert.equal(
-      await readFile(path.join(configDir, 'plugins', 'claude-hud', 'statusline.cmd'), 'utf8'),
-      `@echo off\r\n"${process.execPath}" "%~dp0statusline.mjs"\r\n`,
+      await readFile(path.join(configDir, 'plugins', 'claude-hud', 'statusline-env.cmd'), 'utf8'),
+      '@echo off\r\n"%CLAUDE_HUD_RUNTIME%" "%~dp0statusline.mjs"\r\n',
     );
 
-    const powershell = JSON.parse(install(['--shell', 'powershell'], { configDir }).stdout);
-    assert.match(powershell.command, /System32\\cmd\.exe \/d \/s \/c ""/);
+    const cmdExe = "'C:\\WINDOWS\\System32\\cmd.exe'";
+    assert.ok(command.includes(` exec ${cmdExe} `), command);
+
+    if (process.platform === 'win32') return;
+    // A stand-in takes cmd.exe's place and records what bash hands it, and whether msys path conversion is off for it.
+    const standIn = path.join(root, 'cmd.exe');
+    await writeFile(standIn, '#!/bin/sh\nprintf \'%s\\0\' "$@" "$CLAUDE_HUD_RUNTIME" "$CLAUDE_HUD_SHIM" "$CLAUDE_HUD_QUOTE" "$MSYS_NO_PATHCONV" "$MSYS2_ARG_CONV_EXCL"\n', { mode: 0o755 });
+    const ran = spawnSync('bash', ['-c', command.replace(cmdExe, `'${standIn}'`)], { encoding: 'utf8', env: { PATH: '/usr/bin:/bin' } });
+    assert.equal(ran.status, 0, ran.stderr);
+    assert.deepEqual(ran.stdout.split('\0').slice(0, -1), [
+      '/d', '/v:off', '/c', '%CLAUDE_HUD_QUOTE%%CLAUDE_HUD_SHIM%%CLAUDE_HUD_QUOTE%',
+      ODD_RUNTIME, path.join(configDir, 'plugins', 'claude-hud', 'statusline-env.cmd'), '"', '1', '*',
+    ]);
+  });
+});
+
+test('Git Bash: the statusline.cmd an older command runs stays as it was', async () => {
+  const { install: installTo } = await import('../install.mjs');
+  await withConfigDir(async (configDir) => {
+    // Older commands run statusline.cmd, which holds the runtime itself. If the settings write fails, or a
+    // copy of the old command lives in another settings file, that command must still find its shim.
+    const old = path.join(configDir, 'plugins', 'claude-hud', 'statusline.cmd');
+    await mkdir(path.dirname(old), { recursive: true });
+    await writeFile(old, '@echo off\r\n"C:\\node\\node.exe" "%~dp0statusline.mjs"\r\n');
+    installTo({ configDir, argv: ['--shell', 'gitbash'], env: { SystemRoot: 'C:\\WINDOWS' }, runtime: ODD_RUNTIME });
+    assert.equal(await readFile(old, 'utf8'), '@echo off\r\n"C:\\node\\node.exe" "%~dp0statusline.mjs"\r\n');
+  });
+});
+
+test('Git Bash: cmd.exe comes only from a drive-absolute SystemRoot', async () => {
+  const { install: installTo } = await import('../install.mjs');
+  await withConfigDir(async (configDir) => {
+    const gitBash = (env) => installTo({ configDir, argv: ['--shell', 'gitbash'], env, runtime: ODD_RUNTIME });
+    for (const SystemRoot of ['.\\repo', 'repo', 'C:', 'C:repo', '\\Windows', '\\\\server\\share', 'C:\\Win\0dows']) {
+      assert.throws(() => gitBash({ SystemRoot }), /SystemRoot/, SystemRoot);
+    }
+    // Refused before anything is written: not even the plugin folder exists.
+    assert.equal(await stat(path.join(configDir, 'plugins')).catch(() => 'absent'), 'absent');
+    assert.match(gitBash({ SYSTEMROOT: 'D:\\Win' }).command, / exec 'D:\\Win\\System32\\cmd\.exe' /);
+    assert.match(gitBash({}).command, / exec 'C:\\Windows\\System32\\cmd\.exe' /);
+  });
+});
+
+test('PowerShell: the command calls the runtime with each path as a literal string', async () => {
+  const { install: installTo } = await import('../install.mjs');
+  await withConfigDir(async (root) => {
+    const configDir = path.join(root, ODD_DIR, '.claude');
+    const { command } = installTo({ configDir, argv: ['--shell', 'powershell'], env: {}, runtime: ODD_RUNTIME });
+    // PowerShell ends a single-quoted string at ' or at any of the four typographic single quotes, and reads
+    // each doubled one as itself.
+    const launcher = path.join(configDir, 'plugins', 'claude-hud', 'statusline.mjs').replace(/['‘’‚‛]/g, '$&$&');
+    assert.equal(command, `& 'C:\\Users\\张三\\O''Brien ’’ 100% & (x) $HOME;!\\node.exe' '${launcher}'`);
   });
 });
 

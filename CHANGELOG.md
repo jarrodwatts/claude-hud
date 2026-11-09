@@ -4,6 +4,10 @@ All notable changes to Claude HUD will be documented in this file.
 
 ## [Unreleased]
 
+### Fixed
+- Windows with Git Bash: the status line now runs when the path to Node has non-ASCII characters, such as a Chinese user name, or a `%`, and when the Claude config folder's path has a `%` or `&`. Your cmd `AutoRun` no longer runs on every refresh, so its output no longer shows up in the HUD. Set the HUD up again with `/hud` to get the new command.
+- Windows without Git Bash: the status line now runs when the path to Node or to the Claude config folder has a space, as the default `C:\Program Files\nodejs` does, or a `%`, `&`, `'`, `$`, `;` or `(`. Set the HUD up again with `/hud` to get the new command.
+
 ## [0.15.2] - 2026-11-08
 
 ### Added
