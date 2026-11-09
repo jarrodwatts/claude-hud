@@ -184,6 +184,18 @@ test('Git Bash: statusline.cmd holds no path, and cmd.exe gets the runtime and t
   });
 });
 
+test('PowerShell: the command calls the runtime with each path as a literal string', async () => {
+  const { install: installTo } = await import('../install.mjs');
+  await withConfigDir(async (root) => {
+    const configDir = path.join(root, ODD_DIR, '.claude');
+    const { command } = installTo({ configDir, argv: ['--shell', 'powershell'], env: {}, runtime: ODD_RUNTIME });
+    // PowerShell ends a single-quoted string at ' or at any of the four typographic single quotes, and reads
+    // each doubled one as itself.
+    const launcher = path.join(configDir, 'plugins', 'claude-hud', 'statusline.mjs').replace(/['‘’‚‛]/g, '$&$&');
+    assert.equal(command, `& 'C:\\Users\\张三\\O''Brien ’’ 100% & (x) $HOME;!\\node.exe' '${launcher}'`);
+  });
+});
+
 test('install picks the shell Claude Code runs statusLine with', async () => {
   const { detectShell } = await import('../install.mjs');
   assert.equal(detectShell({}, 'linux'), 'posix');

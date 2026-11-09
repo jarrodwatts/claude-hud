@@ -37,8 +37,10 @@ function buildCommand(shell, launcher, runtime, env = process.env) {
     return `CLAUDE_HUD_RUNTIME=${quote(runtime)} CLAUDE_HUD_SHIM=${quote(shim)} CLAUDE_HUD_QUOTE='"' MSYS_NO_PATHCONV=1 MSYS2_ARG_CONV_EXCL='*' exec ${quote(cmd)} /d /v:off /c '%CLAUDE_HUD_QUOTE%%CLAUDE_HUD_SHIM%%CLAUDE_HUD_QUOTE%'`;
   }
   if (shell === 'powershell') {
-    const cmd = path.win32.join(env.SystemRoot || 'C:\\Windows', 'System32', 'cmd.exe');
-    return `${cmd} /d /s /c ""${runtime}" "${launcher}""`;
+    // PowerShell parses this line itself, so each path is a single-quoted literal. PowerShell ends one
+    // at ' or at any of the four typographic single quotes, and reads each doubled one as itself.
+    const literal = (value) => `'${value.replace(/['‘’‚‛]/g, '$&$&')}'`;
+    return `& ${literal(runtime)} ${literal(launcher)}`;
   }
   return `${quote(runtime)} ${quote(launcher)}`;
 }
