@@ -204,7 +204,8 @@ test('Git Bash: cmd.exe comes only from a drive-absolute SystemRoot', async () =
     for (const SystemRoot of ['.\\repo', 'repo', 'C:', 'C:repo', '\\Windows', '\\\\server\\share', 'C:\\Win\0dows']) {
       assert.throws(() => gitBash({ SystemRoot }), /SystemRoot/, SystemRoot);
     }
-    assert.equal(await readFile(path.join(configDir, 'settings.json'), 'utf8').catch(() => 'absent'), 'absent');
+    // Refused before anything is written: not even the plugin folder exists.
+    assert.equal(await stat(path.join(configDir, 'plugins')).catch(() => 'absent'), 'absent');
     assert.match(gitBash({ SYSTEMROOT: 'D:\\Win' }).command, / exec 'D:\\Win\\System32\\cmd\.exe' /);
     assert.match(gitBash({}).command, / exec 'C:\\Windows\\System32\\cmd\.exe' /);
   });
