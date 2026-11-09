@@ -158,13 +158,13 @@ test('install refuses to overwrite invalid settings.json', async () => {
 const ODD_RUNTIME = "C:\\Users\\张三\\O'Brien ’ 100% & (x) $HOME;!\\node.exe";
 const ODD_DIR = "用户 O'Brien ’ 100% & (x) $HOME;!";
 
-test('Git Bash: statusline.cmd holds no path, and cmd.exe gets the runtime and the shim through the environment', async () => {
+test('Git Bash: the shim holds no path, and cmd.exe gets the runtime and the shim through the environment', async () => {
   const { install: installTo } = await import('../install.mjs');
   await withConfigDir(async (root) => {
     const configDir = path.join(root, ODD_DIR, '.claude');
     const { command } = installTo({ configDir, argv: ['--shell', 'gitbash'], env: { SystemRoot: 'C:\\WINDOWS' }, runtime: ODD_RUNTIME });
     assert.equal(
-      await readFile(path.join(configDir, 'plugins', 'claude-hud', 'statusline.cmd'), 'utf8'),
+      await readFile(path.join(configDir, 'plugins', 'claude-hud', 'statusline-env.cmd'), 'utf8'),
       '@echo off\r\n"%CLAUDE_HUD_RUNTIME%" "%~dp0statusline.mjs"\r\n',
     );
 
@@ -179,8 +179,21 @@ test('Git Bash: statusline.cmd holds no path, and cmd.exe gets the runtime and t
     assert.equal(ran.status, 0, ran.stderr);
     assert.deepEqual(ran.stdout.split('\0').slice(0, -1), [
       '/d', '/v:off', '/c', '%CLAUDE_HUD_QUOTE%%CLAUDE_HUD_SHIM%%CLAUDE_HUD_QUOTE%',
-      ODD_RUNTIME, path.join(configDir, 'plugins', 'claude-hud', 'statusline.cmd'), '"', '1', '*',
+      ODD_RUNTIME, path.join(configDir, 'plugins', 'claude-hud', 'statusline-env.cmd'), '"', '1', '*',
     ]);
+  });
+});
+
+test('Git Bash: the statusline.cmd an older command runs stays as it was', async () => {
+  const { install: installTo } = await import('../install.mjs');
+  await withConfigDir(async (configDir) => {
+    // Older commands run statusline.cmd, which holds the runtime itself. If the settings write fails, or a
+    // copy of the old command lives in another settings file, that command must still find its shim.
+    const old = path.join(configDir, 'plugins', 'claude-hud', 'statusline.cmd');
+    await mkdir(path.dirname(old), { recursive: true });
+    await writeFile(old, '@echo off\r\n"C:\\node\\node.exe" "%~dp0statusline.mjs"\r\n');
+    installTo({ configDir, argv: ['--shell', 'gitbash'], env: { SystemRoot: 'C:\\WINDOWS' }, runtime: ODD_RUNTIME });
+    assert.equal(await readFile(old, 'utf8'), '@echo off\r\n"C:\\node\\node.exe" "%~dp0statusline.mjs"\r\n');
   });
 });
 

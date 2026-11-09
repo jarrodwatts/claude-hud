@@ -18,8 +18,9 @@ export function detectShell(env = process.env, platform = process.platform) {
 const quote = (value) => `'${value.replaceAll("'", `'\\''`)}'`;
 
 // cmd.exe reads a batch file in the console code page, so this one holds no path. The runtime arrives
-// in a variable instead.
-const GITBASH_SHIM = '@echo off\r\n"%CLAUDE_HUD_RUNTIME%" "%~dp0statusline.mjs"\r\n';
+// in a variable instead. It has its own name: older commands run statusline.cmd, which holds the runtime
+// itself, and keep working with it when the settings write fails or a copy lives in another settings file.
+const GITBASH_SHIM = { name: 'statusline-env.cmd', text: '@echo off\r\n"%CLAUDE_HUD_RUNTIME%" "%~dp0statusline.mjs"\r\n' };
 
 // System32\cmd.exe under a drive-absolute SystemRoot, as collector.mjs finds taskkill: anything else
 // would let the command find a cmd.exe relative to the directory Claude Code runs it in.
@@ -42,7 +43,7 @@ function buildCommand(shell, launcher, runtime, env = process.env) {
     // the switches arrive as written whatever the user's MSYS settings: /d skips the user's cmd
     // AutoRun, whose output would join the HUD's, and /v:off keeps a DelayedExpansion setting from
     // eating a ! in a path. cmd.exe is named by its full path, never looked up on PATH.
-    const shim = path.join(path.dirname(launcher), 'statusline.cmd');
+    const shim = path.join(path.dirname(launcher), GITBASH_SHIM.name);
     const cmd = cmdExePath(env);
     return `CLAUDE_HUD_RUNTIME=${quote(runtime)} CLAUDE_HUD_SHIM=${quote(shim)} CLAUDE_HUD_QUOTE='"' MSYS_NO_PATHCONV=1 MSYS2_ARG_CONV_EXCL='*' exec ${quote(cmd)} /d /v:off /c '%CLAUDE_HUD_QUOTE%%CLAUDE_HUD_SHIM%%CLAUDE_HUD_QUOTE%'`;
   }
@@ -91,7 +92,7 @@ export function install({ configDir, argv = [], env = process.env, runtime = pro
   fs.mkdirSync(hudDir, { recursive: true });
   fs.copyFileSync(LAUNCHER, launcher);
   if (shell === 'gitbash') {
-    fs.writeFileSync(path.join(hudDir, 'statusline.cmd'), GITBASH_SHIM);
+    fs.writeFileSync(path.join(hudDir, GITBASH_SHIM.name), GITBASH_SHIM.text);
   }
   if (fs.existsSync(settingsPath)) {
     report.backupPath = `${settingsPath}.bak.${new Date().toISOString().replace(/[-:]/g, '').replace(/\..+/, '')}`;
