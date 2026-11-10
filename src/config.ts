@@ -26,6 +26,7 @@ const TIME_FORMATS = ['relative', 'absolute', 'both', 'elapsed', 'elapsedAndAbso
 const HOUR_CYCLES = ['auto', 'h11', 'h12', 'h23', 'h24'] as const;
 const CUSTOM_LINE_POSITIONS = ['first', 'last'] as const;
 const ADDED_DIRS_LAYOUTS = ['inline', 'line'] as const;
+const WEEKLY_COST_PERIODS = ['quota', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'] as const;
 const COLOR_NAMES = ['dim', 'red', 'green', 'yellow', 'magenta', 'cyan', 'brightBlue', 'brightMagenta'] as const;
 
 const ELEMENTS = [
@@ -72,6 +73,7 @@ export type TimeFormatMode = typeof TIME_FORMATS[number];
 export type HourCycleMode = typeof HOUR_CYCLES[number];
 export type CustomLinePosition = typeof CUSTOM_LINE_POSITIONS[number];
 export type AddedDirsLayout = typeof ADDED_DIRS_LAYOUTS[number];
+export type WeeklyCostPeriod = typeof WEEKLY_COST_PERIODS[number];
 export type HudColorName = typeof COLOR_NAMES[number];
 export type HudElement = typeof ELEMENTS[number];
 export type FirstLineSegment = typeof FIRST_LINE_SEGMENTS[number];
@@ -140,6 +142,8 @@ export interface HudConfig {
     showRoutedCost: boolean;
     showDailyCost: boolean;
     showWeeklyCost: boolean;
+    // What showWeeklyCost counts: the 7-day quota window, or a calendar week from 00:00 local time on a weekday.
+    weeklyCostPeriod: WeeklyCostPeriod;
     showDuration: boolean;
     showSpeed: boolean;
     showTokenBreakdown: boolean;
@@ -243,6 +247,7 @@ export const DEFAULT_CONFIG: HudConfig = {
     showRoutedCost: false,
     showDailyCost: false,
     showWeeklyCost: false,
+    weeklyCostPeriod: 'quota',
     showDuration: false,
     showSpeed: false,
     showTokenBreakdown: true,
@@ -402,6 +407,7 @@ const RULES: Record<string, Rule> = {
   'gitStatus.pushCriticalThreshold': floorAtLeastZero,
   'display.addedDirsLayout': oneOf(ADDED_DIRS_LAYOUTS),
   'display.contextValue': oneOf(CONTEXT_VALUE_MODES),
+  'display.weeklyCostPeriod': oneOf(WEEKLY_COST_PERIODS),
   'display.usageValue': oneOf(USAGE_VALUE_MODES),
   'display.toolNameMaxLength': count,
   'display.toolsMaxVisible': count,
