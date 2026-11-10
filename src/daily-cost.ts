@@ -1,5 +1,6 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
+import type { WeeklyCostPeriod } from './config.ts';
 import { getNativeCostUsd } from './cost.ts';
 import { createDebug } from './debug.ts';
 import type { StdinData } from './types.ts';
@@ -35,7 +36,7 @@ type Ledger = {
 
 export type CostTotals = {
   todayUsd: number;
-  // Null until the 7-day usage window's reset time is known.
+  // Null on the quota period until the 7-day usage window's reset time is known.
   weekUsd: number | null;
 };
 
@@ -51,6 +52,18 @@ export function getDailyCostLedgerPath(dataDir: string): string {
 function localDateKey(now: number): string {
   const date = new Date(now);
   return `${date.getFullYear()}${String(date.getMonth() + 1).padStart(2, '0')}${String(date.getDate()).padStart(2, '0')}`;
+}
+
+// Date#getDay order, so each weekday's index is its day number.
+const WEEKDAYS: readonly WeeklyCostPeriod[] = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
+
+// The latest 00:00 local time on `day` (0 = Sunday). Stepping back by calendar days, not by 24 hours,
+// keeps it at midnight in a week that crosses a daylight-saving change.
+function calendarWeekStart(now: number, day: number): number {
+  const date = new Date(now);
+  date.setHours(0, 0, 0, 0);
+  date.setDate(date.getDate() - ((date.getDay() - day + 7) % 7));
+  return date.getTime();
 }
 
 const isAmount = (value: unknown): value is number =>
@@ -152,7 +165,7 @@ function withLedgerLock<T>(ledgerPath: string, update: () => T): T {
 // week's spend across sessions, or null when nothing has been recorded.
 export function getCostTotals(
   stdin: StdinData,
-  options: { allowRoutedCost?: boolean; sevenDayResetAt?: Date | null } | undefined,
+  options: { allowRoutedCost?: boolean; sevenDayResetAt?: Date | null; weeklyCostPeriod?: WeeklyCostPeriod } | undefined,
   deps: DailyCostDeps,
 ): CostTotals | null {
   const ledgerPath = getDailyCostLedgerPath(deps.dataDir());
@@ -162,7 +175,7 @@ export function getCostTotals(
 function updateLedger(
   ledgerPath: string,
   stdin: StdinData,
-  options: { allowRoutedCost?: boolean; sevenDayResetAt?: Date | null } | undefined,
+  options: { allowRoutedCost?: boolean; sevenDayResetAt?: Date | null; weeklyCostPeriod?: WeeklyCostPeriod } | undefined,
   deps: DailyCostDeps,
 ): CostTotals | null {
   const now = deps.now();
@@ -187,9 +200,12 @@ function updateLedger(
     changed = true;
   }
 
-  // Restart the week when the quota window behind the Weekly bar opened after accumulation began.
+  // Restart the week when its window opened after accumulation began: the quota window behind the
+  // Weekly bar, or with weeklyCostPeriod a calendar week from the chosen weekday's midnight.
+  const day = WEEKDAYS.indexOf(options?.weeklyCostPeriod ?? 'quota');
   const resetAt = options?.sevenDayResetAt?.getTime();
-  const windowStart = resetAt !== undefined && Number.isFinite(resetAt) ? resetAt - SEVEN_DAY_WINDOW_MS : null;
+  const quotaStart = resetAt !== undefined && Number.isFinite(resetAt) ? resetAt - SEVEN_DAY_WINDOW_MS : null;
+  const windowStart = day >= 0 ? calendarWeekStart(now, day) : quotaStart;
   if (windowStart !== null && ledger.week.start < windowStart) {
     for (const session of Object.values(ledger.sessions)) session.weekBaseline = session.total;
     ledger.week = { start: now, carry: 0 };

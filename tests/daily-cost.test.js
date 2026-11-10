@@ -198,6 +198,38 @@ test('weekly total stays null until the 7-day reset time is known', () => {
   assert.equal(withWindow.weekUsd, 2.0);
 });
 
+test('a calendar week clears at 00:00 on its weekday, through a daylight-saving change', () => {
+  // New York leaves daylight saving at 2am on Sunday 1 November 2026, so that week runs 169 hours.
+  const savedTz = process.env.TZ;
+  process.env.TZ = 'America/New_York';
+  try {
+    // No sevenDayResetAt, as for an API-key session.
+    const opts = { weeklyCostPeriod: 'sunday' };
+    const at = (day, hour, minute) => deps(new Date(2026, 10, day, hour, minute).getTime());
+    getCostTotals({ session_id: 'a', cost: { total_cost_usd: 1.0 } }, opts, at(1, 0, 30));
+    assert.equal(getCostTotals({ session_id: 'a', cost: { total_cost_usd: 3.0 } }, opts, at(1, 12, 0)).weekUsd, 2.0);
+
+    // Saturday 23:30 is more than 7 * 24 hours after the week began, and still inside it. Session 'a'
+    // has aged out by now, so its spend is carried.
+    assert.equal(getCostTotals({ session_id: 'b', cost: { total_cost_usd: 1.0 } }, opts, at(7, 23, 30)).weekUsd, 2.0);
+
+    // Sunday 00:30 is in the next week.
+    assert.equal(getCostTotals({ session_id: 'b', cost: { total_cost_usd: 2.5 } }, opts, at(8, 0, 30)).weekUsd, 1.5);
+  } finally {
+    if (savedTz === undefined) delete process.env.TZ;
+    else process.env.TZ = savedTz;
+  }
+});
+
+test('a calendar week keeps counting when the quota window rolls over', () => {
+  // The quota window rolls over between the second and third render.
+  const before = { weeklyCostPeriod: 'monday', sevenDayResetAt: new Date(NOON + 2500) };
+  const after = { weeklyCostPeriod: 'monday', sevenDayResetAt: new Date(NOON + 2500 + 7 * DAY_MS) };
+  getCostTotals({ session_id: 'a', cost: { total_cost_usd: 1.0 } }, before, deps(NOON));
+  getCostTotals({ session_id: 'a', cost: { total_cost_usd: 2.0 } }, before, deps(NOON + 1000));
+  assert.equal(getCostTotals({ session_id: 'a', cost: { total_cost_usd: 4.0 } }, after, deps(NOON + 3000)).weekUsd, 3.0);
+});
+
 // Runs getCostTotals in its own process. With `stallMs`, the process pauses right after it
 // reads the ledger, which is how another process gets to commit in the middle of its update.
 const CHILD_SOURCE = `
