@@ -37,6 +37,7 @@ const ELEMENTS = [
   'promptCache',
   'cacheHitRate',
   'memory',
+  'cpu',
   'environment',
   'tools',
   'skills',
@@ -174,6 +175,7 @@ export interface HudConfig {
     effortFormat: EffortFormatMode;
     showAgentEffort: boolean;
     showMemoryUsage: boolean;
+    showCpu: boolean;
     showPromptCache: boolean;
     showCacheHitRate: boolean;
     showSessionTokens: boolean;
@@ -276,6 +278,7 @@ export const DEFAULT_CONFIG: HudConfig = {
     effortFormat: 'full',
     showAgentEffort: false,
     showMemoryUsage: false,
+    showCpu: false,
     showPromptCache: false,
     showCacheHitRate: false,
     showSessionTokens: false,

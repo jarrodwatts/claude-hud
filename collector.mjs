@@ -597,6 +597,48 @@ export function createProbes({ cwd, argv = process.argv, env = process.env, usag
       if (process.platform === 'darwin') return { vmStat: await run('/usr/bin/vm_stat', [], { timeout: 1000 }) };
       return {};
     },
+    // CPU usage: two reads ~100 ms apart give a delta-based utilization on every platform
+    // without the weight of `top` (which is also unreliable on its first sample). Logic only
+    // parses the two samples; the probe also returns the core count so logic stays pure.
+    //
+    // On Linux, os.cpus() omits /proc/stat's softirq and steal counters, so read the
+    // aggregate cpu line directly to avoid under-reporting on IRQ-heavy hosts. guest and
+    // guest_nice are duplicates of user and nice in /proc/stat, so they are excluded.
+    cpu: async () => {
+      const linuxSample = () => {
+        const text = readText('/proc/stat')?.text ?? null;
+        if (!text) return null;
+        const line = text.split('\n').find((l) => l.startsWith('cpu '));
+        if (!line) return null;
+        const f = line.split(/\s+/);
+        // cpu user nice system idle iowait irq softirq steal guest guest_nice
+        const num = f.map(Number);
+        // steal is the 9th field (index 8); a shorter line has no steal, so sys
+        // would be NaN and the row would silently vanish.
+        if (num.length < 9 || num.slice(1).some((n) => !Number.isFinite(n))) return null;
+        const [_, user, nice, system, idle, iowait, irq, softirq, steal] = num;
+        // iowait is idle time, not busy: os.cpus() excludes it too, so keep it
+        // out of both numerator and denominator rather than double-counting.
+        return { user: user + nice, sys: system + irq + softirq + steal, idle };
+      };
+      const sample = () => {
+        if (process.platform === 'linux') {
+          const s = linuxSample();
+          if (s) return s;
+        }
+        let user = 0, sys = 0, idle = 0;
+        for (const c of os.cpus()) {
+          user += c.times.user + c.times.nice;
+          sys += c.times.sys + c.times.irq;
+          idle += c.times.idle;
+        }
+        return { user, sys, idle };
+      };
+      const a = sample();
+      await new Promise((r) => setTimeout(r, 100));
+      const b = sample();
+      return { cpuSamples: [a, b], cores: os.cpus().length };
+    },
     extra: () => extra,
     'usage.read': () => (usage.read ? readText(usage.read)?.text ?? null : null),
     // The current snapshot, so logic can skip a write that changes nothing. Null when the path can't be written.

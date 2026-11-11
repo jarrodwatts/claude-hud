@@ -91,6 +91,7 @@ export const DESCRIPTIONS: Record<string, string> = {
   "display.showAgentEffort": "With `display.showAgents`, show each subagent's reasoning effort next to its model, e.g. `◐ code-reviewer [haiku-4.5 ◔ medium]`, in `display.effortFormat`. Read from the subagent's own transcript, so it appears once Claude Code has recorded the agent's id (at launch for background agents, at the end otherwise) and its first reply",
   "display.showClaudeCodeVersion": "Show the running Claude Code version, e.g. `CC v2.1.81`",
   "display.showMemoryUsage": "Show an approximate system RAM usage line in expanded layout",
+  "display.showCpu": "Show an approximate system CPU usage line in expanded layout",
   "display.showPromptCache": "Show when the main conversation's prompt cache expires",
   "display.showCacheHitRate": "Show the session's prompt-cache hit rate as `Cache hit X%`",
   "display.customLine": "Custom text shown on the first line (80 characters max)",

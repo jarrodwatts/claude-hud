@@ -5,7 +5,7 @@ import { activityLine } from './activity.ts';
 import { separatorLine, visibleWidth } from './ansi.ts';
 import { contextLine } from './context.ts';
 import type { LabelAlign } from './labels.ts';
-import { addedDirsLine, cacheHitRateLine, environmentLine, memoryLine, promptCacheLine, sessionTimeLine } from './lines.ts';
+import { addedDirsLine, cacheHitRateLine, cpuLine, environmentLine, memoryLine, promptCacheLine, sessionTimeLine } from './lines.ts';
 import { orderParts } from './order.ts';
 import {
   advisorPart, authPart, compactionsPart, costPart, customLinePart, durationPart, extraPart, modelBadge,
@@ -53,6 +53,7 @@ function elementLine(f: Frame, element: HudElement, align: LabelAlign = {}): str
     case 'promptCache': return promptCacheLine(f);
     case 'cacheHitRate': return cacheHitRateLine(f);
     case 'memory': return memoryLine(f, align);
+    case 'cpu': return cpuLine(f, align);
     case 'environment': return environmentLine(f);
     case 'sessionTime': return sessionTimeLine(f);
     case 'sessionTokens': return f.config?.display?.showSessionTokens ? sessionTokensSummary(f, t('label.tokens')) : null;
@@ -88,9 +89,10 @@ export function expandedLines(f: Frame): string[] {
 
   // A visible memory bar widens the label column of the other bars so they line up.
   const memoryVisible = order.includes('memory') && f.config?.display?.showMemoryUsage === true && f.memoryUsage != null;
+  const cpuVisible = order.includes('cpu') && f.config?.display?.showCpu === true && f.cpuUsage != null;
   const otherBarVisible = order.includes('context') || (order.includes('usage') && usageParts(f, 'expanded') !== null);
-  const separateAlign: LabelAlign = memoryVisible && otherBarVisible ? { align: true, includeMemoryInWidth: true } : {};
-  const stackedAlign: LabelAlign = { align: true, includeMemoryInWidth: memoryVisible };
+  const separateAlign: LabelAlign = (memoryVisible || cpuVisible) && otherBarVisible ? { align: true, includeMemoryInWidth: memoryVisible || cpuVisible } : {};
+  const stackedAlign: LabelAlign = { align: true, includeMemoryInWidth: memoryVisible || cpuVisible };
 
   const rows: Row[] = [];
   const seen = new Set<HudElement>();
@@ -113,8 +115,8 @@ export function expandedLines(f: Frame): string[] {
 
     index += sequence.length - 1;
     sequence.forEach((member) => seen.add(member));
-    // Memory only widens this row's labels when its own bar is on a separate row.
-    const groupAlign = memoryVisible && !sequence.includes('memory') ? separateAlign : {};
+    // Memory/CPU only widens this row's labels when its own bar is on a separate row.
+    const groupAlign = (memoryVisible || cpuVisible) && !sequence.includes('memory') && !sequence.includes('cpu') ? separateAlign : {};
     const entries = sequence
       .map((member) => ({ element: member, line: elementLine(f, member, groupAlign) }))
       .filter((entry): entry is { element: HudElement; line: string } => !!entry.line);
