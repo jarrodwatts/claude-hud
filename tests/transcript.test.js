@@ -488,6 +488,20 @@ test('MCP errors follow each server\'s latest result and are sanitized and bound
   assert.equal(many.mcpErrors[0], 's6');
 });
 
+test('a rejected MCP call leaves the server\'s error state as it was (#873)', async () => {
+  const rejected = (id, server) => [
+    toolUse(id, `mcp__${server}__run`, {}),
+    toolResult(id, { isError: true, toolUseResult: 'User rejected tool use' }),
+  ];
+  const r = await parse([
+    ...rejected('1', 'example'),
+    toolUse('2', 'mcp__github__run', {}),
+    toolResult('2', { isError: true }),
+    ...rejected('3', 'github'),
+  ]);
+  assert.deepEqual(r.mcpErrors, ['github']);
+});
+
 test('tool targets summarize common tools and only the last 20 tools are kept', async () => {
   const r = await parse([
     toolUse('1', 'Read', { file_path: '/a.ts' }),

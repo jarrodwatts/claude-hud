@@ -312,10 +312,13 @@ class Parser {
       tool.status = block.is_error ? 'error' : 'completed';
       tool.endTime = at;
       const server = mcpServer(tool.name);
-      if (server && block.is_error) {
+      // A call the user declined at the permission prompt is an error result too, but it says
+      // nothing about the server, so it leaves the server's state as it was.
+      const rejected = (entry.toolUseResult as unknown) === 'User rejected tool use';
+      if (server && block.is_error && !rejected) {
         this.mcpErrors.add(server);
         cap(this.mcpErrors, MCP_ERRORS_MAX);
-      } else if (server) {
+      } else if (server && !block.is_error) {
         this.mcpErrors.delete(server);
       }
     }
