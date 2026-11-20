@@ -91,6 +91,16 @@ export function memoryLine(f: Frame, align: LabelAlign = {}): string | null {
   return `${prefix} ${bar} ${formatBytes(memory.usedBytes)} / ${formatBytes(memory.totalBytes)} (${percent})`;
 }
 
+/** Approximate system CPU usage (expanded only). */
+export function cpuLine(f: Frame, align: LabelAlign = {}): string | null {
+  const cpu = f.cpuUsage;
+  if (f.config?.lineLayout !== 'expanded' || f.config?.display?.showCpu !== true || !cpu) return null;
+  const colors = f.config?.colors;
+  const prefix = barLabel('label.approxCpu', colors, align);
+  const bar = quotaBar(cpu.usedPercent, f.barWidth, colors);
+  return `${prefix} ${bar} ${getQuotaColor(cpu.usedPercent, colors)}${cpu.usedPercent}%${RESET} (${cpu.numCores} cores)`;
+}
+
 /** Added dirs on their own line, when addedDirsLayout is "line". */
 export function addedDirsLine(f: Frame): string | null {
   const display = f.config?.display;

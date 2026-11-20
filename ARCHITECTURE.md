@@ -65,7 +65,7 @@ flowchart TD
   stub["launcher stub: index.ts"]
   entry["entry: main.ts channel.ts commands.ts schema.ts"]
   read["read files: config.ts config-reader.ts transcript.ts auth.ts external-usage.ts daily-cost.ts speed.ts"]
-  parse["parse stdin and probe answers: stdin.ts model-source.ts effort.ts cost.ts usage-pace.ts types.ts git.ts jj.ts memory.ts extra-cmd.ts"]
+  parse["parse stdin and probe answers: stdin.ts model-source.ts effort.ts cost.ts usage-pace.ts types.ts git.ts jj.ts memory.ts cpu.ts extra-cmd.ts"]
   render["render lines: render/**"]
   shared["shared: utils/** i18n/** debug.ts"]
 

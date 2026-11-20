@@ -8,7 +8,7 @@ const BAR_LABELS: MessageKey[] = ['label.context', 'label.usage', 'label.weekly'
 
 export interface LabelAlign {
   align?: boolean;
-  /** Count the memory label too, when its bar is on screen. */
+  /** Count the memory/CPU labels too, when their bars are on screen. */
   includeMemoryInWidth?: boolean;
 }
 
@@ -16,7 +16,7 @@ export interface LabelAlign {
 export function barLabel(key: MessageKey, colors?: Partial<HudColorOverrides>, options: LabelAlign = {}): string {
   const text = t(key);
   if (!options.align) return label(text, colors);
-  const keys = options.includeMemoryInWidth ? [...BAR_LABELS, 'label.approxRam' as const] : BAR_LABELS;
+  const keys = options.includeMemoryInWidth ? [...BAR_LABELS, 'label.approxRam' as const, 'label.approxCpu' as const] : BAR_LABELS;
   const pad = Math.max(...keys.map((k) => textWidth(t(k)))) - textWidth(text);
   return label(pad > 0 ? text + ' '.repeat(pad) : text, colors);
 }
