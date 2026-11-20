@@ -4,6 +4,8 @@ All notable changes to Claude HUD will be documented in this file.
 
 ## [Unreleased]
 
+## [0.15.4] - 2026-11-20
+
 ### Fixed
 - Declining an MCP tool call at the permission prompt no longer marks that server with `⚠`. A real error still does. Thanks to @plttn (#873).
 
