@@ -4,6 +4,8 @@ All notable changes to Claude HUD will be documented in this file.
 
 ## [Unreleased]
 
+## [0.15.5] - 2026-11-23
+
 ### Fixed
 - `projectLineOrder` keeps the segments you list next to each other. Before, a part you can't order, such as `Usage` in the compact layout, could end up between them, so `cost` showed after `Usage`. Thanks to @j0hanz (#877).
 
