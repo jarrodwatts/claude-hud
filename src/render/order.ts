@@ -2,28 +2,15 @@ import type { FirstLineSegment } from '../config.ts';
 import type { Part } from './parts.ts';
 
 /**
- * Applies projectLineOrder to the keyed parts. Unkeyed parts keep their slots, a key's
- * parts stay together, and keys missing from `order` follow in their original order.
+ * Applies projectLineOrder: the listed keys' parts form one run, in that order, at the first keyed
+ * slot. Everything else (unkeyed parts and unlisted keys) keeps its original relative order around it.
  */
 export function orderParts(parts: Part[], order: readonly FirstLineSegment[]): string[] {
-  const slots: number[] = [];
-  const byKey = new Map<FirstLineSegment, string[]>();
-  parts.forEach((part, index) => {
-    if (part.key === null) return;
-    slots.push(index);
-    byKey.set(part.key, [...(byKey.get(part.key) ?? []), part.text]);
-  });
+  const first = parts.findIndex((part) => part.key !== null);
+  if (first === -1 || order.length === 0) return parts.map((part) => part.text);
 
-  const reordered: string[] = [];
-  for (const key of order) {
-    reordered.push(...(byKey.get(key) ?? []));
-    byKey.delete(key);
-  }
-  for (const texts of byKey.values()) reordered.push(...texts);
-
-  const result = parts.map((part) => part.text);
-  slots.forEach((slot, index) => {
-    result[slot] = reordered[index];
-  });
-  return result;
+  const listed = new Set(order);
+  const run = order.flatMap((key) => parts.filter((part) => part.key === key).map((part) => part.text));
+  const rest = parts.slice(first).filter((part) => part.key === null || !listed.has(part.key));
+  return [...parts.slice(0, first).map((part) => part.text), ...run, ...rest.map((part) => part.text)];
 }

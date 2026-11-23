@@ -1,0 +1,37 @@
+{
+  "note": "Compact layout split projectLineOrder [model,duration,cost,project] around the unkeyed Usage part when the session name was hidden, so Cost landed after Usage (#877). Listed segments now stay together.",
+  "columns": 205,
+  "stdin": {
+    "session_id": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+    "cwd": "/home/user/project",
+    "session_name": "xxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+    "model": { "id": "claude-opus-5-5", "display_name": "Opus 5.5" },
+    "effort": { "level": "high" },
+    "cost": { "total_cost_usd": 0.9224434999999999, "total_duration_ms": 289614 },
+    "context_window": {
+      "total_input_tokens": 86157,
+      "total_output_tokens": 8,
+      "context_window_size": 1000000,
+      "current_usage": { "input_tokens": 2, "output_tokens": 8, "cache_creation_input_tokens": 2236, "cache_read_input_tokens": 83919 },
+      "used_percentage": 9,
+      "remaining_percentage": 91
+    },
+    "rate_limits": {
+      "five_hour": { "used_percentage": 19, "resets_at": 1795436400 },
+      "seven_day": { "used_percentage": 39, "resets_at": 1795492800 }
+    }
+  },
+  "expect": [
+    "exit 0",
+    "only safe escapes",
+    "no line wider than columns",
+    "contains 4m | Cost"
+  ],
+  "config": {
+    "lineLayout": "compact",
+    "projectLineOrder": ["model", "duration", "cost", "project"],
+    "display": { "showCost": true, "showDuration": true, "showEffortLevel": true, "modelFormat": "short" }
+  },
+  "versions": { "claudeCode": "2.1.330", "node": "v26.13.0", "hud": "0.15.4" },
+  "now": "2026-11-23T10:43:36.823Z"
+}
