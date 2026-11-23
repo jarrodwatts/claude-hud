@@ -4,6 +4,7 @@ export type MessageKey =
   | "label.usage"
   | "label.weekly"
   | "label.approxRam"
+  | "label.approxCpu"
   | "label.promptCache"
   | "label.cacheHitRate"
   | "label.rules"

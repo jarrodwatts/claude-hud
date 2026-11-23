@@ -6,6 +6,7 @@ export const zhHant: Messages = {
   "label.usage": "用量",
   "label.weekly": "本週",
   "label.approxRam": "記憶體",
+  "label.approxCpu": "CPU",
   "label.promptCache": "快取",
   "label.cacheHitRate": "快取命中",
   "label.rules": "規則",
