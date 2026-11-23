@@ -221,6 +221,13 @@ test('projectLineOrder moves keyed parts and keeps unlisted ones after them', ()
   assert.equal(lines(ctx({ stdin, config }))[0], 'hi │ ⏱️  5m │ my-project │ [Opus] │ auth-fix');
 });
 
+test('projectLineOrder keeps listed parts together around unkeyed ones (#877)', () => {
+  const config = compact({ projectLineOrder: ['model', 'duration', 'project'], display: { showDuration: true, showConfigCounts: true } });
+  const stdin = { cost: { total_duration_ms: 5 * MINUTE } };
+  const line = lines(ctx({ stdin, config, claudeMdCount: 1 }))[0];
+  assert.ok(line.includes('⏱️  5m | my-project'), line);
+});
+
 const gitStatus = { branch: 'main', isDirty: true, ahead: 3, behind: 1, lineDiff: { added: 12, deleted: 4 }, fileStats: { modified: 2, added: 1, deleted: 1, untracked: 3, trackedFiles: [] } };
 const gitConfig = { gitStatus: { showAheadBehind: true, showFileStats: true, showWorktree: true, pushWarningThreshold: 2, pushCriticalThreshold: 3 } };
 
